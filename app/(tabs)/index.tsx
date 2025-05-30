@@ -1,10 +1,11 @@
-import { Image } from "expo-image";
-import { Platform, StyleSheet, Text, View } from "react-native";
-import "../global.css";
-import { HelloWave } from "@/components/HelloWave";
+"use dom";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { Button } from "@/components/shadcn/ui/button";
+import { Image } from "expo-image";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import "../global.css";
 
 export default function HomeScreen() {
   return (
@@ -21,6 +22,15 @@ export default function HomeScreen() {
         <Text className="text-primary-foreground text-2xl">Welcome!</Text>
         <Text className="animate-pulse">👋</Text>
       </View>
+      <Pressable>
+        <Button
+          onClick={() => {
+            console.log("clicked");
+          }}
+        >
+          hello
+        </Button>
+      </Pressable>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 1: Try it</ThemedText>
         <ThemedText>
