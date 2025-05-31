@@ -1,19 +1,37 @@
 import { Redirect } from "expo-router";
-import { authClient } from "@/lib/auth-client";
-import { ActivityIndicator, View } from "react-native";
+import { useAuth } from "@/hooks/useAuth";
+import { ActivityIndicator, View, Platform } from "react-native";
+import { useEffect, useState } from "react";
 
 export default function Index() {
-  const { data: session, isPending } = authClient.useSession();
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const [isWebReady, setIsWebReady] = useState(Platform.OS !== 'web');
 
-  console.log("[INDEX] Session state:", {
-    isPending,
-    hasSession: !!session,
-    hasUser: !!session?.user,
-    userEmail: session?.user?.email
+  console.log("[INDEX] Auth state:", {
+    isLoading,
+    isAuthenticated,
+    hasUser: !!user,
+    userEmail: user?.email,
+    platform: Platform.OS,
+    isWebReady
   });
 
-  if (isPending) {
-    console.log("[INDEX] Session pending, showing loading");
+  // Web-specific initialization
+  useEffect(() => {
+    if (Platform.OS === 'web' && !isWebReady) {
+      // Add a short delay for web platform to ensure proper initialization
+      const timer = setTimeout(() => {
+        console.log("[INDEX] Web platform ready");
+        setIsWebReady(true);
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isWebReady]);
+
+  // Show loading while auth is loading or web is not ready
+  if (isLoading || !isWebReady) {
+    console.log("[INDEX] Showing loading - isLoading:", isLoading, "isWebReady:", isWebReady);
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" />
@@ -22,7 +40,7 @@ export default function Index() {
   }
 
   // Redirect based on authentication status
-  if (session?.user) {
+  if (isAuthenticated && user) {
     console.log("[INDEX] User authenticated, redirecting to home");
     return <Redirect href="/(home)" />;
   }

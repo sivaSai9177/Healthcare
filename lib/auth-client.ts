@@ -33,6 +33,18 @@ export const authClient = createAuthClient({
       },
     }),
   ],
+  fetchOptions: {
+    credentials: 'include', // Important for cookie-based auth on web
+  },
+  // For web, we need to handle the token manually
+  onSuccess: (context: any) => {
+    console.log("[AUTH CLIENT] Success callback:", context);
+    if (Platform.OS === 'web' && context.token && typeof window !== 'undefined') {
+      // Store the token manually for web
+      localStorage.setItem('hospital-alert.session-token', context.token);
+      console.log("[AUTH CLIENT] Stored session token in localStorage");
+    }
+  },
 });
 
 // Export the properly typed auth client
