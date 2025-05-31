@@ -8,6 +8,12 @@ config.resolver.sourceExts.push("sql");
 
 // Add wasm asset support
 config.resolver.assetExts.push("wasm");
+config.resolver.unstable_enablePackageExports = true; 
+config.server = {
+  ...config.server,
+  experimentalImportSupport: false,
+
+}
 
 module.exports = withNativeWind(config, {
   input: "./app/global.css",
