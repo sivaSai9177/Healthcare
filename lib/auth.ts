@@ -8,8 +8,10 @@ const getTrustedOrigins = () => {
   const origins = [
     // Local development origins
     "http://localhost:8081",
+    "http://localhost:8082", // Add 8082 for web development
     "http://localhost:3000",
     "http://127.0.0.1:8081",
+    "http://127.0.0.1:8082", // Add 8082 for web development
     "http://127.0.0.1:3000",
   ];
 
@@ -19,6 +21,7 @@ const getTrustedOrigins = () => {
     const localIP = process.env.LOCAL_IP || "192.168.1.104";
     origins.push(
       `http://${localIP}:8081`,
+      `http://${localIP}:8082`, // Add 8082 for web development
       `http://${localIP}:3000`,
       // Expo development server patterns
       `http://${localIP}:19000`,
@@ -76,15 +79,14 @@ export const auth = betterAuth({
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24, // 1 day
     cookieCache: {
-      enabled: true,
-      maxAge: 60 * 5, // 5 minutes
+      enabled: false, // Disable cookie cache to prevent session issues on web
     },
   },
   // Cookie configuration
   cookies: {
     sessionToken: {
       name: "better-auth.session-token",
-      httpOnly: true,
+      httpOnly: false, // Set to false for web development to allow client-side access
       sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
@@ -139,7 +141,7 @@ export const auth = betterAuth({
     disabled: false,
   },
   // Error handling
-  onError: (error) => {
+  onError: (error: any) => {
     console.error("[AUTH ERROR]", error);
     // You can add error reporting service here (e.g., Sentry)
 

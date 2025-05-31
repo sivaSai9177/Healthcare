@@ -8,15 +8,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:bg-muted disabled:text-muted-foreground",
         outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+          "border border-input bg-background hover:bg-accent hover:text-accent-foreground disabled:bg-muted disabled:text-muted-foreground disabled:border-muted",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:bg-muted disabled:text-muted-foreground",
+        ghost: "hover:bg-accent hover:text-accent-foreground disabled:text-muted-foreground",
+        link: "text-primary underline-offset-4 hover:underline disabled:text-muted-foreground",
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -72,16 +72,17 @@ const Button = React.forwardRef<View, ButtonProps>(
           <Text
             className={cn(
               "text-sm font-medium",
-              variant === "default" && "text-primary-foreground",
-              variant === "destructive" && "text-destructive-foreground",
-              variant === "outline" && "text-foreground",
-              variant === "secondary" && "text-secondary-foreground",
-              variant === "ghost" && "text-foreground",
-              variant === "link" && "text-primary",
-              pressed && "opacity-70"
+              !disabled && variant === "default" && "text-primary-foreground",
+              !disabled && variant === "destructive" && "text-destructive-foreground",
+              !disabled && variant === "outline" && "text-foreground",
+              !disabled && variant === "secondary" && "text-secondary-foreground",
+              !disabled && variant === "ghost" && "text-foreground",
+              !disabled && variant === "link" && "text-primary",
+              disabled && "text-muted-foreground",
+              pressed && !disabled && "opacity-70"
             )}
             style={{
-              color: 
+              color: disabled ? 'hsl(var(--muted-foreground))' :
                 variant === "default" ? 'hsl(var(--primary-foreground))' :
                 variant === "destructive" ? 'hsl(var(--destructive-foreground))' :
                 variant === "secondary" ? 'hsl(var(--secondary-foreground))' :
