@@ -1,6 +1,6 @@
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "expo-router";
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { Alert, Platform } from "react-native";
 
 type UserRole = "operator" | "doctor" | "nurse" | "head_doctor";
@@ -28,7 +28,6 @@ interface AuthContextType {
   }) => Promise<void>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
-  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,27 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Use optional chaining to safely access useSession
-  const sessionHook = authClient.useSession?.();
-  const { data: session, isPending = false, error, refetch } = sessionHook || {};
-  
-  console.log("[AUTH PROVIDER] Hook initialization:", { 
-    hasAuthClient: !!authClient,
-    hasUseSession: !!authClient.useSession,
-    hasSessionHook: !!sessionHook,
-    isPending,
-    hasSession: !!session
-  });
-  
-  // Check for OAuth callback in URL
-  React.useEffect(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      if (url.pathname.includes('/api/auth/callback/')) {
-        console.log("[AUTH] OAuth callback detected, refreshing session");
-        refetch?.();
-      }
-    }
-  }, [refetch]);
+  const { data: session, isPending = false, error, refetch } = authClient.useSession?.() || {};
   
   // Create a stable refetch function
   const stableRefetch = React.useCallback(() => {
@@ -115,29 +94,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       hasUser: !!session?.user 
     });
     
-    // If authClient is not properly initialized, stop loading
-    if (!authClient.useSession) {
-      console.log("[AUTH PROVIDER] authClient.useSession not available, stopping loading");
-      setIsLoading(false);
-      return;
-    }
-    
     // Set loading false when Better Auth finishes checking session
     if (!isPending) {
       setIsLoading(false);
       
       // Session recovery is handled by Better Auth's expo plugin
     }
-    
-    // Timeout fallback to prevent infinite loading
-    const timeout = setTimeout(() => {
-      if (isLoading) {
-        console.log("[AUTH PROVIDER] Loading timeout reached, forcing loading to false");
-        setIsLoading(false);
-      }
-    }, 5000); // 5 second timeout
-    
-    return () => clearTimeout(timeout);
   }, [session, isPending]);
 
 
@@ -290,11 +252,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
 
-  const refreshUser = useCallback(async () => {
-    console.log("[AUTH] Refreshing user data...");
-    await stableRefetch();
-  }, [stableRefetch]);
-
   return (
     <AuthContext.Provider
       value={{
@@ -305,7 +262,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUp,
         signOut,
         refreshSession,
-        refreshUser,
       }}
     >
       {children}

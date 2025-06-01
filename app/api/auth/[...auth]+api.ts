@@ -25,31 +25,12 @@ async function handler(request: Request) {
     console.log('[AUTH API] Request:', request.method, request.url);
     console.log('[AUTH API] Origin:', origin);
     
-    // Parse URL to check the path
-    const url = new URL(request.url);
-    console.log('[AUTH API] Path:', url.pathname);
-    console.log('[AUTH API] Search params:', url.searchParams.toString());
-    
-    // Log auth configuration
-    console.log('[AUTH API] Social providers configured:', Object.keys(auth.options?.socialProviders || {}));
-    
     // Call Better Auth handler
     const response = await auth.handler(request);
     
     // Log response details
     console.log('[AUTH API] Response status:', response.status);
     console.log('[AUTH API] Response headers:', Object.fromEntries(response.headers.entries()));
-    
-    // If it's an error response, log the body
-    if (response.status >= 400) {
-      const responseClone = response.clone();
-      try {
-        const errorBody = await responseClone.text();
-        console.log('[AUTH API] Error response body:', errorBody);
-      } catch (e) {
-        console.log('[AUTH API] Could not read error body');
-      }
-    }
     
     // Add CORS headers to response
     Object.entries(corsHeaders).forEach(([key, value]) => {

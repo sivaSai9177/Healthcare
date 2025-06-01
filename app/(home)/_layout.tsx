@@ -19,8 +19,7 @@ export default function TabLayout() {
       isLoading,
       isAuthenticated,
       hasUser: !!user,
-      userEmail: user?.email,
-      userRole: user?.role
+      userEmail: user?.email
     });
     
     if (!isLoading && !isAuthenticated) {
@@ -28,7 +27,7 @@ export default function TabLayout() {
       console.log("Home layout: User not authenticated, redirecting to login");
       router.replace("/(auth)/login");
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router, user]);
 
   if (isLoading) {
     return (

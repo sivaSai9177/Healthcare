@@ -19,7 +19,6 @@ import {
 } from "@/components/shadcn/ui/card";
 import { FormField, FormItem, FormMessage } from "@/components/shadcn/ui/form";
 import { showErrorAlert, showSuccessAlert } from "@/lib/alert";
-import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import "@/app/global.css";
 
 const roleOptions = [
@@ -206,12 +205,6 @@ export default function SignupScreen() {
               >
                 {isLoading ? "Creating account..." : "Create account"}
               </Button>
-
-              <View style={{ alignItems: 'center', marginVertical: 16 }}>
-                <Text style={{ color: '#666666', fontSize: 14 }}>OR</Text>
-              </View>
-
-              <GoogleSignInButton />
             </View>
           </CardContent>
           <CardFooter className="flex-col space-y-2">

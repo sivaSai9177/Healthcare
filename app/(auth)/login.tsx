@@ -19,7 +19,6 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -126,12 +125,6 @@ export default function LoginScreen() {
               >
                 {isLoading ? "Signing in..." : "Sign in"}
               </Button>
-
-              <View style={{ alignItems: 'center', marginVertical: 16 }}>
-                <Text style={{ color: '#666666', fontSize: 14 }}>OR</Text>
-              </View>
-
-              <GoogleSignInButton />
             </View>
           </CardContent>
           <CardFooter className="flex-col space-y-2">

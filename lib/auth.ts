@@ -4,28 +4,14 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import * as schema from "../src/db/schema";
 
-// Dynamic base URL based on request context
-const getBaseURL = () => {
-  // For OAuth callbacks, always use localhost to avoid Google's private IP restriction
-  if (typeof process !== 'undefined') {
-    const url = process.env.BETTER_AUTH_BASE_URL;
-    if (url && url.includes('192.168')) {
-      // Replace private IP with localhost for OAuth compatibility
-      return url.replace(/192\.168\.\d+\.\d+/, 'localhost');
-    }
-    return url || "http://localhost:8081/api/auth";
-  }
-  return "http://localhost:8081/api/auth";
-};
-
 const getTrustedOrigins = () => {
   const origins = [
-    // Local development origins - prioritize localhost
+    // Local development origins
     "http://localhost:8081",
-    "http://localhost:8082",
+    "http://localhost:8082", // Add 8082 for web development
     "http://localhost:3000",
     "http://127.0.0.1:8081",
-    "http://127.0.0.1:8082",
+    "http://127.0.0.1:8082", // Add 8082 for web development
     "http://127.0.0.1:3000",
   ];
 
@@ -60,20 +46,22 @@ const getTrustedOrigins = () => {
 };
 
 console.log("[AUTH CONFIG] Initializing Better Auth...");
-console.log("[AUTH CONFIG] Base URL:", getBaseURL());
+console.log("[AUTH CONFIG] Base URL:", process.env.BETTER_AUTH_BASE_URL || "http://192.168.1.104:8081");
 console.log("[AUTH CONFIG] Database available:", !!db);
+
+// Dynamic base URL based on request context
+const getBaseURL = () => {
+  if (typeof process !== 'undefined' && process.env.BETTER_AUTH_BASE_URL) {
+    return process.env.BETTER_AUTH_BASE_URL;
+  }
+  // Default to the web port since API runs on same port as web
+  return "http://192.168.1.104:8082/api/auth";
+};
 
 export const auth = betterAuth({
   baseURL: getBaseURL(),
   secret:
     process.env.BETTER_AUTH_SECRET || "your-secret-key-change-in-production",
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      redirectURI: "http://localhost:8081/api/auth/callback/google", // Always use localhost
-    },
-  },
   user: {
     additionalFields: {
       role: {
@@ -112,19 +100,10 @@ export const auth = betterAuth({
     sessionToken: {
       name: "better-auth.session-token",
       httpOnly: false, // Set to false for mobile compatibility
-      sameSite: "lax", // Allow cookies in OAuth redirects
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
       maxAge: 60 * 60 * 24 * 7, // 7 days
-    },
-    // Add state cookie configuration
-    state: {
-      name: "better-auth.state",
-      httpOnly: false,
-      sameSite: "lax",
-      secure: false, // Allow HTTP in development
-      path: "/",
-      maxAge: 60 * 10, // 10 minutes
     },
   },
   plugins: [expo()], // Added expo plugin here
@@ -177,7 +156,6 @@ export const auth = betterAuth({
   // Error handling
   onError: (error: any) => {
     console.error("[AUTH ERROR]", error);
-    console.error("[AUTH ERROR] Stack:", error.stack);
     // You can add error reporting service here (e.g., Sentry)
 
     // Don't expose internal errors in production
@@ -193,24 +171,7 @@ export const auth = betterAuth({
       status: error.status || 500,
     };
   },
-  // Add callback handlers
-  callbacks: {
-    signIn: {
-      async before({ user, isNewUser }) {
-        console.log("[AUTH CALLBACK] Sign in before:", { user, isNewUser });
-        // For new social users, set default role
-        if (isNewUser && !user.role) {
-          user.role = "doctor";
-        }
-      },
-    },
-  },
 });
-
-// Log available routes
-if (process.env.NODE_ENV === "development") {
-  console.log("[AUTH] Available routes:", auth.api);
-}
 
 // Export type for use in other files
 export type Auth = typeof auth;

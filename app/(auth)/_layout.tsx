@@ -13,8 +13,7 @@ export default function AuthLayout() {
       isLoading,
       isAuthenticated,
       hasUser: !!user,
-      userEmail: user?.email,
-      userRole: user?.role
+      userEmail: user?.email
     });
     
     if (!isLoading && isAuthenticated) {
@@ -55,7 +54,6 @@ export default function AuthLayout() {
       <Stack.Screen name="login" />
       <Stack.Screen name="signup" />
       <Stack.Screen name="forgot-password" />
-      <Stack.Screen name="complete-profile" />
     </Stack>
   );
 }
