@@ -6,7 +6,6 @@ export const webStorage = {
   getItem: (key: string) => {
     try {
       const item = localStorage.getItem(key);
-      console.log(`[WEB STORAGE] Getting ${key}:`, item ? `Found: ${item.substring(0, 20)}...` : 'Not found');
       return item;
     } catch (error) {
       console.error('[WEB STORAGE] Error getting item:', error);
@@ -15,23 +14,13 @@ export const webStorage = {
   },
   setItem: (key: string, value: string) => {
     try {
-      console.log(`[WEB STORAGE] Setting ${key}:`, value ? `Value: ${value.substring(0, 20)}...` : 'Empty value');
       localStorage.setItem(key, value);
-      
-      // Verify the item was set correctly
-      const stored = localStorage.getItem(key);
-      if (stored !== value) {
-        console.warn(`[WEB STORAGE] Storage verification failed for ${key}`);
-      } else {
-        console.log(`[WEB STORAGE] Successfully stored ${key}`);
-      }
     } catch (error) {
       console.error('[WEB STORAGE] Error setting item:', error);
     }
   },
   removeItem: (key: string) => {
     try {
-      console.log(`[WEB STORAGE] Removing ${key}`);
       localStorage.removeItem(key);
     } catch (error) {
       console.error('[WEB STORAGE] Error removing item:', error);
@@ -52,8 +41,8 @@ const initializeStorage = async () => {
       (global as any).__persistentStore = {};
     }
     
-    // Load all hospital-alert related keys from SecureStore
-    const keys = ['hospital-alert.session-token', 'hospital-alert.cached-user'];
+    // Load all better-auth related keys from SecureStore
+    const keys = ['better-auth_cookie', 'better-auth_session_data'];
     const loadPromises = keys.map(async (key) => {
       try {
         const value = await SecureStore.getItemAsync(key);
@@ -83,8 +72,6 @@ if (Platform.OS !== 'web') {
 export const mobileStorage = {
   getItem: (key: string) => {
     try {
-      console.log(`[MOBILE STORAGE] Getting ${key}`);
-      
       // Ensure storage is initialized
       if (!storageInitialized) {
         initializeStorage(); // Start initialization if not done
@@ -92,7 +79,6 @@ export const mobileStorage = {
       
       const persistentStore = (global as any).__persistentStore || {};
       const value = persistentStore[key] || '';
-      console.log(`[MOBILE STORAGE] Retrieved ${key}:`, value ? 'Found' : 'Not found');
       return value;
     } catch (error) {
       console.error('[MOBILE STORAGE] Error getting item:', error);
@@ -101,8 +87,6 @@ export const mobileStorage = {
   },
   setItem: (key: string, value: string) => {
     try {
-      console.log(`[MOBILE STORAGE] Setting ${key}:`, value ? 'Value set' : 'Empty value');
-      
       // Initialize persistent storage if it doesn't exist
       if (!(global as any).__persistentStore) {
         (global as any).__persistentStore = {};
@@ -113,9 +97,7 @@ export const mobileStorage = {
       persistentStore[key] = value;
       
       // Also store in SecureStore asynchronously for actual persistence
-      SecureStore.setItemAsync(key, value).then(() => {
-        console.log(`[MOBILE STORAGE] Successfully stored ${key} in SecureStore`);
-      }).catch(error => {
+      SecureStore.setItemAsync(key, value).catch(error => {
         console.error(`[MOBILE STORAGE] Failed to store ${key} in SecureStore:`, error);
       });
     } catch (error) {
@@ -124,17 +106,13 @@ export const mobileStorage = {
   },
   removeItem: (key: string) => {
     try {
-      console.log(`[MOBILE STORAGE] Removing ${key}`);
-      
       // Remove from persistent memory store
       if ((global as any).__persistentStore) {
         delete (global as any).__persistentStore[key];
       }
       
       // Also remove from SecureStore asynchronously
-      SecureStore.deleteItemAsync(key).then(() => {
-        console.log(`[MOBILE STORAGE] Successfully removed ${key} from SecureStore`);
-      }).catch(error => {
+      SecureStore.deleteItemAsync(key).catch(error => {
         console.error(`[MOBILE STORAGE] Failed to remove ${key} from SecureStore:`, error);
       });
     } catch (error) {
