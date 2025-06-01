@@ -10,8 +10,8 @@ import {
 } from "@/components/shadcn/ui/card";
 import { FormField, FormItem, FormMessage } from "@/components/shadcn/ui/form";
 import { Input } from "@/components/shadcn/ui/input";
-import { showErrorAlert } from "@/lib/alert";
 import { useAuth } from "@/hooks/useAuth";
+import { showErrorAlert } from "@/lib/alert";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useRouter } from "expo-router";
@@ -54,9 +54,9 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <ScrollView className="flex-1">
-        <View className="flex-1 justify-center items-center p-4 min-h-screen">
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 }}>
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">

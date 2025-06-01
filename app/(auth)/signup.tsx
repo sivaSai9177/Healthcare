@@ -71,9 +71,9 @@ export default function SignupScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <ScrollView className="flex-1">
-        <View className="flex-1 justify-center items-center p-4 min-h-screen">
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 }}>
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">
