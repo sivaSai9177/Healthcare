@@ -21,8 +21,16 @@ async function handler(request: Request) {
   }
 
   try {
+    // Log incoming request
+    console.log('[AUTH API] Request:', request.method, request.url);
+    console.log('[AUTH API] Origin:', origin);
+    
     // Call Better Auth handler
     const response = await auth.handler(request);
+    
+    // Log response details
+    console.log('[AUTH API] Response status:', response.status);
+    console.log('[AUTH API] Response headers:', Object.fromEntries(response.headers.entries()));
     
     // Add CORS headers to response
     Object.entries(corsHeaders).forEach(([key, value]) => {
@@ -32,8 +40,20 @@ async function handler(request: Request) {
     return response;
   } catch (error) {
     console.error('[AUTH API] Error:', error);
+    console.error('[AUTH API] Error stack:', error.stack);
+    console.error('[AUTH API] Request URL:', request.url);
+    console.error('[AUTH API] Request method:', request.method);
+    
+    // Return more detailed error in development
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? error.message || 'Internal Server Error'
+      : 'Internal Server Error';
+    
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error' }), 
+      JSON.stringify({ 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }), 
       {
         status: 500,
         headers: {

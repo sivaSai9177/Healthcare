@@ -5,9 +5,13 @@ import Constants from "expo-constants";
  * Get the API URL based on the platform and environment
  */
 export function getApiUrl(): string {
-  // For web, use the same origin or configured URL
+  // For web, use the same origin to avoid CORS cookie issues
   if (Platform.OS === "web") {
-    return process.env.EXPO_PUBLIC_API_URL || "http://localhost:8081";
+    // If running in browser, use the same origin as the web app
+    if (typeof window !== 'undefined') {
+      return window.location.origin;
+    }
+    return process.env.EXPO_PUBLIC_API_URL || "http://localhost:8082";
   }
 
   // For mobile development, try to get the URL from environment variable first

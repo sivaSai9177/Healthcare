@@ -45,8 +45,21 @@ const getTrustedOrigins = () => {
   return origins;
 };
 
+console.log("[AUTH CONFIG] Initializing Better Auth...");
+console.log("[AUTH CONFIG] Base URL:", process.env.BETTER_AUTH_BASE_URL || "http://192.168.1.104:8081");
+console.log("[AUTH CONFIG] Database available:", !!db);
+
+// Dynamic base URL based on request context
+const getBaseURL = () => {
+  if (typeof process !== 'undefined' && process.env.BETTER_AUTH_BASE_URL) {
+    return process.env.BETTER_AUTH_BASE_URL;
+  }
+  // Default to the web port since API runs on same port as web
+  return "http://192.168.1.104:8082/api/auth";
+};
+
 export const auth = betterAuth({
-  baseURL: (process.env.BETTER_AUTH_BASE_URL || "http://192.168.1.104:8081") + "/api/auth",
+  baseURL: getBaseURL(),
   secret:
     process.env.BETTER_AUTH_SECRET || "your-secret-key-change-in-production",
   user: {
@@ -86,7 +99,7 @@ export const auth = betterAuth({
   cookies: {
     sessionToken: {
       name: "better-auth.session-token",
-      httpOnly: false, // Set to false for web development to allow client-side access
+      httpOnly: false, // Set to false for mobile compatibility
       sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
