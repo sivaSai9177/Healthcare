@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, useRouter } from "expo-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -70,8 +71,9 @@ export default function SignupScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-background">
-      <View className="flex-1 justify-center items-center p-4 min-h-screen">
+    <SafeAreaView className="flex-1 bg-background">
+      <ScrollView className="flex-1">
+        <View className="flex-1 justify-center items-center p-4 min-h-screen">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">
@@ -221,6 +223,7 @@ export default function SignupScreen() {
           </CardFooter>
         </Card>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

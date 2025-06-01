@@ -6,8 +6,9 @@ import {
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, View, Platform } from "react-native";
 import "react-native-reanimated";
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -23,6 +24,7 @@ function AppNavigator() {
       <Stack
         screenOptions={{
           headerShown: false,
+          contentStyle: Platform.OS === 'android' ? { paddingTop: 0 } : {},
         }}
       >
         {/* All screens must be declared for Expo Router to work */}
@@ -31,7 +33,7 @@ function AppNavigator() {
         <Stack.Screen name="(home)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style="auto" backgroundColor={colorScheme === "dark" ? "#12242e" : "#f6e6ee"} />
     </ThemeProvider>
   );
 }
@@ -51,10 +53,12 @@ export default function RootLayout() {
   }
 
   return (
-    <TRPCProvider>
-      <AuthProvider>
-        <AppNavigator />
-      </AuthProvider>
-    </TRPCProvider>
+    <SafeAreaProvider>
+      <TRPCProvider>
+        <AuthProvider>
+          <AppNavigator />
+        </AuthProvider>
+      </TRPCProvider>
+    </SafeAreaProvider>
   );
 }

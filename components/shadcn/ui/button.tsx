@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import "@/app/global.css";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
   {
     variants: {
       variant: {
@@ -64,9 +64,15 @@ const Button = React.forwardRef<View, ButtonProps>(
     return (
       <Pressable
         ref={ref}
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(
+          buttonVariants({ variant, size, className }),
+          disabled && "opacity-50"
+        )}
         disabled={disabled}
         onPress={handlePress}
+        style={({ pressed }) => [
+          { opacity: pressed && !disabled ? 0.7 : disabled ? 0.5 : 1 }
+        ]}
         {...props}
       >
         {({ pressed }) => (
@@ -83,12 +89,12 @@ const Button = React.forwardRef<View, ButtonProps>(
               pressed && !disabled && "opacity-70"
             )}
             style={{
-              color: disabled ? 'hsl(var(--muted-foreground))' :
-                variant === "default" ? 'hsl(var(--primary-foreground))' :
-                variant === "destructive" ? 'hsl(var(--destructive-foreground))' :
-                variant === "secondary" ? 'hsl(var(--secondary-foreground))' :
-                variant === "link" ? 'hsl(var(--primary))' :
-                'hsl(var(--foreground))', // For outline and ghost variants
+              color: disabled ? '#999999' :
+                variant === "default" ? '#ffffff' :
+                variant === "destructive" ? '#ffffff' :
+                variant === "secondary" ? '#333333' :
+                variant === "link" ? '#0066cc' :
+                '#333333', // For outline and ghost variants
             }}
           >
             {children}

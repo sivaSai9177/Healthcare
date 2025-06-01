@@ -1,26 +1,27 @@
 /**
  * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Bubblegum Theme Color Palette
  */
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// Bubblegum Theme Colors
+const tintColorLight = '#ffc1cc'; // Bubblegum Pink
+const tintColorDark = '#ff48a5'; // Bright Bubblegum Pink
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
+    text: '#4a1e2b', // Dark pink for text
+    background: '#fff0f7', // Lavender Blush
     tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
+    icon: '#d656b4', // Purple-pink
+    tabIconDefault: '#fbbad8', // Cotton Candy
     tabIconSelected: tintColorLight,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
+    text: '#ffc1cc', // Light pink text
+    background: '#2a1620', // Deep purple-pink background
     tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    icon: '#ff77bc', // Medium pink
+    tabIconDefault: '#d656b4', // Purple-pink
     tabIconSelected: tintColorDark,
   },
 };

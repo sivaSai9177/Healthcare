@@ -1,8 +1,9 @@
+import "@/app/global.css";
 import { Button } from "@/components/shadcn/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shadcn/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import { Alert, SafeAreaView, ScrollView, Text, View } from "react-native";
-import "@/app/global.css";
+import { Alert, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   const { user, signOut } = useAuth();
@@ -48,11 +49,11 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <ScrollView className="flex-1">
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
         <View className="p-4">
           <View className="flex-row justify-between items-center mb-6">
-            <Text className="text-3xl font-bold">Hospital Alert</Text>
+            <Text className="text-3xl font-bold" style={{ color: '#000000' }}>Hospital Alert</Text>
             <Button variant="destructive" onPress={handleLogout}>
               Logout
             </Button>
@@ -64,13 +65,13 @@ export default function HomeScreen() {
               <CardDescription>Your profile information</CardDescription>
             </CardHeader>
             <CardContent>
-              <View className="space-y-2">
+              <View style={{ gap: 8 }}>
                 <View className="flex-row items-center">
-                  <Text className="font-medium mr-2">Email:</Text>
-                  <Text>{user?.email}</Text>
+                  <Text className="font-medium mr-2" style={{ color: '#000000' }}>Email:</Text>
+                  <Text style={{ color: '#000000' }}>{user?.email}</Text>
                 </View>
                 <View className="flex-row items-center">
-                  <Text className="font-medium mr-2">Role:</Text>
+                  <Text className="font-medium mr-2" style={{ color: '#000000' }}>Role:</Text>
                   <View className={`px-3 py-1 rounded-full ${getRoleBadgeColor(user?.role)}`}>
                     <Text className="text-white text-sm font-medium">
                       {getRoleDisplayName(user?.role)}
@@ -79,8 +80,8 @@ export default function HomeScreen() {
                 </View>
                 {user?.hospitalId && (
                   <View className="flex-row items-center">
-                    <Text className="font-medium mr-2">Hospital ID:</Text>
-                    <Text>{user.hospitalId}</Text>
+                    <Text className="font-medium mr-2" style={{ color: '#000000' }}>Hospital ID:</Text>
+                    <Text style={{ color: '#000000' }}>{user.hospitalId}</Text>
                   </View>
                 )}
               </View>
@@ -93,12 +94,20 @@ export default function HomeScreen() {
               <CardDescription>Based on your role permissions</CardDescription>
             </CardHeader>
             <CardContent>
-              <View className="space-y-3">
+              <View style={{ gap: 12 }}>
                 {user?.role === "operator" && (
                   <Button
                     variant="default"
                     className="w-full"
-                    onPress={() => Alert.alert("Coming Soon", "Alert creation will be implemented next")}
+                    onPress={() => {
+                      if (typeof window !== 'undefined') {
+                        // Web platform
+                        window.alert("Alert creation will be implemented next");
+                      } else {
+                        // Mobile platform
+                        Alert.alert("Coming Soon", "Alert creation will be implemented next");
+                      }
+                    }}
                   >
                     Create New Alert
                   </Button>
@@ -107,7 +116,15 @@ export default function HomeScreen() {
                 <Button
                   variant="outline"
                   className="w-full"
-                  onPress={() => Alert.alert("Coming Soon", "Alert history will be implemented next")}
+                  onPress={() => {
+                    if (typeof window !== 'undefined') {
+                      // Web platform
+                      window.alert("Alert history will be implemented next");
+                    } else {
+                      // Mobile platform
+                      Alert.alert("Coming Soon", "Alert history will be implemented next");
+                    }
+                  }}
                 >
                   View Alert History
                 </Button>
@@ -116,7 +133,15 @@ export default function HomeScreen() {
                   <Button
                     variant="outline"
                     className="w-full"
-                    onPress={() => Alert.alert("Coming Soon", "Active alerts will be implemented next")}
+                    onPress={() => {
+                      if (typeof window !== 'undefined') {
+                        // Web platform
+                        window.alert("Active alerts will be implemented next");
+                      } else {
+                        // Mobile platform
+                        Alert.alert("Coming Soon", "Active alerts will be implemented next");
+                      }
+                    }}
                   >
                     View Active Alerts
                   </Button>

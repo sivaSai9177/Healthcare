@@ -37,8 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Use optional chaining to safely access useSession
-  const sessionResult = authClient.useSession?.() || {};
-  const { data: session, isPending = false, error, refetch } = sessionResult;
+  const { data: session, isPending = false, error, refetch } = authClient.useSession?.() || {};
   
   // Create a stable refetch function
   const stableRefetch = React.useCallback(() => {
