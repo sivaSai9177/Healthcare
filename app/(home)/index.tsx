@@ -1,6 +1,7 @@
 import "@/app/global.css";
 import { Button } from "@/components/shadcn/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shadcn/ui/card";
+import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { Alert, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -54,9 +55,18 @@ export default function HomeScreen() {
         <View className="p-4">
           <View className="flex-row justify-between items-center mb-6">
             <Text className="text-3xl font-bold" style={{ color: '#000000' }}>Hospital Alert</Text>
-            <Button variant="destructive" onPress={handleLogout}>
-              Logout
-            </Button>
+            <View className="flex-row items-center" style={{ gap: 12 }}>
+              {user && (
+                <Avatar 
+                  image={user.image}
+                  name={user.name}
+                  size={36}
+                />
+              )}
+              <Button variant="destructive" onPress={handleLogout}>
+                Logout
+              </Button>
+            </View>
           </View>
 
           <Card className="mb-6">
