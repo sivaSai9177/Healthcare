@@ -1,7 +1,7 @@
 import * as React from "react";
 import { View, Text } from "react-native";
 import { Controller, ControllerProps, FieldPath, FieldValues } from "react-hook-form";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/core/utils";
 
 interface FormFieldContextValue<
   TFieldValues extends FieldValues = FieldValues,

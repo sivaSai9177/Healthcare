@@ -1,300 +1,457 @@
-# 🏥 Hospital Alert App
+# 🚀 Full-Stack Expo Starter
 
-A critical real-time alert system for hospitals built with Expo (React Native), designed to notify medical staff of emergencies across Android, iOS, and Web platforms.
+A production-ready full-stack starter template built with React Native, Expo, and modern technologies. Perfect foundation for building cross-platform apps with authentication, database integration, and type-safe APIs.
 
-## 🚨 Project Overview
+> **Last Updated**: January 2025 - Complete project restructuring with improved organization and cleaner architecture.
 
-The Hospital Alert App is an MVP solution for streamlining emergency communications in hospital environments. When critical situations arise (like cardiac arrests), operators can instantly alert relevant medical staff through push notifications, with built-in escalation logic to ensure no emergency goes unattended.
+## ✨ What's Included
 
-### 🎯 Current Status: Phase 1 Complete ✅
-**Authentication System**: Fully implemented and tested across all platforms (iOS, Android, Web) with robust session management, role-based access control, and comprehensive security features.
+### 🔐 **Complete Authentication System**
+- **Email/Password Authentication** with secure validation
+- **Google OAuth Integration** (iOS, Android, Web)
+- **Role-Based Access Control** (Admin, Manager, User, Guest)
+- **Session Management** with persistence across platforms
+- **Secure Token Storage** (Expo SecureStore for mobile, localStorage for web)
 
-### Key Features
-- **Real-time Emergency Alerts**: Instant push notifications to medical staff
-- **Role-based Access Control**: Different permissions for Operators, Doctors, Nurses, and Head Doctors
-- **Smart Escalation Logic**: Automatic escalation if alerts aren't acknowledged within time limits
-- **Cross-platform Support**: Works on Android, iOS, and Web
-- **Acknowledgement System**: Track who has responded to alerts
-- **Comprehensive Logging**: Full audit trail of all alerts and responses
+### 🏗️ **Modern Full-Stack Architecture**
+- **Frontend**: React Native 0.79.2 + Expo SDK 53 + TypeScript
+- **Backend**: tRPC 11.1.4 with Better Auth 1.2.8
+- **Database**: PostgreSQL + Drizzle ORM 0.44.1
+- **State Management**: Zustand with persistence
+- **Styling**: NativeWind 4.1.6 (TailwindCSS for React Native)
+- **UI Components**: shadcn/ui adapted for React Native
+- **Validation**: Zod v4 for runtime type checking
 
-## 👥 User Roles & Permissions
+### 🌐 **Cross-Platform Ready**
+- **iOS**: Native app with proper OAuth handling
+- **Android**: Native app with optimized performance
+- **Web**: Progressive web app with server-side rendering
 
-| Role | Can Create Alert | Can View Alerts | Can Acknowledge | Can View Logs |
-|------|-----------------|-----------------|-----------------|---------------|
-| Operator | ✅ | ✅ | ❌ | ✅ |
-| Doctor | ❌ | ✅ | ✅ | ✅ |
-| Registered Nurse | ❌ | ✅ | ✅ | ✅ |
-| Head of Doctor | ❌ | ✅ | ✅ | ✅ |
-
-## 🚨 Escalation System
-
-### Escalation Tiers
-| Tier | Role | Response Time Limit | Escalates To |
-|------|------|-------------------|--------------|
-| 1 | Nurse | 2 minutes | Doctor |
-| 2 | Doctor | 3 minutes | Head of Doctor |
-| 3 | Head of Doctor | 2 minutes | Re-alert All |
-
-### Alert Flow
-1. **Operator creates alert** → Sent to Tier 1 (Nurses)
-2. **Timer starts** (2 minutes for nurses)
-3. **If acknowledged** → Escalation stops
-4. **If NOT acknowledged** → Escalates to next tier
-5. **Process continues** until acknowledged or all tiers exhausted
-
-## 🛠️ Tech Stack
-
-- **Frontend Framework**: React Native with Expo SDK 53
-- **Styling**: NativeWind (TailwindCSS for React Native)
-- **Backend**: Expo Router API routes with Better Auth (current) / tRPC (planned alternative)
-- **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: Better Auth with role-based access
-- **State Management**: TanStack Query + Zustand/Context
-- **Push Notifications**: Expo Push Notifications
-- **Type Safety**: Full TypeScript support
+### 🛡️ **Production Features**
+- **100% TypeScript**: End-to-end type safety
+- **Security**: TLS 1.3, secure session management, CORS protection
+- **Performance**: Optimized queries, caching, lazy loading
+- **Testing**: Jest + React Native Testing Library setup
+- **Code Quality**: ESLint, Prettier, strict TypeScript
 
 ## 📁 Project Structure
 
 ```
 my-expo/
-├── app/                    # Main application screens and routing
-│   ├── (home)/            # Tab navigation group
-│   │   ├── index.tsx      # Home screen with auth form
-│   │   └── explore.tsx    # Explore tab screen
+├── app/                    # Expo Router - File-based routing
+│   ├── (auth)/            # Authentication routes
+│   │   ├── login.tsx      # Login screen
+│   │   ├── signup.tsx     # Registration screen
+│   │   ├── complete-profile.tsx # Profile completion
+│   │   ├── forgot-password.tsx  # Password recovery
+│   │   └── _layout.tsx    # Auth layout with guards
+│   ├── (home)/            # Protected app routes
+│   │   ├── index.tsx      # Dashboard
+│   │   └── explore.tsx    # Feature showcase
 │   ├── api/               # API routes
-│   │   └── auth/          # Better Auth API endpoints
-│   └── _layout.tsx        # Root layout with theme provider
+│   │   ├── auth/          # Better Auth endpoints
+│   │   └── trpc/          # tRPC API endpoint
+│   └── _layout.tsx        # Root layout with providers
 ├── components/            # Reusable UI components
+│   ├── ui/               # Core UI components
+│   │   ├── IconSymbol.tsx
+│   │   └── TabBarBackground.tsx
 │   ├── shadcn/ui/        # shadcn/ui components
-│   └── ui/               # Custom UI components
-├── lib/                  # Core utilities and configurations
-│   ├── auth.ts          # Better Auth server configuration
-│   └── auth-client.ts   # Better Auth client with Expo integration
+│   │   ├── button.tsx
+│   │   ├── card.tsx
+│   │   ├── form.tsx
+│   │   ├── input.tsx
+│   │   ├── select.tsx
+│   │   └── toast.tsx
+│   ├── Avatar.tsx
+│   ├── GoogleSignInButton.tsx
+│   ├── HapticTab.tsx
+│   ├── ProtectedRoute.tsx
+│   ├── ThemedText.tsx
+│   └── ThemedView.tsx
+├── constants/             # App constants
+│   └── theme/            # Theme constants
+│       └── Colors.ts     # Color definitions
+├── hooks/                # Custom React hooks
+│   ├── useAuth.tsx       # Authentication hook
+│   ├── useColorScheme.ts # Color scheme hook
+│   └── useThemeColor.ts  # Theme color hook
+├── lib/                  # Core utilities & configuration
+│   ├── auth/            # Authentication modules
+│   │   ├── auth.ts      # Better Auth server config
+│   │   ├── auth-client.ts # Auth client setup
+│   │   └── auth-session-manager.ts # Session management
+│   ├── core/            # Core utilities
+│   │   ├── alert.ts     # Alert utilities
+│   │   ├── config.ts    # App configuration
+│   │   ├── crypto.ts    # Cryptography helpers
+│   │   ├── secure-storage.ts # Secure storage
+│   │   └── utils.ts     # Utility functions
+│   ├── stores/          # State management
+│   │   └── auth-store.ts # Zustand auth store
+│   ├── validations/     # Validation schemas
+│   │   └── auth.ts      # Auth validation schemas
+│   └── trpc.tsx         # tRPC client setup
 ├── src/                  # Backend source code
-│   └── db/              # Database configuration
-│       ├── index.ts     # Database connection
-│       └── schema.ts    # Drizzle schema definitions
-└── assets/              # Static assets (images, fonts)
+│   ├── db/              # Database layer
+│   │   ├── index.ts     # Database connection
+│   │   └── schema.ts    # Database schema
+│   └── server/          # Server logic
+│       ├── routers/     # tRPC routers
+│       │   ├── auth.ts  # Auth router
+│       │   └── index.ts # Root router
+│       └── trpc.ts      # tRPC setup
+├── types/               # TypeScript definitions
+│   ├── auth.ts          # Auth type definitions
+│   ├── api/             # API-related types
+│   │   ├── auth.ts      # Auth API types
+│   │   └── trpc.ts      # tRPC types
+│   └── components/      # Component prop types
+├── __tests__/           # Test suite
+│   ├── unit/            # Unit tests
+│   ├── integration/     # Integration tests
+│   └── components/      # Component tests
+├── assets/              # Static assets
+│   ├── fonts/           # Custom fonts
+│   └── images/          # Images & icons
+└── docs/                # Documentation
+    ├── guides/          # Setup & configuration guides
+    ├── examples/        # Example implementations
+    ├── planning/        # Development plans
+    └── archive/         # Historical docs
 ```
 
-## 🗃️ Database Schema
-
-### Core Tables
-- **users**: id, name, email, role (Doctor|Nurse|HeadDoctor|Operator)
-- **alerts**: id, room_no, alert_name, code_color, created_by, created_at, escalation_level, acknowledged_by
-- **acknowledgements**: id, alert_id, user_id, acknowledged_at
-- **escalation_logs**: id, alert_id, from_role, to_role, escalated_at
-- **logs**: id, user_id, action, created_at
-
-## 🛠️ Setup & Installation
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Bun (recommended) or Node.js 18+
-- PostgreSQL database (or Neon account)
-- Expo CLI
-- iOS Simulator (Mac) or Android Emulator
+- **Bun** (recommended) or Node.js 18+
+- **PostgreSQL** database (local or cloud like Neon)
+- **Expo CLI**: `bun install -g expo`
+- **Google OAuth credentials** (optional, for social auth)
 
-### Installation
+### 1. Installation
 
-1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd my-expo
-```
+# Clone the repository
+git clone <your-repo-url>
+cd expo-fullstack-starter
 
-2. Install dependencies:
-```bash
+# Install dependencies
 bun install
 ```
 
-3. Set up environment variables:
-Create a `.env` file in the root directory:
+### 2. Environment Setup
+
+Create `.env` file in the root directory:
+
 ```env
+# Database
 DATABASE_URL=your_postgresql_connection_string
-BETTER_AUTH_SECRET=your-secret-key-change-in-production
+
+# Better Auth (generate a random 32+ character string)
+BETTER_AUTH_SECRET=your-super-secret-key-min-32-characters
 BETTER_AUTH_BASE_URL=http://localhost:8081/api/auth
-LOCAL_IP=your-local-ip-address  # For mobile device testing
+BETTER_AUTH_URL=http://localhost:8081
+
+# Google OAuth (optional)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Development
+LOCAL_IP=192.168.1.XXX  # Your local IP for mobile testing
 ```
 
-4. Push database schema:
+### 3. Database Setup
+
 ```bash
+# Push database schema
 bun run db:push
+
+# (Optional) Open database studio
+bun run db:studio
 ```
 
-5. Start the development server:
+### 4. Start Development
+
 ```bash
+# Start the development server
 bun start
+
+# Or run on specific platforms
+bun run ios      # iOS Simulator
+bun run android  # Android Emulator  
+bun run web      # Web Browser
 ```
 
-## 📱 Running on Devices
+## 🔧 Configuration
 
-### iOS Simulator
+### Google OAuth Setup (Optional)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create OAuth 2.0 credentials
+3. Add authorized redirect URIs:
+   - **Web**: `http://localhost:8081/api/auth/callback/google`
+   - **Mobile**: `https://auth.expo.io/@anonymous/expo-fullstack-starter/auth/callback/google`
+4. Add credentials to `.env` file
+
+### App Configuration
+
+Update `app.json` with your app details:
+
+```json
+{
+  "expo": {
+    "name": "Your App Name",
+    "slug": "your-app-slug",
+    "scheme": "your-app-scheme",
+    "ios": {
+      "bundleIdentifier": "com.yourcompany.yourapp"
+    },
+    "android": {
+      "package": "com.yourcompany.yourapp"
+    }
+  }
+}
+```
+
+## 🎨 Customization
+
+### User Roles & Permissions
+
+Customize user roles in `lib/validations/auth.ts`:
+
+```typescript
+export const UserRole = z.enum([
+  "admin",    // Full access
+  "manager",  // Management features
+  "user",     // Standard user
+  "guest"     // Limited access
+]);
+```
+
+Update permissions in `lib/stores/auth-store.ts`:
+
+```typescript
+const rolePermissions: Record<string, string[]> = {
+  admin: ['*'], // All permissions
+  manager: ['manage_users', 'view_analytics', 'manage_content'],
+  user: ['view_content', 'edit_profile'],
+  guest: ['view_content'],
+};
+```
+
+### Database Schema
+
+Extend the schema in `src/db/schema.ts`:
+
+```typescript
+// Add your custom tables
+export const yourTable = pgTable('your_table', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 255 }).notNull(),
+  // Add more fields as needed
+});
+```
+
+Then run: `bun run db:push`
+
+### Add New Features
+
+1. **Backend**: Create tRPC routers in `src/server/routers/`
+2. **Frontend**: Add components in `components/`
+3. **Routes**: Create new screens in `app/`
+4. **State**: Add Zustand stores in `lib/stores/`
+
+## 🧪 Testing
+
 ```bash
-bun run ios
+# Run all tests
+bun test
+
+# Run tests in watch mode
+bun test --watch
+
+# Run specific test file
+bun test auth-core.test.ts
 ```
 
-### Android Emulator
-```bash
-bun run android
+### Test Structure
 ```
-
-### Web Browser
-```bash
-bun run web
+__tests__/
+├── auth-core.test.ts           # Authentication tests
+├── auth-flow-integration.test.tsx # User flow tests
+└── simple.test.ts              # Component tests
 ```
-
-### Physical Device
-1. Install Expo Go app on your device
-2. Scan the QR code from the terminal
-3. Ensure your device is on the same network as your development machine
-
-## 🔧 Available Scripts
-
-- `bun start` - Start the Expo development server
-- `bun run android` - Run on Android emulator/device
-- `bun run ios` - Run on iOS simulator/device
-- `bun run web` - Run in web browser
-- `bun run lint` - Run ESLint
-- `bun run db:push` - Push database schema changes
-- `bun run db:studio` - Open Drizzle Studio for database management
-- `bun run reset-project` - Reset project to initial state
-
-## 🔐 Authentication Features (✅ COMPLETED)
-
-### Core Authentication
-- **Role-based authentication** (Doctor, Nurse, Head Doctor, Operator)
-- **Email/password login** with comprehensive validation
-- **Cross-platform session management** (iOS, Android, Web)
-- **Secure token storage** (Expo SecureStore for mobile, localStorage for web)
-- **Session persistence** across app restarts and page refreshes
-
-### Security & Performance
-- **CORS protection** with configurable trusted origins
-- **Rate limiting** and security features
-- **Protected routes** with automatic redirection
-- **Error handling** with user-friendly feedback
-- **Session timeout** and automatic cleanup
-- **Cached authentication** for improved performance
-
-### Platform-Specific Features
-- **Web**: localStorage-based session caching with fallback mechanisms
-- **Mobile**: SecureStore integration with immediate cache loading
-- **Cross-platform**: Unified authentication API with platform-optimized storage
-
-### Recent Fixes & Improvements
-- ✅ Fixed web session persistence issues
-- ✅ Resolved iOS session storage problems  
-- ✅ Improved button disabled state styling
-- ✅ Enhanced error handling and user feedback
-- ✅ Optimized authentication flow for all platforms
-
-## 🔔 Alert System Features
-
-### Operator Alert Form
-- Room Number (text input)
-- Alert Name (e.g., "Cardiac Arrest")
-- Alert Code/Color (select from predefined options)
-- Timestamp (auto-generated)
-
-### Alert Notifications
-- Push notifications to relevant staff
-- In-app real-time alerts
-- Visual indicators for urgency levels
-- Timer showing time until escalation
-
-## ✅ MVP Milestones
-
-1. **Phase 1** (✅ 100% Complete): Authentication System with role-based access
-   - ✅ Better Auth setup with PostgreSQL
-   - ✅ Database schema and migrations  
-   - ✅ Authentication UI (login/signup/forgot-password)
-   - ✅ tRPC server setup and client integration
-   - ✅ AuthProvider context configuration with cross-platform session management
-   - ✅ Session persistence across app restarts (iOS, Android, Web)
-   - ✅ Role-based access control (RBAC) implementation
-   - ✅ Secure token storage (SecureStore for mobile, localStorage for web)
-   - ✅ Protected routes and navigation guards
-   - ✅ Comprehensive error handling and user feedback
-2. **Phase 2** (🔄 Ready to Start): Alert creation form for operators
-3. **Phase 3** (Pending): Push notification integration
-4. **Phase 4** (Pending): Acknowledgement system implementation
-5. **Phase 5** (Pending): Escalation logic and timers
-6. **Phase 6** (Pending): Comprehensive logging and audit trails
-
-## ✅ Authentication Testing & Verification
-
-### Platform Testing Status
-- **iOS Simulator**: ✅ Login, session persistence, navigation - All working
-- **Android Emulator**: ✅ Login, session persistence, navigation - All working  
-- **Web Browser**: ✅ Login, session persistence, navigation - All working
-
-### Verified Features
-- ✅ **User Registration**: Create accounts with role selection
-- ✅ **User Login**: Email/password authentication across all platforms
-- ✅ **Session Persistence**: Users stay logged in after app restart/refresh
-- ✅ **Role-based Access**: Proper permission enforcement
-- ✅ **Protected Routes**: Automatic redirection for unauthenticated users
-- ✅ **Secure Storage**: Tokens properly stored (SecureStore/localStorage)
-- ✅ **Error Handling**: User-friendly error messages and validation
-- ✅ **Button States**: Proper disabled/enabled styling during operations
-- ✅ **Cross-platform Compatibility**: Consistent behavior across platforms
-
-### Technical Achievements
-- **Session Management**: Dual-track system (Better Auth + cached fallback)
-- **Security**: CORS protection, rate limiting, secure token storage
-- **Performance**: Optimized loading states and cache management
-- **Reliability**: Comprehensive error handling and recovery mechanisms
 
 ## 🚀 Deployment
 
 ### Web Deployment
-The app can be deployed as a web application to any hosting service that supports Bun/Node.js.
 
-### Mobile Deployment
-1. Configure `app.json` with hospital branding
-2. Build for production:
-   ```bash
-   eas build --platform ios
-   eas build --platform android
-   ```
-3. Submit to app stores using EAS Submit
+Deploy to Vercel, Netlify, or any Node.js hosting:
 
-## 🔒 Security Considerations
+```bash
+# Build for production
+bun run build
 
-- HIPAA compliance considerations for patient data
-- Secure authentication with role-based access control
-- Encrypted data transmission
-- Audit logging for all critical actions
-- Session timeout for inactive users
+# Preview production build
+bun run preview
+```
+
+### Mobile App Deployment
+
+Use Expo Application Services (EAS):
+
+```bash
+# Install EAS CLI
+bun install -g @expo/eas-cli
+
+# Login to Expo
+eas login
+
+# Configure EAS
+eas build:configure
+
+# Build for production
+eas build --platform ios
+eas build --platform android
+
+# Submit to app stores
+eas submit --platform ios
+eas submit --platform android
+```
+
+## 📚 Available Scripts
+
+```bash
+# Development
+bun start              # Start Expo development server
+bun run ios            # Run on iOS simulator
+bun run android        # Run on Android emulator
+bun run web            # Run in web browser
+
+# Database
+bun run db:push        # Push schema changes to database
+bun run db:studio      # Open Drizzle Studio (database GUI)
+bun run db:generate    # Generate migration files
+
+# Code Quality
+bun run lint           # Run ESLint
+bun run lint:fix       # Fix ESLint errors
+bun run type-check     # Run TypeScript checks
+bun test              # Run test suite
+
+# Build & Deploy
+bun run build          # Build for production
+bun run preview        # Preview production build
+```
+
+## 🛡️ Security Features
+
+- **Authentication**: Better Auth with secure session management
+- **Authorization**: Role-based access control at API and UI level
+- **Validation**: Zod schemas for runtime type checking
+- **Encryption**: TLS for data in transit, secure storage for tokens
+- **CORS Protection**: Configured trusted origins
+- **Rate Limiting**: Built-in protection against abuse
+
+## 📖 Tech Stack Details
+
+### Core Technologies
+- **[React Native](https://reactnative.dev/)**: Cross-platform mobile development
+- **[Expo](https://expo.dev/)**: Managed React Native workflow
+- **[TypeScript](https://www.typescriptlang.org/)**: Type-safe JavaScript
+- **[tRPC](https://trpc.io/)**: End-to-end typesafe APIs
+- **[Better Auth](https://www.better-auth.com/)**: Authentication library
+
+### Database & State
+- **[PostgreSQL](https://www.postgresql.org/)**: Relational database
+- **[Drizzle ORM](https://orm.drizzle.team/)**: Type-safe SQL toolkit
+- **[Zustand](https://docs.pmnd.rs/zustand)**: Lightweight state management
+- **[TanStack Query](https://tanstack.com/query)**: Server state management
+
+### UI & Styling
+- **[NativeWind](https://www.nativewind.dev/)**: TailwindCSS for React Native
+- **[shadcn/ui](https://ui.shadcn.com/)**: High-quality UI components
+- **[Expo Image](https://docs.expo.dev/versions/latest/sdk/image/)**: Optimized image component
+
+### Development Tools
+- **[Jest](https://jestjs.io/)**: Testing framework
+- **[ESLint](https://eslint.org/)**: Code linting
+- **[Prettier](https://prettier.io/)**: Code formatting
+
+## 📖 Documentation
+
+- **[Code Structure Guide](./docs/CODE_STRUCTURE.md)** - Detailed explanation of the project architecture
+- **[Google OAuth Setup](./docs/guides/GOOGLE_OAUTH_SETUP.md)** - Step-by-step OAuth configuration
+- **[Expo tRPC Best Practices](./docs/guides/EXPO_TRPC_BEST_PRACTICES.md)** - Best practices for using tRPC with Expo
+- **[Healthcare Example](./docs/examples/HEALTHCARE_PROJECT.md)** - Complete healthcare app implementation
 
 ## 🤝 Contributing
 
-### Current Focus: Phase 2 Development
-With Phase 1 (Authentication) complete, we're now ready to begin Phase 2 development focusing on:
-- Alert creation forms for operators
-- Real-time alert display systems
-- Push notification integration
-
-### How to Contribute
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/alert-creation`)
-3. Commit your changes (`git commit -m 'Add alert creation form'`)
-4. Push to the branch (`git push origin feature/alert-creation`)
-5. Open a Pull Request
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes and add tests
+4. Ensure all tests pass: `bun test`
+5. Lint your code: `bun run lint`
+6. Commit your changes: `git commit -m 'Add amazing feature'`
+7. Push to the branch: `git push origin feature/amazing-feature`
+8. Open a Pull Request
 
-### Development Setup
-Ensure you have the authentication system working first:
-1. Login/signup should work on all platforms
-2. Session persistence should be verified
-3. Role-based access should be functional
+## 💡 Example Projects
 
-See `tasks.md` for detailed development roadmap and next priorities.
+This starter template can be used to build various types of applications:
+
+- **SaaS Applications**: Multi-tenant apps with role-based access
+- **E-commerce Apps**: Product catalogs with user management
+- **Social Platforms**: User-generated content with authentication
+- **Business Tools**: Internal tools with employee access control
+- **Healthcare Apps**: Check `HEALTHCARE_PROJECT.md` for a complete healthcare implementation example
+
+## 🆘 Troubleshooting
+
+### Common Issues
+
+**Build Errors**:
+```bash
+# Clear cache and reinstall
+expo start --clear
+rm -rf node_modules && bun install
+```
+
+**Database Connection**:
+```bash
+# Check your DATABASE_URL
+echo $DATABASE_URL
+
+# Test database connection
+bun run db:studio
+```
+
+**OAuth Issues**:
+- Verify redirect URIs in Google Console
+- Check bundle identifier matches your configuration
+- Ensure environment variables are set correctly
+
+**crypto.randomUUID is not a function**:
+This error occurs when the Web Crypto API is not available. The project includes a polyfill in `lib/core/crypto.ts` that should handle this automatically. If you still encounter this error:
+- Ensure `react-native-get-random-values` is installed
+- The crypto polyfill is imported early in the auth client
+- Clear your Metro cache: `expo start --clear`
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
+## 🙏 Acknowledgments
 
-For issues, questions, or contributions, please open an issue in the GitHub repository.
+- [Expo team](https://expo.dev/) for the amazing React Native toolchain
+- [Better Auth](https://www.better-auth.com/) for secure authentication
+- [tRPC](https://trpc.io/) for type-safe APIs
+- [shadcn](https://ui.shadcn.com/) for beautiful UI components
+
+---
+
+**Ready to build something amazing? 🚀**
+
+This starter gives you everything you need to create a production-ready full-stack app. Start building your features and customize it to your needs!

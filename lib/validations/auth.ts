@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const UserRole = z.enum(["operator", "doctor", "nurse", "head_doctor"]);
+export const UserRole = z.enum(["admin", "manager", "user", "guest"]);
 export type UserRole = z.infer<typeof UserRole>;
 
 export const loginSchema = z.object({
@@ -11,7 +11,7 @@ export const loginSchema = z.object({
   password: z
     .string()
     .min(1, "Password is required")
-    .min(6, "Password must be at least 6 characters"),
+    .min(12, "Password must be at least 12 characters"),
 });
 
 export const signupSchema = z.object({
@@ -27,19 +27,19 @@ export const signupSchema = z.object({
   password: z
     .string()
     .min(1, "Password is required")
-    .min(6, "Password must be at least 6 characters")
+    .min(12, "Password must be at least 12 characters")
     .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      "Password must contain at least one uppercase letter, one lowercase letter, and one number"
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/,
+      "Password must contain uppercase, lowercase, number, and special character"
     ),
   confirmPassword: z
     .string()
     .min(1, "Please confirm your password"),
   role: UserRole,
-  hospitalId: z
+  organizationId: z
     .string()
     .optional()
-    .describe("Hospital/Organization ID for verification"),
+    .describe("Organization ID for verification"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"],
@@ -56,10 +56,10 @@ export const resetPasswordSchema = z.object({
   password: z
     .string()
     .min(1, "Password is required")
-    .min(6, "Password must be at least 6 characters")
+    .min(12, "Password must be at least 12 characters")
     .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      "Password must contain at least one uppercase letter, one lowercase letter, and one number"
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/,
+      "Password must contain uppercase, lowercase, number, and special character"
     ),
   confirmPassword: z
     .string()

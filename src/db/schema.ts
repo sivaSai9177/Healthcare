@@ -1,4 +1,4 @@
-import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -10,12 +10,26 @@ export const user = pgTable("user", {
   image: text("image"),
   role: text("role").notNull().default("doctor"), // operator, doctor, nurse, head_doctor
   hospitalId: text("hospital_id"),
+  
+  // Enhanced security fields for healthcare
+  phoneNumber: text("phone_number"),
+  licenseNumber: text("license_number"), // Medical license for doctors/nurses
+  department: text("department"), // Hospital department
+  isActive: boolean("is_active").notNull().default(true),
+  lastLoginAt: timestamp("last_login_at"),
+  passwordChangedAt: timestamp("password_changed_at"),
+  failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
+  lockedUntil: timestamp("locked_until"),
+  
+  // Audit trail
   createdAt: timestamp("created_at")
     .$defaultFn(() => /* @__PURE__ */ new Date())
     .notNull(),
   updatedAt: timestamp("updated_at")
     .$defaultFn(() => /* @__PURE__ */ new Date())
     .notNull(),
+  createdBy: text("created_by"),
+  updatedBy: text("updated_by"),
 });
 
 export const session = pgTable("session", {
@@ -60,4 +74,53 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at").$defaultFn(
     () => /* @__PURE__ */ new Date()
   ),
+});
+
+// Enhanced tables for healthcare compliance
+
+export const hospital = pgTable("hospital", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  address: text("address"),
+  phone: text("phone"),
+  email: text("email"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+});
+
+// Audit logging for HIPAA compliance
+export const auditLog = pgTable("audit_log", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").references(() => user.id),
+  action: text("action").notNull(), // signIn, signOut, updateUser, accessPatientData, etc.
+  entityType: text("entity_type"), // user, patient, alert, etc.
+  entityId: text("entity_id"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  metadata: text("metadata"), // JSON string with additional context
+  timestamp: timestamp("timestamp")
+    .$defaultFn(() => new Date())
+    .notNull(),
+});
+
+// Two-factor authentication tokens
+export const twoFactorToken = pgTable("two_factor_token", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  secret: text("secret").notNull(),
+  backupCodes: text("backup_codes"), // JSON array of backup codes
+  isVerified: boolean("is_verified").notNull().default(false),
+  createdAt: timestamp("created_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
 });

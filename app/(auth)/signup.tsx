@@ -1,10 +1,12 @@
 import React from "react";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Link, useRouter } from "expo-router";
+import { Link } from "expo-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/hooks/useAuth";
+import { toAppUser } from "@/lib/stores/auth-store";
+import { api } from "@/lib/trpc";
 import { signupSchema, type SignupInput } from "@/lib/validations/auth";
 import { Button } from "@/components/shadcn/ui/button";
 import { Input } from "@/components/shadcn/ui/input";
@@ -18,56 +20,102 @@ import {
   CardTitle,
 } from "@/components/shadcn/ui/card";
 import { FormField, FormItem, FormMessage } from "@/components/shadcn/ui/form";
-import { showErrorAlert, showSuccessAlert } from "@/lib/alert";
+import { showErrorAlert, showSuccessAlert } from "@/lib/core/alert";
+import { generateUUID } from "@/lib/core/crypto";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 import "@/app/global.css";
 
 const roleOptions = [
-  { value: "operator", label: "Operator" },
-  { value: "doctor", label: "Doctor" },
-  { value: "nurse", label: "Registered Nurse" },
-  { value: "head_doctor", label: "Head of Doctor" },
+  { value: "admin", label: "Administrator" },
+  { value: "manager", label: "Manager" },
+  { value: "user", label: "User" },
+  { value: "guest", label: "Guest" },
 ];
 
 export default function SignupScreen() {
-  const router = useRouter();
-  const { signUp } = useAuth();
-  const [isLoading, setIsLoading] = React.useState(false);
+  const { updateAuth, setLoading, setError } = useAuth();
+
+  // Use tRPC mutation for sign up
+  const signUpMutation = api.auth.signUp.useMutation({
+    onSuccess: (data) => {
+      console.log("[SIGNUP] Sign up successful via tRPC:", data);
+      if (data.user) {
+        // Convert user to AppUser with form values as fallback
+        const formRole = form.getValues('role') as 'admin' | 'manager' | 'user' | 'guest';
+        const appUser = toAppUser(data.user, formRole || 'user');
+        // Ensure organizationId from form is preserved if not in user data
+        if (!appUser.organizationId && form.getValues('organizationId')) {
+          appUser.organizationId = form.getValues('organizationId');
+        }
+
+        // Create a session for the new user
+        const session = {
+          id: generateUUID(),
+          token: 'new-user-session', // This would come from Better Auth in a real setup
+          userId: appUser.id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        };
+        updateAuth(appUser, session);
+        showSuccessAlert("Account Created", "Welcome to the app!");
+      }
+    },
+    onError: (error) => {
+      console.error("[SIGNUP] Sign up failed:", error);
+      setError(error.message);
+      showErrorAlert("Signup Failed", error.message || "Failed to create account. Please try again.");
+    },
+    onSettled: () => {
+      setLoading(false);
+    },
+  });
 
   const form = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
+    mode: "onChange", // Enable real-time validation
+    reValidateMode: "onChange", // Re-validate on change
     defaultValues: {
       name: "",
       email: "",
       password: "",
       confirmPassword: "",
-      role: "doctor",
-      hospitalId: "",
+      role: "user",
+      organizationId: "",
     },
   });
 
   const onSubmit = async (data: SignupInput) => {
-    setIsLoading(true);
+    console.log("[SIGNUP] Starting signup attempt for:", data.email);
+    
+    // Check if form has validation errors before submitting
+    if (!form.formState.isValid) {
+      console.log("[SIGNUP] Form has validation errors, preventing submission");
+      showErrorAlert("Invalid Form", "Please fix the validation errors before submitting.");
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
     try {
-      await signUp({
+      await signUpMutation.mutateAsync({
         email: data.email,
         password: data.password,
         name: data.name,
         role: data.role,
-        hospitalId: data.hospitalId || undefined,
+        organizationId: data.organizationId || undefined,
       });
       
-      showSuccessAlert(
-        "Account Created",
-        "Your account has been created and you're now logged in!"
-      );
-      // Navigation will be handled automatically by the auth context
-      // Don't manually navigate - let AuthProvider handle it
+      console.log("[SIGNUP] Signup process completed");
+      // Navigation will be handled by Expo Router's protected routes
+      
     } catch (error: any) {
-      console.log("Signup error:", error);
-      showErrorAlert("Signup Failed", error.message || "Failed to create account");
-    } finally {
-      setIsLoading(false);
+      console.error("[SIGNUP] Signup error:", error);
+      // Error handling is done in the mutation's onError
+      // Clear the form password on error
+      form.setValue("password", "");
+      form.setValue("confirmPassword", "");
     }
   };
 
@@ -81,7 +129,7 @@ export default function SignupScreen() {
               Create an account
             </CardTitle>
             <CardDescription className="text-center">
-              Join Hospital Alert System
+              Join our platform
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -93,9 +141,11 @@ export default function SignupScreen() {
                   <FormItem>
                     <Input
                       label="Full Name"
-                      placeholder="Dr. John Doe"
+                      placeholder="John Doe"
                       autoComplete="name"
                       error={form.formState.errors.name?.message}
+                      success={!form.formState.errors.name && field.value && field.value.length >= 2}
+                      hint="Enter your full name"
                       {...field}
                       onChangeText={field.onChange}
                     />
@@ -111,11 +161,13 @@ export default function SignupScreen() {
                   <FormItem>
                     <Input
                       label="Email"
-                      placeholder="doctor@hospital.com"
+                      placeholder="user@example.com"
                       autoCapitalize="none"
                       autoComplete="email"
                       keyboardType="email-address"
                       error={form.formState.errors.email?.message}
+                      success={!form.formState.errors.email && field.value && field.value.includes('@')}
+                      hint="Use your email address"
                       {...field}
                       onChangeText={field.onChange}
                     />
@@ -144,14 +196,14 @@ export default function SignupScreen() {
 
               <FormField
                 control={form.control}
-                name="hospitalId"
+                name="organizationId"
                 render={({ field }) => (
                   <FormItem>
                     <Input
-                      label="Hospital ID (Optional)"
-                      placeholder="HOSP-12345"
+                      label="Organization ID (Optional)"
+                      placeholder="ORG-12345"
                       autoCapitalize="characters"
-                      error={form.formState.errors.hospitalId?.message}
+                      error={form.formState.errors.organizationId?.message}
                       {...field}
                       onChangeText={field.onChange}
                     />
@@ -163,48 +215,90 @@ export default function SignupScreen() {
               <FormField
                 control={form.control}
                 name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <Input
-                      label="Password"
-                      placeholder="••••••••"
-                      secureTextEntry
-                      autoComplete="new-password"
-                      error={form.formState.errors.password?.message}
-                      {...field}
-                      onChangeText={field.onChange}
-                    />
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const hasMinLength = field.value && field.value.length >= 12;
+                  const hasUppercase = field.value && /[A-Z]/.test(field.value);
+                  const hasLowercase = field.value && /[a-z]/.test(field.value);
+                  const hasNumber = field.value && /\d/.test(field.value);
+                  const hasSpecial = field.value && /[@$!%*?&]/.test(field.value);
+                  const isValid = hasMinLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
+                  
+                  return (
+                    <FormItem>
+                      <Input
+                        label="Password"
+                        placeholder="••••••••••••"
+                        secureTextEntry
+                        autoComplete="new-password"
+                        error={form.formState.errors.password?.message}
+                        success={!form.formState.errors.password && isValid}
+                        hint="12+ chars with uppercase, lowercase, number & special character"
+                        {...field}
+                        onChangeText={field.onChange}
+                      />
+                      
+                      {/* Password strength indicators */}
+                      {field.value && (
+                        <View className="mt-2 space-y-1">
+                          <View className="flex-row flex-wrap gap-2">
+                            <Text className={`text-xs px-2 py-1 rounded ${hasMinLength ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {hasMinLength ? '✓' : '✗'} 12+ characters
+                            </Text>
+                            <Text className={`text-xs px-2 py-1 rounded ${hasUppercase ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {hasUppercase ? '✓' : '✗'} Uppercase
+                            </Text>
+                            <Text className={`text-xs px-2 py-1 rounded ${hasLowercase ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {hasLowercase ? '✓' : '✗'} Lowercase
+                            </Text>
+                            <Text className={`text-xs px-2 py-1 rounded ${hasNumber ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {hasNumber ? '✓' : '✗'} Number
+                            </Text>
+                            <Text className={`text-xs px-2 py-1 rounded ${hasSpecial ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {hasSpecial ? '✓' : '✗'} Special (@$!%*?&)
+                            </Text>
+                          </View>
+                        </View>
+                      )}
+                      
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               <FormField
                 control={form.control}
                 name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <Input
-                      label="Confirm Password"
-                      placeholder="••••••••"
-                      secureTextEntry
-                      autoComplete="new-password"
-                      error={form.formState.errors.confirmPassword?.message}
-                      {...field}
-                      onChangeText={field.onChange}
-                    />
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const passwordValue = form.watch('password');
+                  const passwordsMatch = field.value && passwordValue && field.value === passwordValue;
+                  
+                  return (
+                    <FormItem>
+                      <Input
+                        label="Confirm Password"
+                        placeholder="••••••••••••"
+                        secureTextEntry
+                        autoComplete="new-password"
+                        error={form.formState.errors.confirmPassword?.message}
+                        success={!form.formState.errors.confirmPassword && passwordsMatch}
+                        hint="Re-enter your password to confirm"
+                        {...field}
+                        onChangeText={field.onChange}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               <Button
                 variant="default"
-                disabled={isLoading}
+                disabled={signUpMutation.isPending || !form.formState.isValid}
                 className="w-full"
                 onPress={() => form.handleSubmit(onSubmit)()}
               >
-                {isLoading ? "Creating account..." : "Create account"}
+                {signUpMutation.isPending ? "Creating account..." : "Create account"}
               </Button>
 
               <View style={{ alignItems: 'center', marginVertical: 16 }}>

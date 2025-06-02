@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, ScrollView, Alert } from "react-native";
+import { View, Text, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useForm } from "react-hook-form";
@@ -16,9 +16,9 @@ import {
   CardTitle,
 } from "@/components/shadcn/ui/card";
 import { FormField, FormItem, FormMessage } from "@/components/shadcn/ui/form";
-import { showErrorAlert, showSuccessAlert } from "@/lib/alert";
+import { showErrorAlert, showSuccessAlert } from "@/lib/core/alert";
 import { useAuth } from "@/hooks/useAuth";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth/auth-client";
 import "@/app/global.css";
 
 const profileSchema = z.object({

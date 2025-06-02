@@ -11,24 +11,56 @@ import {
 import { FormField, FormItem, FormMessage } from "@/components/shadcn/ui/form";
 import { Input } from "@/components/shadcn/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { showErrorAlert } from "@/lib/alert";
+import { toAppUser } from "@/lib/stores/auth-store";
+import { showErrorAlert } from "@/lib/core/alert";
+import { generateUUID } from "@/lib/core/crypto";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
+import { api } from "@/lib/trpc";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, useRouter } from "expo-router";
+import { Link } from "expo-router";
 import React from "react";
 import { useForm } from "react-hook-form";
-import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 export default function LoginScreen() {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = React.useState(false);
+  const { updateAuth, setLoading, setError } = useAuth();
+  
+  // Use tRPC mutation for sign in
+  const signInMutation = api.auth.signIn.useMutation({
+    onSuccess: (data) => {
+      console.log("[LOGIN] Sign in successful via tRPC:", data);
+      if (data.user && data.token) {
+        // Convert user to AppUser with safe defaults
+        const appUser = toAppUser(data.user, 'user');
 
-  const { signIn } = useAuth();
+        // Update auth store with user and session
+        const session = {
+          id: generateUUID(),
+          token: data.token,
+          userId: appUser.id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        };
+        updateAuth(appUser, session);
+      }
+    },
+    onError: (error) => {
+      console.error("[LOGIN] Sign in failed:", error);
+      setError(error.message);
+      showErrorAlert("Login Failed", error.message || "Failed to sign in. Please check your credentials.");
+    },
+    onSettled: () => {
+      setLoading(false);
+    },
+  });
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
+    mode: "onChange", // Enable real-time validation
+    reValidateMode: "onChange", // Re-validate on change
     defaultValues: {
       email: "",
       password: "",
@@ -36,21 +68,32 @@ export default function LoginScreen() {
   });
 
   const onSubmit = async (data: LoginInput) => {
-    setIsLoading(true);
     console.log("[LOGIN] Starting login attempt for:", data.email);
-    console.log("[LOGIN] Platform.OS:", Platform.OS);
+    
+    // Check if form has validation errors before submitting
+    if (!form.formState.isValid) {
+      console.log("[LOGIN] Form has validation errors, preventing submission");
+      showErrorAlert("Invalid Form", "Please fix the validation errors before submitting.");
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
     
     try {
-      await signIn(data.email, data.password);
-      console.log("Login successful");
-      // Don't manually navigate - let AuthProvider handle it
-      // The useAuth context will trigger navigation in auth layout
+      await signInMutation.mutateAsync({
+        email: data.email,
+        password: data.password,
+      });
+      console.log("[LOGIN] Login process completed");
+      
+      // Navigation will be handled by Expo Router's protected routes
+      
     } catch (error: any) {
-      console.log("Login error:", error);
-      const errorMessage = error?.message || "Failed to sign in";
-      showErrorAlert("Login Failed", errorMessage);
-    } finally {
-      setIsLoading(false);
+      console.error("[LOGIN] Login error:", error);
+      // Error handling is done in the mutation's onError
+      // Clear the form password on error
+      form.setValue("password", "");
     }
   };
 
@@ -64,7 +107,7 @@ export default function LoginScreen() {
               Welcome back
             </CardTitle>
             <CardDescription className="text-center">
-              Sign in to your Hospital Alert account
+              Sign in to your account
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -76,7 +119,7 @@ export default function LoginScreen() {
                   <FormItem>
                     <Input
                       label="Email"
-                      placeholder="doctor@hospital.com"
+                      placeholder="user@example.com"
                       autoCapitalize="none"
                       autoComplete="email"
                       keyboardType="email-address"
@@ -120,11 +163,11 @@ export default function LoginScreen() {
 
               <Button
                 variant="default"
-                disabled={isLoading}
+                disabled={signInMutation.isPending || !form.formState.isValid}
                 className="w-full"
                 onPress={() => form.handleSubmit(onSubmit)()}
               >
-                {isLoading ? "Signing in..." : "Sign in"}
+                {signInMutation.isPending ? "Signing in..." : "Sign in"}
               </Button>
 
               <View style={{ alignItems: 'center', marginVertical: 16 }}>

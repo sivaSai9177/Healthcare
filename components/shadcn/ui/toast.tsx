@@ -2,7 +2,7 @@ import * as React from "react";
 import { View, Text, Pressable, Platform } from "react-native";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react-native";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/core/utils";
 
 const toastVariants = cva(
   "flex-row items-start justify-between p-4 rounded-lg shadow-lg mb-2 mx-4 max-w-sm w-full border",
@@ -184,13 +184,13 @@ export function ToastProvider({ children, className }: ToastProviderProps) {
           Platform.OS === "web" && "fixed",
           className
         )}
-        pointerEvents="box-none"
+        style={{ pointerEvents: "box-none" }}
       >
         {toasts.map((toastProps) => (
           <View 
             key={toastProps.id} 
             className="pointer-events-auto"
-            pointerEvents="auto"
+            style={{ pointerEvents: "auto" }}
           >
             <Toast {...toastProps} />
           </View>

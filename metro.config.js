@@ -10,6 +10,18 @@ config.resolver.sourceExts.push("sql");
 config.resolver.assetExts.push("wasm");
 config.resolver.unstable_enablePackageExports = true;
 
+// Suppress Reanimated warnings in development
+if (process.env.NODE_ENV === 'development') {
+  config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
+  config.transformer = {
+    ...config.transformer,
+    minifierConfig: {
+      ...config.transformer.minifierConfig,
+      keep_fnames: true,
+    },
+  };
+}
+
 // CORS is handled by Expo CLI, not Metro config 
 
 // Export the config with NativeWind
