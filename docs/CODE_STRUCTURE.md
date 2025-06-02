@@ -90,25 +90,34 @@ lib/
 │   └── utils.ts         # General utilities (cn, etc.)
 ├── stores/              # State management
 │   └── auth-store.ts    # Zustand auth store
-├── validations/         # Validation schemas
-│   └── auth.ts          # Auth-related Zod schemas
+├── validations/         # Comprehensive validation schemas
+│   ├── common.ts        # Shared validation utilities and schemas
+│   ├── auth.ts          # Enhanced auth-related Zod schemas
+│   └── index.ts         # Barrel exports for all validations
 └── trpc.tsx             # tRPC client configuration
 ```
 
 ### 🗄️ `/src` - Backend Source Code
 
-Server-side code for API and database operations.
+Server-side code for API and database operations with enterprise security features.
 
 ```
 src/
 ├── db/                   # Database layer
 │   ├── index.ts         # Database connection setup
-│   └── schema.ts        # Drizzle ORM schema definitions
+│   └── schema.ts        # Enhanced Drizzle ORM schema with audit tables
 └── server/              # Server logic
     ├── routers/         # tRPC routers
-    │   ├── auth.ts      # Authentication procedures
+    │   ├── auth.ts      # Authentication procedures with audit logging
     │   └── index.ts     # Root router aggregation
-    └── trpc.ts          # tRPC server configuration
+    ├── services/        # Business logic services
+    │   ├── audit.ts     # Comprehensive audit trail service
+    │   ├── session.ts   # Advanced session management
+    │   ├── encryption.ts # Data encryption service (AES-256-GCM)
+    │   └── access-control.ts # RBAC and permissions system
+    ├── middleware/      # Custom middleware
+    │   └── audit.ts     # Automatic audit logging middleware
+    └── trpc.ts          # tRPC setup with security middleware
 ```
 
 ### 🏷️ `/types` - TypeScript Type Definitions
@@ -239,12 +248,16 @@ import type { AppUser, AuthResponse } from '@/types'
 - Platform-specific implementations where needed
 - Responsive design patterns
 
-### Security
+### Enterprise Security
 
-- Secure token storage (Expo SecureStore/localStorage)
-- CORS protection for API endpoints
-- Role-based access control (RBAC)
-- Input validation with Zod
+- **Audit Trail**: Complete business-compliant audit logging with tamper detection
+- **Session Security**: Advanced session management with device tracking and anomaly detection
+- **Data Encryption**: AES-256-GCM encryption for sensitive data at rest and in transit
+- **Access Control**: Comprehensive RBAC system with granular permissions
+- **Security Monitoring**: Real-time threat detection and automated responses
+- **Compliance**: Built for business compliance with configurable retention policies
+- **Secure Storage**: Enhanced token storage with encryption (Expo SecureStore/localStorage)
+- **Input Validation**: Comprehensive Zod v4 schemas with runtime type checking
 
 ### Developer Experience
 

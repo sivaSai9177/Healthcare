@@ -12,12 +12,14 @@ import '@/types/auth'; // Import our type extensions
 export interface AppUser extends User {
   role: 'admin' | 'manager' | 'user' | 'guest';
   organizationId?: string;
+  needsProfileCompletion?: boolean;
 }
 
 // Helper type to ensure user objects can be converted to AppUser
 export type UserToAppUser<T extends User> = T & {
   role: 'admin' | 'manager' | 'user' | 'guest';
   organizationId?: string;
+  needsProfileCompletion?: boolean;
 };
 
 // Helper function to safely convert any user object to AppUser
@@ -26,6 +28,7 @@ export function toAppUser(user: any, fallbackRole: 'admin' | 'manager' | 'user' 
     ...user,
     role: user.role || fallbackRole,
     organizationId: user.organizationId || undefined,
+    needsProfileCompletion: user.needsProfileCompletion || false,
   } as AppUser;
 }
 

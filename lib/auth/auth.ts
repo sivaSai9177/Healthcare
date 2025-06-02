@@ -106,6 +106,11 @@ export const auth = betterAuth({
         type: "string",
         required: false,
       },
+      needsProfileCompletion: {
+        type: "boolean",
+        required: true,
+        defaultValue: false,
+      },
     },
   },
   emailAndPassword: {

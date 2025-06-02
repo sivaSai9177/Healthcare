@@ -146,8 +146,9 @@ export async function POST(request: Request) {
         email: googleUser.email,
         name: googleUser.name,
         image: googleUser.picture,
-        role: 'doctor', // Default role
+        role: 'user', // Default role
         emailVerified: true, // OAuth emails are pre-verified
+        needsProfileCompletion: true, // New users need to complete profile
         createdAt: new Date(),
         updatedAt: new Date(),
       };

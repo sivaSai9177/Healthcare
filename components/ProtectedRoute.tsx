@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import { ActivityIndicator, View, Alert } from "react-native";
 
-type UserRole = "operator" | "doctor" | "nurse" | "head_doctor";
+type UserRole = "admin" | "manager" | "user" | "guest";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -24,11 +24,20 @@ export function ProtectedRoute({
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && user && requiredRoles) {
-      const hasAccess = requiredRoles.includes(user.role);
-      if (!hasAccess) {
-        Alert.alert("Access Denied", "You don't have permission to access this page");
-        router.replace(redirectTo as any);
+    if (!isLoading && user) {
+      // Check if user needs to complete profile
+      if (user.needsProfileCompletion) {
+        router.replace("/(auth)/complete-profile");
+        return;
+      }
+      
+      // Check role-based access
+      if (requiredRoles) {
+        const hasAccess = requiredRoles.includes(user.role);
+        if (!hasAccess) {
+          Alert.alert("Access Denied", "You don't have permission to access this page");
+          router.replace(redirectTo as any);
+        }
       }
     }
   }, [user, isLoading, requiredRoles, router, redirectTo]);

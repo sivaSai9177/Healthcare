@@ -51,6 +51,64 @@ const loggingMiddleware = t.middleware(async ({ path, type, next }) => {
   return result;
 });
 
+// Audit middleware for compliance and security
+const auditMiddleware = t.middleware(async ({ path, type, ctx, next }) => {
+  const start = Date.now();
+  
+  try {
+    const result = await next();
+    const durationMs = Date.now() - start;
+    
+    // Import audit service dynamically to avoid circular dependencies
+    const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('./services/audit');
+    const context = auditHelpers.extractContext(ctx.req, ctx.session);
+    
+    // Log successful API access
+    await auditService.log({
+      action: AuditAction.API_ACCESS,
+      outcome: AuditOutcome.SUCCESS,
+      entityType: 'api_endpoint',
+      entityId: path,
+      description: `${type.toUpperCase()} ${path} completed successfully`,
+      metadata: {
+        type,
+        path,
+        durationMs,
+        resultSize: typeof result === 'object' ? JSON.stringify(result).length : 0,
+      },
+      severity: 'INFO',
+    }, context);
+    
+    return result;
+  } catch (error) {
+    const durationMs = Date.now() - start;
+    
+    // Import audit service dynamically
+    const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('./services/audit');
+    const context = auditHelpers.extractContext(ctx.req, ctx.session);
+    
+    // Log failed API access
+    await auditService.log({
+      action: AuditAction.API_ACCESS,
+      outcome: AuditOutcome.FAILURE,
+      entityType: 'api_endpoint',
+      entityId: path,
+      description: `${type.toUpperCase()} ${path} failed`,
+      metadata: {
+        type,
+        path,
+        durationMs,
+        error: error instanceof Error ? error.message : String(error),
+        errorCode: error instanceof TRPCError ? error.code : 'UNKNOWN',
+      },
+      severity: 'WARNING',
+      alertGenerated: error instanceof TRPCError && error.code === 'UNAUTHORIZED',
+    }, context);
+    
+    throw error;
+  }
+});
+
 // Rate limiting middleware (basic implementation)
 const rateLimitMiddleware = t.middleware(async ({ ctx, next }) => {
   // In production, implement proper rate limiting with Redis
@@ -61,6 +119,7 @@ const rateLimitMiddleware = t.middleware(async ({ ctx, next }) => {
 // Protected procedure that requires authentication
 export const protectedProcedure = t.procedure
   .use(loggingMiddleware)
+  .use(auditMiddleware)
   .use(async ({ ctx, next }) => {
     if (!ctx.session) {
       throw new TRPCError({ 
@@ -80,7 +139,7 @@ export const protectedProcedure = t.procedure
 // Role-based procedure factory
 export const createRoleProcedure = (allowedRoles: string[]) => {
   return protectedProcedure.use(async ({ ctx, next }) => {
-    const userRole = ctx.session.user.role;
+    const userRole = (ctx.session.user as any).role || 'user';
     
     if (!allowedRoles.includes(userRole)) {
       throw new TRPCError({
@@ -93,8 +152,10 @@ export const createRoleProcedure = (allowedRoles: string[]) => {
   });
 };
 
-// Public procedure with logging
-export const publicProcedureWithLogging = t.procedure.use(loggingMiddleware);
+// Public procedure with logging and audit
+export const publicProcedureWithLogging = t.procedure
+  .use(loggingMiddleware)
+  .use(auditMiddleware);
 
 // Admin-only procedure
-export const adminProcedure = createRoleProcedure(['admin', 'head_doctor']);
+export const adminProcedure = createRoleProcedure(['admin']);

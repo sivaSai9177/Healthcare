@@ -1,6 +1,5 @@
 import React from "react";
-import { Platform, Text, View, ActivityIndicator } from "react-native";
-import { Button } from "@/components/shadcn/ui/button";
+import { Platform, Text, View, ActivityIndicator, Pressable } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
 import { showErrorAlert, showSuccessAlert } from "@/lib/core/alert";
@@ -199,22 +198,40 @@ export function GoogleSignInButton() {
   };
 
   return (
-    <Button
-      variant="outline"
-      className="w-full"
-      onPress={handleGoogleSignIn}
+    <Pressable
       disabled={isLoading || (Platform.OS !== 'web' && !request)}
+      onPress={handleGoogleSignIn}
+      style={[
+        {
+          backgroundColor: '#1f2937',
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          borderRadius: 6,
+          opacity: (isLoading || (Platform.OS !== 'web' && !request)) ? 0.5 : 1,
+          borderWidth: 1,
+          borderColor: '#1f2937',
+        }
+      ]}
+      className="w-full h-12 flex-row items-center justify-center"
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-        {isLoading ? (
-          <ActivityIndicator size="small" />
-        ) : (
-          <>
-            {/* <Text style={{ fontSize: 18 }}>G</Text> */}
-            <Text style={{ color: '#333333' }}>Continue with Google</Text>
-          </>
-        )}
-      </View>
-    </Button>
+      {isLoading ? (
+        <ActivityIndicator size="small" color="white" />
+      ) : (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {/* Google G Icon */}
+          <Text style={{ fontSize: 18, fontWeight: '600' }}>
+            <Text style={{ color: '#4285F4' }}>G</Text>
+            <Text style={{ color: '#EA4335' }}>o</Text>
+            <Text style={{ color: '#FBBC04' }}>o</Text>
+            <Text style={{ color: '#4285F4' }}>g</Text>
+            <Text style={{ color: '#34A853' }}>l</Text>
+            <Text style={{ color: '#EA4335' }}>e</Text>
+          </Text>
+          <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
+            Continue with Google
+          </Text>
+        </View>
+      )}
+    </Pressable>
   );
 }

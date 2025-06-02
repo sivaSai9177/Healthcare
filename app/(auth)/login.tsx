@@ -1,5 +1,4 @@
 import "@/app/global.css";
-import { Button } from "@/components/shadcn/ui/button";
 import {
   Card,
   CardContent,
@@ -20,7 +19,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Link } from "expo-router";
 import React from "react";
 import { useForm } from "react-hook-form";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View, Pressable, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
@@ -99,8 +98,12 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+      <ScrollView 
+        style={{ flex: 1 }} 
+        contentContainerStyle={{ paddingBottom: 40, paddingTop: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ alignItems: 'center', padding: 16 }}>
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">
@@ -161,14 +164,27 @@ export default function LoginScreen() {
                 </Link>
               </View>
 
-              <Button
-                variant="default"
+              <Pressable
                 disabled={signInMutation.isPending || !form.formState.isValid}
-                className="w-full"
                 onPress={() => form.handleSubmit(onSubmit)()}
+                style={[
+                  {
+                    backgroundColor: '#1f2937',
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 6,
+                    opacity: (signInMutation.isPending || !form.formState.isValid) ? 0.5 : 1,
+                  }
+                ]}
+                className="w-full h-12 flex-row items-center justify-center"
               >
-                {signInMutation.isPending ? "Signing in..." : "Sign in"}
-              </Button>
+                {signInMutation.isPending && (
+                  <ActivityIndicator size="small" color="white" style={{ marginRight: 8 }} />
+                )}
+                <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
+                  {signInMutation.isPending ? "Signing in..." : "Sign in"}
+                </Text>
+              </Pressable>
 
               <View style={{ alignItems: 'center', marginVertical: 16 }}>
                 <Text style={{ color: '#666666', fontSize: 14 }}>OR</Text>
