@@ -57,6 +57,7 @@ interface AuthActions {
   
   // Internal state management
   updateAuth: (user: AppUser | null, session: Session | null) => void;
+  updateUserData: (userData: Partial<AppUser>) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   updateActivity: () => void;
@@ -151,11 +152,44 @@ export const useAuthStore = create<AuthStore>()(
 
         // Internal state management
         updateAuth: (user, session) => {
-          console.log('[AUTH STORE] Updating auth state:', { user, session });
+          const currentState = get();
+          
+          // Prevent unnecessary updates if data is the same
+          if (currentState.user?.id === user?.id && 
+              currentState.isAuthenticated === (!!user && !!session)) {
+            console.log('[AUTH STORE] No changes detected, skipping update');
+            return;
+          }
+          
+          console.log('[AUTH STORE] Updating auth state:', { 
+            userId: user?.id, 
+            isAuth: !!user && !!session 
+          });
+          
           set({
             user,
             session,
             isAuthenticated: !!user && !!session,
+            lastActivity: new Date(),
+            error: null, // Clear any existing errors
+          });
+        },
+
+        updateUserData: (userData) => {
+          const currentState = get();
+          
+          if (!currentState.user) {
+            console.warn('[AUTH STORE] Cannot update user data - no user logged in');
+            return;
+          }
+          
+          console.log('[AUTH STORE] Updating user data:', userData);
+          
+          set({
+            user: {
+              ...currentState.user,
+              ...userData,
+            },
             lastActivity: new Date(),
           });
         },
@@ -172,15 +206,17 @@ export const useAuthStore = create<AuthStore>()(
         checkSession: async () => {
           // This will be called by components after they check session via tRPC
           const state = get();
-          console.log('[AUTH STORE] Checking session, current:', {
-            user: state.user,
-            session: state.session,
+          console.log('[AUTH STORE] Checking session, current auth status:', {
+            hasUser: !!state.user,
             isAuthenticated: state.isAuthenticated
           });
           
           // In a full implementation, this would call the auth API to validate the session
-          // For now, we'll just update the activity timestamp
-          set({ lastActivity: new Date() });
+          // For now, we'll just update the activity timestamp without triggering other updates
+          const now = new Date();
+          if (state.lastActivity.getTime() < now.getTime() - 30000) { // Only update if 30s passed
+            set({ lastActivity: now });
+          }
         },
 
         // Permission checking
@@ -233,10 +269,19 @@ export const useAuthStore = create<AuthStore>()(
   )
 );
 
-// Subscribe to auth changes for side effects
+// Subscribe to auth changes for side effects with throttling
+let lastAuthStateChange = 0;
 useAuthStore.subscribe(
   (state) => state.isAuthenticated,
   (isAuthenticated, previousIsAuthenticated) => {
+    const now = Date.now();
+    
+    // Throttle subscription calls to prevent infinite loops
+    if (now - lastAuthStateChange < 100) {
+      return;
+    }
+    lastAuthStateChange = now;
+    
     if (previousIsAuthenticated && !isAuthenticated) {
       // User logged out - clear any sensitive data
       console.log('[AUTH STORE] User logged out, clearing sensitive data');
@@ -262,6 +307,7 @@ export const useAuth = () => {
     setAuthenticated: store.setAuthenticated,
     clearAuth: store.clearAuth,
     updateAuth: store.updateAuth,
+    updateUserData: store.updateUserData,
     setLoading: store.setLoading,
     setError: store.setError,
     updateActivity: store.updateActivity,

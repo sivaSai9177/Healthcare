@@ -19,9 +19,12 @@ function createQueryClient() {
         staleTime: Platform.OS === 'web' ? 5 * 1000 : 30 * 1000,
         // Disable refetch on window focus for mobile apps
         refetchOnWindowFocus: Platform.OS === 'web',
-        // Background refetch for critical data
-        refetchOnMount: true,
+        // Background refetch for critical data - but prevent excessive refetching
+        refetchOnMount: 'always',
         refetchOnReconnect: true,
+        // Prevent infinite subscriptions
+        refetchInterval: false,
+        refetchIntervalInBackground: false,
         // Retry strategy
         retry: (failureCount, error) => {
           // Don't retry on auth errors
@@ -35,6 +38,8 @@ function createQueryClient() {
           return failureCount < (Platform.OS === 'web' ? 3 : 2);
         },
         retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+        // Prevent queries from staying enabled indefinitely
+        gcTime: 5 * 60 * 1000, // 5 minutes
       },
       mutations: {
         retry: false,
@@ -48,11 +53,10 @@ function createQueryClient() {
           console.log('[TRPC] Mutation success');
           // Add global success actions here
         },
+        // Prevent mutation caching issues
+        gcTime: 0,
       },
     },
-    // Enable query deduplication
-    queryCache: undefined,
-    mutationCache: undefined,
   });
 }
 
@@ -133,13 +137,30 @@ export function useOptimisticMutation<TOutput>(
   });
 }
 
-// Hook for batch invalidation
+// Hook for batch invalidation - with throttling to prevent infinite loops
+let lastInvalidation = 0;
 export function useBatchInvalidation() {
   const utils = api.useUtils();
   
   return {
-    invalidateAll: () => utils.invalidate(),
-    invalidateAuth: () => utils.auth.invalidate(),
+    invalidateAll: () => {
+      const now = Date.now();
+      if (now - lastInvalidation < 1000) { // Throttle to once per second
+        console.warn('[TRPC] Invalidation throttled to prevent infinite loops');
+        return;
+      }
+      lastInvalidation = now;
+      utils.invalidate();
+    },
+    invalidateAuth: () => {
+      const now = Date.now();
+      if (now - lastInvalidation < 1000) {
+        console.warn('[TRPC] Auth invalidation throttled to prevent infinite loops');
+        return;
+      }
+      lastInvalidation = now;
+      utils.auth.invalidate();
+    },
     // Add more specific invalidations as needed
   };
 }

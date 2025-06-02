@@ -38,3 +38,10 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 app-example
+
+# Local credentials
+credentials/
+credentials.json
+*.jks
+*.p12
+*.mobileprovision

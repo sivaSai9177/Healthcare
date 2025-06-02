@@ -2,34 +2,43 @@ import React from "react";
 import { Platform, Text, View, ActivityIndicator, Pressable } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
-import { showErrorAlert, showSuccessAlert } from "@/lib/core/alert";
+import { makeRedirectUri } from "expo-auth-session";
+import { showErrorAlert } from "@/lib/core/alert";
 import { getApiUrl } from "@/lib/core/config";
+import { useRouter } from "expo-router";
+import { useAuthStore } from "@/lib/stores/auth-store";
+import { createAuthLogger } from "@/lib/core/debug";
 
 // Ensure web browser is ready for auth
 WebBrowser.maybeCompleteAuthSession();
 
+const authLogger = createAuthLogger();
+
 export function GoogleSignInButton() {
   const [isLoading, setIsLoading] = React.useState(false);
+  const router = useRouter();
+  const { updateAuth } = useAuthStore();
 
   // Create discovery document for Google
   const discovery = AuthSession.useAutoDiscovery('https://accounts.google.com');
 
-  // Create redirect URI - use Expo's auth proxy for mobile, localhost for web
+  // Create redirect URI - use direct app scheme for mobile, localhost for web
   const redirectUri = React.useMemo(() => {
     if (Platform.OS === 'web') {
       // Web: use localhost
       const apiUrl = getApiUrl();
       return `${apiUrl}/api/auth/callback/google`;
     } else {
-      // Mobile: use Expo's auth proxy service 
-      // This generates: https://auth.expo.io/@anonymous/my-expo/auth/callback/google
-      return AuthSession.makeRedirectUri({
-        preferLocalhost: false, // Forces use of Expo proxy instead of localhost
-        isTripleSlashed: false // Set to false for proper proxy URL generation
+      // Mobile: use app's scheme directly (no proxy)
+      return AuthSession.makeRedirectUri({ 
+        useProxy: false,
+        scheme: 'expo-starter', // Match the scheme in app.json
+        path: 'auth-callback'
       });
     }
   }, []);
 
+  authLogger.logOAuthStart('google');
   console.log('[GoogleSignInButton] Redirect URI:', redirectUri);
 
   // Create auth request for mobile - use single client ID for all platforms
@@ -81,18 +90,32 @@ export function GoogleSignInButton() {
       const result = await callbackResponse.json();
       
       if (result.success) {
-        console.log('[GoogleSignInButton] OAuth callback successful');
-        showSuccessAlert("Welcome!", "Successfully signed in with Google");
+        authLogger.logOAuthCallback('google', true);
         
-        // Update auth state
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 500);
+        // Update auth state with user and session data
+        if (result.user && result.session) {
+          authLogger.logSessionUpdate(result.user, result.session);
+          updateAuth(result.user, result.session);
+          
+          // Navigate based on profile completion status
+          authLogger.logProfileCompletion(result.user.needsProfileCompletion);
+          if (result.user.needsProfileCompletion) {
+            authLogger.logNavigationDecision('/(auth)/complete-profile', 'User needs profile completion');
+            router.replace('/(auth)/complete-profile');
+          } else {
+            authLogger.logNavigationDecision('/(home)', 'User profile complete');
+            router.replace('/(home)');
+          }
+        } else {
+          throw new Error('Invalid response format from server');
+        }
+        
+        setIsLoading(false);
       } else {
         throw new Error(result.message || 'OAuth callback failed');
       }
     } catch (error) {
-      console.error('[GoogleSignInButton] OAuth callback error:', error);
+      authLogger.logOAuthCallback('google', false, error);
       setIsLoading(false);
       showErrorAlert(
         "Sign In Failed", 
@@ -128,25 +151,32 @@ export function GoogleSignInButton() {
     try {
       console.log('[GoogleSignInButton] Web: Initiating OAuth flow...');
       
-      const response = await fetch(`/api/auth/sign-in/social`, {
+      const apiUrl = getApiUrl();
+      const endpoint = `${apiUrl}/api/auth/sign-in/social`;
+      console.log('[GoogleSignInButton] Web: Calling endpoint:', endpoint);
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           provider: 'google',
-          callbackURL: window.location.origin + '/',
+          callbackURL: window.location.origin + '/auth-callback',
         }),
         credentials: 'include',
       });
       
+      console.log('[GoogleSignInButton] Web: Response status:', response.status);
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `OAuth initialization failed: ${response.status}`);
+        console.error('[GoogleSignInButton] Web: Error response:', errorData);
+        throw new Error(errorData.message || errorData.error || `OAuth initialization failed: ${response.status}`);
       }
       
       const data = await response.json();
-      console.log('[GoogleSignInButton] Web: OAuth URL received');
+      console.log('[GoogleSignInButton] Web: OAuth response data:', data);
       
       if (data.url) {
         // Store current path to redirect back after auth
@@ -166,6 +196,12 @@ export function GoogleSignInButton() {
   };
 
   const handleGoogleSignIn = async () => {
+    // Prevent multiple clicks
+    if (isLoading) {
+      console.log('[GoogleSignInButton] Already loading, ignoring click');
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
@@ -174,14 +210,25 @@ export function GoogleSignInButton() {
       
       if (Platform.OS === 'web') {
         // Web flow - improved with better error handling
+        console.log('[GoogleSignInButton] Calling handleWebOAuth...');
         await handleWebOAuth();
       } else {
-        // Mobile flow - use Expo AuthSession with proxy
-        console.log('[GoogleSignInButton] Mobile: Using Expo AuthSession with proxy');
+        // Mobile flow - use Expo AuthSession without proxy
+        console.log('[GoogleSignInButton] Mobile: Using Expo AuthSession with direct scheme');
+        console.log('[GoogleSignInButton] Redirect URI:', redirectUri);
         
         if (!request) {
           console.error('[GoogleSignInButton] Auth request not ready');
-          showErrorAlert("Sign In Failed", "Authentication not configured properly");
+          
+          // Check if running in Expo Go
+          if (!global.expo?.modules?.ExpoDevice?.isDevice) {
+            showErrorAlert(
+              "Development Build Required", 
+              "Google OAuth requires a development build. You cannot use Expo Go for OAuth authentication.\n\nPlease create a development build:\neas build --profile development"
+            );
+          } else {
+            showErrorAlert("Sign In Failed", "Authentication not configured properly");
+          }
           setIsLoading(false);
           return;
         }
@@ -197,19 +244,22 @@ export function GoogleSignInButton() {
     }
   };
 
+  // Check if we're in Expo Go (development)
+  const isExpoGo = Platform.OS !== 'web' && !global.expo?.modules?.ExpoDevice?.isDevice;
+  
   return (
     <Pressable
       disabled={isLoading || (Platform.OS !== 'web' && !request)}
       onPress={handleGoogleSignIn}
       style={[
         {
-          backgroundColor: '#1f2937',
+          backgroundColor: isExpoGo ? '#6b7280' : '#1f2937',
           paddingVertical: 12,
           paddingHorizontal: 16,
           borderRadius: 6,
           opacity: (isLoading || (Platform.OS !== 'web' && !request)) ? 0.5 : 1,
           borderWidth: 1,
-          borderColor: '#1f2937',
+          borderColor: isExpoGo ? '#6b7280' : '#1f2937',
         }
       ]}
       className="w-full h-12 flex-row items-center justify-center"
@@ -228,7 +278,7 @@ export function GoogleSignInButton() {
             <Text style={{ color: '#EA4335' }}>e</Text>
           </Text>
           <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-            Continue with Google
+            {isExpoGo ? 'OAuth requires dev build' : 'Continue with Google'}
           </Text>
         </View>
       )}

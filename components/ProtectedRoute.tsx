@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
-import { useRouter } from "expo-router";
-import React, { useEffect } from "react";
+import { useRouter, usePathname } from "expo-router";
+import React, { useEffect, useRef } from "react";
 import { ActivityIndicator, View, Alert } from "react-native";
 
 type UserRole = "admin" | "manager" | "user" | "guest";
@@ -20,13 +20,21 @@ export function ProtectedRoute({
   unauthorizedFallback,
   redirectTo = "/(home)"
 }: ProtectedRouteProps) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, hasHydrated } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const hasRedirectedRef = useRef(false);
 
   useEffect(() => {
-    if (!isLoading && user) {
-      // Check if user needs to complete profile
-      if (user.needsProfileCompletion) {
+    // Only proceed if auth has hydrated and we haven't already redirected
+    if (!hasHydrated || isLoading || hasRedirectedRef.current) {
+      return;
+    }
+    
+    if (user) {
+      // Check if user needs to complete profile, but DON'T redirect if we're already on complete-profile
+      if (user.needsProfileCompletion && pathname !== "/complete-profile") {
+        hasRedirectedRef.current = true;
         router.replace("/(auth)/complete-profile");
         return;
       }
@@ -35,14 +43,15 @@ export function ProtectedRoute({
       if (requiredRoles) {
         const hasAccess = requiredRoles.includes(user.role);
         if (!hasAccess) {
+          hasRedirectedRef.current = true;
           Alert.alert("Access Denied", "You don't have permission to access this page");
           router.replace(redirectTo as any);
         }
       }
     }
-  }, [user, isLoading, requiredRoles, router, redirectTo]);
+  }, [user, isLoading, hasHydrated, requiredRoles, router, pathname, redirectTo]);
 
-  if (isLoading) {
+  if (isLoading || !hasHydrated) {
     return fallback || (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" />

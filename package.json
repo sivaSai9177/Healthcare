@@ -6,6 +6,8 @@
     "start": "expo start --host lan",
     "start:tunnel": "expo start --tunnel",
     "reset-project": "node ./scripts/reset-project.js",
+    "reset-profile": "tsx scripts/reset-profile-completion.ts",
+    "delete-user": "tsx scripts/delete-user.ts",
     "android": "expo start --android --host lan",
     "ios": "expo start --ios --host lan",
     "web": "expo start --web",
@@ -14,7 +16,11 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "eas:setup": "bash scripts/setup-eas.sh",
+    "eas:build:dev": "bash scripts/build-development.sh",
+    "eas:build:ios": "eas build --profile development --platform ios",
+    "eas:build:android": "eas build --profile development --platform android"
   },
   "dependencies": {
     "@better-auth/expo": "^1.2.8",
@@ -42,6 +48,7 @@
     "expo-blur": "~14.1.4",
     "expo-constants": "~17.1.6",
     "expo-crypto": "^14.1.4",
+    "expo-dev-client": "^5.1.8",
     "expo-font": "~13.3.1",
     "expo-haptics": "~14.1.4",
     "expo-image": "~2.1.7",

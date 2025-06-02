@@ -109,7 +109,7 @@ export const auth = betterAuth({
       needsProfileCompletion: {
         type: "boolean",
         required: true,
-        defaultValue: false,
+        defaultValue: true, // New users need profile completion
       },
     },
   },
@@ -152,6 +152,38 @@ export const auth = betterAuth({
       secure: false, // Allow HTTP in development
       path: "/",
       maxAge: 60 * 10, // 10 minutes
+    },
+  },
+  hooks: {
+    user: {
+      created: async (user, context) => {
+        console.log('[AUTH HOOK] User created:', {
+          id: user.id,
+          email: user.email,
+          provider: context?.provider || 'unknown',
+        });
+        
+        // For social OAuth users, ensure needsProfileCompletion is true
+        if (context?.provider && context.provider !== 'credential') {
+          console.log('[AUTH HOOK] Social OAuth user - setting needsProfileCompletion: true');
+          // Update in database to ensure it's persisted
+          try {
+            const { db } = await import('@/src/db');
+            const { user: userTable } = await import('@/src/db/schema');
+            const { eq } = await import('drizzle-orm');
+            
+            await db.update(userTable)
+              .set({ needsProfileCompletion: true })
+              .where(eq(userTable.id, user.id));
+              
+            console.log('[AUTH HOOK] Updated needsProfileCompletion in database');
+          } catch (error) {
+            console.error('[AUTH HOOK] Failed to update needsProfileCompletion:', error);
+          }
+        }
+        
+        return user;
+      },
     },
   },
   plugins: [

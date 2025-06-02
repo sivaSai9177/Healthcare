@@ -208,6 +208,7 @@ export async function POST(request: Request) {
         name: userRecord.name,
         image: userRecord.image,
         role: userRecord.role,
+        needsProfileCompletion: userRecord.needsProfileCompletion ?? false,
       },
       session: {
         id: sessionId,

@@ -53,8 +53,12 @@ components/
 │   ├── select.tsx        # Select dropdown
 │   └── toast.tsx         # Toast notifications
 ├── Avatar.tsx            # User avatar component
+├── DebugPanel.tsx        # Development debug panel
+├── ErrorBoundary.tsx     # Error boundary wrapper
 ├── GoogleSignInButton.tsx # OAuth sign-in button
 ├── HapticTab.tsx         # Tab with haptic feedback
+├── ProfileCompletionFlow.tsx # Basic profile completion UI
+├── ProfileCompletionFlowEnhanced.tsx # Enhanced 3-step profile wizard
 ├── ProtectedRoute.tsx    # Route protection wrapper
 ├── ThemedText.tsx        # Theme-aware text
 └── ThemedView.tsx        # Theme-aware view
@@ -86,6 +90,7 @@ lib/
 │   ├── alert.ts         # Cross-platform alerts
 │   ├── config.ts        # App configuration & URLs
 │   ├── crypto.ts        # Cryptography utilities
+│   ├── debug.ts         # Logging & debugging system
 │   ├── secure-storage.ts # Secure storage abstraction
 │   └── utils.ts         # General utilities (cn, etc.)
 ├── stores/              # State management

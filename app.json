@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.app",
+      "bundleIdentifier": "com.siva9177.expofullstackstarter",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
       "associatedDomains": [
         "applinks:auth.expo.io"
       ]
@@ -21,7 +24,7 @@
         "backgroundColor": "#ffc1cc"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.yourcompany.app"
+      "package": "com.siva9177.expofullstackstarter"
     },
     "web": {
       "bundler": "metro",
@@ -29,7 +32,12 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      ["expo-router"],
+      [
+        "expo-router"
+      ],
+      [
+        "expo-dev-client"
+      ],
       [
         "expo-splash-screen",
         {
@@ -45,12 +53,22 @@
       "baseUrl": "/expo-local-first-template"
     },
     "extra": {
-      "allowedOrigins": ["http://192.168.1.104:8081", "http://localhost:8081"]
-    }
+      "allowedOrigins": [
+        "http://192.168.1.104:8081",
+        "http://localhost:8081",
+        "http://192.168.1.104:8081",
+        "http://localhost:8081"
+      ],
+      "router": {},
+      "eas": {
+        "projectId": "1f2acdd6-e47a-4b85-8ee3-40bc3f738af4"
+      }
+    },
+    "owner": "siva9177"
   },
   "cli": {
-      "appVersionSource": "remote"
-    },
+    "appVersionSource": "remote"
+  },
   "build": {
     "development": {
       "developmentClient": true,

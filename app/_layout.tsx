@@ -16,6 +16,8 @@ import "@/lib/core/crypto";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { useAuth } from "@/hooks/useAuth";
 import { TRPCProvider } from "@/lib/trpc";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { DebugPanel } from "@/components/DebugPanel";
 import "./global.css";
 
 // Inner layout component that uses pure Zustand
@@ -52,6 +54,7 @@ function AppNavigator() {
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" backgroundColor={colorScheme === "dark" ? "#12242e" : "#f6e6ee"} />
+      <DebugPanel />
     </ThemeProvider>
   );
 }
@@ -72,10 +75,12 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <TRPCProvider>
-        {/* No AuthProvider - using pure Zustand pattern */}
-        <AppNavigator />
-      </TRPCProvider>
+      <ErrorBoundary>
+        <TRPCProvider>
+          {/* No AuthProvider - using pure Zustand pattern */}
+          <AppNavigator />
+        </TRPCProvider>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

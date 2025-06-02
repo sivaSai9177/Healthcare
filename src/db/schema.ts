@@ -17,6 +17,9 @@ export const user = pgTable("user", {
   // Additional user fields
   phoneNumber: text("phone_number"),
   department: text("department"),
+  organizationName: text("organization_name"),
+  jobTitle: text("job_title"),
+  bio: text("bio"),
   isActive: boolean("is_active").notNull().default(true),
   lastLoginAt: timestamp("last_login_at"),
   passwordChangedAt: timestamp("password_changed_at"),

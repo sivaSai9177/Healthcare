@@ -186,7 +186,7 @@ export const authRouter = router({
             // Additional fields need to be passed directly in the body
             role: input.role,
             organizationId: finalOrganizationId,
-            needsProfileCompletion: false, // Set to false since we collect all info during signup
+            needsProfileCompletion: false, // Email signup collects all info upfront
           },
         });
 
@@ -296,13 +296,36 @@ export const authRouter = router({
     .query(async ({ ctx }) => {
       if (!ctx.session) return null;
       
+      // Fetch fresh user data from database to ensure we have latest needsProfileCompletion
+      const { db } = await import('@/src/db');
+      const { user: userTable } = await import('@/src/db/schema');
+      const { eq } = await import('drizzle-orm');
+      
+      const [dbUser] = await db
+        .select()
+        .from(userTable)
+        .where(eq(userTable.id, ctx.session.user.id))
+        .limit(1);
+      
+      console.log('[AUTH] getSession - DB user data:', {
+        id: dbUser?.id,
+        email: dbUser?.email,
+        needsProfileCompletion: dbUser?.needsProfileCompletion
+      });
+      
       return {
         session: ctx.session.session,
         user: {
           ...ctx.session.user,
-          role: (ctx.session.user as any).role || 'user',
-          organizationId: (ctx.session.user as any).organizationId,
-          needsProfileCompletion: (ctx.session.user as any).needsProfileCompletion || false,
+          role: dbUser?.role || (ctx.session.user as any).role || 'user',
+          organizationId: dbUser?.organizationId || (ctx.session.user as any).organizationId,
+          needsProfileCompletion: dbUser?.needsProfileCompletion ?? false,
+          // Include additional fields from database
+          phoneNumber: dbUser?.phoneNumber,
+          department: dbUser?.department,
+          organizationName: dbUser?.organizationName,
+          jobTitle: dbUser?.jobTitle,
+          bio: dbUser?.bio,
         },
       };
     }),
@@ -317,14 +340,164 @@ export const authRouter = router({
       };
     }),
 
+  // Complete profile for new OAuth users - uses same validation as signup
+  completeProfile: protectedProcedure
+    .input(z.object({
+      name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
+      role: z.enum(['admin', 'manager', 'user', 'guest']),
+      // Role-based organization fields
+      organizationCode: z.string().min(4).max(12).regex(/^[A-Z0-9]+$/).optional(),
+      organizationName: z.string().min(2).max(100).optional(),
+      organizationId: z.string().uuid().optional(), // Legacy support
+      // Terms acceptance
+      acceptTerms: z.boolean().refine(val => val === true, 'You must accept the terms and conditions'),
+      acceptPrivacy: z.boolean().refine(val => val === true, 'You must accept the privacy policy'),
+      // Enhanced fields for business use
+      phoneNumber: z.string().optional(),
+      department: z.string().optional(),
+      jobTitle: z.string().optional(),
+      bio: z.string().max(500).optional(),
+    }).refine(data => {
+      // Validate organization requirements based on role
+      if ((data.role === 'manager' || data.role === 'admin') && !data.organizationName) {
+        return false;
+      }
+      return true;
+    }, {
+      message: 'Organization name is required for managers and admins',
+      path: ['organizationName'],
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+      const context = auditHelpers.extractContext(ctx.req, ctx.session);
+      
+      // Capture before state for audit
+      const beforeState = {
+        name: ctx.user.name,
+        role: (ctx.user as any).role,
+        organizationId: (ctx.user as any).organizationId,
+        needsProfileCompletion: (ctx.user as any).needsProfileCompletion,
+      };
+      
+      try {
+        // Update user directly in database to ensure all fields are saved
+        const { db } = await import('@/src/db');
+        const { user: userTable } = await import('@/src/db/schema');
+        const { eq } = await import('drizzle-orm');
+        
+        // Handle organization logic based on role (same as signup)
+        let finalOrganizationId = input.organizationId;
+        
+        if (input.role === 'manager' || input.role === 'admin') {
+          if (input.organizationName) {
+            // Create new organization
+            console.log('[AUTH] Creating new organization:', input.organizationName);
+            const orgId = `org_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            finalOrganizationId = orgId;
+          }
+        } else if (input.role === 'user' && input.organizationCode) {
+          // Look up organization by code
+          console.log('[AUTH] Looking up organization by code:', input.organizationCode);
+          finalOrganizationId = `org_from_code_${input.organizationCode}`;
+        } else if (input.role === 'user' && !input.organizationCode) {
+          // Create personal workspace
+          console.log('[AUTH] Creating personal workspace for user');
+          const personalOrgId = `personal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          finalOrganizationId = personalOrgId;
+        }
+        
+        // Prepare update data
+        const updateData: any = {
+          name: input.name,
+          role: input.role,
+          organizationId: finalOrganizationId,
+          organizationName: input.organizationName,
+          phoneNumber: input.phoneNumber,
+          department: input.department,
+          jobTitle: input.jobTitle,
+          bio: input.bio,
+          needsProfileCompletion: false, // Profile is now complete
+          updatedAt: new Date(),
+        };
+        
+        // Update in database
+        const updatedUsers = await db
+          .update(userTable)
+          .set(updateData)
+          .where(eq(userTable.id, ctx.user.id))
+          .returning();
+        
+        if (updatedUsers.length === 0) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to update user in database',
+          });
+        }
+        
+        const updatedUser = updatedUsers[0];
+        console.log('[AUTH] Profile completed for user:', {
+          id: updatedUser.id,
+          role: updatedUser.role,
+          organizationId: updatedUser.organizationId,
+          needsProfileCompletion: updatedUser.needsProfileCompletion
+        });
+        
+        // Also update in Better Auth for session consistency
+        try {
+          await auth.api.updateUser({
+            headers: ctx.req.headers,
+            body: updateData,
+          });
+          console.log('[AUTH] Better Auth user updated');
+        } catch (authError) {
+          console.warn('[AUTH] Better Auth update failed, but database was updated:', authError);
+        }
+
+        // Log successful profile completion
+        await auditService.logUserManagement(
+          AuditAction.USER_UPDATED,
+          AuditOutcome.SUCCESS,
+          ctx.user.id,
+          context,
+          beforeState,
+          { ...beforeState, ...updateData }
+        );
+
+        return {
+          success: true,
+          user: updatedUser,
+          organizationId: finalOrganizationId,
+        };
+      } catch (error) {
+        // Log failed profile completion
+        await auditService.logUserManagement(
+          AuditAction.USER_UPDATED,
+          AuditOutcome.FAILURE,
+          ctx.user.id,
+          context,
+          beforeState,
+          null
+        );
+        
+        console.error('[AUTH] Complete profile error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to complete profile',
+        });
+      }
+    }),
+
   // Update user profile
   updateProfile: protectedProcedure
     .input(z.object({
       name: z.string().min(1).max(100).optional(),
       role: z.enum(['admin', 'manager', 'user', 'guest']).optional(),
       organizationId: z.string().optional(),
+      organizationName: z.string().optional(),
       phoneNumber: z.string().optional(),
       department: z.string().optional(),
+      jobTitle: z.string().optional(),
+      bio: z.string().max(500).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
@@ -340,21 +513,52 @@ export const authRouter = router({
       };
       
       try {
-        // Update user in Better Auth
-        const response = await auth.api.updateUser({
-          headers: ctx.req.headers,
-          body: {
-            ...input,
-            // If role is being updated from default, mark profile as complete
-            needsProfileCompletion: input.role ? false : (ctx.user as any).needsProfileCompletion,
-          },
-        });
-
-        if (!response) {
+        // Update user directly in database to ensure all fields are saved
+        const { db } = await import('@/src/db');
+        const { user: userTable } = await import('@/src/db/schema');
+        const { eq } = await import('drizzle-orm');
+        
+        // Prepare update data
+        const updateData: any = { ...input };
+        
+        // If role is being updated, mark profile as complete
+        if (input.role) {
+          updateData.needsProfileCompletion = false;
+          console.log('[AUTH] Profile completion - setting needsProfileCompletion: false');
+        }
+        
+        updateData.updatedAt = new Date();
+        
+        // Update in database
+        const updatedUsers = await db
+          .update(userTable)
+          .set(updateData)
+          .where(eq(userTable.id, ctx.user.id))
+          .returning();
+        
+        if (updatedUsers.length === 0) {
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
-            message: 'Failed to update profile',
+            message: 'Failed to update user in database',
           });
+        }
+        
+        const updatedUser = updatedUsers[0];
+        console.log('[AUTH] User updated in database:', {
+          id: updatedUser.id,
+          role: updatedUser.role,
+          needsProfileCompletion: updatedUser.needsProfileCompletion
+        });
+        
+        // Also update in Better Auth for session consistency
+        try {
+          await auth.api.updateUser({
+            headers: ctx.req.headers,
+            body: updateData,
+          });
+          console.log('[AUTH] Better Auth user updated');
+        } catch (authError) {
+          console.warn('[AUTH] Better Auth update failed, but database was updated:', authError);
         }
 
         // Log successful profile update
@@ -369,7 +573,7 @@ export const authRouter = router({
 
         return {
           success: true,
-          user: response,
+          user: updatedUser,
         };
       } catch (error) {
         // Log failed profile update
