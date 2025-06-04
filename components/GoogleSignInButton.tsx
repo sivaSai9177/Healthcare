@@ -4,10 +4,10 @@ import Constants from 'expo-constants';
 import { showErrorAlert } from "@/lib/core/alert";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { log } from "@/lib/core/logger";
+import { log, getEnvironment } from "@/lib/core";
 import { authClient as defaultAuthClient } from "@/lib/auth/auth-client";
 import { trpc } from "@/lib/trpc";
-import { getApiUrl } from "@/lib/core/env";
+import { toAppUser } from "@/lib/stores/auth-store";
 
 export function GoogleSignInButton() {
   const [isLoading, setIsLoading] = React.useState(false);
@@ -32,7 +32,7 @@ export function GoogleSignInButton() {
         throw new Error('OAuth authentication requires a development build. Expo Go does not support OAuth redirects.');
       }
       
-      const apiUrl = await getApiUrl();
+      const apiUrl = getEnvironment().apiUrl;
       const callbackURL = Platform.OS === 'web' 
         ? `${window.location.origin}/auth-callback`
         : '/auth-callback';
@@ -65,16 +65,17 @@ export function GoogleSignInButton() {
           log.auth.debug('Fetching session via tRPC after OAuth');
           
           // Use utils to fetch fresh session - this will use TanStack Query caching
-          const sessionData = await utils.auth.getSession.fetch();
+          const sessionData = await utils.auth.getSession.fetch() as any;
           
           if (sessionData?.user) {
             log.auth.oauth('OAuth success, updating auth state via tRPC', { userId: sessionData.user.id });
             
-            // Update Zustand store with tRPC data
-            updateAuth(sessionData.user as any, sessionData.session as any);
+            // Convert to AppUser and update Zustand store with tRPC data
+            const appUser = toAppUser(sessionData.user, 'user');
+            updateAuth(appUser, sessionData.session);
             
             // Navigate based on profile completion status from tRPC
-            if (sessionData.user.needsProfileCompletion) {
+            if (appUser.needsProfileCompletion) {
               log.auth.debug('Navigating to profile completion');
               router.replace('/(auth)/complete-profile');
             } else {

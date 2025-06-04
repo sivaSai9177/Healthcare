@@ -4,6 +4,7 @@ import { User as BetterAuthUser } from "better-auth/types";
 export interface CustomUser extends BetterAuthUser {
   role: string;
   organizationId?: string;
+  organizationName?: string;
   needsProfileCompletion?: boolean;
 }
 
@@ -12,6 +13,7 @@ declare module "better-auth/types" {
   interface User {
     role: string;
     organizationId?: string;
+    organizationName?: string;
     needsProfileCompletion?: boolean;
   }
 }

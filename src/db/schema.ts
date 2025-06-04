@@ -8,10 +8,10 @@ export const user = pgTable("user", {
     .$defaultFn(() => false)
     .notNull(),
   image: text("image"),
-  role: text("role").notNull().default("user"), // admin, manager, user, guest
+  role: text("role"), // admin, manager, user, guest - nullable for new OAuth users who need to complete profile
   organizationId: text("organization_id"),
   needsProfileCompletion: boolean("needs_profile_completion")
-    .$defaultFn(() => false)
+    .$defaultFn(() => true)
     .notNull(),
   
   // Additional user fields

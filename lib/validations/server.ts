@@ -41,7 +41,7 @@ export const BaseUserSchema = z.object({
     .max(100, 'Name too long')
     .trim(),
   role: UserRoleSchema,
-  organizationId: z.string().uuid().optional(),
+  organizationId: z.string().optional(),
   organizationName: z.string().max(100).optional(),
   phoneNumber: z.string().optional(),
   department: z.string().max(50).optional(),
@@ -120,14 +120,14 @@ export const CompleteProfileInputSchema = z.object({
   role: UserRoleSchema,
   organizationCode: z.string().min(4).max(12).regex(/^[A-Z0-9]+$/).optional(),
   organizationName: z.string().min(2).max(100).trim().optional(),
-  organizationId: z.string().uuid().optional(),
+  organizationId: z.string().optional(),
   acceptTerms: z.literal(true),
   acceptPrivacy: z.literal(true),
   phoneNumber: z.string().optional(),
   department: z.string().max(50).optional(),
   jobTitle: z.string().max(100).optional(),
   bio: z.string().max(500).optional(),
-}).strict().refine(data => {
+}).refine(data => {
   if ((data.role === 'manager' || data.role === 'admin') && !data.organizationName) {
     return false;
   }
@@ -151,7 +151,7 @@ export const SearchFilterSchema = z.object({
   search: z.string().max(100).optional(),
   role: UserRoleSchema.optional(),
   status: UserStatusSchema.optional(),
-  organizationId: z.string().uuid().optional(),
+  organizationId: z.string().optional(),
   createdAfter: z.date().optional(),
   createdBefore: z.date().optional(),
 });
@@ -252,6 +252,7 @@ export const UserResponseSchema = z.object({
   department: z.string().nullable().optional(),
   jobTitle: z.string().nullable().optional(),
   bio: z.string().nullable().optional(),
+  needsProfileCompletion: z.boolean().default(false),
   status: UserStatusSchema.default('active'),
   // Make dates flexible to handle string/Date conversion
   createdAt: z.union([z.date(), z.string()]).transform(val => 

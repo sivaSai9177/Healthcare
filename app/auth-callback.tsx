@@ -11,9 +11,11 @@ export default function AuthCallback() {
   const { updateAuth, isAuthenticated, user } = useAuth();
   
   // Use tRPC to get session with enhanced error handling
-  const { data: sessionData, isLoading, error } = api.auth.getSession.useQuery(undefined, {
+  const { data: sessionData, isLoading, error, refetch } = api.auth.getSession.useQuery(undefined, {
     refetchInterval: false,
     retry: 1,
+    staleTime: 0, // Always fetch fresh data in auth callback
+    cacheTime: 0, // Don't cache in auth callback
     onError: (error) => {
       log.auth.error('Session fetch error in auth callback', error);
     },
@@ -29,15 +31,26 @@ export default function AuthCallback() {
       currentUrl: typeof window !== 'undefined' ? window.location.href : 'N/A'
     });
     
-    // If we already have auth state, check if we can proceed
-    if (isAuthenticated && user && !isLoading) {
-      log.auth.oauth('User already authenticated in auth store', {
+    // Force refetch session data for OAuth callbacks to ensure we have latest profile completion status
+    if (isAuthenticated && user && !isLoading && !sessionData) {
+      log.auth.oauth('User authenticated but no fresh session data, refetching...', {
+        userId: user.id,
+        userRole: user.role,
+        needsProfileCompletion: user.needsProfileCompletion
+      });
+      refetch();
+      return;
+    }
+    
+    // If we already have auth state, check if we can proceed (but prefer fresh session data)
+    if (isAuthenticated && user && !isLoading && !sessionData) {
+      log.auth.oauth('User already authenticated in auth store (using cached data)', {
         userId: user.id,
         userRole: user.role,
         needsProfileCompletion: user.needsProfileCompletion
       });
       
-      // Navigate based on existing user state
+      // Navigate based on existing user state, but this should be rare now
       if (user.needsProfileCompletion) {
         log.info('Navigating to profile completion (from auth store)', 'AUTH_CALLBACK');
         router.push('/(auth)/complete-profile');
@@ -48,19 +61,22 @@ export default function AuthCallback() {
       return;
     }
     
-    if (sessionData?.user && sessionData?.session) {
+    if (sessionData && (sessionData as any)?.user && (sessionData as any)?.session) {
+      const sessionUser = (sessionData as any).user;
+      const sessionObj = (sessionData as any).session;
+      
       log.auth.oauth('Session data received from tRPC', { 
-        userId: sessionData.user.id,
-        email: sessionData.user.email,
-        needsProfileCompletion: sessionData.user.needsProfileCompletion 
+        userId: sessionUser.id,
+        email: sessionUser.email,
+        needsProfileCompletion: sessionUser.needsProfileCompletion 
       });
       
       // Update auth store with session data (convert to AppUser)
-      const appUser = toAppUser(sessionData.user);
-      updateAuth(appUser, sessionData.session as any);
+      const appUser = toAppUser(sessionUser);
+      updateAuth(appUser, sessionObj as any);
       
       // Navigate based on profile completion and role using Expo Router
-      if (sessionData.user.needsProfileCompletion) {
+      if (sessionUser.needsProfileCompletion) {
         log.info('Navigating to profile completion (from tRPC)', 'AUTH_CALLBACK');
         router.push('/(auth)/complete-profile');
       } else {
@@ -68,7 +84,7 @@ export default function AuthCallback() {
         router.push('/(home)');
       }
     } else if (!isLoading && (!sessionData || error)) {
-      log.auth.warn('No session found or error occurred', { 
+      log.warn('No session found or error occurred', 'AUTH_CALLBACK', { 
         hasError: !!error,
         errorMessage: error?.message,
         recommendation: 'User needs to complete authentication flow'

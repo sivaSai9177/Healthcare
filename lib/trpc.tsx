@@ -5,33 +5,27 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import React, { useState } from 'react';
 import { Platform } from 'react-native';
 import type { AppRouter } from '@/src/server/routers';
-import { authClient } from './auth/auth-client';
 import { getApiUrlSync } from './core/config';
-import { env } from './core/env';
 import { log } from '@/lib/core/logger';
 
 // Create tRPC React hooks
 export const api = createTRPCReact<AppRouter>();
 
-// Get initial URL synchronously
-const INITIAL_TRPC_URL = `${getApiUrlSync()}/api/trpc`;
-
-// Enhanced query client factory with platform-specific optimizations
+// Optimized query client factory to prevent excessive refetching
 function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // Longer stale time for mobile to reduce unnecessary requests
-        staleTime: Platform.OS === 'web' ? 5 * 1000 : 30 * 1000,
-        // Disable refetch on window focus for mobile apps
-        refetchOnWindowFocus: Platform.OS === 'web',
-        // Background refetch for critical data - but prevent excessive refetching
-        refetchOnMount: 'always',
-        refetchOnReconnect: true,
-        // Prevent infinite subscriptions
+        // Much longer stale time to reduce requests
+        staleTime: 10 * 60 * 1000, // 10 minutes
+        // Disable aggressive refetching
+        refetchOnWindowFocus: false,
+        refetchOnMount: false, // Only fetch when explicitly needed
+        refetchOnReconnect: false, // Prevents loader on network changes
+        // Disable background refetch
         refetchInterval: false,
         refetchIntervalInBackground: false,
-        // Retry strategy
+        // Conservative retry strategy
         retry: (failureCount, error) => {
           // Don't retry on auth errors
           if (error instanceof TRPCClientError) {
@@ -40,24 +34,21 @@ function createQueryClient() {
               return false;
             }
           }
-          // Less aggressive retry on mobile to save battery
-          return failureCount < (Platform.OS === 'web' ? 3 : 2);
+          return failureCount < 1; // Only retry once
         },
-        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-        // Prevent queries from staying enabled indefinitely
-        gcTime: 5 * 60 * 1000, // 5 minutes
+        retryDelay: 2000, // Fixed 2 second delay
+        // Longer cache time
+        gcTime: 15 * 60 * 1000, // 15 minutes
       },
       mutations: {
         retry: false,
         // Global error handling for mutations
         onError: (error) => {
           log.api.error('Mutation failed', error);
-          // Add toast notification here if needed
         },
         // Global success handling
-        onSuccess: (data, variables, context) => {
+        onSuccess: () => {
           log.api.response('Mutation completed successfully');
-          // Add global success actions here
         },
         // Prevent mutation caching issues
         gcTime: 0,
@@ -70,50 +61,88 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
   log.api.request('TRPC Provider mounting');
   
   const [queryClient] = useState(() => createQueryClient());
-  const [trpcUrl, setTrpcUrl] = useState(INITIAL_TRPC_URL);
+  const [error, setError] = useState<string | null>(null);
   
-  // Update URL when environment is ready
-  React.useEffect(() => {
-    env.getApiUrl().then(apiUrl => {
-      const newTrpcUrl = `${apiUrl}/api/trpc`;
-      if (newTrpcUrl !== trpcUrl) {
-        log.api.request('TRPC URL updated', { from: trpcUrl, to: newTrpcUrl });
-        setTrpcUrl(newTrpcUrl);
-      }
-    }).catch(error => log.api.error('Failed to update TRPC URL', error));
+  // Use static URL instead of dynamic updates to prevent re-renders
+  const trpcUrl = React.useMemo(() => {
+    try {
+      const apiUrl = getApiUrlSync();
+      const url = `${apiUrl}/api/trpc`;
+      log.api.request('TRPC URL configured', { url });
+      return url;
+    } catch (err) {
+      const errorMsg = 'Failed to configure tRPC URL';
+      log.api.error(errorMsg, err);
+      setError(errorMsg);
+      return 'http://localhost:3000/api/trpc'; // fallback
+    }
+  }, []);
+
+  // Create stable tRPC client with proper error handling
+  const trpcClient = React.useMemo(() => {
+    try {
+      return api.createClient({
+        links: [
+          httpBatchLink({
+            url: trpcUrl,
+            headers() {
+              // Keep headers simple - credentials: 'include' handles cookies automatically
+              return {
+                'Content-Type': 'application/json',
+              };
+            },
+            // Simplified fetch with timeout and error handling
+            async fetch(url, options) {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => {
+                controller.abort();
+                log.api.error('tRPC request timeout', { url: url.toString() });
+              }, 30000);
+              
+              try {
+                const response = await fetch(url, {
+                  ...options,
+                  credentials: 'include',
+                  signal: controller.signal,
+                });
+                clearTimeout(timeoutId);
+                return response;
+              } catch (error) {
+                clearTimeout(timeoutId);
+                if (error.name === 'AbortError') {
+                  log.api.error('tRPC request aborted', { url: url.toString() });
+                } else {
+                  log.api.error('tRPC request failed', error);
+                }
+                throw error;
+              }
+            },
+          }),
+        ],
+      });
+    } catch (err) {
+      log.api.error('Failed to create tRPC client', err);
+      setError('Failed to initialize tRPC client');
+      // Return a minimal client that will fail gracefully
+      return api.createClient({
+        links: [
+          httpBatchLink({
+            url: trpcUrl,
+          }),
+        ],
+      });
+    }
   }, [trpcUrl]);
 
-  // Create tRPC client with dynamic URL
-  const trpcClient = React.useMemo(() =>
-    api.createClient({
-      links: [
-        httpBatchLink({
-          url: trpcUrl,
-          maxBatchSize: 1, // Disable batching to fix parsing issues
-          headers() {
-            const headers = new Map<string, string>();
-            
-            // Get auth cookies from Better Auth client
-            const cookies = authClient.getCookie();
-            if (cookies) {
-              headers.set('Cookie', cookies);
-            }
-            
-            // Add content type
-            headers.set('Content-Type', 'application/json');
-            
-            return Object.fromEntries(headers);
-          },
-          // Enable credentials for cookie handling
-          fetch(url, options) {
-            return fetch(url, {
-              ...options,
-              credentials: 'include',
-            });
-          },
-        }),
-      ],
-    }), [trpcUrl]);
+  // Show error state if tRPC initialization failed
+  if (error) {
+    log.api.error('tRPC Provider error state', { error });
+    return (
+      <QueryClientProvider client={queryClient}>
+        {children}
+      </QueryClientProvider>
+    );
+  }
 
   return (
     <api.Provider client={trpcClient} queryClient={queryClient}>

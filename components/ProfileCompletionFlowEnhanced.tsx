@@ -2,55 +2,29 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, ScrollView, Alert, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
-import { trpc } from '@/lib/trpc';
+import { api } from '@/lib/trpc';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/shadcn/ui/card';
 import { Input } from '@/components/shadcn/ui/input';
 import { RoleSelector } from '@/components/RoleSelector';
-import { UserRole } from '@/lib/validations/auth';
+import { CompleteProfileInputSchema } from '@/lib/validations/server';
 import { z } from 'zod';
-import { createLogger } from '@/lib/core/debug';
+import { log } from '@/lib/core/logger';
 
-const logger = createLogger('ProfileCompletion');
+const logger = log;
 
 interface ProfileCompletionFlowProps {
   onComplete?: () => void;
   showSkip?: boolean;
 }
 
-// Use same validation as signup for consistency
-const profileCompletionSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
-  role: z.enum(['admin', 'manager', 'user', 'guest']),
-  // Role-based organization fields
-  organizationCode: z.string().min(4).max(12).regex(/^[A-Z0-9]+$/).optional(),
-  organizationName: z.string().min(2).max(100).optional(),
-  organizationId: z.string().uuid().optional(), // Legacy support
-  // Terms acceptance
-  acceptTerms: z.boolean().refine(val => val === true, 'You must accept the terms and conditions'),
-  acceptPrivacy: z.boolean().refine(val => val === true, 'You must accept the privacy policy'),
-  // Enhanced fields for business use
-  phoneNumber: z.string().optional(),
-  department: z.string().optional(),
-  jobTitle: z.string().optional(),
-  bio: z.string().max(500, 'Bio must be less than 500 characters').optional(),
-}).refine(data => {
-  // Validate organization requirements based on role
-  if ((data.role === 'manager' || data.role === 'admin') && !data.organizationName) {
-    return false;
-  }
-  return true;
-}, {
-  message: 'Organization name is required for managers and admins',
-  path: ['organizationName'],
-});
-
-type ProfileCompletionData = z.infer<typeof profileCompletionSchema>;
+// Use server validation schema for consistency
+type ProfileCompletionData = z.infer<typeof CompleteProfileInputSchema>;
 
 export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: ProfileCompletionFlowProps) {
   const router = useRouter();
-  const { user, updateUserData, checkSession } = useAuth();
-  const utils = trpc.useUtils();
+  const { user, updateUserData } = useAuth();
+  const utils = api.useUtils();
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
   
@@ -60,12 +34,12 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
   
   const [formData, setFormData] = useState<ProfileCompletionData>({
     name: user?.name || '',
-    role: user?.role || 'user',
+    role: user?.role || 'user', // Use user's role if available, otherwise default to 'user' for form validation
     organizationId: user?.organizationId || undefined,
     organizationCode: undefined,
     organizationName: undefined,
-    acceptTerms: false,
-    acceptPrivacy: false,
+    acceptTerms: true, // Set to true for OAuth users
+    acceptPrivacy: true, // Set to true for OAuth users
     phoneNumber: undefined,
     department: undefined,
     jobTitle: undefined,
@@ -74,20 +48,20 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Stabilized mutation to prevent re-creation on every render
-  const completeProfileMutation = trpc.auth.completeProfile.useMutation({
-    onSuccess: useCallback((data) => {
+  const completeProfileMutation = api.auth.completeProfile.useMutation({
+    onSuccess: useCallback((data: { success: true; user: any; organizationId?: string }) => {
       // Prevent duplicate executions
       if (hasCompletedRef.current) {
-        logger.warn('Profile completion already processed, ignoring duplicate success');
+        logger.warn('Profile completion already processed, ignoring duplicate success', 'PROFILE_COMPLETION');
         return;
       }
       
       hasCompletedRef.current = true;
-      logger.info('Profile completed successfully', data);
+      logger.info('Profile completed successfully', 'PROFILE_COMPLETION', data);
       
       // Update auth state immediately without setTimeout to prevent timing issues
       if (data.user) {
-        logger.info('Updating auth store with completed profile:', data.user);
+        logger.info('Updating auth store with completed profile', 'PROFILE_COMPLETION', data.user);
         
         // Update only user data without affecting auth state
         updateUserData({
@@ -103,25 +77,25 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
         // Refresh session to ensure authentication state is updated
         setTimeout(async () => {
           try {
-            logger.info('Refreshing session after profile completion');
+            logger.info('Refreshing session after profile completion', 'PROFILE_COMPLETION');
             
             // Invalidate and refetch the session
             await utils.auth.getSession.invalidate();
             const updatedSession = await utils.auth.getSession.fetch();
             
-            logger.info('Updated session data:', updatedSession);
+            logger.info('Updated session data', 'PROFILE_COMPLETION', updatedSession);
             
             // Navigate to home if profile is complete
-            if (updatedSession && !updatedSession.user?.needsProfileCompletion) {
-              logger.info('Navigating to home after profile completion');
+            if (updatedSession && !(updatedSession as any).user?.needsProfileCompletion) {
+              logger.info('Navigating to home after profile completion', 'PROFILE_COMPLETION');
               router.replace('/(home)');
             } else {
-              logger.warn('Profile still marked as incomplete after update');
+              logger.warn('Profile still marked as incomplete after update', 'PROFILE_COMPLETION');
               // Force navigation anyway since we know the update succeeded
               router.replace('/(home)');
             }
           } catch (error) {
-            logger.error('Error refreshing session:', error);
+            logger.error('Error refreshing session', 'PROFILE_COMPLETION', error);
             // Navigate anyway since the profile update was successful
             router.replace('/(home)');
           }
@@ -142,19 +116,19 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
           );
         }, 100);
       }
-    }, [updateUserData, router, logger, onComplete, utils]),
+    }, [updateUserData, router, onComplete, utils]),
     onError: useCallback((error) => {
       isSubmittingRef.current = false;
       hasCompletedRef.current = false;
-      logger.error('Failed to update profile', error);
+      logger.error('Failed to update profile', 'PROFILE_COMPLETION', error);
       Alert.alert('Error', error.message || 'Failed to update profile');
-    }, [logger]),
+    }, []),
   });
 
   const handleSubmit = useCallback(async () => {
     // Prevent duplicate submissions
     if (isSubmittingRef.current || hasCompletedRef.current) {
-      logger.warn('Profile completion already in progress or completed');
+      logger.warn('Profile completion already in progress or completed', 'PROFILE_COMPLETION');
       return;
     }
     
@@ -177,18 +151,13 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
       }, {} as any);
       
       // Validate cleaned data
-      const validatedData = profileCompletionSchema.parse(cleanedFormData);
+      const validatedData = CompleteProfileInputSchema.parse(cleanedFormData);
       
-      // Remove undefined optional fields for the API call
-      const apiData = Object.entries(validatedData).reduce((acc, [key, value]) => {
-        if (value !== undefined) {
-          acc[key] = value;
-        }
-        return acc;
-      }, {} as any);
-      
-      logger.info('Submitting profile completion data', { fields: Object.keys(apiData), data: apiData });
-      await completeProfileMutation.mutateAsync(apiData);
+      logger.info('Submitting profile completion data', 'PROFILE_COMPLETION', { 
+        fields: Object.keys(validatedData), 
+        data: validatedData 
+      });
+      await completeProfileMutation.mutateAsync(validatedData);
     } catch (error) {
       isSubmittingRef.current = false;
       
@@ -200,10 +169,10 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
           }
         });
         setErrors(fieldErrors);
-        logger.warn('Validation errors', fieldErrors);
+        logger.warn('Validation errors', 'PROFILE_COMPLETION', fieldErrors);
       }
     }
-  }, [formData, completeProfileMutation, logger]);
+  }, [formData, completeProfileMutation]);
 
   const handleSkip = useCallback(() => {
     // Prevent navigation if already completed
@@ -219,7 +188,7 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
         {
           text: 'Skip',
           onPress: () => {
-            logger.info('User skipped profile completion');
+            logger.info('User skipped profile completion', 'PROFILE_COMPLETION');
             hasCompletedRef.current = true;
             // Always go to home when skipping
             router.replace('/(home)');
@@ -227,7 +196,7 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
         },
       ]
     );
-  }, [router, logger]);
+  }, [router]);
 
   const handleInputChange = useCallback((field: keyof ProfileCompletionData, value: string | boolean) => {
     // For optional string fields, convert empty strings to undefined
@@ -248,7 +217,7 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
   }, []);
 
   const toggleAcceptTerms = useCallback(() => {
-    setFormData(prev => ({ ...prev, acceptTerms: !prev.acceptTerms }));
+    setFormData(prev => ({ ...prev, acceptTerms: !prev.acceptTerms as true }));
     setErrors(prev => {
       if (prev.acceptTerms) {
         const { acceptTerms: removed, ...rest } = prev;
@@ -259,7 +228,7 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
   }, []);
 
   const toggleAcceptPrivacy = useCallback(() => {
-    setFormData(prev => ({ ...prev, acceptPrivacy: !prev.acceptPrivacy }));
+    setFormData(prev => ({ ...prev, acceptPrivacy: !prev.acceptPrivacy as true }));
     setErrors(prev => {
       if (prev.acceptPrivacy) {
         const { acceptPrivacy: removed, ...rest } = prev;
@@ -490,7 +459,7 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
             <CardHeader>
               <CardTitle>Complete Your Profile</CardTitle>
               <CardDescription>
-                {user?.email ? `Welcome, ${user.email}!` : 'Welcome!'} Let's set up your profile.
+                {user?.email ? `Welcome, ${user.email}!` : 'Welcome!'} Let&apos;s set up your profile.
               </CardDescription>
               
               {/* Progress indicator */}

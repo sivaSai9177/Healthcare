@@ -48,11 +48,11 @@ export const signUpSchema = z.object({
   password: passwordSchema,
   confirmPassword: z.string(),
   
-  // Role-based business information
-  role: roleSchema.default('user'),
+  // Role-based business information (user must select)
+  role: roleSchema, // No default - user must choose
   organizationCode: organizationCodeSchema, // For users joining existing org
   organizationName: organizationNameSchema, // For managers/admins creating new org
-  organizationId: z.string().uuid().optional(), // Legacy support - auto-populated
+  organizationId: z.string().optional(), // Legacy support - auto-populated
   department: departmentSchema.optional(),
   phoneNumber: phoneSchema.optional(),
   

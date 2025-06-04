@@ -1,8 +1,8 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { auth } from '@/lib/auth';
 import type { Session, User } from 'better-auth';
-import { log } from '@/lib/core/logger';
-import { trpcLogger } from '@/lib/core/trpc-logger';
+import { log } from '@/lib/core';
+import { trpcLogger } from '@/lib/core';
 
 // Base context type for tRPC procedures
 export interface Context {

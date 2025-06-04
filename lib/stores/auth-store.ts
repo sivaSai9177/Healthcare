@@ -13,6 +13,8 @@ import { log } from '@/lib/core/logger';
 export interface AppUser extends User {
   role: 'admin' | 'manager' | 'user' | 'guest';
   organizationId?: string;
+  organizationName?: string;
+  department?: string;
   needsProfileCompletion?: boolean;
 }
 
@@ -20,6 +22,8 @@ export interface AppUser extends User {
 export type UserToAppUser<T extends User> = T & {
   role: 'admin' | 'manager' | 'user' | 'guest';
   organizationId?: string;
+  organizationName?: string;
+  department?: string;
   needsProfileCompletion?: boolean;
 };
 
@@ -29,6 +33,8 @@ export function toAppUser(user: any, fallbackRole: 'admin' | 'manager' | 'user' 
     ...user,
     role: user.role || fallbackRole,
     organizationId: user.organizationId || undefined,
+    organizationName: user.organizationName || undefined,
+    department: user.department || undefined,
     needsProfileCompletion: user.needsProfileCompletion || false,
   } as AppUser;
 }
@@ -143,13 +149,11 @@ export const useAuthStore = create<AuthStore>()(
           get().clearAuth();
           
           try {
-            // Import tRPC client dynamically to avoid circular dependency
-            const { api } = await import('@/lib/trpc');
+            // For logout, we can call Better Auth directly since we're already clearing local state
+            const { authClient } = await import('@/lib/auth/auth-client');
+            await authClient.signOut();
             
-            // Call tRPC logout endpoint (which uses Better Auth API)
-            await api.auth.signOut.mutate();
-            
-            log.auth.logout('Logout completed via tRPC');
+            log.auth.logout('Logout completed via Better Auth client');
           } catch (error) {
             log.auth.error('Logout API error (local state already cleared)', error);
             // Don't throw since we already cleared local state
@@ -161,23 +165,22 @@ export const useAuthStore = create<AuthStore>()(
         updateAuth: (user, session) => {
           const currentState = get();
           
-          // Prevent unnecessary updates if data is the same
-          if (currentState.user?.id === user?.id && 
-              currentState.isAuthenticated === (!!user && !!session)) {
-            log.store.update('No auth changes detected, skipping update', {
-              currentUserId: currentState.user?.id,
-              newUserId: user?.id,
-              currentAuth: currentState.isAuthenticated,
-              newAuth: !!user && !!session
-            });
-            return;
+          // More comprehensive comparison to prevent unnecessary updates
+          const userChanged = currentState.user?.id !== user?.id || 
+                              currentState.user?.role !== user?.role ||
+                              currentState.user?.needsProfileCompletion !== user?.needsProfileCompletion;
+          const authChanged = currentState.isAuthenticated !== (!!user && !!session);
+          
+          if (!userChanged && !authChanged) {
+            return; // Skip update entirely to prevent re-renders
           }
           
           log.store.update('Updating auth state', { 
             userId: user?.id, 
+            role: user?.role,
             isAuth: !!user && !!session,
-            previousUserId: currentState.user?.id,
-            previousAuth: currentState.isAuthenticated
+            userChanged,
+            authChanged
           });
           
           set({
@@ -185,7 +188,7 @@ export const useAuthStore = create<AuthStore>()(
             session,
             isAuthenticated: !!user && !!session,
             lastActivity: new Date(),
-            error: null, // Clear any existing errors
+            error: null,
           });
         },
 
@@ -306,32 +309,35 @@ useAuthStore.subscribe(
   }
 );
 
-// Export typed hooks - simplified to avoid re-render issues
+// Export stable hooks to prevent infinite loops
 export const useAuth = () => {
-  const user = useAuthStore(state => state.user);
-  const session = useAuthStore(state => state.session);
-  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const isLoading = useAuthStore(state => state.isLoading);
-  const hasHydrated = useAuthStore(state => state.hasHydrated);
-  const error = useAuthStore(state => state.error);
+  const user = useAuthStore((state) => state.user);
+  const session = useAuthStore((state) => state.session);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
+  const error = useAuthStore((state) => state.error);
   
-  // Get stable method references
-  const methods = React.useMemo(() => ({
-    setUser: useAuthStore.getState().setUser,
-    setSession: useAuthStore.getState().setSession,
-    setAuthenticated: useAuthStore.getState().setAuthenticated,
-    clearAuth: useAuthStore.getState().clearAuth,
-    updateAuth: useAuthStore.getState().updateAuth,
-    updateUserData: useAuthStore.getState().updateUserData,
-    setLoading: useAuthStore.getState().setLoading,
-    setError: useAuthStore.getState().setError,
-    updateActivity: useAuthStore.getState().updateActivity,
-    checkSession: useAuthStore.getState().checkSession,
-    logout: useAuthStore.getState().logout,
-    hasPermission: useAuthStore.getState().hasPermission,
-    hasRole: useAuthStore.getState().hasRole,
-    canAccess: useAuthStore.getState().canAccess,
-  }), []);
+  // Get stable method references once
+  const methods = React.useMemo(() => {
+    const state = useAuthStore.getState();
+    return {
+      setUser: state.setUser,
+      setSession: state.setSession,
+      setAuthenticated: state.setAuthenticated,
+      clearAuth: state.clearAuth,
+      updateAuth: state.updateAuth,
+      updateUserData: state.updateUserData,
+      setLoading: state.setLoading,
+      setError: state.setError,
+      updateActivity: state.updateActivity,
+      checkSession: state.checkSession,
+      logout: state.logout,
+      hasPermission: state.hasPermission,
+      hasRole: state.hasRole,
+      canAccess: state.canAccess,
+    };
+  }, []); // Empty deps - methods are stable
   
   return {
     user,
@@ -340,7 +346,7 @@ export const useAuth = () => {
     isLoading,
     hasHydrated,
     error,
-    ...methods
+    ...methods,
   };
 };
 

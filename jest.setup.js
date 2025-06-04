@@ -71,7 +71,7 @@ jest.mock('@/lib/trpc', () => ({
 }));
 
 // Mock alert utility
-jest.mock('@/lib/alert', () => ({
+jest.mock('@/lib/core/alert', () => ({
   showErrorAlert: jest.fn(),
   showSuccessAlert: jest.fn(),
 }));

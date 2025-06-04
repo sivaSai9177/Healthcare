@@ -29,7 +29,7 @@ export function OrganizationField({ control, role, className }: OrganizationFiel
                 label="Organization Code (Optional)"
                 placeholder="ACME2024"
                 autoCapitalize="characters"
-                error={control._formState.errors.organizationCode?.message}
+                error={control._formState.errors.organizationCode?.message as string}
                 hint="Enter your organization's code to join their workspace"
                 {...field}
                 onChangeText={(text) => field.onChange(text.toUpperCase())}
@@ -57,7 +57,7 @@ export function OrganizationField({ control, role, className }: OrganizationFiel
               <Input
                 label="Organization Name"
                 placeholder="Acme Corporation"
-                error={control._formState.errors.organizationName?.message}
+                error={control._formState.errors.organizationName?.message as string}
                 hint="This will create a new organization workspace"
                 {...field}
                 onChangeText={field.onChange}

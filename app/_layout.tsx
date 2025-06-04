@@ -23,10 +23,10 @@ import "./global.css";
 // Inner layout component that uses pure Zustand
 function AppNavigator() {
   const colorScheme = useColorScheme();
-  const { isAuthenticated, isLoading, hasHydrated } = useAuth();
+  const { hasHydrated } = useAuth();
   
-  // Show loading screen while auth is being determined or fonts are loading
-  if (isLoading || !hasHydrated) {
+  // Show loading screen while auth is being determined
+  if (!hasHydrated) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" />
@@ -42,14 +42,10 @@ function AppNavigator() {
           contentStyle: Platform.OS === 'android' ? { paddingTop: 0 } : {},
         }}
       >
-        {/* Use Expo Router's native protected routes */}
-        <Stack.Protected guard={isAuthenticated}>
-          <Stack.Screen name="(home)" options={{ headerShown: false }} />
-        </Stack.Protected>
-        
-        {/* Public routes */}
+        {/* All routes - protection handled at screen level */}
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(home)" options={{ headerShown: false }} />
         <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>

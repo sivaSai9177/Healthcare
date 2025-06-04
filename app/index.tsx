@@ -2,35 +2,40 @@ import { Redirect } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import { ActivityIndicator, View } from "react-native";
 import React from "react";
+import { log } from "@/lib/core/logger";
 
 export default function Index() {
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const { user, isLoading, isAuthenticated, hasHydrated } = useAuth();
 
-  // Log only on significant changes
-  React.useEffect(() => {
-    console.log("[INDEX] Auth state changed:", {
-      isLoading,
-      isAuthenticated,
-      userEmail: user?.email
-    });
-  }, [isLoading, isAuthenticated, user?.email]);
-
-  // Show loading while Better Auth checks session
-  if (isLoading) {
-    console.log("[INDEX] Showing loading - isLoading:", isLoading);
+  // Show loading while hydrating or checking auth
+  if (!hasHydrated || isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
+      <View style={{ 
+        flex: 1, 
+        justifyContent: "center", 
+        alignItems: "center",
+        backgroundColor: "#ffffff"
+      }}>
+        <ActivityIndicator size="large" color="#007AFF" />
       </View>
     );
   }
 
   // Redirect based on authentication status
   if (isAuthenticated && user) {
-    console.log("[INDEX] User authenticated, redirecting to home");
+    // Check if user needs to complete their profile (either flag is set OR role is guest)
+    if (user.needsProfileCompletion || user.role === 'guest') {
+      log.auth.debug("User needs profile completion", {
+        needsProfileCompletion: user.needsProfileCompletion,
+        role: user.role
+      });
+      return <Redirect href="/(auth)/complete-profile" />;
+    }
+    
+    log.auth.debug("User authenticated, redirecting to home", { role: user.role });
     return <Redirect href="/(home)" />;
   }
   
-  console.log("[INDEX] User not authenticated, redirecting to login");
+  log.auth.debug("User not authenticated, redirecting to login");
   return <Redirect href="/(auth)/login" />;
 }

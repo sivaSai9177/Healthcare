@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toAppUser } from "@/lib/stores/auth-store";
 import { showErrorAlert } from "@/lib/core/alert";
 import { generateUUID } from "@/lib/core/crypto";
+import { log } from "@/lib/core/logger";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { api } from "@/lib/trpc";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,34 +27,41 @@ import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 export default function LoginScreen() {
   const { updateAuth, setLoading, setError } = useAuth();
   
+  // Memoize mutation callbacks to prevent recreation on every render
+  const onSuccess = React.useCallback((data: any) => {
+    log.auth.login('Sign in successful via tRPC', { userId: data.user?.id });
+    if (data.user && data.token) {
+      // Convert user to AppUser with safe defaults
+      const appUser = toAppUser(data.user, 'user');
+
+      // Update auth store with user and session
+      const session = {
+        id: generateUUID(),
+        token: data.token,
+        userId: appUser.id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      };
+      updateAuth(appUser, session);
+    }
+  }, [updateAuth]);
+
+  const onError = React.useCallback((error: any) => {
+    log.auth.error('Sign in failed', error);
+    setError(error.message);
+    showErrorAlert("Login Failed", error.message || "Failed to sign in. Please check your credentials.");
+  }, [setError]);
+
+  const onSettled = React.useCallback(() => {
+    setLoading(false);
+  }, [setLoading]);
+  
   // Use tRPC mutation for sign in
   const signInMutation = api.auth.signIn.useMutation({
-    onSuccess: (data) => {
-      console.log("[LOGIN] Sign in successful via tRPC:", data);
-      if (data.user && data.token) {
-        // Convert user to AppUser with safe defaults
-        const appUser = toAppUser(data.user, 'user');
-
-        // Update auth store with user and session
-        const session = {
-          id: generateUUID(),
-          token: data.token,
-          userId: appUser.id,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        };
-        updateAuth(appUser, session);
-      }
-    },
-    onError: (error) => {
-      console.error("[LOGIN] Sign in failed:", error);
-      setError(error.message);
-      showErrorAlert("Login Failed", error.message || "Failed to sign in. Please check your credentials.");
-    },
-    onSettled: () => {
-      setLoading(false);
-    },
+    onSuccess,
+    onError,
+    onSettled,
   });
 
   const form = useForm<LoginInput>({
@@ -67,11 +75,11 @@ export default function LoginScreen() {
   });
 
   const onSubmit = async (data: LoginInput) => {
-    console.log("[LOGIN] Starting login attempt for:", data.email);
+    log.auth.debug('Starting login attempt', { email: data.email });
     
     // Check if form has validation errors before submitting
     if (!form.formState.isValid) {
-      console.log("[LOGIN] Form has validation errors, preventing submission");
+      log.auth.debug('Form validation errors preventing submission');
       showErrorAlert("Invalid Form", "Please fix the validation errors before submitting.");
       return;
     }
@@ -84,12 +92,12 @@ export default function LoginScreen() {
         email: data.email,
         password: data.password,
       });
-      console.log("[LOGIN] Login process completed");
+      log.auth.login('Login process completed successfully');
       
       // Navigation will be handled by Expo Router's protected routes
       
     } catch (error: any) {
-      console.error("[LOGIN] Login error:", error);
+      log.auth.error('Login process failed', error);
       // Error handling is done in the mutation's onError
       // Clear the form password on error
       form.setValue("password", "");

@@ -120,8 +120,8 @@ export const auth = betterAuth({
     additionalFields: {
       role: {
         type: "string",
-        required: true,
-        defaultValue: "user",
+        required: false, // Make optional for OAuth users
+        defaultValue: null, // No default - user must choose
       },
       organizationId: {
         type: "string",
@@ -130,7 +130,7 @@ export const auth = betterAuth({
       needsProfileCompletion: {
         type: "boolean",
         required: true,
-        defaultValue: true, // New users need profile completion
+        defaultValue: true, // Default to true for new users
       },
     },
   },
@@ -284,9 +284,13 @@ export const auth = betterAuth({
     signIn: {
       async before({ user, isNewUser }) {
         log.auth.debug("[AUTH CALLBACK] Sign in before", { userId: user?.id, isNewUser });
-        // For new social users, set default role
-        if (isNewUser && !user.role) {
-          user.role = "user";
+        // For new social users, set a temporary role and mark for profile completion
+        if (isNewUser) {
+          // Set a temporary role that indicates profile completion is needed
+          user.role = 'guest'; // Temporary role until they complete profile
+          // New OAuth users need to complete their profile
+          user.needsProfileCompletion = true;
+          log.auth.debug("[AUTH CALLBACK] New OAuth user, setting needsProfileCompletion=true, role=guest");
         }
       },
       async after({ user, session, request }) {

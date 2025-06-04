@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { Alert, ScrollView, Text, View } from "react-native";
+import { log } from "@/lib/core/logger";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
@@ -12,9 +13,9 @@ export default function HomeScreen() {
   const handleLogout = async () => {
     try {
       await logout('user_initiated');
-      console.log("Logged out successfully");
+      log.auth.logout('User logged out successfully', { trigger: 'manual' });
     } catch (error) {
-      console.error("Logout error:", error);
+      log.auth.error('Logout failed', error);
       Alert.alert("Logout Failed", "Failed to logout");
     }
   };
@@ -88,10 +89,22 @@ export default function HomeScreen() {
                     </Text>
                   </View>
                 </View>
+                {user?.organizationName && (
+                  <View className="flex-row items-center">
+                    <Text className="font-medium mr-2" style={{ color: '#000000' }}>Organization:</Text>
+                    <Text style={{ color: '#000000' }}>{user.organizationName}</Text>
+                  </View>
+                )}
                 {user?.organizationId && (
                   <View className="flex-row items-center">
                     <Text className="font-medium mr-2" style={{ color: '#000000' }}>Organization ID:</Text>
-                    <Text style={{ color: '#000000' }}>{user.organizationId}</Text>
+                    <Text style={{ color: '#000000', fontSize: 12 }}>{user.organizationId}</Text>
+                  </View>
+                )}
+                {user?.department && (
+                  <View className="flex-row items-center">
+                    <Text className="font-medium mr-2" style={{ color: '#000000' }}>Department:</Text>
+                    <Text style={{ color: '#000000' }}>{user.department}</Text>
                   </View>
                 )}
               </View>

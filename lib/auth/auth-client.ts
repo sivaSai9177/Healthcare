@@ -6,11 +6,11 @@ import { createAuthClient } from "better-auth/react";
 import { inferAdditionalFields } from "better-auth/client/plugins";
 import { Platform } from "react-native";
 import { webStorage, mobileStorage } from "../core/secure-storage";
-import { getApiUrl } from "../core/config";
+import { getApiUrlSync } from "../core/config";
 import { sessionManager } from "./auth-session-manager";
 // Note: Removed auth-store import to prevent circular dependency
 
-const BASE_URL = getApiUrl();
+const BASE_URL = getApiUrlSync();
 
 // Log configuration once
 console.log("[AUTH CLIENT] Initialized:", {
@@ -23,7 +23,7 @@ export const authClient = createAuthClient({
   baseURL: `${BASE_URL}/api/auth`, // Full auth endpoint path
   plugins: [
     expoClient({
-      scheme: "my-expo", // Your app's custom scheme
+      scheme: "expo-starter", // App scheme from app.json
       storagePrefix: "better-auth", // Use Better Auth's default prefix
       storage: Platform.OS === 'web' ? webStorage : mobileStorage,
       disableCache: false, // Enable session caching
@@ -33,11 +33,24 @@ export const authClient = createAuthClient({
         role: {
           type: "string",
           required: true,
-          defaultValue: "doctor",
+          defaultValue: "user",
         },
-        hospitalId: {
+        organizationId: {
           type: "string", 
           required: false,
+        },
+        organizationName: {
+          type: "string",
+          required: false,
+        },
+        department: {
+          type: "string",
+          required: false,
+        },
+        needsProfileCompletion: {
+          type: "boolean",
+          required: false,
+          defaultValue: true,
         },
       },
     }),
@@ -64,12 +77,12 @@ export const authClient = createAuthClient({
       }
       
       // Update Zustand store on successful auth responses
-      if (ctx.response && ctx.response.ok && ctx.url.includes('/api/auth')) {
+      if (ctx.response && ctx.response.ok && ctx.url && ctx.url.includes('/api/auth')) {
         try {
           const data = await ctx.response.clone().json();
           
           // Handle sign-in/sign-up responses
-          if ((ctx.url.includes('/signin') || ctx.url.includes('/signup')) && data.user) {
+          if (ctx.url && (ctx.url.includes('/signin') || ctx.url.includes('/signup')) && data.user) {
             console.log('[AUTH CLIENT] Response received, storing session data');
             
             // Create a proper session object

@@ -28,7 +28,7 @@ import "@/app/global.css";
 
 export default function SignupScreen() {
   const { updateAuth, setLoading, setError } = useAuth();
-  const [selectedRole, setSelectedRole] = React.useState<UserRole>('user');
+  const [selectedRole, setSelectedRole] = React.useState<UserRole>(); // No default - user must choose
 
   // Use tRPC mutation for sign up
   const signUpMutation = api.auth.signUp.useMutation({
@@ -77,7 +77,7 @@ export default function SignupScreen() {
       email: "",
       password: "",
       confirmPassword: "",
-      role: selectedRole,
+      role: undefined, // User must select a role
       organizationCode: undefined,
       organizationName: undefined,
       organizationId: undefined,

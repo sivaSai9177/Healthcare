@@ -10,6 +10,7 @@ import {
 } from '../trpc';
 import { auth } from '@/lib/auth';
 import { TRPCError } from '@trpc/server';
+import { log } from '@/lib/core/logger';
 
 // Import comprehensive server-side validation schemas
 import {
@@ -250,8 +251,9 @@ export const authRouter = router({
           if (sanitizedOrgName) {
             console.log('[AUTH] Creating organization placeholder for:', sanitizedOrgName);
             
-            // For now, create a simple organization ID until Better Auth organization tables are set up
-            const orgId = `org_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+            // Generate a proper UUID for the organization
+            const { randomUUID } = await import('crypto');
+            const orgId = randomUUID();
             
             // Update user with organization info directly in database (reuse imports)
             
@@ -362,12 +364,48 @@ export const authRouter = router({
         
         dbUser = user;
         
-        console.log('[AUTH] getSession - DB user data:', {
+        log.auth.debug('getSession - DB user data', {
           id: dbUser?.id,
           email: dbUser?.email,
           role: dbUser?.role,
+          needsProfileCompletion: dbUser?.needsProfileCompletion,
           hasDbUser: !!dbUser
         });
+
+        // Check if this is a new OAuth user who needs profile completion
+        // If user has no role or guest role, they need to complete their profile
+        if (dbUser && (!dbUser.role || dbUser.role === 'guest')) {
+          console.log('[AUTH] Detected OAuth user with incomplete profile:', {
+            id: dbUser.id,
+            role: dbUser.role,
+            needsProfileCompletion: dbUser.needsProfileCompletion,
+            hasName: !!dbUser.name,
+            hasEmail: !!dbUser.email
+          });
+          
+          // If they haven't been marked for profile completion yet, do it now
+          if (!dbUser.needsProfileCompletion) {
+            console.log('[AUTH] Marking OAuth user for profile completion');
+            
+            const [updatedUser] = await db
+              .update(userTable)
+              .set({ 
+                role: dbUser.role || 'guest',
+                needsProfileCompletion: true,
+                updatedAt: new Date()
+              })
+              .where(eq(userTable.id, ctx.session.user.id))
+              .returning();
+            
+            dbUser = updatedUser;
+            console.log('[AUTH] Updated OAuth user for profile completion:', {
+              id: dbUser.id,
+              role: dbUser.role,
+              needsProfileCompletion: dbUser.needsProfileCompletion
+            });
+          }
+        }
+        
       } catch (dbError) {
         console.warn('[AUTH] Database query failed, using session data only:', dbError);
         // Continue with session data only
@@ -379,13 +417,14 @@ export const authRouter = router({
           id: ctx.session.user.id || '',
           email: ctx.session.user.email || '',
           name: ctx.session.user.name || 'Unknown User',
-          role: validateUserRole(dbUser?.role || (ctx.session.user as any).role || 'user'),
+          role: validateUserRole(dbUser?.role || (ctx.session.user as any).role || 'guest'),
           organizationId: dbUser?.organizationId || (ctx.session.user as any).organizationId,
           organizationName: dbUser?.organizationName,
           phoneNumber: dbUser?.phoneNumber,
           department: dbUser?.department,
           jobTitle: dbUser?.jobTitle,
           bio: dbUser?.bio,
+          needsProfileCompletion: dbUser?.needsProfileCompletion ?? (ctx.session.user as any).needsProfileCompletion ?? false,
           status: 'active' as const,
           createdAt: ctx.session.user.createdAt || new Date(),
           updatedAt: ctx.session.user.updatedAt || new Date(),
@@ -432,11 +471,227 @@ export const authRouter = router({
       };
     }),
 
+  // Handle social (OAuth) sign-in for first-time users
+  socialSignIn: publicProcedureWithLogging
+    .input(z.object({
+      provider: z.enum(['google', 'apple', 'microsoft', 'github']),
+      token: z.string().optional(), // OAuth token if available
+      userInfo: z.object({
+        email: z.string().email(),
+        name: z.string(),
+        picture: z.string().url().optional(),
+        verified: z.boolean().optional(),
+      }).optional(),
+      deviceInfo: z.object({
+        userAgent: z.string().max(500).optional(),
+        platform: z.enum(['ios', 'android', 'web']).optional(),
+      }).optional(),
+    }))
+    .output(z.object({
+      success: z.literal(true),
+      user: UserResponseSchema,
+      needsProfileCompletion: z.boolean(),
+      token: z.string().optional(),
+      isNewUser: z.boolean(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Rate limiting: 10 social sign-ins per minute per IP
+      const clientIp = ctx.req.headers.get('x-forwarded-for')?.split(',')[0] || 
+                       ctx.req.headers.get('x-real-ip') || 'unknown';
+      checkRateLimit(`social:${clientIp}`, 10, 60000);
+
+      const { auditService, AuditAction, AuditOutcome, AuditSeverity, auditHelpers } = await import('../services/audit');
+      const context = auditHelpers.extractContext(ctx.req);
+
+      try {
+        console.log('[AUTH] Social sign-in initiated', {
+          provider: input.provider,
+          hasToken: !!input.token,
+          hasUserInfo: !!input.userInfo,
+          platform: input.deviceInfo?.platform
+        });
+
+        // Check if user already exists by email
+        const { db } = await import('@/src/db');
+        const { user: userTable } = await import('@/src/db/schema');
+        const { eq } = await import('drizzle-orm');
+
+        let existingUser = null;
+        if (input.userInfo?.email) {
+          const [user] = await db
+            .select()
+            .from(userTable)
+            .where(eq(userTable.email, input.userInfo.email))
+            .limit(1);
+          existingUser = user;
+        }
+
+        // If user exists, return their current state
+        if (existingUser) {
+          console.log('[AUTH] Existing social user found:', {
+            id: existingUser.id,
+            email: existingUser.email,
+            role: existingUser.role,
+            needsProfileCompletion: existingUser.needsProfileCompletion
+          });
+
+          // Log existing user sign-in
+          await auditService.log({
+            action: AuditAction.LOGIN,
+            outcome: AuditOutcome.SUCCESS,
+            entityType: 'user',
+            entityId: existingUser.id,
+            description: `User signed in via ${input.provider} OAuth`,
+            metadata: { 
+              provider: input.provider,
+              isNewUser: false
+            },
+            severity: AuditSeverity.INFO,
+          }, { 
+            ...context, 
+            userId: existingUser.id,
+            userEmail: existingUser.email
+          });
+
+          // Validate and return existing user
+          const validatedUser = UserResponseSchema.parse({
+            ...existingUser,
+            role: validateUserRole(existingUser.role),
+            status: 'active',
+            isEmailVerified: true, // OAuth users are considered verified
+          });
+
+          return {
+            success: true as const,
+            user: validatedUser,
+            needsProfileCompletion: existingUser.needsProfileCompletion || false,
+            isNewUser: false,
+          };
+        }
+
+        // Create new OAuth user with temporary guest role
+        if (!input.userInfo) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'User information is required for new social sign-in',
+          });
+        }
+
+        console.log('[AUTH] Creating new social user:', {
+          email: input.userInfo.email,
+          name: input.userInfo.name,
+          provider: input.provider
+        });
+
+        // Use Better Auth to create the OAuth user
+        try {
+          // For new OAuth users, we'll create them directly in the database
+          // since Better Auth OAuth creation is handled by the OAuth callback
+          const newUserId = crypto.randomUUID();
+          
+          const [newUser] = await db
+            .insert(userTable)
+            .values({
+              id: newUserId,
+              email: input.userInfo.email,
+              name: input.userInfo.name,
+              role: 'guest', // Temporary role until profile completion
+              needsProfileCompletion: true, // Must complete profile
+              emailVerified: true, // OAuth users are verified
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .returning();
+
+          console.log('[AUTH] New social user created:', {
+            id: newUser.id,
+            email: newUser.email,
+            role: newUser.role,
+            needsProfileCompletion: newUser.needsProfileCompletion
+          });
+
+          // Log new user creation
+          await auditService.log({
+            action: AuditAction.LOGIN,
+            outcome: AuditOutcome.SUCCESS,
+            entityType: 'user',
+            entityId: newUser.id,
+            description: `New user created via ${input.provider} OAuth`,
+            metadata: { 
+              provider: input.provider,
+              isNewUser: true
+            },
+            severity: AuditSeverity.INFO,
+          }, { 
+            ...context, 
+            userId: newUser.id,
+            userEmail: newUser.email
+          });
+
+          // Validate and return new user
+          const validatedUser = UserResponseSchema.parse({
+            ...newUser,
+            role: validateUserRole(newUser.role),
+            status: 'active',
+            isEmailVerified: true,
+          });
+
+          return {
+            success: true as const,
+            user: validatedUser,
+            needsProfileCompletion: true,
+            isNewUser: true,
+          };
+
+        } catch (dbError) {
+          console.error('[AUTH] Failed to create OAuth user:', dbError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to create user account',
+          });
+        }
+
+      } catch (error) {
+        // Log failed social sign-in
+        await auditService.log({
+          action: AuditAction.LOGIN_FAILED,
+          outcome: AuditOutcome.FAILURE,
+          entityType: 'user',
+          entityId: input.userInfo?.email || 'unknown',
+          description: `Social sign-in failed via ${input.provider}`,
+          metadata: { 
+            provider: input.provider,
+            reason: error.message || 'Social sign-in failed'
+          },
+          severity: AuditSeverity.WARNING,
+        }, context);
+
+        console.error('[AUTH] Social sign-in error:', error);
+        
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Social sign-in failed',
+        });
+      }
+    }),
+
   // Complete profile for new OAuth users with comprehensive validation
   completeProfile: protectedProcedure
     .input(CompleteProfileInputSchema)
     .output(z.object({ success: z.literal(true), user: UserResponseSchema, organizationId: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
+      console.log('[AUTH] completeProfile called with input:', JSON.stringify(input, null, 2));
+      console.log('[AUTH] completeProfile user context:', {
+        userId: ctx.user.id,
+        userEmail: ctx.user.email,
+        currentRole: (ctx.user as any).role,
+        needsProfileCompletion: (ctx.user as any).needsProfileCompletion
+      });
+
       const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
       const context = auditHelpers.extractContext(ctx.req, ctx.session);
       
@@ -461,17 +716,21 @@ export const authRouter = router({
           if (input.organizationName) {
             // Create new organization
             console.log('[AUTH] Creating new organization:', input.organizationName);
-            const orgId = `org_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+            const { randomUUID } = await import('crypto');
+            const orgId = randomUUID();
             finalOrganizationId = orgId;
           }
         } else if (input.role === 'user' && input.organizationCode) {
           // Look up organization by code
           console.log('[AUTH] Looking up organization by code:', input.organizationCode);
-          finalOrganizationId = `org_from_code_${input.organizationCode}`;
+          // TODO: Actually look up the organization by code
+          const { randomUUID } = await import('crypto');
+          finalOrganizationId = randomUUID();
         } else if (input.role === 'user' && !input.organizationCode) {
           // Create personal workspace
           console.log('[AUTH] Creating personal workspace for user');
-          const personalOrgId = `personal_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+          const { randomUUID } = await import('crypto');
+          const personalOrgId = randomUUID();
           finalOrganizationId = personalOrgId;
         }
         
