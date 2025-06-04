@@ -1,14 +1,20 @@
 import { createTRPCReact } from '@trpc/react-query';
 import { httpBatchLink, TRPCClientError } from '@trpc/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import React, { useState } from 'react';
 import { Platform } from 'react-native';
 import type { AppRouter } from '@/src/server/routers';
 import { authClient } from './auth/auth-client';
-import { getApiUrl, getTrpcUrl } from './core/config';
+import { getApiUrlSync } from './core/config';
+import { env } from './core/env';
+import { log } from '@/lib/core/logger';
 
 // Create tRPC React hooks
 export const api = createTRPCReact<AppRouter>();
+
+// Get initial URL synchronously
+const INITIAL_TRPC_URL = `${getApiUrlSync()}/api/trpc`;
 
 // Enhanced query client factory with platform-specific optimizations
 function createQueryClient() {
@@ -45,12 +51,12 @@ function createQueryClient() {
         retry: false,
         // Global error handling for mutations
         onError: (error) => {
-          console.error('[TRPC] Mutation error:', error);
+          log.api.error('Mutation failed', error);
           // Add toast notification here if needed
         },
         // Global success handling
         onSuccess: (data, variables, context) => {
-          console.log('[TRPC] Mutation success');
+          log.api.response('Mutation completed successfully');
           // Add global success actions here
         },
         // Prevent mutation caching issues
@@ -61,15 +67,29 @@ function createQueryClient() {
 }
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
-  console.log('[TRPC] Provider mounting...');
+  log.api.request('TRPC Provider mounting');
   
   const [queryClient] = useState(() => createQueryClient());
+  const [trpcUrl, setTrpcUrl] = useState(INITIAL_TRPC_URL);
+  
+  // Update URL when environment is ready
+  React.useEffect(() => {
+    env.getApiUrl().then(apiUrl => {
+      const newTrpcUrl = `${apiUrl}/api/trpc`;
+      if (newTrpcUrl !== trpcUrl) {
+        log.api.request('TRPC URL updated', { from: trpcUrl, to: newTrpcUrl });
+        setTrpcUrl(newTrpcUrl);
+      }
+    }).catch(error => log.api.error('Failed to update TRPC URL', error));
+  }, [trpcUrl]);
 
-  const [trpcClient] = useState(() =>
+  // Create tRPC client with dynamic URL
+  const trpcClient = React.useMemo(() =>
     api.createClient({
       links: [
         httpBatchLink({
-          url: `${getApiUrl()}/api/trpc`,
+          url: trpcUrl,
+          maxBatchSize: 1, // Disable batching to fix parsing issues
           headers() {
             const headers = new Map<string, string>();
             
@@ -93,13 +113,20 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           },
         }),
       ],
-    })
-  );
+    }), [trpcUrl]);
 
   return (
     <api.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         {children}
+        {/* Only show DevTools in development and web platform */}
+        {__DEV__ && Platform.OS === 'web' && (
+          <ReactQueryDevtools
+            initialIsOpen={false}
+            buttonPosition="bottom-left"
+            position="bottom"
+          />
+        )}
       </QueryClientProvider>
     </api.Provider>
   );
@@ -124,7 +151,7 @@ export function useOptimisticMutation<TOutput>(
       await utils.invalidate();
     },
     onError: (error: any) => {
-      console.error('Mutation error:', error);
+      log.api.error('Optimistic mutation failed', error);
       options?.onError?.(error);
     },
     onSuccess: (data: TOutput) => {
@@ -146,7 +173,7 @@ export function useBatchInvalidation() {
     invalidateAll: () => {
       const now = Date.now();
       if (now - lastInvalidation < 1000) { // Throttle to once per second
-        console.warn('[TRPC] Invalidation throttled to prevent infinite loops');
+        log.warn('Query invalidation throttled to prevent infinite loops', 'TRPC');
         return;
       }
       lastInvalidation = now;
@@ -155,7 +182,7 @@ export function useBatchInvalidation() {
     invalidateAuth: () => {
       const now = Date.now();
       if (now - lastInvalidation < 1000) {
-        console.warn('[TRPC] Auth invalidation throttled to prevent infinite loops');
+        log.warn('Auth invalidation throttled to prevent infinite loops', 'TRPC');
         return;
       }
       lastInvalidation = now;

@@ -2,7 +2,10 @@ import { db } from "@/src/db";
 import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { oAuthProxy, multiSession, organization, admin } from "better-auth/plugins";
 import * as schema from "../../src/db/schema";
+
+import { log } from "@/lib/core/logger";
 
 // Dynamic base URL based on request context
 const getBaseURL = () => {
@@ -33,6 +36,8 @@ const getTrustedOrigins = () => {
   if (process.env.NODE_ENV === "development") {
     // You can dynamically get your local IP or set it via environment variable
     const localIP = process.env.LOCAL_IP || "192.168.1.104";
+    // Also add the API URL's IP if different
+    const apiUrlIP = process.env.EXPO_PUBLIC_API_URL?.match(/(\d+\.\d+\.\d+\.\d+)/)?.[1];
     origins.push(
       `http://${localIP}:8081`,
       `http://${localIP}:8082`, // Add 8082 for web development
@@ -42,6 +47,18 @@ const getTrustedOrigins = () => {
       `http://${localIP}:19001`,
       `http://${localIP}:19002`
     );
+    
+    // Add API URL IP if different from LOCAL_IP
+    if (apiUrlIP && apiUrlIP !== localIP) {
+      origins.push(
+        `http://${apiUrlIP}:8081`,
+        `http://${apiUrlIP}:8082`,
+        `http://${apiUrlIP}:3000`,
+        `http://${apiUrlIP}:19000`,
+        `http://${apiUrlIP}:19001`,
+        `http://${apiUrlIP}:19002`
+      );
+    }
   }
 
   // Add production origins from environment variables
@@ -55,13 +72,17 @@ const getTrustedOrigins = () => {
     origins.push(...additionalOrigins);
   }
 
-  console.log("[AUTH SERVER] Trusted origins:", origins);
+  log.info("[AUTH SERVER] Trusted origins", "AUTH_CONFIG", { origins });
   return origins;
 };
 
-console.log("[AUTH CONFIG] Initializing Better Auth...");
-console.log("[AUTH CONFIG] Base URL:", getBaseURL());
-console.log("[AUTH CONFIG] Database available:", !!db);
+log.info("[AUTH CONFIG] Initializing Better Auth", "AUTH_CONFIG", {
+  baseURL: getBaseURL(),
+  databaseAvailable: !!db,
+  googleClientId: !!process.env.GOOGLE_CLIENT_ID,
+  googleClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+  googleConfigured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+});
 
 export const auth = betterAuth({
   baseURL: getBaseURL(),
@@ -118,7 +139,7 @@ export const auth = betterAuth({
     requireEmailVerification: false, // Disable for MVP
     sendResetPassword: async ({ user, url }) => {
       // Implement your email sending logic here
-      console.log(`Password reset link for ${user.email}: ${url}`);
+      log.auth.info(`Password reset link generated`, { email: user.email, url });
       // In production, replace with actual email service
     },
   },
@@ -154,47 +175,38 @@ export const auth = betterAuth({
       maxAge: 60 * 10, // 10 minutes
     },
   },
-  hooks: {
-    user: {
-      created: async (user, context) => {
-        console.log('[AUTH HOOK] User created:', {
-          id: user.id,
-          email: user.email,
-          provider: context?.provider || 'unknown',
-        });
-        
-        // For social OAuth users, ensure needsProfileCompletion is true
-        if (context?.provider && context.provider !== 'credential') {
-          console.log('[AUTH HOOK] Social OAuth user - setting needsProfileCompletion: true');
-          // Update in database to ensure it's persisted
-          try {
-            const { db } = await import('@/src/db');
-            const { user: userTable } = await import('@/src/db/schema');
-            const { eq } = await import('drizzle-orm');
-            
-            await db.update(userTable)
-              .set({ needsProfileCompletion: true })
-              .where(eq(userTable.id, user.id));
-              
-            console.log('[AUTH HOOK] Updated needsProfileCompletion in database');
-          } catch (error) {
-            console.error('[AUTH HOOK] Failed to update needsProfileCompletion:', error);
-          }
-        }
-        
-        return user;
-      },
-    },
-  },
+  // Note: Hook implementation moved to middleware in server/routers/auth.ts
+  // to avoid Better Auth type conflicts
   plugins: [
-    expo() // The Expo plugin configuration is done on the client side
+    expo(), // The Expo plugin configuration is done on the client side
+    oAuthProxy(), // OAuth proxy for better mobile OAuth support
+    multiSession({ 
+      maximumSessions: 5 // Allow up to 5 sessions per user
+    }), // Multi-session support
+    organization({
+      // Organization configuration
+      allowUserToCreateOrganization: true,
+      membershipLimits: {
+        'free': 5,
+        'pro': 50,
+        'enterprise': -1 // unlimited
+      }
+    }), // Organization management
+    admin({
+      defaultRole: 'user',
+      // Admin user IDs can be set via environment variable
+      adminUserIds: process.env.ADMIN_USER_IDS?.split(',') || []
+    }) // Admin functionality
   ],
   // CORS and trusted origins - include app scheme for mobile
   trustedOrigins: [
     ...getTrustedOrigins(),
-    "my-expo://", // Add your app scheme
-    "my-expo://home", // Specific callback path
-    "my-expo://*", // Allow all paths with your app scheme
+    "expo-starter://", // Add your app scheme
+    "expo-starter://auth-callback", // Specific callback path
+    "expo-starter://*", // Allow all paths with your app scheme
+    "my-expo://", // Legacy app scheme
+    "my-expo://home", // Legacy specific callback path
+    "my-expo://*", // Legacy allow all paths with your app scheme
     "exp://192.168.1.104:8081", // Expo development URL
     "exp://192.168.1.104:8081/--/", // Expo development URL with path
     "exp://localhost:8081", // Local Expo development
@@ -251,8 +263,7 @@ export const auth = betterAuth({
   },
   // Error handling
   onError: (error: any) => {
-    console.error("[AUTH ERROR]", error);
-    console.error("[AUTH ERROR] Stack:", error.stack);
+    log.auth.error("[AUTH ERROR]", error);
     // You can add error reporting service here (e.g., Sentry)
 
     // Don't expose internal errors in production
@@ -272,21 +283,21 @@ export const auth = betterAuth({
   callbacks: {
     signIn: {
       async before({ user, isNewUser }) {
-        console.log("[AUTH CALLBACK] Sign in before:", { user, isNewUser });
+        log.auth.debug("[AUTH CALLBACK] Sign in before", { userId: user?.id, isNewUser });
         // For new social users, set default role
         if (isNewUser && !user.role) {
           user.role = "user";
         }
       },
       async after({ user, session, request }) {
-        console.log("[AUTH CALLBACK] Sign in after:", { user, session });
+        log.auth.login("[AUTH CALLBACK] Sign in after", { userId: user?.id, sessionId: session?.id });
         
         // Check if this is a mobile OAuth callback
         const userAgent = request.headers.get('user-agent') || '';
         const isMobileOAuth = userAgent.includes('Expo') || userAgent.includes('okhttp');
         
         if (isMobileOAuth && session) {
-          console.log("[AUTH CALLBACK] Mobile OAuth detected, redirecting to success page");
+          log.auth.debug("[AUTH CALLBACK] Mobile OAuth detected, redirecting to success page");
           // For mobile OAuth, redirect to a success page that opens the app
           return {
             redirect: true,
@@ -301,9 +312,14 @@ export const auth = betterAuth({
   },
 });
 
-// Log available routes
+// Log Better Auth initialization
 if (process.env.NODE_ENV === "development") {
-  console.log("[AUTH] Available routes:", auth.api);
+  log.auth.debug("[AUTH] Better Auth initialized", { 
+    hasHandler: typeof auth.handler === 'function',
+    hasApi: !!auth.api,
+    apiKeys: auth.api ? Object.keys(auth.api) : [],
+    baseURL: getBaseURL()
+  });
 }
 
 // Export type for use in other files

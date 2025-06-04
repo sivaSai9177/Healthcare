@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import type { User, Session } from 'better-auth/types';
 import '@/types/auth'; // Import our type extensions
+import { log } from '@/lib/core/logger';
 
 // Types
 export interface AppUser extends User {
@@ -104,26 +105,29 @@ export const useAuthStore = create<AuthStore>()(
         error: null,
 
         // Hydration
-        setHasHydrated: (state) => set({ hasHydrated: state }),
+        setHasHydrated: (state) => {
+          log.store.update('Setting hasHydrated', { hasHydrated: state });
+          set({ hasHydrated: state });
+        },
 
         // Authentication state management only
         setUser: (user) => {
-          console.log('[AUTH STORE] Setting user:', user);
+          log.store.update('Setting user', { userId: user?.id });
           set({ user });
         },
 
         setSession: (session) => {
-          console.log('[AUTH STORE] Setting session:', session);
+          log.store.update('Setting session', { sessionId: session?.id });
           set({ session });
         },
 
         setAuthenticated: (authenticated) => {
-          console.log('[AUTH STORE] Setting authenticated:', authenticated);
+          log.store.update('Setting authenticated', { authenticated });
           set({ isAuthenticated: authenticated });
         },
 
         clearAuth: () => {
-          console.log('[AUTH STORE] Clearing auth state');
+          log.store.update('Clearing auth state');
           set({
             user: null,
             session: null,
@@ -133,20 +137,23 @@ export const useAuthStore = create<AuthStore>()(
         },
 
         logout: async (reason = 'user_initiated') => {
-          console.log('[AUTH STORE] Logging out:', reason);
+          log.auth.logout('Initiating logout', { reason });
+          
+          // Clear local state first for immediate UI feedback
+          get().clearAuth();
           
           try {
-            // Call Better Auth logout endpoint
-            // Note: In a full implementation, you'd call the auth API here
-            // For now, we'll just clear the local state
+            // Import tRPC client dynamically to avoid circular dependency
+            const { api } = await import('@/lib/trpc');
             
-            get().clearAuth();
-            console.log('[AUTH STORE] Logout completed');
+            // Call tRPC logout endpoint (which uses Better Auth API)
+            await api.auth.signOut.mutate();
+            
+            log.auth.logout('Logout completed via tRPC');
           } catch (error) {
-            console.error('[AUTH STORE] Logout error:', error);
-            // Even if API call fails, clear local state
-            get().clearAuth();
-            throw error;
+            log.auth.error('Logout API error (local state already cleared)', error);
+            // Don't throw since we already cleared local state
+            // The user experience should be that they're logged out regardless
           }
         },
 
@@ -157,13 +164,20 @@ export const useAuthStore = create<AuthStore>()(
           // Prevent unnecessary updates if data is the same
           if (currentState.user?.id === user?.id && 
               currentState.isAuthenticated === (!!user && !!session)) {
-            console.log('[AUTH STORE] No changes detected, skipping update');
+            log.store.update('No auth changes detected, skipping update', {
+              currentUserId: currentState.user?.id,
+              newUserId: user?.id,
+              currentAuth: currentState.isAuthenticated,
+              newAuth: !!user && !!session
+            });
             return;
           }
           
-          console.log('[AUTH STORE] Updating auth state:', { 
+          log.store.update('Updating auth state', { 
             userId: user?.id, 
-            isAuth: !!user && !!session 
+            isAuth: !!user && !!session,
+            previousUserId: currentState.user?.id,
+            previousAuth: currentState.isAuthenticated
           });
           
           set({
@@ -179,11 +193,11 @@ export const useAuthStore = create<AuthStore>()(
           const currentState = get();
           
           if (!currentState.user) {
-            console.warn('[AUTH STORE] Cannot update user data - no user logged in');
+            log.warn('Cannot update user data - no user logged in', 'AUTH_STORE');
             return;
           }
           
-          console.log('[AUTH STORE] Updating user data:', userData);
+          log.store.update('Updating user data', userData);
           
           set({
             user: {
@@ -206,7 +220,7 @@ export const useAuthStore = create<AuthStore>()(
         checkSession: async () => {
           // This will be called by components after they check session via tRPC
           const state = get();
-          console.log('[AUTH STORE] Checking session, current auth status:', {
+          log.store.update('Checking session', {
             hasUser: !!state.user,
             isAuthenticated: state.isAuthenticated
           });
@@ -227,7 +241,10 @@ export const useAuthStore = create<AuthStore>()(
           // Role-based permissions
           const rolePermissions: Record<string, string[]> = {
             admin: ['*'], // Admin can access everything
-            manager: ['manage_users', 'view_analytics', 'manage_content'],
+            manager: [
+              'manage_users', 'view_analytics', 'manage_content', 
+              'view_team', 'view_reports', 'manage_approvals', 'manage_schedule'
+            ],
             user: ['view_content', 'edit_profile'],
             guest: ['view_content'],
           };
@@ -253,7 +270,7 @@ export const useAuthStore = create<AuthStore>()(
           
           // Session validation will be handled by components via tRPC
           if (state?.user) {
-            console.log('[AUTH STORE] Rehydrated with user:', state.user.email);
+            log.store.update('Rehydrated with user', { email: state.user.email });
           }
         },
         // Only persist non-sensitive data
@@ -277,47 +294,53 @@ useAuthStore.subscribe(
     const now = Date.now();
     
     // Throttle subscription calls to prevent infinite loops
-    if (now - lastAuthStateChange < 100) {
+    if (now - lastAuthStateChange < 500) {
       return;
     }
     lastAuthStateChange = now;
     
     if (previousIsAuthenticated && !isAuthenticated) {
       // User logged out - clear any sensitive data
-      console.log('[AUTH STORE] User logged out, clearing sensitive data');
+      log.store.update('User logged out, clearing sensitive data');
     }
   }
 );
 
-// Export typed hooks
+// Export typed hooks - simplified to avoid re-render issues
 export const useAuth = () => {
-  const store = useAuthStore();
+  const user = useAuthStore(state => state.user);
+  const session = useAuthStore(state => state.session);
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const isLoading = useAuthStore(state => state.isLoading);
+  const hasHydrated = useAuthStore(state => state.hasHydrated);
+  const error = useAuthStore(state => state.error);
+  
+  // Get stable method references
+  const methods = React.useMemo(() => ({
+    setUser: useAuthStore.getState().setUser,
+    setSession: useAuthStore.getState().setSession,
+    setAuthenticated: useAuthStore.getState().setAuthenticated,
+    clearAuth: useAuthStore.getState().clearAuth,
+    updateAuth: useAuthStore.getState().updateAuth,
+    updateUserData: useAuthStore.getState().updateUserData,
+    setLoading: useAuthStore.getState().setLoading,
+    setError: useAuthStore.getState().setError,
+    updateActivity: useAuthStore.getState().updateActivity,
+    checkSession: useAuthStore.getState().checkSession,
+    logout: useAuthStore.getState().logout,
+    hasPermission: useAuthStore.getState().hasPermission,
+    hasRole: useAuthStore.getState().hasRole,
+    canAccess: useAuthStore.getState().canAccess,
+  }), []);
   
   return {
-    user: store.user,
-    session: store.session,
-    isAuthenticated: store.isAuthenticated,
-    isLoading: store.isLoading,
-    hasHydrated: store.hasHydrated,
-    error: store.error,
-    
-    // State management methods
-    setUser: store.setUser,
-    setSession: store.setSession,
-    setAuthenticated: store.setAuthenticated,
-    clearAuth: store.clearAuth,
-    updateAuth: store.updateAuth,
-    updateUserData: store.updateUserData,
-    setLoading: store.setLoading,
-    setError: store.setError,
-    updateActivity: store.updateActivity,
-    checkSession: store.checkSession,
-    logout: store.logout,
-    
-    // Permissions
-    hasPermission: store.hasPermission,
-    hasRole: store.hasRole,
-    canAccess: store.canAccess,
+    user,
+    session,
+    isAuthenticated,
+    isLoading,
+    hasHydrated,
+    error,
+    ...methods
   };
 };
 

@@ -1,265 +1,199 @@
 import React from "react";
 import { Platform, Text, View, ActivityIndicator, Pressable } from "react-native";
-import * as WebBrowser from "expo-web-browser";
-import * as AuthSession from "expo-auth-session";
-import { makeRedirectUri } from "expo-auth-session";
+import Constants from 'expo-constants';
 import { showErrorAlert } from "@/lib/core/alert";
-import { getApiUrl } from "@/lib/core/config";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { createAuthLogger } from "@/lib/core/debug";
-
-// Ensure web browser is ready for auth
-WebBrowser.maybeCompleteAuthSession();
-
-const authLogger = createAuthLogger();
+import { log } from "@/lib/core/logger";
+import { authClient as defaultAuthClient } from "@/lib/auth/auth-client";
+import { trpc } from "@/lib/trpc";
+import { getApiUrl } from "@/lib/core/env";
 
 export function GoogleSignInButton() {
   const [isLoading, setIsLoading] = React.useState(false);
   const router = useRouter();
   const { updateAuth } = useAuthStore();
-
-  // Create discovery document for Google
-  const discovery = AuthSession.useAutoDiscovery('https://accounts.google.com');
-
-  // Create redirect URI - use direct app scheme for mobile, localhost for web
-  const redirectUri = React.useMemo(() => {
-    if (Platform.OS === 'web') {
-      // Web: use localhost
-      const apiUrl = getApiUrl();
-      return `${apiUrl}/api/auth/callback/google`;
-    } else {
-      // Mobile: use app's scheme directly (no proxy)
-      return AuthSession.makeRedirectUri({ 
-        useProxy: false,
-        scheme: 'expo-starter', // Match the scheme in app.json
-        path: 'auth-callback'
-      });
-    }
-  }, []);
-
-  authLogger.logOAuthStart('google');
-  console.log('[GoogleSignInButton] Redirect URI:', redirectUri);
-
-  // Create auth request for mobile - use single client ID for all platforms
-  const [request, response, promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '59100460814-lvqieq6hjuhvhe0t3gue41cpbp499kr4.apps.googleusercontent.com',
-      responseType: AuthSession.ResponseType.Code,
-      scopes: ['openid', 'email', 'profile'],
-      redirectUri,
-      // Add PKCE for security
-      codeChallengeMethod: AuthSession.CodeChallengeMethod.S256,
-    },
-    discovery
-  );
+  const utils = trpc.useUtils();
 
 
-
-  // Process mobile OAuth success with better error handling
-  const handleMobileOAuthSuccess = React.useCallback(async (authResponse: any) => {
-    try {
-      console.log('[GoogleSignInButton] Processing OAuth callback...');
-      
-      // Extract the authorization code and other parameters
-      const { code, state } = authResponse.params;
-      
-      if (!code) {
-        throw new Error('No authorization code received from OAuth');
-      }
-
-      // Send to our mobile OAuth callback endpoint
-      const callbackResponse = await fetch(`${getApiUrl()}/api/auth/google-mobile-callback`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code,
-          redirectUri: redirectUri,
-          state,
-          type: 'authorization_code',
-        }),
-      });
-
-      if (!callbackResponse.ok) {
-        const errorData = await callbackResponse.json().catch(() => ({}));
-        throw new Error(errorData.message || `OAuth callback failed: ${callbackResponse.status}`);
-      }
-
-      const result = await callbackResponse.json();
-      
-      if (result.success) {
-        authLogger.logOAuthCallback('google', true);
-        
-        // Update auth state with user and session data
-        if (result.user && result.session) {
-          authLogger.logSessionUpdate(result.user, result.session);
-          updateAuth(result.user, result.session);
-          
-          // Navigate based on profile completion status
-          authLogger.logProfileCompletion(result.user.needsProfileCompletion);
-          if (result.user.needsProfileCompletion) {
-            authLogger.logNavigationDecision('/(auth)/complete-profile', 'User needs profile completion');
-            router.replace('/(auth)/complete-profile');
-          } else {
-            authLogger.logNavigationDecision('/(home)', 'User profile complete');
-            router.replace('/(home)');
-          }
-        } else {
-          throw new Error('Invalid response format from server');
-        }
-        
-        setIsLoading(false);
-      } else {
-        throw new Error(result.message || 'OAuth callback failed');
-      }
-    } catch (error) {
-      authLogger.logOAuthCallback('google', false, error);
-      setIsLoading(false);
-      showErrorAlert(
-        "Sign In Failed", 
-        error instanceof Error ? error.message : "Failed to complete Google sign-in"
-      );
-    }
-  }, [redirectUri]);
-
-  // Enhanced OAuth response handling for mobile
-  React.useEffect(() => {
-    if (Platform.OS !== 'web' && response) {
-      console.log('[GoogleSignInButton] Mobile OAuth response:', response.type);
-      
-      if (response.type === 'success') {
-        console.log('[GoogleSignInButton] OAuth success, processing callback...');
-        handleMobileOAuthSuccess(response);
-      } else if (response.type === 'error') {
-        console.error('[GoogleSignInButton] OAuth error:', response.error);
-        setIsLoading(false);
-        showErrorAlert("Sign In Failed", `OAuth error: ${response.error?.message || 'Unknown error'}`);
-      } else if (response.type === 'cancel') {
-        console.log('[GoogleSignInButton] User cancelled OAuth');
-        setIsLoading(false);
-      } else if (response.type === 'dismiss') {
-        console.log('[GoogleSignInButton] OAuth dismissed');
-        setIsLoading(false);
-      }
-    }
-  }, [response, handleMobileOAuthSuccess]);
-
-  // Enhanced web OAuth handling
-  const handleWebOAuth = async () => {
-    try {
-      console.log('[GoogleSignInButton] Web: Initiating OAuth flow...');
-      
-      const apiUrl = getApiUrl();
-      const endpoint = `${apiUrl}/api/auth/sign-in/social`;
-      console.log('[GoogleSignInButton] Web: Calling endpoint:', endpoint);
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          provider: 'google',
-          callbackURL: window.location.origin + '/auth-callback',
-        }),
-        credentials: 'include',
-      });
-      
-      console.log('[GoogleSignInButton] Web: Response status:', response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('[GoogleSignInButton] Web: Error response:', errorData);
-        throw new Error(errorData.message || errorData.error || `OAuth initialization failed: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('[GoogleSignInButton] Web: OAuth response data:', data);
-      
-      if (data.url) {
-        // Store current path to redirect back after auth
-        sessionStorage.setItem('auth_redirect_path', window.location.pathname);
-        window.location.href = data.url;
-      } else {
-        throw new Error('No OAuth URL received from server');
-      }
-    } catch (error) {
-      console.error('[GoogleSignInButton] Web: OAuth initialization failed:', error);
-      setIsLoading(false);
-      showErrorAlert(
-        "Sign In Failed", 
-        error instanceof Error ? error.message : "Failed to initiate Google sign-in"
-      );
-    }
-  };
 
   const handleGoogleSignIn = async () => {
-    // Prevent multiple clicks
     if (isLoading) {
-      console.log('[GoogleSignInButton] Already loading, ignoring click');
+      log.auth.debug('Already loading, ignoring click');
       return;
     }
     
     setIsLoading(true);
+    log.auth.oauth('Starting OAuth flow with google', { platform: Platform.OS });
     
     try {
-      console.log('[GoogleSignInButton] Starting Google sign-in...');
-      console.log('[GoogleSignInButton] Platform:', Platform.OS);
+      // Check if running in Expo Go first
+      if ((Platform.OS === 'ios' || Platform.OS === 'android') && Constants.executionEnvironment === 'storeClient') {
+        throw new Error('OAuth authentication requires a development build. Expo Go does not support OAuth redirects.');
+      }
       
-      if (Platform.OS === 'web') {
-        // Web flow - improved with better error handling
-        console.log('[GoogleSignInButton] Calling handleWebOAuth...');
-        await handleWebOAuth();
-      } else {
-        // Mobile flow - use Expo AuthSession without proxy
-        console.log('[GoogleSignInButton] Mobile: Using Expo AuthSession with direct scheme');
-        console.log('[GoogleSignInButton] Redirect URI:', redirectUri);
+      const apiUrl = await getApiUrl();
+      const callbackURL = Platform.OS === 'web' 
+        ? `${window.location.origin}/auth-callback`
+        : '/auth-callback';
+      
+      log.auth.debug('OAuth parameters', { apiUrl, callbackURL, platform: Platform.OS });
+      
+      // Use Better Auth client for OAuth initiation only
+      // Then rely on tRPC + TanStack Query for session management
+      try {
+        log.auth.debug('Starting OAuth with Better Auth client', { platform: Platform.OS });
         
-        if (!request) {
-          console.error('[GoogleSignInButton] Auth request not ready');
-          
-          // Check if running in Expo Go
-          if (!global.expo?.modules?.ExpoDevice?.isDevice) {
-            showErrorAlert(
-              "Development Build Required", 
-              "Google OAuth requires a development build. You cannot use Expo Go for OAuth authentication.\n\nPlease create a development build:\neas build --profile development"
-            );
-          } else {
-            showErrorAlert("Sign In Failed", "Authentication not configured properly");
-          }
-          setIsLoading(false);
+        // Initiate OAuth flow (Better Auth handles the redirect/callback)
+        const result = await defaultAuthClient.signIn.social({
+          provider: 'google',
+          callbackURL
+        });
+        
+        log.auth.debug('OAuth initiated', { hasResult: !!result, platform: Platform.OS });
+        
+        // For web, the browser will redirect and auth-callback will handle the session
+        if (Platform.OS === 'web') {
+          // The browser will redirect, so we don't need to handle anything here
+          // The auth-callback page will use tRPC to get session and handle navigation
           return;
         }
         
-        // This will open Google OAuth in a browser
-        // The response will be handled by the useEffect above
-        await promptAsync();
+        // For mobile, wait a moment then fetch session via tRPC
+        if (result) {
+          // Use TanStack Query to fetch fresh session data
+          log.auth.debug('Fetching session via tRPC after OAuth');
+          
+          // Use utils to fetch fresh session - this will use TanStack Query caching
+          const sessionData = await utils.auth.getSession.fetch();
+          
+          if (sessionData?.user) {
+            log.auth.oauth('OAuth success, updating auth state via tRPC', { userId: sessionData.user.id });
+            
+            // Update Zustand store with tRPC data
+            updateAuth(sessionData.user as any, sessionData.session as any);
+            
+            // Navigate based on profile completion status from tRPC
+            if (sessionData.user.needsProfileCompletion) {
+              log.auth.debug('Navigating to profile completion');
+              router.replace('/(auth)/complete-profile');
+            } else {
+              log.auth.debug('Navigating to home');
+              router.replace('/(home)');
+            }
+          } else {
+            throw new Error('No session data received after OAuth');
+          }
+        }
+      } catch (oauthError: any) {
+        log.auth.error('OAuth flow failed', oauthError);
+        throw oauthError;
       }
-    } catch (error) {
-      console.error('[GoogleSignInButton] Sign-in error:', error);
-      showErrorAlert("Sign In Failed", error instanceof Error ? error.message : "Failed to sign in with Google");
+      
+      setIsLoading(false);
+    } catch (error: any) {
+      log.auth.error('Sign-in error', { 
+        error,
+        errorType: typeof error,
+        errorMessage: error?.message || 'Unknown error',
+        errorStack: error?.stack || 'No stack trace'
+      });
+      
+      log.auth.oauth('OAuth callback failed', { provider: 'google', error: error?.message });
+      
+      // Safely extract error message with better handling for TypeErrors
+      let errorMessage = '';
+      try {
+        if (error instanceof TypeError) {
+          // Handle TypeError specifically (like the "Cannot read properties of undefined" error)
+          errorMessage = 'Authentication service error. Please try again.';
+          log.auth.error('TypeError in OAuth flow', { 
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+          });
+        } else if (error instanceof Error) {
+          errorMessage = error.message || '';
+        } else if (typeof error === 'string') {
+          errorMessage = error;
+        } else if (error && typeof error === 'object') {
+          // Safely check for message property
+          if ('message' in error && typeof error.message === 'string') {
+            errorMessage = error.message;
+          } else if ('error' in error && typeof error.error === 'string') {
+            errorMessage = error.error;
+          } else if (typeof error.toString === 'function') {
+            errorMessage = error.toString();
+          } else {
+            errorMessage = 'An unknown error occurred';
+          }
+        } else {
+          errorMessage = 'An unknown error occurred';
+        }
+      } catch (extractError) {
+        log.auth.error('Error extracting error message', { extractError });
+        errorMessage = 'Authentication service error. Please try again.';
+      }
+      
+      log.auth.debug('Extracted error message', { errorMessage });
+      
+      // Enhanced error handling for OAuth and backend errors
+      const isExpoGo = (Platform.OS === 'ios' || Platform.OS === 'android') && Constants.executionEnvironment === 'storeClient';
+      const isOAuthError = errorMessage && typeof errorMessage === 'string' && errorMessage.length > 0 &&
+          (errorMessage.includes('scheme') || errorMessage.includes('redirect') || 
+           errorMessage.includes('OAuth') || errorMessage.includes('development build'));
+      const isTypeError = error instanceof TypeError;
+      
+      // Handle specific error types
+      let title = "Sign In Failed";
+      let message = errorMessage || "Failed to sign in with Google";
+      
+      if (isTypeError) {
+        title = "Service Error";
+        message = "There was a temporary issue with the authentication service. Please try again in a moment.";
+      } else if (isExpoGo || isOAuthError) {
+        title = "Development Build Required";
+        message = "Google OAuth requires a development build. You cannot use Expo Go for OAuth authentication.\n\nPlease create a development build:\neas build --profile development";
+      } else if (errorMessage?.includes('Rate limit exceeded')) {
+        title = "Too Many Attempts";
+        message = "Too many sign-in attempts. Please wait a few minutes before trying again.";
+      } else if (errorMessage?.includes('Disposable email')) {
+        title = "Invalid Email";
+        message = "Please use a valid business email address. Disposable email addresses are not allowed.";
+      } else if (errorMessage?.includes('Organization name is required')) {
+        title = "Profile Incomplete";
+        message = "Please complete your profile by providing your organization information.";
+      } else if (errorMessage?.includes('Profile completion required')) {
+        title = "Profile Setup Required";
+        message = "Please complete your profile setup to continue using the app.";
+      } else if (errorMessage?.includes('network') || errorMessage?.includes('Network')) {
+        title = "Connection Error";
+        message = "Unable to connect to Google. Please check your internet connection and try again.";
+      } else if (errorMessage?.includes('cancelled') || errorMessage?.includes('canceled')) {
+        // Don't show error for user cancellation
+        setIsLoading(false);
+        return;
+      }
+      
+      showErrorAlert(title, message);
+      
       setIsLoading(false);
     }
   };
 
-  // Check if we're in Expo Go (development)
-  const isExpoGo = Platform.OS !== 'web' && !global.expo?.modules?.ExpoDevice?.isDevice;
-  
   return (
     <Pressable
-      disabled={isLoading || (Platform.OS !== 'web' && !request)}
+      disabled={isLoading}
       onPress={handleGoogleSignIn}
       style={[
         {
-          backgroundColor: isExpoGo ? '#6b7280' : '#1f2937',
+          backgroundColor: '#1f2937',
           paddingVertical: 12,
           paddingHorizontal: 16,
           borderRadius: 6,
-          opacity: (isLoading || (Platform.OS !== 'web' && !request)) ? 0.5 : 1,
+          opacity: isLoading ? 0.5 : 1,
           borderWidth: 1,
-          borderColor: isExpoGo ? '#6b7280' : '#1f2937',
+          borderColor: '#1f2937',
         }
       ]}
       className="w-full h-12 flex-row items-center justify-center"
@@ -278,7 +212,7 @@ export function GoogleSignInButton() {
             <Text style={{ color: '#EA4335' }}>e</Text>
           </Text>
           <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-            {isExpoGo ? 'OAuth requires dev build' : 'Continue with Google'}
+            Continue with Google
           </Text>
         </View>
       )}

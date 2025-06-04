@@ -1,54 +1,97 @@
 import { z } from 'zod';
-import { router, publicProcedure, protectedProcedure, publicProcedureWithLogging } from '../trpc';
+import { 
+  router, 
+  publicProcedure, 
+  protectedProcedure, 
+  publicProcedureWithLogging,
+  adminProcedure,
+  managerProcedure,
+  viewAnalyticsProcedure
+} from '../trpc';
 import { auth } from '@/lib/auth';
 import { TRPCError } from '@trpc/server';
 
-// Enhanced validation schemas
-const signInSchema = z.object({
-  email: z.string().email('Invalid email format'),
-  password: z.string().min(1, 'Password is required'),
-});
+// Import comprehensive server-side validation schemas
+import {
+  SignInInputSchema,
+  SignUpInputSchema,
+  CompleteProfileInputSchema,
+  ListUsersInputSchema,
+  UpdateUserRoleInputSchema,
+  AnalyticsInputSchema,
+  UserRoleSchema,
+  UserResponseSchema,
+  AuthResponseSchema,
+  SessionResponseSchema,
+  validateUserRole
+} from '@/lib/validations/server';
 
-const signUpSchema = z.object({
-  email: z.string().email('Invalid email format'),
-  password: z.string()
-    .min(12, 'Password must be at least 12 characters for security compliance')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/, 'Password must contain uppercase, lowercase, number, and special character'),
-  name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
-  role: z.enum(['admin', 'manager', 'user', 'guest']).default('user'),
-  // Role-based organization fields
-  organizationCode: z.string().min(4).max(12).regex(/^[A-Z0-9]+$/).optional(),
-  organizationName: z.string().min(2).max(100).optional(),
-  organizationId: z.string().uuid().optional(), // Legacy support
-  // Terms acceptance
-  acceptTerms: z.boolean().refine(val => val === true),
-  acceptPrivacy: z.boolean().refine(val => val === true),
-  // Enhanced fields for business use
-  phoneNumber: z.string().optional(),
-  department: z.string().optional(),
-}).refine(data => {
-  // Validate organization requirements based on role
-  if ((data.role === 'manager' || data.role === 'admin') && !data.organizationName) {
-    return false;
+// Security helpers
+const sanitizeInput = {
+  text: (input: string): string => {
+    return input
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '')
+      .trim();
+  },
+  email: (input: string): string => {
+    const cleaned = input.toLowerCase().trim();
+    if (cleaned.includes('..') || cleaned.includes('--') || cleaned.includes('/*')) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Invalid email format'
+      });
+    }
+    return cleaned;
   }
-  return true;
-}, {
-  message: 'Organization name is required for managers and admins',
-  path: ['organizationName'],
-});
+};
+
+// Rate limiting store (use Redis in production)
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+const checkRateLimit = (identifier: string, maxRequests: number, windowMs: number) => {
+  const now = Date.now();
+  const current = rateLimitStore.get(identifier);
+  
+  if (!current || current.resetTime < now) {
+    rateLimitStore.set(identifier, { count: 1, resetTime: now + windowMs });
+    return;
+  }
+  
+  if (current.count >= maxRequests) {
+    throw new TRPCError({
+      code: 'TOO_MANY_REQUESTS',
+      message: `Rate limit exceeded. Try again in ${Math.ceil((current.resetTime - now) / 1000)} seconds.`
+    });
+  }
+  
+  current.count++;
+};
+
+// Server-side validation utilities are available via imports
 
 export const authRouter = router({
-  // Sign in with email - with enhanced logging
+  // Sign in with email - with comprehensive server-side validation
   signIn: publicProcedureWithLogging
-    .input(signInSchema)
-    .mutation(async ({ input, ctx }) => {
+    .input(SignInInputSchema)
+    .output(AuthResponseSchema)
+    .mutation(async ({ input, ctx }): Promise<z.infer<typeof AuthResponseSchema>> => {
+      // Rate limiting: 5 attempts per minute per IP
+      const clientIp = ctx.req.headers.get('x-forwarded-for')?.split(',')[0] || 
+                       ctx.req.headers.get('x-real-ip') || 'unknown';
+      checkRateLimit(`signin:${clientIp}`, 5, 60000);
+      
+      // Sanitize inputs
+      const sanitizedEmail = sanitizeInput.email(input.email);
+      
       const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
       const context = auditHelpers.extractContext(ctx.req);
       
       try {
         const response = await auth.api.signInEmail({
           body: {
-            email: input.email,
+            email: sanitizedEmail,
             password: input.password,
           },
         });
@@ -131,97 +174,136 @@ export const authRouter = router({
       }
     }),
 
-  // Sign up with email - with enhanced validation and organization handling
+  // Sign up with email - with comprehensive validation and organization handling
   signUp: publicProcedureWithLogging
-    .input(signUpSchema)
-    .mutation(async ({ input }) => {
+    .input(SignUpInputSchema)
+    .output(AuthResponseSchema)
+    .mutation(async ({ input, ctx }): Promise<z.infer<typeof AuthResponseSchema>> => {
+      // Rate limiting: 3 signups per 5 minutes per IP
+      const clientIp = ctx.req.headers.get('x-forwarded-for')?.split(',')[0] || 
+                       ctx.req.headers.get('x-real-ip') || 'unknown';
+      checkRateLimit(`signup:${clientIp}`, 3, 300000);
+      
+      // Sanitize inputs
+      const sanitizedEmail = sanitizeInput.email(input.email);
+      const sanitizedName = sanitizeInput.text(input.name);
+      const sanitizedOrgName = input.organizationName ? 
+        sanitizeInput.text(input.organizationName) : undefined;
+      
+      // Additional security checks
+      if (input.password.toLowerCase().includes(input.email.split('@')[0].toLowerCase())) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Password cannot contain your email address'
+        });
+      }
+      
       try {
         console.log('[AUTH] Processing signup with input:', {
-          email: input.email,
+          email: sanitizedEmail,
           role: input.role,
           hasOrgCode: !!input.organizationCode,
-          hasOrgName: !!input.organizationName,
+          hasOrgName: !!sanitizedOrgName,
           acceptTerms: input.acceptTerms,
           acceptPrivacy: input.acceptPrivacy
         });
         
-        let finalOrganizationId = input.organizationId;
-        
-        // Handle organization logic based on role
-        if (input.role === 'manager' || input.role === 'admin') {
-          if (input.organizationName) {
-            // Create new organization
-            console.log('[AUTH] Creating new organization:', input.organizationName);
-            const orgId = `org_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            // TODO: Create organization in database
-            finalOrganizationId = orgId;
-            console.log('[AUTH] Generated organization ID:', finalOrganizationId);
-          }
-        } else if (input.role === 'user' && input.organizationCode) {
-          // Look up organization by code
-          console.log('[AUTH] Looking up organization by code:', input.organizationCode);
-          // TODO: Implement organization code lookup
-          // For now, generate a mock ID
-          finalOrganizationId = `org_from_code_${input.organizationCode}`;
-        } else if (input.role === 'user' && !input.organizationCode) {
-          // Create personal workspace
-          console.log('[AUTH] Creating personal workspace for user');
-          const personalOrgId = `personal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          finalOrganizationId = personalOrgId;
-        }
-        // Guests get no organization (finalOrganizationId remains undefined)
-
-        console.log('[AUTH] Calling Better Auth signUpEmail with:', {
-          email: input.email,
-          name: input.name,
-          role: input.role,
-          organizationId: finalOrganizationId,
-        });
-
-        const response = await auth.api.signUpEmail({
+        // First, create the user account with Better Auth
+        const signUpResponse = await auth.api.signUpEmail({
           body: {
-            email: input.email,
+            email: sanitizedEmail,
             password: input.password,
-            name: input.name,
-            // Additional fields need to be passed directly in the body
-            role: input.role,
-            organizationId: finalOrganizationId,
-            needsProfileCompletion: false, // Email signup collects all info upfront
+            name: sanitizedName,
+            // role and needsProfileCompletion will be set via database update
           },
+          headers: ctx.req.headers,
         });
 
-        console.log('[AUTH] Better Auth response:', response ? 'Success' : 'Failed');
-        if (response) {
-          console.log('[AUTH] Response details:', {
-            user: response.user,
-            token: response.token,
-            session: response.session
-          });
-        }
-
-        if (!response) {
-          console.error('[AUTH] Better Auth returned null/undefined response');
+        if (!signUpResponse) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
-            message: 'Failed to create account - no response from auth service',
+            message: 'Failed to create account',
           });
         }
 
-        console.log('[AUTH] User created successfully with organization:', finalOrganizationId);
+        console.log('[AUTH] User created successfully:', signUpResponse.user.id);
 
-        // Ensure we return the complete user object with custom fields
+        // Immediately update user with role and other fields in database
+        const { db } = await import('@/src/db');
+        const { user: userTable } = await import('@/src/db/schema');
+        const { eq } = await import('drizzle-orm');
+        
+        await db.update(userTable)
+          .set({ 
+            role: input.role,
+            phoneNumber: input.phoneNumber,
+            department: input.department,
+            needsProfileCompletion: false,
+            updatedAt: new Date()
+          })
+          .where(eq(userTable.id, signUpResponse.user.id));
+
+        let organization = null;
+        
+        // Handle organization creation/joining based on role
+        if (input.role === 'manager' || input.role === 'admin') {
+          if (sanitizedOrgName) {
+            console.log('[AUTH] Creating organization placeholder for:', sanitizedOrgName);
+            
+            // For now, create a simple organization ID until Better Auth organization tables are set up
+            const orgId = `org_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+            
+            // Update user with organization info directly in database (reuse imports)
+            
+            await db.update(userTable)
+              .set({ 
+                organizationId: orgId,
+                organizationName: sanitizedOrgName 
+              })
+              .where(eq(userTable.id, signUpResponse.user.id));
+            
+            organization = {
+              id: orgId,
+              name: sanitizedOrgName,
+              slug: sanitizedOrgName.toLowerCase().replace(/\s+/g, '-')
+            };
+            
+            console.log('[AUTH] Organization placeholder created:', orgId);
+            
+            // TODO: Implement proper organization creation with Better Auth after database migration
+            // try {
+            //   const orgResponse = await auth.api.createOrganization(...);
+            // } catch (orgError) {
+            //   console.error('[AUTH] Better Auth organization creation failed:', orgError);
+            // }
+          }
+        } else if (input.role === 'user' && input.organizationCode) {
+          // TODO: Implement organization joining by code
+          console.log('[AUTH] Organization joining by code not yet implemented');
+          // For now, just continue without organization
+        }
+        
+        // Update user data with organization info if created
         const completeUser = {
-          ...response.user,
+          ...signUpResponse.user,
           role: input.role,
-          organizationId: finalOrganizationId,
+          organizationId: organization?.id,
+          organizationName: organization?.name,
           needsProfileCompletion: false,
         };
 
-        return {
+        // Validate and return properly typed response
+        const validatedUser = UserResponseSchema.parse({
+          ...completeUser,
+          role: validateUserRole(completeUser.role),
+          status: 'active',
+        });
+
+        return AuthResponseSchema.parse({
           success: true,
-          user: completeUser,
-          organizationId: finalOrganizationId,
-        };
+          user: validatedUser,
+          token: signUpResponse.token,
+        });
       } catch (error: any) {
         console.error('[AUTH] Sign up error:', error);
         console.error('[AUTH] Error details:', {
@@ -255,79 +337,89 @@ export const authRouter = router({
       }
     }),
 
-  // Sign out
-  signOut: publicProcedure
-    .mutation(async ({ ctx }) => {
-      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
-      const context = auditHelpers.extractContext(ctx.req, ctx.session);
+
+  // Get current session with comprehensive validation
+  getSession: publicProcedure
+    .output(SessionResponseSchema.nullable())
+    .query(async ({ ctx }): Promise<z.infer<typeof SessionResponseSchema> | null> => {
+      // Return null early if no session exists
+      if (!ctx.session) {
+        return null;
+      }
+      
+      // Fetch fresh user data from database to ensure we have latest data
+      let dbUser = null;
+      try {
+        const { db } = await import('@/src/db');
+        const { user: userTable } = await import('@/src/db/schema');
+        const { eq } = await import('drizzle-orm');
+        
+        const [user] = await db
+          .select()
+          .from(userTable)
+          .where(eq(userTable.id, ctx.session.user.id))
+          .limit(1);
+        
+        dbUser = user;
+        
+        console.log('[AUTH] getSession - DB user data:', {
+          id: dbUser?.id,
+          email: dbUser?.email,
+          role: dbUser?.role,
+          hasDbUser: !!dbUser
+        });
+      } catch (dbError) {
+        console.warn('[AUTH] Database query failed, using session data only:', dbError);
+        // Continue with session data only
+      }
       
       try {
-        await auth.api.signOut({
-          headers: ctx.req.headers,
-        });
-        
-        // Log successful logout
-        await auditService.logAuth(
-          AuditAction.LOGOUT,
-          AuditOutcome.SUCCESS,
-          context
-        );
-        
-        return { success: true };
-      } catch (error) {
-        // Log failed logout
-        await auditService.logAuth(
-          AuditAction.LOGOUT,
-          AuditOutcome.FAILURE,
-          context,
-          { reason: error.message || 'System error' }
-        );
-        
-        console.error('[AUTH] Sign out error:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to sign out',
-        });
-      }
-    }),
-
-  // Get current session
-  getSession: publicProcedure
-    .query(async ({ ctx }) => {
-      if (!ctx.session) return null;
-      
-      // Fetch fresh user data from database to ensure we have latest needsProfileCompletion
-      const { db } = await import('@/src/db');
-      const { user: userTable } = await import('@/src/db/schema');
-      const { eq } = await import('drizzle-orm');
-      
-      const [dbUser] = await db
-        .select()
-        .from(userTable)
-        .where(eq(userTable.id, ctx.session.user.id))
-        .limit(1);
-      
-      console.log('[AUTH] getSession - DB user data:', {
-        id: dbUser?.id,
-        email: dbUser?.email,
-        needsProfileCompletion: dbUser?.needsProfileCompletion
-      });
-      
-      return {
-        session: ctx.session.session,
-        user: {
-          ...ctx.session.user,
-          role: dbUser?.role || (ctx.session.user as any).role || 'user',
+        // Build user data carefully with proper defaults and null safety
+        const userData = {
+          id: ctx.session.user.id || '',
+          email: ctx.session.user.email || '',
+          name: ctx.session.user.name || 'Unknown User',
+          role: validateUserRole(dbUser?.role || (ctx.session.user as any).role || 'user'),
           organizationId: dbUser?.organizationId || (ctx.session.user as any).organizationId,
-          needsProfileCompletion: dbUser?.needsProfileCompletion ?? false,
-          // Include additional fields from database
+          organizationName: dbUser?.organizationName,
           phoneNumber: dbUser?.phoneNumber,
           department: dbUser?.department,
-          organizationName: dbUser?.organizationName,
           jobTitle: dbUser?.jobTitle,
           bio: dbUser?.bio,
-        },
-      };
+          status: 'active' as const,
+          createdAt: ctx.session.user.createdAt || new Date(),
+          updatedAt: ctx.session.user.updatedAt || new Date(),
+          isEmailVerified: dbUser?.emailVerified ?? ctx.session.user.emailVerified ?? false,
+          lastLoginAt: new Date(), // Current session indicates recent login
+        };
+
+        // Validate user data with Zod - this will transform date strings if needed
+        const validatedUser = UserResponseSchema.parse(userData);
+        
+        // Build session response
+        const sessionResponse = {
+          session: {
+            id: ctx.session.session.id,
+            userId: ctx.session.session.userId,
+            expiresAt: ctx.session.session.expiresAt,
+            createdAt: ctx.session.session.createdAt,
+          },
+          user: validatedUser,
+        };
+
+        return SessionResponseSchema.parse(sessionResponse);
+        
+      } catch (error) {
+        console.error('[AUTH] Session validation error:', error);
+        console.error('[AUTH] Session data:', {
+          hasSession: !!ctx.session,
+          userId: ctx.session?.user?.id,
+          dbUser: !!dbUser,
+        });
+        
+        // Return null on validation errors to allow graceful fallback
+        return null;
+      }
     }),
 
   // Get current user (protected)
@@ -340,33 +432,10 @@ export const authRouter = router({
       };
     }),
 
-  // Complete profile for new OAuth users - uses same validation as signup
+  // Complete profile for new OAuth users with comprehensive validation
   completeProfile: protectedProcedure
-    .input(z.object({
-      name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
-      role: z.enum(['admin', 'manager', 'user', 'guest']),
-      // Role-based organization fields
-      organizationCode: z.string().min(4).max(12).regex(/^[A-Z0-9]+$/).optional(),
-      organizationName: z.string().min(2).max(100).optional(),
-      organizationId: z.string().uuid().optional(), // Legacy support
-      // Terms acceptance
-      acceptTerms: z.boolean().refine(val => val === true, 'You must accept the terms and conditions'),
-      acceptPrivacy: z.boolean().refine(val => val === true, 'You must accept the privacy policy'),
-      // Enhanced fields for business use
-      phoneNumber: z.string().optional(),
-      department: z.string().optional(),
-      jobTitle: z.string().optional(),
-      bio: z.string().max(500).optional(),
-    }).refine(data => {
-      // Validate organization requirements based on role
-      if ((data.role === 'manager' || data.role === 'admin') && !data.organizationName) {
-        return false;
-      }
-      return true;
-    }, {
-      message: 'Organization name is required for managers and admins',
-      path: ['organizationName'],
-    }))
+    .input(CompleteProfileInputSchema)
+    .output(z.object({ success: z.literal(true), user: UserResponseSchema, organizationId: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
       const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
       const context = auditHelpers.extractContext(ctx.req, ctx.session);
@@ -392,7 +461,7 @@ export const authRouter = router({
           if (input.organizationName) {
             // Create new organization
             console.log('[AUTH] Creating new organization:', input.organizationName);
-            const orgId = `org_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const orgId = `org_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
             finalOrganizationId = orgId;
           }
         } else if (input.role === 'user' && input.organizationCode) {
@@ -402,7 +471,7 @@ export const authRouter = router({
         } else if (input.role === 'user' && !input.organizationCode) {
           // Create personal workspace
           console.log('[AUTH] Creating personal workspace for user');
-          const personalOrgId = `personal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const personalOrgId = `personal_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
           finalOrganizationId = personalOrgId;
         }
         
@@ -463,9 +532,17 @@ export const authRouter = router({
           { ...beforeState, ...updateData }
         );
 
+        // Validate and return properly typed response
+        const validatedUser = UserResponseSchema.parse({
+          ...updatedUser,
+          role: validateUserRole(updatedUser.role),
+          status: 'active',
+          isEmailVerified: updatedUser.emailVerified ?? false,
+        });
+        
         return {
-          success: true,
-          user: updatedUser,
+          success: true as const,
+          user: validatedUser,
           organizationId: finalOrganizationId,
         };
       } catch (error) {
@@ -594,6 +671,47 @@ export const authRouter = router({
       }
     }),
 
+  // Sign out - protected endpoint
+  signOut: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+      const context = auditHelpers.extractContext(ctx.req, ctx.session);
+      
+      try {
+        // Use Better Auth API to sign out
+        await auth.api.signOut({
+          headers: ctx.req.headers,
+        });
+
+        // Log successful logout
+        await auditService.logAuth(
+          AuditAction.LOGOUT,
+          AuditOutcome.SUCCESS,
+          context,
+          { reason: 'user_initiated' }
+        );
+
+        console.log('[AUTH] User signed out successfully:', ctx.user.id);
+        
+        return { success: true };
+      } catch (error) {
+        // Log failed logout attempt (use LOGOUT with FAILURE outcome)
+        await auditService.logAuth(
+          AuditAction.LOGOUT,
+          AuditOutcome.FAILURE,
+          context,
+          { reason: error instanceof Error ? error.message : 'Unknown error' }
+        );
+        
+        console.error('[AUTH] Sign out error:', error);
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to sign out',
+        });
+      }
+    }),
+
   // Check if email exists (for registration form)
   checkEmail: publicProcedure
     .input(z.object({
@@ -650,8 +768,8 @@ export const authRouter = router({
       });
     }),
 
-  // Get audit logs for compliance (head_doctor only)
-  getAuditLogs: protectedProcedure
+  // Get audit logs for compliance (admin only)
+  getAuditLogs: adminProcedure
     .input(z.object({
       startDate: z.date().optional(),
       endDate: z.date().optional(),
@@ -660,15 +778,7 @@ export const authRouter = router({
       limit: z.number().min(1).max(100).default(50),
     }))
     .query(async ({ input, ctx }) => {
-      // Check if user has permission to view audit logs
-      if ((ctx.user as any).role !== 'admin') {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Insufficient permissions to view audit logs',
-        });
-      }
-      
-      // In production, query audit_log table
+      // Authorization is handled by adminProcedure middleware
       console.log('[AUDIT] Audit logs requested by:', ctx.user.id, 'filters:', input);
       
       return {
@@ -678,20 +788,13 @@ export const authRouter = router({
     }),
 
   // Force password reset (admin only)
-  forcePasswordReset: protectedProcedure
+  forcePasswordReset: adminProcedure
     .input(z.object({
       userId: z.string(),
       reason: z.string().min(1, 'Reason is required'),
     }))
     .mutation(async ({ input, ctx }) => {
-      if ((ctx.user as any).role !== 'admin') {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Insufficient permissions',
-        });
-      }
-      
-      // Log security action
+      // Authorization is handled by adminProcedure middleware
       console.log('[SECURITY] Password reset forced by:', ctx.user.id, 'for user:', input.userId, 'reason:', input.reason);
       
       // In production, implement actual password reset logic
@@ -743,5 +846,209 @@ export const authRouter = router({
           message: 'Failed to revoke session',
         });
       }
+    }),
+
+  // New procedures demonstrating tRPC authorization middleware
+
+  // List all users with comprehensive filtering and validation
+  listUsers: managerProcedure
+    .input(ListUsersInputSchema)
+    .output(z.object({
+      users: z.array(UserResponseSchema),
+      total: z.number(),
+      hasMore: z.boolean(),
+      nextCursor: z.string().optional()
+    }))
+    .query(async ({ input, ctx }) => {
+      // Authorization is handled by managerProcedure middleware
+      console.log('[USERS] User list requested by:', ctx.user.id, 'with filters:', input);
+      
+      try {
+        const { db } = await import('@/src/db');
+        const { user: userTable } = await import('@/src/db/schema');
+        const { like, eq, desc } = await import('drizzle-orm');
+        
+        // Build where conditions
+        const { and } = await import('drizzle-orm');
+        const whereConditions = [];
+        
+        if (input.search) {
+          whereConditions.push(like(userTable.name, `%${input.search}%`));
+        }
+        
+        if (input.role) {
+          whereConditions.push(eq(userTable.role, input.role));
+        }
+        
+        // Execute query with proper Drizzle ORM chaining
+        const baseQuery = db.select({
+          id: userTable.id,
+          email: userTable.email,
+          name: userTable.name,
+          role: userTable.role,
+          organizationId: userTable.organizationId,
+          organizationName: userTable.organizationName,
+          department: userTable.department,
+          createdAt: userTable.createdAt,
+          updatedAt: userTable.updatedAt,
+        }).from(userTable);
+        
+        // Apply filters and execute
+        const users = await (whereConditions.length > 0 
+          ? baseQuery.where(and(...whereConditions))
+          : baseQuery
+        )
+          .limit(input.limit)
+          .offset(input.offset)
+          .orderBy(desc(userTable.createdAt));
+        
+        // Validate and transform users to match schema
+        const validatedUsers = users.map(user => UserResponseSchema.parse({
+          ...user,
+          role: validateUserRole(user.role),
+          status: 'active' as const,
+          isEmailVerified: false, // Would come from actual field
+        }));
+        
+        return {
+          users: validatedUsers,
+          total: validatedUsers.length,
+          hasMore: validatedUsers.length === input.limit,
+          nextCursor: validatedUsers.length === input.limit ? 
+            validatedUsers[validatedUsers.length - 1].id : undefined,
+        };
+      } catch (error) {
+        console.error('[USERS] Failed to list users:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to retrieve users',
+        });
+      }
+    }),
+
+  // Update user role with comprehensive validation (admin only)
+  updateUserRole: adminProcedure
+    .input(UpdateUserRoleInputSchema)
+    .output(z.object({ success: z.literal(true), user: UserResponseSchema }))
+    .mutation(async ({ input, ctx }) => {
+      // Authorization is handled by adminProcedure middleware
+      console.log('[ADMIN] Role change requested by:', ctx.user.id, 'for user:', input.userId, 'new role:', input.newRole);
+      
+      if (input.userId === ctx.user.id) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot change your own role',
+        });
+      }
+      
+      try {
+        const { db } = await import('@/src/db');
+        const { user: userTable } = await import('@/src/db/schema');
+        const { eq } = await import('drizzle-orm');
+        
+        const updatedUsers = await db
+          .update(userTable)
+          .set({ 
+            role: input.newRole,
+            updatedAt: new Date(),
+          })
+          .where(eq(userTable.id, input.userId))
+          .returning();
+        
+        if (updatedUsers.length === 0) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'User not found',
+          });
+        }
+        
+        const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+        const context = auditHelpers.extractContext(ctx.req, ctx.session);
+        
+        // Log role change
+        await auditService.logUserManagement(
+          AuditAction.USER_ROLE_CHANGED,
+          AuditOutcome.SUCCESS,
+          input.userId,
+          context,
+          { role: 'previous' }, // Would get from database
+          { role: input.newRole, reason: input.reason }
+        );
+        
+        // Validate and return properly typed response
+        const validatedUser = UserResponseSchema.parse({
+          ...updatedUsers[0],
+          role: validateUserRole(updatedUsers[0].role),
+          status: 'active',
+          isEmailVerified: false, // Would come from actual field
+        });
+        
+        return {
+          success: true as const,
+          user: validatedUser,
+        };
+      } catch (error) {
+        console.error('[ADMIN] Failed to update user role:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to update user role',
+        });
+      }
+    }),
+
+  // Get analytics data with comprehensive validation (manager and admin only)
+  getAnalytics: viewAnalyticsProcedure
+    .input(AnalyticsInputSchema)
+    .output(z.object({
+      metric: z.string(),
+      data: z.record(z.any()),
+      generatedAt: z.date(),
+      userRole: UserRoleSchema,
+      period: z.object({
+        start: z.date().optional(),
+        end: z.date().optional(),
+        granularity: z.string()
+      })
+    }))
+    .query(async ({ input, ctx }) => {
+      // Authorization is handled by viewAnalyticsProcedure middleware
+      console.log('[ANALYTICS] Analytics requested by:', ctx.user.id, 'metric:', input.metric);
+      
+      // Mock analytics data - in production, this would query actual metrics
+      const mockData = {
+        users: {
+          total: 150,
+          active: 120,
+          newThisMonth: 25,
+          growth: 15.2,
+        },
+        logins: {
+          today: 45,
+          thisWeek: 280,
+          thisMonth: 1150,
+          avgPerDay: 38.3,
+        },
+        activity: {
+          totalSessions: 2400,
+          avgSessionDuration: 24.5,
+          bounceRate: 12.3,
+          peakHours: ['9:00', '14:00', '16:00'],
+        },
+      };
+      
+      // Validate user role and return properly typed response
+      const validatedUserRole = validateUserRole((ctx.user as any).role || 'user');
+      
+      return {
+        metric: input.metric,
+        data: mockData[input.metric],
+        generatedAt: new Date(),
+        userRole: validatedUserRole,
+        period: {
+          start: input.startDate,
+          end: input.endDate,
+          granularity: input.granularity,
+        }
+      };
     }),
 });
