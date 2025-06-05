@@ -1,7 +1,8 @@
 import * as React from "react";
-import { Pressable, Text, PressableProps, Platform, View } from "react-native";
+import { Pressable, Text, PressableProps, Platform, View, ActivityIndicator } from "react-native";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/core/utils";
+import { useTheme } from "@/lib/theme/theme-provider";
 import "@/app/global.css";
 
 const buttonVariants = cva(
@@ -40,12 +41,17 @@ export interface ButtonProps
   children?: React.ReactNode;
   type?: "button" | "submit" | "reset";
   onClick?: () => void; // For web compatibility
+  loading?: boolean;
 }
 
 const Button = React.forwardRef<View, ButtonProps>(
-  ({ className, variant, size, children, disabled, onPress, onClick, type, ...props }, ref) => {
+  ({ className, variant, size, children, disabled, onPress, onClick, type, loading, ...props }, ref) => {
+    const theme = useTheme();
+    
     // Handle form submission for web
     const handlePress = React.useCallback(() => {
+      if (loading) return;
+      
       if (Platform.OS === "web" && type === "submit") {
         // For web form submission, we need to trigger the form's submit event
         const form = (ref as any)?.current?.closest("form");
@@ -59,42 +65,113 @@ const Button = React.forwardRef<View, ButtonProps>(
       // Use onClick for web, onPress for native
       if (onClick) onClick();
       if (onPress) onPress(null as any);
-    }, [onClick, onPress, type, ref]);
+    }, [onClick, onPress, type, ref, loading]);
+
+    // Get button colors based on variant and theme
+    const getButtonStyle = () => {
+      const baseStyle: any = {
+        borderRadius: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+      };
+
+      // Apply disabled styles
+      if (disabled || loading) {
+        baseStyle.backgroundColor = theme.muted || '#e5e7eb';
+        if (variant === "outline") {
+          baseStyle.borderWidth = 1;
+          baseStyle.borderColor = theme.muted || '#e5e7eb';
+        }
+        return baseStyle;
+      }
+
+      switch (variant) {
+        case "default":
+          baseStyle.backgroundColor = theme.primary;
+          break;
+        case "destructive":
+          baseStyle.backgroundColor = theme.destructive;
+          break;
+        case "outline":
+          baseStyle.backgroundColor = 'transparent';
+          baseStyle.borderWidth = 1;
+          baseStyle.borderColor = theme.border;
+          break;
+        case "secondary":
+          baseStyle.backgroundColor = theme.secondary;
+          break;
+        case "ghost":
+          baseStyle.backgroundColor = 'transparent';
+          break;
+        case "link":
+          baseStyle.backgroundColor = 'transparent';
+          break;
+      }
+
+      if (size === "sm") {
+        baseStyle.paddingHorizontal = 12;
+        baseStyle.paddingVertical = 6;
+      } else if (size === "lg") {
+        baseStyle.paddingHorizontal = 24;
+        baseStyle.paddingVertical = 14;
+      }
+
+      return baseStyle;
+    };
+
+    const getTextColor = () => {
+      if (disabled || loading) return theme.mutedForeground || '#9ca3af';
+      
+      switch (variant) {
+        case "default":
+          // For default variant, text should be light on dark background
+          return theme.primaryForeground || '#ffffff';
+        case "destructive":
+          return theme.destructiveForeground || '#ffffff';
+        case "outline":
+          return theme.foreground || '#111827';
+        case "secondary":
+          return theme.secondaryForeground || '#111827';
+        case "ghost":
+          return theme.foreground || '#111827';
+        case "link":
+          return theme.primary || '#6366f1';
+        default:
+          return theme.primaryForeground || '#ffffff';
+      }
+    };
 
     return (
       <Pressable
         ref={ref}
         className={cn(
-          buttonVariants({ variant, size, className }),
-          disabled && "opacity-50"
+          buttonVariants({ variant, size, className })
         )}
-        disabled={disabled}
+        disabled={disabled || loading}
         onPress={handlePress}
         style={({ pressed }) => [
-          { opacity: pressed && !disabled ? 0.7 : disabled ? 0.5 : 1 }
+          getButtonStyle(),
+          { opacity: pressed && !disabled && !loading ? 0.7 : 1 }
         ]}
         {...props}
       >
-        {({ pressed }) => (
+        {loading ? (
+          <ActivityIndicator 
+            size="small" 
+            color={getTextColor()} 
+          />
+        ) : (
           <Text
             className={cn(
               "text-sm font-medium",
-              !disabled && variant === "default" && "text-primary-foreground",
-              !disabled && variant === "destructive" && "text-destructive-foreground",
-              !disabled && variant === "outline" && "text-foreground",
-              !disabled && variant === "secondary" && "text-secondary-foreground",
-              !disabled && variant === "ghost" && "text-foreground",
-              !disabled && variant === "link" && "text-primary",
-              disabled && "text-muted-foreground",
-              pressed && !disabled && "opacity-70"
+              variant === "link" && "underline"
             )}
             style={{
-              color: disabled ? '#999999' :
-                variant === "default" ? '#ffffff' :
-                variant === "destructive" ? '#ffffff' :
-                variant === "secondary" ? '#333333' :
-                variant === "link" ? '#0066cc' :
-                '#333333', // For outline and ghost variants
+              color: getTextColor(),
+              fontSize: size === "sm" ? 14 : size === "lg" ? 18 : 16,
             }}
           >
             {children}

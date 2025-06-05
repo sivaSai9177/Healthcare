@@ -44,6 +44,65 @@ This document serves as the central memory for AI agents working on this codebas
 - Session invalidation on logout
 - **NEW**: Authorization middleware with enterprise security
 
+## 🎨 Universal Design System (NEW)
+
+### Overview
+The project now includes a comprehensive universal design system that provides consistent, cross-platform components for iOS, Android, and Web.
+
+### Core Components
+- **Box**: Flexible container with spacing, layout, and visual props
+- **Text**: Typography component with theme integration and variants
+- **Stack (VStack/HStack)**: Layout components for consistent spacing
+- **Button**: Accessible button with variants and states
+- **Container**: Page wrapper with safe area and scroll support
+- **Input**: Form input with validation and theming
+- **Card**: Content container with header, content, and footer sections
+- **Checkbox**: Accessible checkbox with theme support
+- **Switch**: Toggle switch with platform-specific styling
+
+### Design Tokens
+- **Spacing**: 4px-based scale (0-96) with responsive density support
+- **Typography**: Consistent font sizes, weights, and line heights
+- **Colors**: Full theme integration with dark mode support
+- **Shadows**: Platform-optimized shadow styles
+- **Border Radius**: Consistent corner radius scale
+
+### Responsive Spacing Theme (NEW)
+The app now supports three spacing densities that adapt all components:
+- **Compact** (75% of base): For small screens or maximum content
+- **Medium** (100% of base): Default for standard devices
+- **Large** (125% of base): Enhanced readability and touch targets
+
+Users can change density in Settings, and it automatically adjusts:
+- All padding, margins, and gaps
+- Font sizes and line heights
+- Component heights and widths
+- Touch target sizes
+
+### Usage Example
+```tsx
+import { Container, VStack, Heading1, Text, Button } from '@/components/universal';
+
+<Container scroll>
+  <VStack p={4} spacing={4}>
+    {/* p={4} = 12px in compact, 16px in medium, 20px in large */}
+    <Heading1>Welcome</Heading1>
+    <Text colorTheme="mutedForeground">Get started with our app</Text>
+    <Button onPress={handleStart}>Begin</Button>
+  </VStack>
+</Container>
+```
+
+### Key Files
+- `lib/design-system/index.ts` - Design tokens and constants
+- `lib/design-system/spacing-theme.ts` - Responsive spacing system
+- `contexts/SpacingContext.tsx` - Spacing density provider
+- `components/universal/` - Universal component library
+- `components/SpacingDensitySelector.tsx` - Density settings UI
+- `DESIGN_SYSTEM.md` - Complete documentation
+- `SPACING_THEME_SYSTEM.md` - Spacing theme documentation
+- `docs/guides/MIGRATING_TO_DESIGN_SYSTEM.md` - Migration guide
+
 ## 🎯 Current Implementation Status
 
 ### ✅ Completed
@@ -51,10 +110,10 @@ This document serves as the central memory for AI agents working on this codebas
    - Email/password login and signup
    - Google OAuth (web and mobile)
    - Profile completion flow
-   - **NEW**: tRPC authorization middleware following official best practices
-   - **NEW**: Role-based procedures (admin, manager, user procedures)
-   - **NEW**: Permission-based procedures (granular access control)
-   - **NEW**: Context enhancement with helper functions
+   - tRPC authorization middleware following official best practices
+   - Role-based procedures (admin, manager, user procedures)
+   - Permission-based procedures (granular access control)
+   - Context enhancement with helper functions
    - Session management with multi-session support
    - Logout functionality
 
@@ -65,6 +124,7 @@ This document serves as the central memory for AI agents working on this codebas
    - Home dashboard with role-based content
    - Error handling and loading states
    - Form validation with react-hook-form and Zod
+   - **Platform-specific tab navigation** - Custom WebTabBar for web to prevent reloads
 
 3. **Backend**
    - tRPC router with type-safe procedures
@@ -76,6 +136,11 @@ This document serves as the central memory for AI agents working on this codebas
    - Zustand store with persistence
    - Proper hydration handling
    - Permission checking utilities
+
+5. **Navigation**
+   - **Fixed tab reload issue on web** - Platform-specific implementation
+   - Static route structure to prevent re-renders
+   - Proper navigation patterns (Redirect for guards, router methods for actions)
 
 ### 🚧 In Progress / TODO
 1. **Email Verification** - Backend ready, needs frontend
@@ -397,8 +462,16 @@ router.push('/screen');    // For regular navigation
 
 ## 🔄 Last Updated
 
-**Date**: June 4, 2025
-**Last Change**: Fixed Google OAuth flow validation and Zod schema handling
+**Date**: December 6, 2024
+**Last Change**: Enhanced email validation with debounced API checks and UI improvements
+**Changes**:
+- ✅ Implemented real-time email validation with 500ms debounce
+- ✅ Added Zod-based email validation for consistency
+- ✅ Fixed React Native text rendering errors
+- ✅ Added success border indication when email exists
+- ✅ Improved error handling and loading states
+- ✅ Fixed variable hoisting issues in login component
+- ✅ Enhanced debug logging for email validation flow
 **Completed**: 
 - ✅ **Google OAuth Flow Working**: Complete web OAuth integration with Better Auth
 - ✅ **Validation Schema Fix**: Fixed nullable field handling in UserResponseSchema
@@ -413,6 +486,7 @@ router.push('/screen');    // For regular navigation
 - ✅ **Error Handling**: Comprehensive OAuth and validation error handling
 - ✅ **Test Coverage**: Extensive unit and integration tests
 - ✅ **Documentation**: Complete implementation documentation and guides
+- ✅ **Authentication Flow Analysis**: Complete backend auth stack documentation
 
 **Current Status**: 
 - **Google OAuth**: ✅ Working on localhost:8081
@@ -421,10 +495,60 @@ router.push('/screen');    // For regular navigation
 - **Authorization**: ✅ Complete role/permission system
 - **Validation**: ✅ Fixed nullable field handling
 - **Navigation**: ✅ Stable routing without infinite loops
+- **Tab Navigation Issue**: ✅ FIXED - Platform-specific implementation (WebTabBar for web)
 
 **Architecture**: Pure Zustand + TanStack Query + tRPC + Better Auth + Enhanced Validation
 **Test Results**: Production-ready with comprehensive OAuth flow validation
-**Next Priority**: Mobile OAuth development build testing, final refinements, deployment preparation
+**Next Priority**: Implement proper TanStack Query integration patterns, enhance performance monitoring
+
+## 📝 Key Insights from Latest Analysis
+
+### Authentication Stack Deep Dive
+1. **Better Auth** handles all core authentication with plugins for expo, OAuth proxy, multi-session
+2. **tRPC** provides type-safe API layer with comprehensive middleware chain
+3. **Zustand** manages client state only - no direct auth API calls
+4. **Database** stores custom fields (role, organizationId, needsProfileCompletion)
+
+### Middleware Chain Order
+```
+Request → Performance → Logging → Audit → Auth → Business Logic
+```
+
+### Tab Navigation Issue Root Cause ✅ FIXED
+- **Issue**: Initial attempt at `Stack.Protected` in root caused re-renders
+- **Issue**: AuthSync had navigation logic that caused conflicts
+- **Issue**: When switching tabs, entire app was reinitializing ("Running application 'main'")
+- **Solution**: 
+  1. Use Stack navigator in root _layout.tsx with route definitions only
+  2. Handle authentication routing in app/index.tsx entry point
+  3. Implement guards at layout level using conditional <Redirect />
+  4. AuthSync now only syncs state, no side effects
+- **Result**: Tab switches are now instant without app reinitialization
+
+### Navigation Architecture ✅ IMPLEMENTED (Expo Router v5)
+```
+app/
+├── _layout.tsx          # Root Stack navigator with Stack.Protected guards
+├── index.tsx            # Simple redirect to home (guards handle auth)
+├── (auth)/              # Public routes group
+│   ├── _layout.tsx      # Auth layout wrapper
+│   ├── login.tsx        # Login screen
+│   ├── signup.tsx       # Signup screen
+│   └── complete-profile.tsx # Profile completion
+├── (home)/              # Protected routes group (Stack.Protected)
+│   ├── _layout.tsx      # Tab navigator (protected by parent)
+│   ├── index.tsx        # Home dashboard
+│   ├── explore.tsx      # Explore tab
+│   └── settings.tsx     # Settings tab
+└── auth-callback.tsx    # OAuth callback handler
+```
+
+**Key Principles (Expo Router v5)**:
+1. Root layout uses `Stack.Protected` with boolean guards
+2. Guards automatically handle navigation when auth state changes
+3. Simple index.tsx - just redirects to home
+4. No manual auth checks in protected routes
+5. Authentication state updates trigger automatic re-routing
 
 ---
 

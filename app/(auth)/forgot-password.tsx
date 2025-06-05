@@ -65,13 +65,9 @@ export default function ForgotPasswordScreen() {
               >
                 <ArrowLeft size={24} color="#000" />
               </TouchableOpacity>
-              <CardTitle className="text-2xl flex-1">
-                Forgot password?
-              </CardTitle>
+              <CardTitle className="text-2xl flex-1">Forgot password?</CardTitle>
             </View>
-            <CardDescription>
-              Enter your email address and we&apos;ll send you a link to reset your password.
-            </CardDescription>
+            <CardDescription>Enter your email address and we&apos;ll send you a link to reset your password.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <View className="space-y-4">

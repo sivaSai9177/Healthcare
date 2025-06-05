@@ -24,14 +24,18 @@ const LOG_COLORS = {
 
 const RESET_COLOR = '\x1b[0m';
 
-// Log storage for debugging
-const LOG_STORAGE: Array<{
+// Log entry type
+export interface LogEntry {
   timestamp: Date;
   level: LogLevel;
   component: string;
   message: string;
   data?: any;
-}> = [];
+  id?: string;
+}
+
+// Log storage for debugging
+const LOG_STORAGE: LogEntry[] = [];
 
 const MAX_LOG_STORAGE = 1000;
 
@@ -47,7 +51,8 @@ class Logger {
     if (level > currentLogLevel) return;
 
     const timestamp = new Date();
-    const logEntry = {
+    const logEntry: LogEntry = {
+      id: Date.now().toString() + Math.random().toString(36),
       timestamp,
       level,
       component: this.component,
@@ -71,13 +76,25 @@ class Logger {
     
     switch (level) {
       case LogLevel.ERROR:
-        console.error(consoleMessage, data || '');
+        if (data !== undefined && data !== null) {
+          console.error(consoleMessage, data);
+        } else {
+          console.error(consoleMessage);
+        }
         break;
       case LogLevel.WARN:
-        console.warn(consoleMessage, data || '');
+        if (data !== undefined && data !== null) {
+          console.warn(consoleMessage, data);
+        } else {
+          console.warn(consoleMessage);
+        }
         break;
       default:
-        console.log(consoleMessage, data || '');
+        if (data !== undefined && data !== null) {
+          console.log(consoleMessage, data);
+        } else {
+          console.log(consoleMessage);
+        }
     }
 
     // In production, send to error reporting service

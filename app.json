@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.siva9177.expofullstackstarter",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSUserNotificationUsageDescription": "This app uses notifications to keep you updated with important information and alerts."
       },
       "associatedDomains": [
         "applinks:auth.expo.io"
@@ -46,14 +47,27 @@
           "resizeMode": "contain",
           "backgroundColor": "#fff0f7"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#FF1493",
+          "sounds": [],
+          "androidMode": "default",
+          "androidCollapsedTitle": "#{unread_notifications} new notifications"
+        }
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
-      "baseUrl": "/expo-local-first-template"
+      "typedRoutes": true
     },
     "extra": {
       "allowedOrigins": [
+        "http://192.168.1.104:8081",
+        "http://localhost:8081",
+        "http://192.168.1.104:8081",
+        "http://localhost:8081",
         "http://192.168.1.104:8081",
         "http://localhost:8081",
         "http://192.168.1.104:8081",
@@ -61,18 +75,18 @@
       ],
       "router": {},
       "eas": {
-        "projectId": "1f2acdd6-e47a-4b85-8ee3-40bc3f738af4"
+        "projectId": "f155b026-01bd-4212-94f3-e7aedef2801d"
       }
     },
-    "owner": "siva9177"
-  },
-  "cli": {
-    "appVersionSource": "remote"
-  },
-  "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal"
+    "owner": "siva9177",
+    "cli": {
+      "appVersionSource": "remote"
+    },
+    "build": {
+      "development": {
+        "developmentClient": true,
+        "distribution": "internal"
+      }
     }
   }
 }

@@ -133,13 +133,20 @@ export const useAuthStore = create<AuthStore>()(
         },
 
         clearAuth: () => {
+          console.log('[AuthStore] clearAuth called');
           log.store.update('Clearing auth state');
+          const prevState = get();
+          console.log('[AuthStore] Previous state:', {
+            hadUser: !!prevState.user,
+            wasAuthenticated: prevState.isAuthenticated
+          });
           set({
             user: null,
             session: null,
             isAuthenticated: false,
             error: null,
           });
+          console.log('[AuthStore] State cleared');
         },
 
         logout: async (reason = 'user_initiated') => {
