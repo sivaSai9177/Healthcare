@@ -12,22 +12,44 @@
         "credentialsSource": "local"
       },
       "ios": {
-        "simulator": false,
+        "simulator": true,
         "credentialsSource": "remote"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://localhost:8081"
+        "EXPO_PUBLIC_API_URL": "http://localhost:8081",
+        "EXPO_PUBLIC_ENVIRONMENT": "development",
+        "EXPO_PUBLIC_DEBUG_MODE": "true"
       }
     },
     "preview": {
       "distribution": "internal",
+      "ios": {
+        "buildConfiguration": "Release",
+        "resourceClass": "medium",
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://your-preview-api.com"
+        "EXPO_PUBLIC_API_URL": "http://localhost:8081",
+        "EXPO_PUBLIC_DEBUG_MODE": "false",
+        "EXPO_PUBLIC_ENVIRONMENT": "preview"
       }
     },
     "production": {
+      "ios": {
+        "buildConfiguration": "Release",
+        "resourceClass": "medium"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://your-production-api.com"
+        "EXPO_PUBLIC_API_URL": "https://your-production-api.com",
+        "EXPO_PUBLIC_DEBUG_MODE": "false",
+        "EXPO_PUBLIC_ENVIRONMENT": "production"
       }
     }
   },

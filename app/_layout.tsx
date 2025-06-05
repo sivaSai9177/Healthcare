@@ -1,81 +1,88 @@
-import {
-  DarkTheme,
-  DefaultTheme,
-  ThemeProvider,
-} from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { ActivityIndicator, View, Platform } from "react-native";
+import { useEffect, useRef } from "react";
 import "react-native-reanimated";
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // Import crypto polyfill early for React Native
 import "@/lib/core/crypto";
 
-import { useColorScheme } from "@/hooks/useColorScheme";
-import { useAuth } from "@/hooks/useAuth";
-import { TRPCProvider } from "@/lib/trpc";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { DebugPanel } from "@/components/DebugPanel";
+import { EnhancedDebugPanel } from "@/components/EnhancedDebugPanel";
+import { SyncProvider } from "@/components/SyncProvider";
+import { ColorSchemeProvider } from "@/contexts/ColorSchemeContext";
+import { SpacingProvider } from "@/contexts/SpacingContext";
+import { ShadcnThemeProvider } from "@/lib/theme/theme-provider";
+import { TRPCProvider } from "@/lib/trpc";
 import "./global.css";
 
-// Inner layout component that uses pure Zustand
-function AppNavigator() {
-  const colorScheme = useColorScheme();
-  const { hasHydrated } = useAuth();
+// Keep splash screen visible while loading
+SplashScreen.preventAutoHideAsync();
+
+// Debug component to track mount/unmount
+const LayoutDebugger = () => {
+  const mountRef = useRef(0);
   
-  // Show loading screen while auth is being determined
-  if (!hasHydrated) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+  useEffect(() => {
+    mountRef.current += 1;
+    console.log(`[ROOT LAYOUT] Mount #${mountRef.current} at ${new Date().toISOString()}`);
+    
+    return () => {
+      console.log(`[ROOT LAYOUT] Unmount #${mountRef.current} at ${new Date().toISOString()}`);
+    };
+  }, []);
   
-  return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: Platform.OS === 'android' ? { paddingTop: 0 } : {},
-        }}
-      >
-        {/* All routes - protection handled at screen level */}
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(home)" options={{ headerShown: false }} />
-        <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" backgroundColor={colorScheme === "dark" ? "#12242e" : "#f6e6ee"} />
-      <DebugPanel />
-    </ThemeProvider>
-  );
-}
+  return null;
+};
 
 export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
+  useEffect(() => {
+    if (loaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded]);
+
+  // Only wait for fonts to load - auth state is handled by the index route
   if (!loaded) {
-    // Show loading screen while fonts load
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return null;
   }
 
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <TRPCProvider>
-          {/* No AuthProvider - using pure Zustand pattern */}
-          <AppNavigator />
-        </TRPCProvider>
+        <ColorSchemeProvider>
+          <SpacingProvider>
+            <TRPCProvider>
+              <SyncProvider>
+                <ShadcnThemeProvider>
+                  <Stack screenOptions={{ headerShown: false }}>
+                    {/* Entry point */}
+                    <Stack.Screen name="index" />
+                    
+                    {/* Public routes - always accessible */}
+                    <Stack.Screen name="(auth)" />
+                    <Stack.Screen name="auth-callback" />
+                    
+                    {/* Protected routes - always render, guards in the layout */}
+                    <Stack.Screen name="(home)" />
+                    
+                    {/* 404 handler */}
+                    <Stack.Screen name="+not-found" />
+                  </Stack>
+                  <StatusBar style="auto" />
+                  <EnhancedDebugPanel />
+                  <LayoutDebugger />
+                </ShadcnThemeProvider>
+              </SyncProvider>
+            </TRPCProvider>
+          </SpacingProvider>
+        </ColorSchemeProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

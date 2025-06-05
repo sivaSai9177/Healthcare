@@ -1310,4 +1310,39 @@ export const authRouter = router({
         }
       };
     }),
+
+  // Check if email exists in database (for validation)
+  checkEmailExists: publicProcedure
+    .input(z.object({
+      email: z.string().email(),
+    }))
+    .output(z.object({
+      exists: z.boolean(),
+      isAvailable: z.boolean(),
+    }))
+    .query(async ({ input }) => {
+      try {
+        const { db } = await import('@/src/db');
+        const { user: userTable } = await import('@/src/db/schema');
+        const { eq } = await import('drizzle-orm');
+        
+        const [existingUser] = await db
+          .select({ id: userTable.id })
+          .from(userTable)
+          .where(eq(userTable.email, input.email.toLowerCase()))
+          .limit(1);
+        
+        return {
+          exists: !!existingUser,
+          isAvailable: !existingUser,
+        };
+      } catch (error) {
+        console.error('[AUTH] Error checking email:', error);
+        // Return safe default on error
+        return {
+          exists: false,
+          isAvailable: true,
+        };
+      }
+    }),
 });

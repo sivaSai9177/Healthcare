@@ -11,22 +11,28 @@ Welcome to the Full-Stack Expo Starter Kit documentation! This directory contain
 ## 🔐 Authentication & Security
 
 ### Core Authentication
-- **[Authentication System](./guides/AUTHENTICATION_SYSTEM.md)** - Complete auth system overview
+- **[Authentication Flow Architecture](../README.md#-authentication-flow-architecture)** - Complete backend auth stack deep dive
 - **[Google OAuth Setup](./guides/GOOGLE_OAUTH_SETUP.md)** - OAuth provider configuration
 - **[Social Login Flow](./guides/SOCIAL_LOGIN_COMPLETE_FLOW.md)** - OAuth + Profile completion flow
 - **[Session Management](./guides/AUTH_SESSION_MANAGEMENT.md)** - Session handling and security
+- **[Mobile Auth Complete Guide](./guides/MOBILE_AUTH_COMPLETE_GUIDE.md)** - Mobile authentication setup
+- **Email Validation** - Real-time email existence checking with debounced API calls (500ms)
 
 ### Security Features
-- **[Access Control](./guides/ACCESS_CONTROL.md)** - Role-based permissions system
+- **[tRPC Authorization Middleware](../CLAUDE.md#authorization-system-new)** - Role-based and permission-based procedures
 - **[Audit Logging](./guides/AUDIT_LOGGING.md)** - Security event tracking
 - **[Data Encryption](./guides/DATA_ENCRYPTION.md)** - Encryption implementation
+- **[Permission System](../README.md#permission-system)** - RBAC implementation details
 
 ## 🏗️ Architecture & Development
 
 ### Technical Guides
+- **[Navigation Architecture](./guides/NAVIGATION_ARCHITECTURE.md)** - Platform-specific navigation with tab fix *(UPDATED)*
+- **[Frontend Architecture Plan](./guides/FRONTEND_ARCHITECTURE_PLAN.md)** - Modern Expo Router + TanStack Query + tRPC architecture
+- **[TanStack Query + tRPC Integration](./guides/TANSTACK_TRPC_INTEGRATION.md)** - Advanced state management patterns
 - **[tRPC Best Practices](./guides/EXPO_TRPC_BEST_PRACTICES.md)** - API development patterns
 - **[State Management](./guides/STATE_MANAGEMENT.md)** - Zustand + TanStack Query
-- **[Database Schema](./guides/DATABASE_SCHEMA.md)** - PostgreSQL + Drizzle ORM
+- **[Database Schema](./api/DATABASE_SCHEMA.md)** - PostgreSQL + Drizzle ORM
 - **[Cross-Platform Development](./guides/CROSS_PLATFORM.md)** - iOS, Android, Web
 
 ### Development Workflow
@@ -43,7 +49,11 @@ Welcome to the Full-Stack Expo Starter Kit documentation! This directory contain
 
 ### Development Tools
 - **[Scripts Reference](./guides/SCRIPTS_REFERENCE.md)** - Available npm/bun scripts
-- **[Build & Deployment](./guides/BUILD_DEPLOYMENT.md)** - Production deployment guide
+- **[Build & Deployment](./guides/deployment/)** - Production deployment guides
+  - [Build Instructions](./guides/deployment/BUILD_INSTRUCTIONS.md)
+  - [Expo Build Steps](./guides/deployment/EXPO_OFFICIAL_BUILD_STEPS.md)
+  - [Quick Build Guide](./guides/deployment/QUICK_BUILD_GUIDE.md)
+  - [Credentials Setup](./guides/deployment/CREDENTIAL_SYNC_SETUP.md)
 - **[Development Builds](./guides/MOBILE_OAUTH_DEVELOPMENT_BUILD.md)** - Mobile development builds
 
 ## 📖 API Documentation

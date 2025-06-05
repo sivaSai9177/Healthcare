@@ -1,19 +1,44 @@
 import React from "react";
-import { Platform, Text, View, ActivityIndicator, Pressable } from "react-native";
+import { Platform } from "react-native";
 import Constants from 'expo-constants';
 import { showErrorAlert } from "@/lib/core/alert";
 import { useRouter } from "expo-router";
-import { useAuthStore } from "@/lib/stores/auth-store";
+import { useAuthStore, toAppUser } from "@/lib/stores/auth-store";
 import { log, getEnvironment } from "@/lib/core";
 import { authClient as defaultAuthClient } from "@/lib/auth/auth-client";
 import { trpc } from "@/lib/trpc";
-import { toAppUser } from "@/lib/stores/auth-store";
+import { Button, Text, HStack } from "@/components/universal";
+import { type ButtonProps } from "@/components/universal/Button";
+import { Ionicons } from '@expo/vector-icons';
 
-export function GoogleSignInButton() {
+interface GoogleSignInButtonProps extends Partial<ButtonProps> {
+  showIcon?: boolean;
+  text?: string;
+  variant?: ButtonProps['variant'];
+  size?: ButtonProps['size'];
+}
+
+export function GoogleSignInButton({ 
+  showIcon = true, 
+  text = "Continue with Google",
+  variant = "outline",
+  size = "md",
+  ...buttonProps 
+}: GoogleSignInButtonProps) {
   const [isLoading, setIsLoading] = React.useState(false);
   const router = useRouter();
   const { updateAuth } = useAuthStore();
   const utils = trpc.useUtils();
+  const loadingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  
+  // Clean up timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    };
+  }, []);
 
 
 
@@ -25,6 +50,12 @@ export function GoogleSignInButton() {
     
     setIsLoading(true);
     log.auth.oauth('Starting OAuth flow with google', { platform: Platform.OS });
+    
+    // Set a timeout to reset loading state if OAuth takes too long
+    loadingTimeoutRef.current = setTimeout(() => {
+      log.warn('OAuth timeout - resetting loading state', 'AUTH', { platform: Platform.OS });
+      setIsLoading(false);
+    }, 30000) as any; // 30 second timeout
     
     try {
       // Check if running in Expo Go first
@@ -44,23 +75,47 @@ export function GoogleSignInButton() {
       try {
         log.auth.debug('Starting OAuth with Better Auth client', { platform: Platform.OS });
         
-        // Initiate OAuth flow (Better Auth handles the redirect/callback)
-        const result = await defaultAuthClient.signIn.social({
-          provider: 'google',
-          callbackURL
-        });
-        
-        log.auth.debug('OAuth initiated', { hasResult: !!result, platform: Platform.OS });
-        
-        // For web, the browser will redirect and auth-callback will handle the session
         if (Platform.OS === 'web') {
-          // The browser will redirect, so we don't need to handle anything here
-          // The auth-callback page will use tRPC to get session and handle navigation
-          return;
+          // For web, use Better Auth client which should now work with server output
+          log.auth.debug('Starting web OAuth flow', { 
+            provider: 'google',
+            callbackURL,
+            platform: Platform.OS 
+          });
+          
+          try {
+            // With server output, this should properly redirect to Google
+            await defaultAuthClient.signIn.social({
+              provider: 'google',
+              callbackURL,
+            });
+            
+            // If we reach here, keep loading state as we should be redirecting
+            return;
+          } catch (error: any) {
+            log.auth.error('OAuth initiation failed', error);
+            
+            // If Better Auth client fails, try direct navigation as fallback
+            const authBaseUrl = `${window.location.origin}/api/auth`;
+            const oauthUrl = `${authBaseUrl}/signin/google?callbackURL=${encodeURIComponent(callbackURL)}`;
+            
+            log.auth.debug('Falling back to direct navigation', { oauthUrl });
+            window.location.href = oauthUrl;
+            return;
+          }
+        } else {
+          // Mobile OAuth flow
+          const result = await defaultAuthClient.signIn.social({
+            provider: 'google',
+            callbackURL
+          });
+          
+          log.auth.debug('OAuth initiated for mobile', { hasResult: !!result, platform: Platform.OS });
         }
         
         // For mobile, wait a moment then fetch session via tRPC
-        if (result) {
+        const isMobile = Platform.OS === 'ios' || Platform.OS === 'android';
+        if (isMobile) {
           // Use TanStack Query to fetch fresh session data
           log.auth.debug('Fetching session via tRPC after OAuth');
           
@@ -91,8 +146,16 @@ export function GoogleSignInButton() {
         throw oauthError;
       }
       
+      // Clear timeout and reset loading
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
       setIsLoading(false);
     } catch (error: any) {
+      // Clear timeout on error
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
       log.auth.error('Sign-in error', { 
         error,
         errorType: typeof error,
@@ -183,40 +246,37 @@ export function GoogleSignInButton() {
   };
 
   return (
-    <Pressable
-      disabled={isLoading}
+    <Button
+      variant={variant}
+      size={size}
+      isDisabled={isLoading}
+      isLoading={isLoading}
       onPress={handleGoogleSignIn}
-      style={[
-        {
-          backgroundColor: '#1f2937',
-          paddingVertical: 12,
-          paddingHorizontal: 16,
-          borderRadius: 6,
-          opacity: isLoading ? 0.5 : 1,
-          borderWidth: 1,
-          borderColor: '#1f2937',
-        }
-      ]}
-      className="w-full h-12 flex-row items-center justify-center"
+      fullWidth
+      {...buttonProps}
     >
-      {isLoading ? (
-        <ActivityIndicator size="small" color="white" />
-      ) : (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          {/* Google G Icon */}
-          <Text style={{ fontSize: 18, fontWeight: '600' }}>
-            <Text style={{ color: '#4285F4' }}>G</Text>
-            <Text style={{ color: '#EA4335' }}>o</Text>
-            <Text style={{ color: '#FBBC04' }}>o</Text>
-            <Text style={{ color: '#4285F4' }}>g</Text>
-            <Text style={{ color: '#34A853' }}>l</Text>
-            <Text style={{ color: '#EA4335' }}>e</Text>
-          </Text>
-          <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-            Continue with Google
-          </Text>
-        </View>
+      {!isLoading && (
+        <HStack spacing={text ? 2 : 0} alignItems="center" justifyContent="center">
+          {/* Google Logo */}
+          {showIcon && (
+            <Ionicons 
+              name="logo-google" 
+              size={size === "lg" ? 20 : 18} 
+              color={variant === 'outline' ? "#4285F4" : "#ffffff"}
+            />
+          )}
+          {text && (
+            <Text size={size === "lg" ? "base" : "sm"} weight="medium">
+              {text}
+            </Text>
+          )}
+          {!text && !showIcon && (
+            <Text size="xs" style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}>
+              Login with Google
+            </Text>
+          )}
+        </HStack>
       )}
-    </Pressable>
+    </Button>
   );
 }

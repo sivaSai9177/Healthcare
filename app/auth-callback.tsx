@@ -15,10 +15,7 @@ export default function AuthCallback() {
     refetchInterval: false,
     retry: 1,
     staleTime: 0, // Always fetch fresh data in auth callback
-    cacheTime: 0, // Don't cache in auth callback
-    onError: (error) => {
-      log.auth.error('Session fetch error in auth callback', error);
-    },
+    gcTime: 0, // Don't cache in auth callback (gcTime in v5)
   });
 
   useEffect(() => {
@@ -53,10 +50,10 @@ export default function AuthCallback() {
       // Navigate based on existing user state, but this should be rare now
       if (user.needsProfileCompletion) {
         log.info('Navigating to profile completion (from auth store)', 'AUTH_CALLBACK');
-        router.push('/(auth)/complete-profile');
+        router.replace('/(auth)/complete-profile');
       } else {
         log.info('Navigating to home (from auth store)', 'AUTH_CALLBACK');
-        router.push('/(home)');
+        router.replace('/(home)');
       }
       return;
     }
@@ -76,12 +73,12 @@ export default function AuthCallback() {
       updateAuth(appUser, sessionObj as any);
       
       // Navigate based on profile completion and role using Expo Router
-      if (sessionUser.needsProfileCompletion) {
+      if (sessionUser.needsProfileCompletion || sessionUser.role === 'guest') {
         log.info('Navigating to profile completion (from tRPC)', 'AUTH_CALLBACK');
-        router.push('/(auth)/complete-profile');
+        router.replace('/(auth)/complete-profile');
       } else {
         log.info('Navigating to home (from tRPC)', 'AUTH_CALLBACK');
-        router.push('/(home)');
+        router.replace('/(home)');
       }
     } else if (!isLoading && (!sessionData || error)) {
       log.warn('No session found or error occurred', 'AUTH_CALLBACK', { 
@@ -92,7 +89,7 @@ export default function AuthCallback() {
       
       // Redirect to login using Expo Router
       log.info('Redirecting to login - no valid session', 'AUTH_CALLBACK');
-      router.push('/(auth)/login');
+      router.replace('/(auth)/login');
     }
   }, [sessionData, isLoading, error, updateAuth, router, isAuthenticated, user]);
 

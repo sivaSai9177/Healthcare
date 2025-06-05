@@ -1,7 +1,8 @@
 import React from "react";
-import { Platform, View, Text, TouchableOpacity } from "react-native";
-import { Card, CardContent } from "@/components/shadcn/ui/card";
-import { cn } from "@/lib/core/utils";
+import { Platform, TouchableOpacity } from "react-native";
+import { Box, Text, Card, CardContent } from "@/components/universal";
+import { useTheme } from "@/lib/theme/theme-provider";
+import { BorderRadius, SpacingScale } from "@/lib/design-system";
 
 export type UserRole = 'guest' | 'user' | 'manager' | 'admin';
 
@@ -51,6 +52,8 @@ const roleOptions: RoleOption[] = [
 ];
 
 export function RoleSelector({ selectedRole, onRoleSelect, className }: RoleSelectorProps) {
+  const theme = useTheme();
+  
   // Use DOM component on web for better accessibility and performance
   if (Platform.OS === 'web') {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -60,69 +63,69 @@ export function RoleSelector({ selectedRole, onRoleSelect, className }: RoleSele
 
   // Native implementation for mobile
   return (
-    <View className={cn("space-y-3", className)}>
-      <Text className="text-sm font-medium text-foreground mb-2">
+    <Box gap={3 as SpacingScale}>
+      <Text size="sm" weight="medium" colorTheme="foreground" mb={2 as SpacingScale}>
         What best describes your role?
       </Text>
       
-      {roleOptions.map((role) => (
-        <TouchableOpacity
-          key={role.value}
-          onPress={() => onRoleSelect(role.value)}
-          className="w-full"
-          activeOpacity={0.7}
-        >
-          <Card 
-            className={cn(
-              "border-2 transition-colors",
-              selectedRole === role.value 
-                ? "border-primary bg-primary/5" 
-                : "border-border"
-            )}
-            style={{
-              borderColor: selectedRole === role.value ? '#1f2937' : '#e5e7eb',
-              backgroundColor: selectedRole === role.value ? 'rgba(31, 41, 55, 0.05)' : 'transparent',
-            }}
+      {roleOptions.map((role) => {
+        const isSelected = selectedRole === role.value;
+        
+        return (
+          <TouchableOpacity
+            key={role.value}
+            onPress={() => onRoleSelect(role.value)}
+            activeOpacity={0.7}
           >
-            <CardContent className="p-4">
-              <View className="flex-row items-start space-x-3">
-                <Text className="text-2xl">{role.icon}</Text>
-                
-                <View className="flex-1">
-                  <View className="flex-row items-center justify-between">
-                    <Text className="font-semibold text-foreground" style={{ color: '#1f2937' }}>
-                      {role.label}
+            <Card 
+              borderWidth={2}
+              borderColor={isSelected ? theme.primary : theme.border}
+              bg={isSelected ? theme.primary + '10' : 'transparent'}
+            >
+              <CardContent p={4 as SpacingScale}>
+                <Box flexDirection="row" alignItems="flex-start" gap={3 as SpacingScale}>
+                  <Text size="2xl">{role.icon}</Text>
+                  
+                  <Box flex={1}>
+                    <Box flexDirection="row" alignItems="center" justifyContent="space-between">
+                      <Text weight="semibold" colorTheme="foreground">
+                        {role.label}
+                      </Text>
+                      
+                      {isSelected && (
+                        <Box 
+                          width={20}
+                          height={20}
+                          bgTheme="primary"
+                          rounded={'full' as BorderRadius}
+                          alignItems="center"
+                          justifyContent="center"
+                        >
+                          <Text size="xs" weight="bold" colorTheme="primaryForeground">✓</Text>
+                        </Box>
+                      )}
+                    </Box>
+                    
+                    <Text size="sm" colorTheme="mutedForeground" mt={1 as SpacingScale}>
+                      {role.description}
                     </Text>
                     
-                    {selectedRole === role.value && (
-                      <View 
-                        className="w-5 h-5 bg-primary rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: '#1f2937' }}
-                      >
-                        <Text className="text-primary-foreground text-xs font-bold" style={{ color: 'white' }}>✓</Text>
-                      </View>
+                    {role.organizationFlow !== 'none' && (
+                      <Text size="xs" colorTheme="primary" mt={2 as SpacingScale}>
+                        {role.organizationFlow === 'create' 
+                          ? '• Will create organization workspace'
+                          : '• Can join existing organization'
+                        }
+                      </Text>
                     )}
-                  </View>
-                  
-                  <Text className="text-sm text-muted-foreground mt-1" style={{ color: '#6b7280' }}>
-                    {role.description}
-                  </Text>
-                  
-                  {role.organizationFlow !== 'none' && (
-                    <Text className="text-xs text-primary mt-2" style={{ color: '#1f2937' }}>
-                      {role.organizationFlow === 'create' 
-                        ? '• Will create organization workspace'
-                        : '• Can join existing organization'
-                      }
-                    </Text>
-                  )}
-                </View>
-              </View>
-            </CardContent>
-          </Card>
-        </TouchableOpacity>
-      ))}
-    </View>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </TouchableOpacity>
+        );
+      })}
+    </Box>
   );
 }
 

@@ -2,7 +2,7 @@
 
 A production-ready full-stack starter template built with React Native, Expo, and modern technologies. Perfect foundation for building cross-platform apps with authentication, database integration, and type-safe APIs.
 
-> **Last Updated**: June 4, 2025 - ✅ Google OAuth working, validation schema fixes, comprehensive authorization system, and production-ready implementation.
+> **Last Updated**: June 5, 2025 - ✅ Tab navigation fix for web, reorganized documentation, platform-specific navigation implementation.
 
 ## ✨ What's Included
 
@@ -43,102 +43,167 @@ A production-ready full-stack starter template built with React Native, Expo, an
 - **Testing**: Jest + React Native Testing Library with 98%+ test coverage (158/161 tests)
 - **Code Quality**: ESLint, Prettier, strict TypeScript with security linting
 - **Compliance**: Built-in audit logging and security monitoring for business requirements
+- **Platform-Specific Navigation**: Custom tab implementation for web to prevent page reloads
 
 ## 📁 Project Structure
 
 ```
 my-expo/
-├── app/                    # Expo Router - File-based routing
-│   ├── (auth)/            # Authentication routes
-│   │   ├── login.tsx      # Login screen
-│   │   ├── signup.tsx     # Registration screen
-│   │   ├── complete-profile.tsx # Profile completion
-│   │   ├── forgot-password.tsx  # Password recovery
-│   │   └── _layout.tsx    # Auth layout with guards
-│   ├── (home)/            # Protected app routes
-│   │   ├── index.tsx      # Dashboard
-│   │   └── explore.tsx    # Feature showcase
-│   ├── api/               # API routes
-│   │   ├── auth/          # Better Auth endpoints
-│   │   └── trpc/          # tRPC API endpoint
-│   └── _layout.tsx        # Root layout with providers
-├── components/            # Reusable UI components
-│   ├── ui/               # Core UI components
-│   │   ├── IconSymbol.tsx
-│   │   └── TabBarBackground.tsx
-│   ├── shadcn/ui/        # shadcn/ui components
-│   │   ├── button.tsx
-│   │   ├── card.tsx
-│   │   ├── form.tsx
-│   │   ├── input.tsx
-│   │   ├── select.tsx
-│   │   └── toast.tsx
-│   ├── Avatar.tsx
-│   ├── GoogleSignInButton.tsx
-│   ├── HapticTab.tsx
-│   ├── ProtectedRoute.tsx
-│   ├── ThemedText.tsx
-│   └── ThemedView.tsx
-├── constants/             # App constants
-│   └── theme/            # Theme constants
-│       └── Colors.ts     # Color definitions
-├── hooks/                # Custom React hooks
-│   ├── useAuth.tsx       # Authentication hook
-│   ├── useColorScheme.ts # Color scheme hook
-│   └── useThemeColor.ts  # Theme color hook
-├── lib/                  # Core utilities & configuration
-│   ├── auth/            # Authentication modules
-│   │   ├── auth.ts      # Better Auth server config
-│   │   ├── auth-client.ts # Auth client setup
-│   │   └── auth-session-manager.ts # Session management
-│   ├── core/            # Core utilities
-│   │   ├── alert.ts     # Alert utilities
-│   │   ├── config.ts    # App configuration
-│   │   ├── crypto.ts    # Cryptography helpers
-│   │   ├── env.ts       # Environment configuration
-│   │   ├── logger.ts    # Structured logging system
-│   │   ├── trpc-logger.ts # Advanced tRPC logging
-│   │   ├── secure-storage.ts # Secure storage
-│   │   └── utils.ts     # Utility functions
-│   ├── stores/          # State management
-│   │   └── auth-store.ts # Zustand auth store
-│   ├── validations/     # Validation schemas
-│   │   └── auth.ts      # Auth validation schemas
-│   └── trpc.tsx         # tRPC client setup
-├── src/                  # Backend source code
-│   ├── db/              # Database layer
-│   │   ├── index.ts     # Database connection
-│   │   └── schema.ts    # Database schema with audit tables
-│   └── server/          # Server logic
-│       ├── routers/     # tRPC routers
-│       │   ├── auth.ts  # Auth router with audit logging
-│       │   └── index.ts # Root router
-│       ├── services/    # Business logic services
-│       │   ├── audit.ts # Audit trail service
-│       │   ├── session.ts # Session management service
-│       │   ├── encryption.ts # Data encryption service
-│       │   └── access-control.ts # Permissions & RBAC
-│       ├── middleware/  # Custom middleware
-│       │   └── audit.ts # Audit middleware
-│       └── trpc.ts      # tRPC setup with advanced logging middleware
-├── types/               # TypeScript definitions
-│   ├── auth.ts          # Auth type definitions
-│   ├── api/             # API-related types
-│   │   ├── auth.ts      # Auth API types
-│   │   └── trpc.ts      # tRPC types
-│   └── components/      # Component prop types
-├── __tests__/           # Test suite
-│   ├── unit/            # Unit tests
-│   ├── integration/     # Integration tests
-│   └── components/      # Component tests
-├── assets/              # Static assets
-│   ├── fonts/           # Custom fonts
-│   └── images/          # Images & icons
-└── docs/                # Documentation
-    ├── guides/          # Setup & configuration guides
-    ├── examples/        # Example implementations
-    ├── planning/        # Development plans
-    └── archive/         # Historical docs
+├── app/                          # Expo Router - File-based routing
+│   ├── (auth)/                  # Public authentication screens
+│   │   ├── _layout.tsx          # Auth layout (no protection needed)
+│   │   ├── login.tsx            # Email/password login
+│   │   ├── signup.tsx           # User registration with role selection
+│   │   ├── complete-profile.tsx # OAuth profile completion
+│   │   └── forgot-password.tsx  # Password reset flow
+│   ├── (home)/                  # Protected app screens (requires auth)
+│   │   ├── _layout.tsx          # Tab navigation with role-based tabs
+│   │   ├── index.tsx            # Home dashboard
+│   │   ├── explore.tsx          # Feature exploration
+│   │   ├── manager.tsx          # Manager-only features
+│   │   └── admin.tsx            # Admin panel
+│   ├── api/                     # API route handlers
+│   │   ├── auth/                # Better Auth endpoints
+│   │   │   ├── [...auth]+api.ts # Main auth handler
+│   │   │   └── google-mobile-callback+api.ts # OAuth mobile handler
+│   │   ├── debug/               # Debug endpoints
+│   │   │   └── user+api.ts      # User debug info
+│   │   └── trpc/                # tRPC endpoint
+│   │       └── [trpc]+api.ts    # tRPC handler
+│   ├── _layout.tsx              # Root layout with providers
+│   ├── index.tsx                # Entry point with auth routing
+│   ├── auth-callback.tsx        # OAuth callback handler
+│   └── +not-found.tsx           # 404 page
+├── components/                   # Reusable UI components
+│   ├── ui/                      # Core UI primitives
+│   │   ├── IconSymbol.tsx       # Cross-platform icons
+│   │   ├── TabBarBackground.tsx # Tab bar styling
+│   │   └── PrimaryButton.tsx    # Primary button component
+│   ├── shadcn/ui/               # shadcn/ui adapted for React Native
+│   │   ├── button.tsx           # Button component
+│   │   ├── card.tsx             # Card component
+│   │   ├── form.tsx             # Form utilities
+│   │   ├── input.tsx            # Input component
+│   │   ├── select.tsx           # Select dropdown
+│   │   ├── checkbox.tsx         # Checkbox component
+│   │   └── toast.tsx            # Toast notifications
+│   ├── GoogleSignInButton.tsx   # OAuth sign-in button
+│   ├── ProtectedRoute.tsx       # Route protection wrapper
+│   ├── ProfileCompletionFlowEnhanced.tsx # 3-step profile wizard
+│   ├── OrganizationField.tsx    # Organization input component
+│   ├── RoleSelector.tsx         # Role selection component
+│   ├── ErrorBoundary.tsx        # Error handling wrapper
+│   ├── DebugPanel.tsx           # Development debug tools
+│   ├── LoadingView.tsx          # Loading screen component
+│   └── TabReloadDebugger.tsx    # Tab reload debugging
+├── constants/                    # App constants
+│   ├── index.ts                 # General constants
+│   └── theme/                   # Theme configuration
+│       ├── index.ts             # Theme exports
+│       └── Colors.ts            # Color palette
+├── hooks/                        # Custom React hooks
+│   ├── useAuth.tsx              # Auth state & methods
+│   ├── useColorScheme.ts        # Theme detection
+│   └── useThemeColor.ts         # Theme-aware colors
+├── lib/                          # Core libraries & utilities
+│   ├── auth/                    # Authentication system
+│   │   ├── auth.ts              # Better Auth server config
+│   │   ├── auth-client.ts       # Cross-platform auth client
+│   │   ├── auth-client-dynamic.ts # Dynamic client loading
+│   │   └── auth-session-manager.ts # Session utilities
+│   ├── core/                    # Core utilities
+│   │   ├── logger.ts            # Structured logging system
+│   │   ├── trpc-logger.ts       # tRPC request logging
+│   │   ├── env.ts               # Dynamic environment config
+│   │   ├── config.ts            # App configuration
+│   │   ├── crypto.ts            # Crypto polyfills
+│   │   ├── alert.ts             # User notifications
+│   │   ├── secure-storage.ts    # Secure data storage
+│   │   └── utils.ts             # Common utilities
+│   ├── stores/                  # State management
+│   │   ├── auth-store.ts        # Zustand auth store
+│   │   └── index.ts             # Store exports
+│   ├── validations/             # Zod validation schemas
+│   │   ├── auth.ts              # Auth-related schemas
+│   │   ├── common.ts            # Shared schemas
+│   │   ├── server.ts            # Server-side schemas
+│   │   └── index.ts             # Schema exports
+│   ├── trpc.tsx                 # tRPC client setup
+│   └── trpc-dynamic.tsx         # Dynamic tRPC loading
+├── src/                          # Backend source code
+│   ├── db/                      # Database layer
+│   │   ├── index.ts             # Database client
+│   │   ├── schema.ts            # Main schema definitions
+│   │   └── plugin-schema.ts     # Better Auth extensions
+│   └── server/                  # Server implementation
+│       ├── routers/             # tRPC API routers
+│       │   ├── auth.ts          # Auth endpoints (300+ lines)
+│       │   └── index.ts         # Root router aggregator
+│       ├── services/            # Business logic
+│       │   ├── audit.ts         # Audit logging service
+│       │   ├── session.ts       # Session management
+│       │   ├── encryption.ts    # Data encryption
+│       │   └── access-control.ts # RBAC implementation
+│       ├── middleware/          # tRPC middleware
+│       │   └── audit.ts         # Audit trail middleware
+│       └── trpc.ts              # tRPC configuration
+├── types/                        # TypeScript definitions
+│   ├── auth.ts                  # Auth-related types
+│   ├── api/                     # API types
+│   │   ├── auth.ts              # Auth API types
+│   │   ├── trpc.ts              # tRPC types
+│   │   └── index.ts             # API type exports
+│   ├── components/              # Component types
+│   │   └── index.ts             # Component type exports
+│   └── index.ts                 # Root type exports
+├── __tests__/                    # Test suite
+│   ├── unit/                    # Unit tests
+│   │   ├── auth-logic.test.ts
+│   │   ├── auth-client.test.ts
+│   │   └── audit-service.test.ts
+│   ├── integration/             # Integration tests
+│   │   └── auth-flow-improvements.test.tsx
+│   ├── e2e/                     # End-to-end tests
+│   │   └── google-auth-manual-test-scenarios.md
+│   └── manual/                  # Manual test procedures
+│       └── auth-flow-test-checklist.md
+├── scripts/                      # Utility scripts
+│   ├── build-development.sh     # Development build script
+│   ├── health-check.ts          # System health check
+│   ├── test-mobile-auth.ts      # Mobile auth testing
+│   └── fix-oauth-users.ts       # OAuth user migration
+├── assets/                       # Static assets
+│   ├── fonts/                   # Custom fonts
+│   │   └── SpaceMono-Regular.ttf
+│   └── images/                  # App images
+│       ├── icon.png
+│       ├── splash-icon.png
+│       └── adaptive-icon.png
+├── docs/                         # Project documentation
+│   ├── INDEX.md                 # Documentation index
+│   ├── guides/                  # Setup & how-to guides
+│   │   ├── GOOGLE_OAUTH_SETUP.md
+│   │   ├── MOBILE_AUTH_COMPLETE_GUIDE.md
+│   │   └── EXPO_TRPC_BEST_PRACTICES.md
+│   ├── planning/                # Project planning
+│   │   ├── MASTER_TASK_PLAN.md
+│   │   └── AUTHENTICATION_TASKS.md
+│   ├── examples/                # Implementation examples
+│   │   └── HEALTHCARE_PROJECT.md
+│   └── archive/                 # Historical documentation
+│       └── SESSION_SUMMARY_JAN_2025.md
+└── Configuration Files
+    ├── package.json             # Dependencies & scripts
+    ├── tsconfig.json            # TypeScript config
+    ├── tailwind.config.ts       # TailwindCSS/NativeWind
+    ├── metro.config.js          # Metro bundler config
+    ├── jest.config.js           # Jest testing config
+    ├── drizzle.config.ts        # Database ORM config
+    ├── eas.json                 # EAS Build config
+    ├── app.json                 # Expo app config
+    ├── babel.config.js          # Babel transpiler
+    ├── components.json          # shadcn/ui config
+    └── eslint.config.js         # Code linting rules
 ```
 
 ## 🎯 Recent Improvements (June 2025)
@@ -617,6 +682,114 @@ src/
 4. **Database**: PostgreSQL with Drizzle ORM for type-safe queries
 5. **Styling**: NativeWind (TailwindCSS) for consistent cross-platform styling
 6. **Testing**: Jest + React Native Testing Library for comprehensive coverage
+
+## 🔐 Authentication Flow Architecture
+
+### Backend Authentication Stack
+
+The authentication system uses a comprehensive multi-layer architecture:
+
+#### 1. **Better Auth Core** (`lib/auth/auth.ts`)
+- **Session Management**: 7-day expiry with automatic refresh
+- **OAuth Providers**: Google, Apple, Microsoft with PKCE security
+- **Multi-Session**: Support for up to 5 concurrent sessions
+- **Plugins**: expo, oAuthProxy, multiSession, organization, admin
+- **Cookie Configuration**: HttpOnly=false for mobile compatibility
+- **CORS**: Explicit trusted origins for security
+
+#### 2. **tRPC Middleware Chain** (`src/server/trpc.ts`)
+```typescript
+Request → Performance → Logging → Audit → Auth → Business Logic
+```
+- **Context Creation**: Every request gets Better Auth session
+- **Role-Based Procedures**: adminProcedure, managerProcedure, protectedProcedure
+- **Permission Checking**: Granular access control with helper functions
+- **Audit Trail**: Complete request/response logging for compliance
+
+#### 3. **Database Layer** (PostgreSQL + Drizzle)
+- **User Table**: Extended with role, organizationId, needsProfileCompletion
+- **Session Storage**: Managed by Better Auth
+- **Audit Logs**: Tamper-proof logging for security events
+- **Organization Data**: Multi-tenant support
+
+#### 4. **Client State** (Zustand)
+- **Pure Store Pattern**: No Context API anti-patterns
+- **Persistent Storage**: AsyncStorage (mobile) / localStorage (web)
+- **Permission Utilities**: Client-side role/permission checking
+- **Hydration Handling**: Prevents auth state flashing
+
+### Authentication Flow Sequence
+
+#### Sign Up Flow:
+```
+1. User submits form → tRPC signUp mutation
+2. Rate limiting check (3 attempts/5min)
+3. Input sanitization & Zod validation
+4. Better Auth creates user account
+5. Database updated with role & custom fields
+6. Organization created/joined based on role
+7. Session created & returned to client
+8. Zustand store updated
+9. User redirected to home
+```
+
+#### Sign In Flow:
+```
+1. User submits credentials → tRPC signIn mutation
+2. Rate limiting check (5 attempts/min)
+3. Better Auth validates credentials
+4. Fresh user data fetched from database
+5. Audit log created (success/failure)
+6. Session & user data returned
+7. Zustand store updated
+8. Navigation based on user state
+```
+
+#### OAuth Flow:
+```
+1. User clicks OAuth provider → Better Auth redirect
+2. Provider authentication → Callback to app
+3. New users: role='guest', needsProfileCompletion=true
+4. Existing users: Normal sign in
+5. Redirect to profile completion if needed
+6. Complete profile → Update role & organization
+7. Final redirect to home
+```
+
+### Security Features
+
+1. **Rate Limiting**: Per-endpoint limits with memory storage
+2. **Input Sanitization**: XSS & SQL injection prevention
+3. **Password Security**: Complexity requirements, breach detection
+4. **Session Security**: CSRF protection, secure cookies
+5. **Audit Logging**: Comprehensive event tracking
+6. **CORS Protection**: Explicit origin whitelist
+
+### Permission System
+
+```typescript
+const rolePermissions = {
+  admin: ['*'],  // All permissions
+  manager: ['manage_users', 'view_analytics', 'manage_content'],
+  user: ['view_content', 'edit_profile'],
+  guest: ['view_content']
+}
+
+// Usage in procedures:
+ctx.hasRole('admin')
+ctx.hasPermission('manage_users')
+```
+
+### State Synchronization
+
+```
+tRPC Response → TanStack Query → Zustand Store → React Components
+```
+
+- **No Direct Auth Calls**: All auth operations go through tRPC
+- **Optimistic Updates**: Immediate UI feedback
+- **Error Boundaries**: Graceful error handling
+- **Retry Logic**: Automatic retry with exponential backoff
 
 ## 🚀 Deployment
 

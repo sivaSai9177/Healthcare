@@ -1,7 +1,7 @@
 import * as React from "react";
 import { TextInput, TextInputProps, View, Text, Animated } from "react-native";
 import { cn } from "@/lib/core/utils";
-import { useColorScheme } from "@/hooks/useColorScheme";
+import { useTheme } from "@/lib/theme/theme-provider";
 
 export interface InputProps extends TextInputProps {
   label?: string;
@@ -12,7 +12,7 @@ export interface InputProps extends TextInputProps {
 
 const Input = React.forwardRef<TextInput, InputProps>(
   ({ className, label, error, success, hint, ...props }, ref) => {
-    const colorScheme = useColorScheme();
+    const theme = useTheme();
     const [isFocused, setIsFocused] = React.useState(false);
     const [hasValue, setHasValue] = React.useState(false);
     
@@ -20,11 +20,6 @@ const Input = React.forwardRef<TextInput, InputProps>(
     const borderColorAnim = React.useRef(new Animated.Value(0)).current;
     const shakeAnim = React.useRef(new Animated.Value(0)).current;
     const successAnim = React.useRef(new Animated.Value(0)).current;
-    
-    // Dynamic placeholder text color based on theme
-    const placeholderTextColor = colorScheme === 'dark' 
-      ? 'hsl(240 5% 64.9%)' // Dark theme muted-foreground
-      : 'hsl(240 3.8% 46.1%)'; // Light theme muted-foreground
     
     // Animate border color on focus/error/success
     React.useEffect(() => {
@@ -74,9 +69,9 @@ const Input = React.forwardRef<TextInput, InputProps>(
     const borderColor = borderColorAnim.interpolate({
       inputRange: [0, 1, 2],
       outputRange: [
-        isFocused ? '#3b82f6' : '#e2e8f0', // Focus: blue, Default: gray
+        isFocused ? theme.primary : theme.border, // Focus: primary, Default: border
         '#10b981', // Success: green
-        '#ef4444', // Error: red
+        theme.destructive || '#ef4444', // Error: destructive
       ],
     });
     
@@ -125,7 +120,7 @@ const Input = React.forwardRef<TextInput, InputProps>(
               borderColor,
               borderWidth: isFocused || error || success ? 2 : 1,
               borderRadius: 6,
-              backgroundColor: 'hsl(var(--background))',
+              backgroundColor: theme.background,
             }}
             className={cn(
               "flex-row items-center transition-all duration-200",
@@ -136,14 +131,13 @@ const Input = React.forwardRef<TextInput, InputProps>(
             <TextInput
               ref={ref}
               className={cn(
-                "flex-1 h-10 px-3 py-2 text-sm text-foreground",
-                "placeholder:text-muted-foreground",
+                "flex-1 h-10 px-3 py-2 text-sm",
                 "disabled:opacity-50",
                 className
               )}
-              placeholderTextColor={placeholderTextColor}
+              placeholderTextColor={theme.mutedForeground}
               style={{
-                color: 'hsl(var(--foreground))',
+                color: theme.foreground,
                 outlineWidth: 0, // Remove web outline
               }}
               onFocus={handleFocus}

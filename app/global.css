@@ -60,5 +60,24 @@
     body {
       @apply bg-background text-foreground;
     }
+    
+    /* Disable autofill styles on inputs */
+    input.universal-input:-webkit-autofill,
+    input.universal-input:-webkit-autofill:hover,
+    input.universal-input:-webkit-autofill:focus,
+    input.universal-input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset !important;
+      -webkit-text-fill-color: hsl(var(--foreground)) !important;
+      transition: background-color 5000s ease-in-out 0s;
+    }
+    
+    /* Dark mode autofill styles */
+    .dark input.universal-input:-webkit-autofill,
+    .dark input.universal-input:-webkit-autofill:hover,
+    .dark input.universal-input:-webkit-autofill:focus,
+    .dark input.universal-input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset !important;
+      -webkit-text-fill-color: hsl(var(--foreground)) !important;
+    }
   }
 }

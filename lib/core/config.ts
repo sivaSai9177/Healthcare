@@ -46,7 +46,7 @@ export function getApiUrl(): string {
     if (typeof window !== 'undefined') {
       return window.location.origin;
     }
-    return process.env.EXPO_PUBLIC_API_URL || "http://localhost:8082";
+    return process.env.EXPO_PUBLIC_API_URL || "http://localhost:8081";
   }
 
   // For mobile development, try to get the URL from environment variable first
@@ -96,6 +96,15 @@ export const config = {
   
   // App configuration
   appScheme: "my-expo",
+  
+  // OAuth configuration
+  oauth: {
+    google: {
+      clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
+      androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '',
+      iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '',
+    }
+  },
   
   // Feature flags
   features: {
