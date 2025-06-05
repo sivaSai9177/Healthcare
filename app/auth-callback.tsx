@@ -2,30 +2,99 @@ import React, { useEffect } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
+import { api } from '@/lib/trpc';
+import { log } from '@/lib/core/logger';
+import { toAppUser } from '@/lib/stores/auth-store';
 
 export default function AuthCallback() {
   const router = useRouter();
-  const { isAuthenticated, user, refreshUser } = useAuth();
+  const { updateAuth, isAuthenticated, user } = useAuth();
+  
+  // Use tRPC to get session with enhanced error handling
+  const { data: sessionData, isLoading, error, refetch } = api.auth.getSession.useQuery(undefined, {
+    refetchInterval: false,
+    retry: 1,
+    staleTime: 0, // Always fetch fresh data in auth callback
+    cacheTime: 0, // Don't cache in auth callback
+    onError: (error) => {
+      log.auth.error('Session fetch error in auth callback', error);
+    },
+  });
 
   useEffect(() => {
-    console.log('[AUTH CALLBACK] Processing OAuth callback...');
+    log.auth.oauth('Processing OAuth callback', { 
+      provider: 'google',
+      hasSessionData: !!sessionData,
+      isLoading,
+      hasError: !!error,
+      localAuthState: { isAuthenticated, hasUser: !!user },
+      currentUrl: typeof window !== 'undefined' ? window.location.href : 'N/A'
+    });
     
-    // Refresh the session to get the latest user data
-    refreshUser();
+    // Force refetch session data for OAuth callbacks to ensure we have latest profile completion status
+    if (isAuthenticated && user && !isLoading && !sessionData) {
+      log.auth.oauth('User authenticated but no fresh session data, refetching...', {
+        userId: user.id,
+        userRole: user.role,
+        needsProfileCompletion: user.needsProfileCompletion
+      });
+      refetch();
+      return;
+    }
     
-    // Check authentication after a short delay
-    const timer = setTimeout(() => {
-      if (isAuthenticated) {
-        console.log('[AUTH CALLBACK] User authenticated, redirecting...');
-        router.replace('/(home)');
+    // If we already have auth state, check if we can proceed (but prefer fresh session data)
+    if (isAuthenticated && user && !isLoading && !sessionData) {
+      log.auth.oauth('User already authenticated in auth store (using cached data)', {
+        userId: user.id,
+        userRole: user.role,
+        needsProfileCompletion: user.needsProfileCompletion
+      });
+      
+      // Navigate based on existing user state, but this should be rare now
+      if (user.needsProfileCompletion) {
+        log.info('Navigating to profile completion (from auth store)', 'AUTH_CALLBACK');
+        router.push('/(auth)/complete-profile');
       } else {
-        console.log('[AUTH CALLBACK] Authentication failed, redirecting to login...');
-        router.replace('/(auth)/login');
+        log.info('Navigating to home (from auth store)', 'AUTH_CALLBACK');
+        router.push('/(home)');
       }
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [isAuthenticated, router, refreshUser]);
+      return;
+    }
+    
+    if (sessionData && (sessionData as any)?.user && (sessionData as any)?.session) {
+      const sessionUser = (sessionData as any).user;
+      const sessionObj = (sessionData as any).session;
+      
+      log.auth.oauth('Session data received from tRPC', { 
+        userId: sessionUser.id,
+        email: sessionUser.email,
+        needsProfileCompletion: sessionUser.needsProfileCompletion 
+      });
+      
+      // Update auth store with session data (convert to AppUser)
+      const appUser = toAppUser(sessionUser);
+      updateAuth(appUser, sessionObj as any);
+      
+      // Navigate based on profile completion and role using Expo Router
+      if (sessionUser.needsProfileCompletion) {
+        log.info('Navigating to profile completion (from tRPC)', 'AUTH_CALLBACK');
+        router.push('/(auth)/complete-profile');
+      } else {
+        log.info('Navigating to home (from tRPC)', 'AUTH_CALLBACK');
+        router.push('/(home)');
+      }
+    } else if (!isLoading && (!sessionData || error)) {
+      log.warn('No session found or error occurred', 'AUTH_CALLBACK', { 
+        hasError: !!error,
+        errorMessage: error?.message,
+        recommendation: 'User needs to complete authentication flow'
+      });
+      
+      // Redirect to login using Expo Router
+      log.info('Redirecting to login - no valid session', 'AUTH_CALLBACK');
+      router.push('/(auth)/login');
+    }
+  }, [sessionData, isLoading, error, updateAuth, router, isAuthenticated, user]);
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

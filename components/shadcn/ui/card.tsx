@@ -1,6 +1,6 @@
 import * as React from "react";
 import { View, Text, ViewProps } from "react-native";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/core/utils";
 
 const Card = React.forwardRef<View, ViewProps>(
   ({ className, ...props }, ref) => (

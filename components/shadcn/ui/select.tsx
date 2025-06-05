@@ -8,7 +8,7 @@ import {
   Pressable,
 } from "react-native";
 import { ChevronDown } from "lucide-react-native";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/core/utils";
 
 interface SelectOption {
   label: string;

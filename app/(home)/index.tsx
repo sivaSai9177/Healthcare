@@ -4,31 +4,32 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar } from "@/components/Avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { Alert, ScrollView, Text, View } from "react-native";
+import { log } from "@/lib/core/logger";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
-  const { user, signOut } = useAuth();
+  const { user, logout } = useAuth();
 
   const handleLogout = async () => {
     try {
-      await signOut();
-      console.log("Logged out successfully via context");
+      await logout('user_initiated');
+      log.auth.logout('User logged out successfully', { trigger: 'manual' });
     } catch (error) {
-      console.error("Logout error:", error);
+      log.auth.error('Logout failed', error);
       Alert.alert("Logout Failed", "Failed to logout");
     }
   };
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
-      case "operator":
-        return "bg-blue-500";
-      case "doctor":
-        return "bg-green-500";
-      case "nurse":
-        return "bg-purple-500";
-      case "head_doctor":
+      case "admin":
         return "bg-red-500";
+      case "manager":
+        return "bg-blue-500";
+      case "user":
+        return "bg-green-500";
+      case "guest":
+        return "bg-gray-500";
       default:
         return "bg-gray-500";
     }
@@ -36,14 +37,14 @@ export default function HomeScreen() {
 
   const getRoleDisplayName = (role: string) => {
     switch (role) {
-      case "operator":
-        return "Operator";
-      case "doctor":
-        return "Doctor";
-      case "nurse":
-        return "Registered Nurse";
-      case "head_doctor":
-        return "Head of Doctor";
+      case "admin":
+        return "Administrator";
+      case "manager":
+        return "Manager";
+      case "user":
+        return "User";
+      case "guest":
+        return "Guest";
       default:
         return role;
     }
@@ -54,7 +55,7 @@ export default function HomeScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
         <View className="p-4">
           <View className="flex-row justify-between items-center mb-6">
-            <Text className="text-3xl font-bold" style={{ color: '#000000' }}>Hospital Alert</Text>
+            <Text className="text-3xl font-bold" style={{ color: '#000000' }}>Full-Stack Starter</Text>
             <View className="flex-row items-center" style={{ gap: 12 }}>
               {user && (
                 <Avatar 
@@ -82,16 +83,28 @@ export default function HomeScreen() {
                 </View>
                 <View className="flex-row items-center">
                   <Text className="font-medium mr-2" style={{ color: '#000000' }}>Role:</Text>
-                  <View className={`px-3 py-1 rounded-full ${getRoleBadgeColor(user?.role)}`}>
+                  <View className={`px-3 py-1 rounded-full ${getRoleBadgeColor(user?.role || '')}`}>
                     <Text className="text-white text-sm font-medium">
-                      {getRoleDisplayName(user?.role)}
+                      {getRoleDisplayName(user?.role || '')}
                     </Text>
                   </View>
                 </View>
-                {user?.hospitalId && (
+                {user?.organizationName && (
                   <View className="flex-row items-center">
-                    <Text className="font-medium mr-2" style={{ color: '#000000' }}>Hospital ID:</Text>
-                    <Text style={{ color: '#000000' }}>{user.hospitalId}</Text>
+                    <Text className="font-medium mr-2" style={{ color: '#000000' }}>Organization:</Text>
+                    <Text style={{ color: '#000000' }}>{user.organizationName}</Text>
+                  </View>
+                )}
+                {user?.organizationId && (
+                  <View className="flex-row items-center">
+                    <Text className="font-medium mr-2" style={{ color: '#000000' }}>Organization ID:</Text>
+                    <Text style={{ color: '#000000', fontSize: 12 }}>{user.organizationId}</Text>
+                  </View>
+                )}
+                {user?.department && (
+                  <View className="flex-row items-center">
+                    <Text className="font-medium mr-2" style={{ color: '#000000' }}>Department:</Text>
+                    <Text style={{ color: '#000000' }}>{user.department}</Text>
                   </View>
                 )}
               </View>
@@ -105,21 +118,21 @@ export default function HomeScreen() {
             </CardHeader>
             <CardContent>
               <View style={{ gap: 12 }}>
-                {user?.role === "operator" && (
+                {user?.role === "admin" && (
                   <Button
                     variant="default"
                     className="w-full"
                     onPress={() => {
                       if (typeof window !== 'undefined') {
                         // Web platform
-                        window.alert("Alert creation will be implemented next");
+                        window.alert("Admin features coming soon!");
                       } else {
                         // Mobile platform
-                        Alert.alert("Coming Soon", "Alert creation will be implemented next");
+                        Alert.alert("Coming Soon", "Admin features will be implemented next");
                       }
                     }}
                   >
-                    Create New Alert
+                    Admin Dashboard
                   </Button>
                 )}
                 
@@ -129,36 +142,36 @@ export default function HomeScreen() {
                   onPress={() => {
                     if (typeof window !== 'undefined') {
                       // Web platform
-                      window.alert("Alert history will be implemented next");
+                      window.alert("Profile settings coming soon!");
                     } else {
                       // Mobile platform
-                      Alert.alert("Coming Soon", "Alert history will be implemented next");
+                      Alert.alert("Coming Soon", "Profile settings will be implemented next");
                     }
                   }}
                 >
-                  View Alert History
+                  Profile Settings
                 </Button>
 
-                {user?.role !== "operator" && (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onPress={() => {
-                      if (typeof window !== 'undefined') {
-                        // Web platform
-                        window.alert("Active alerts will be implemented next");
-                      } else {
-                        // Mobile platform
-                        Alert.alert("Coming Soon", "Active alerts will be implemented next");
-                      }
-                    }}
-                  >
-                    View Active Alerts
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onPress={() => {
+                    if (typeof window !== 'undefined') {
+                      // Web platform
+                      window.alert("Feature showcase coming soon!");
+                    } else {
+                      // Mobile platform
+                      Alert.alert("Coming Soon", "Feature showcase will be implemented next");
+                    }
+                  }}
+                >
+                  View Features
+                </Button>
               </View>
             </CardContent>
           </Card>
+
+          {/* Auth Debugger removed - using pure Zustand now */}
         </View>
       </ScrollView>
     </SafeAreaView>

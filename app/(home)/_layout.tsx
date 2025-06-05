@@ -1,74 +1,65 @@
-import { HapticTab } from "@/components/HapticTab";
-import { IconSymbol } from "@/components/ui/IconSymbol";
-import TabBarBackground from "@/components/ui/TabBarBackground";
-import { Colors } from "@/constants/Colors";
-import { useColorScheme } from "@/hooks/useColorScheme";
-import { useAuth } from "@/hooks/useAuth";
-import { Tabs, useRouter } from "expo-router";
-import React, { useEffect } from "react";
-import { ActivityIndicator, Platform, View } from "react-native";
-import "@/app/global.css";
+import { Platform } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
+import { HapticTab } from '@/components/HapticTab';
+import { IconSymbol } from '@/components/ui/IconSymbol';
+import TabBarBackground from '@/components/ui/TabBarBackground';
+import { useAuth, useAuthStore } from '@/hooks/useAuth';
+import React from 'react';
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const { isAuthenticated, isLoading, user } = useAuth();
+// Hook to get current user role for tab visibility
+const useUserRole = () => {
+  return useAuthStore((state) => state.user?.role || 'guest');
+};
+
+// Memoize screen options to prevent recreation
+const screenOptions = {
+  tabBarActiveTintColor: '#007AFF',
+  tabBarInactiveTintColor: '#8E8E93',
+  headerShown: false,
+  tabBarButton: HapticTab,
+  tabBarBackground: TabBarBackground,
+  tabBarStyle: Platform.select({
+    ios: {
+      position: 'absolute' as const,
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderTopColor: 'rgba(0, 0, 0, 0.1)',
+    },
+    default: {
+      backgroundColor: '#ffffff',
+      borderTopColor: '#e0e0e0',
+      borderTopWidth: 1,
+    },
+  }),
+  tabBarHideOnKeyboard: true,
+  lazy: true,
+  tabBarAllowFontScaling: false,
+} as const;
+
+export default React.memo(function TabLayout() {
+  const { hasHydrated, isAuthenticated } = useAuth();
   const router = useRouter();
-
-  useEffect(() => {
-    console.log("[HOME LAYOUT] Auth state changed:", {
-      isLoading,
-      isAuthenticated,
-      hasUser: !!user,
-      userEmail: user?.email,
-      userRole: user?.role
-    });
-    
-    if (!isLoading && !isAuthenticated) {
-      // User is not authenticated, redirect to login
-      console.log("Home layout: User not authenticated, redirecting to login");
-      router.replace("/(auth)/login");
+  const userRole = useUserRole();
+  
+  // Only redirect on auth state change - minimal dependencies
+  React.useEffect(() => {
+    if (hasHydrated && !isAuthenticated) {
+      router.replace('/(auth)/login');
     }
-  }, [isAuthenticated, isLoading, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasHydrated, isAuthenticated]); // Intentionally exclude router to prevent re-runs
 
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
-  if (!isAuthenticated) {
-    // Will redirect in useEffect, show loading in the meantime
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+  // Check role-based access
+  const canAccessManager = userRole === 'manager' || userRole === 'admin';
+  const canAccessAdmin = userRole === 'admin';
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: "absolute",
-          },
-          default: {},
-        }),
-      }}
-    >
+    <Tabs screenOptions={screenOptions}>
       <Tabs.Screen
         name="index"
         options={{
           title: "Home",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
+          tabBarIcon: ({ color, size = 28 }) => (
+            <IconSymbol size={size} name="house.fill" color={color} />
           ),
         }}
       />
@@ -76,11 +67,33 @@ export default function TabLayout() {
         name="explore"
         options={{
           title: "Explore",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
+          tabBarIcon: ({ color, size = 28 }) => (
+            <IconSymbol size={size} name="paperplane.fill" color={color} />
           ),
         }}
       />
+      {canAccessManager && (
+        <Tabs.Screen
+          name="manager"
+          options={{
+            title: "Manager",
+            tabBarIcon: ({ color, size = 28 }) => (
+              <IconSymbol size={size} name="person.2.fill" color={color} />
+            ),
+          }}
+        />
+      )}
+      {canAccessAdmin && (
+        <Tabs.Screen
+          name="admin"
+          options={{
+            title: "Admin", 
+            tabBarIcon: ({ color, size = 28 }) => (
+              <IconSymbol size={size} name="gear" color={color} />
+            ),
+          }}
+        />
+      )}
     </Tabs>
   );
-}
+});

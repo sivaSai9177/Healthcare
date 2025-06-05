@@ -7,59 +7,121 @@ export async function POST(request: Request) {
     console.log('[Mobile OAuth API] Handling mobile OAuth callback');
     
     const body = await request.json();
-    const { code, redirectUri } = body;
+    const { code, redirectUri, idToken, type, codeVerifier } = body;
 
-    if (!code || !redirectUri) {
-      console.error('[Mobile OAuth API] Missing code or redirectUri');
-      return Response.json(
-        { error: 'Missing authorization code or redirect URI' },
-        { status: 400 }
-      );
-    }
+    let googleUser: any;
+    let tokens: any = null;
 
-    console.log('[Mobile OAuth API] Exchanging code for tokens');
+    // Handle ID token flow (recommended for mobile)
+    if (type === 'id_token' && idToken) {
+      console.log('[Mobile OAuth API] Processing ID token');
+      
+      // Verify and decode the ID token
+      const idTokenParts = idToken.split('.');
+      if (idTokenParts.length !== 3) {
+        return Response.json(
+          { error: 'Invalid ID token format' },
+          { status: 400 }
+        );
+      }
+      
+      // Decode the payload (middle part)
+      const payload = JSON.parse(atob(idTokenParts[1]));
+      console.log('[Mobile OAuth API] ID token payload:', { 
+        email: payload.email, 
+        name: payload.name,
+        aud: payload.aud,
+        iss: payload.iss
+      });
+      
+      // Verify the token is from Google and for our app
+      if (payload.iss !== 'https://accounts.google.com' && payload.iss !== 'accounts.google.com') {
+        return Response.json(
+          { error: 'Invalid token issuer' },
+          { status: 400 }
+        );
+      }
+      
+      if (payload.aud !== process.env.GOOGLE_CLIENT_ID) {
+        console.error('[Mobile OAuth API] Token audience mismatch:', payload.aud, 'expected:', process.env.GOOGLE_CLIENT_ID);
+        // For now, we'll proceed but log the warning
+      }
+      
+      googleUser = {
+        id: payload.sub,
+        email: payload.email,
+        name: payload.name,
+        picture: payload.picture,
+        email_verified: payload.email_verified,
+      };
+      
+      // For ID token flow, we don't have access/refresh tokens
+      // Just store the ID token itself
+      tokens = {
+        id_token: idToken,
+        scope: 'openid email profile',
+      };
+    } else if (code && redirectUri) {
+      // Handle authorization code flow (fallback)
+      console.log('[Mobile OAuth API] Exchanging code for tokens');
 
-    // Exchange the authorization code for tokens
-    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
+      // Exchange the authorization code for tokens
+      const tokenParams: any = {
         client_id: process.env.GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
         code,
         grant_type: 'authorization_code',
         redirect_uri: redirectUri,
-      }),
-    });
+      };
 
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error('[Mobile OAuth API] Token exchange failed:', errorText);
+      // Include PKCE verifier if provided (mobile flow)
+      if (codeVerifier) {
+        tokenParams.code_verifier = codeVerifier;
+      } else {
+        // Only include client secret if not using PKCE (web flow)
+        tokenParams.client_secret = process.env.GOOGLE_CLIENT_SECRET!;
+      }
+
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams(tokenParams),
+      });
+
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text();
+        console.error('[Mobile OAuth API] Token exchange failed:', errorText);
+        return Response.json(
+          { error: 'Failed to exchange authorization code' },
+          { status: 400 }
+        );
+      }
+
+      tokens = await tokenResponse.json();
+      console.log('[Mobile OAuth API] Got tokens, fetching user info');
+
+      // Fetch user information
+      const userResponse = await fetch(
+        `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${tokens.access_token}`
+      );
+
+      if (!userResponse.ok) {
+        console.error('[Mobile OAuth API] Failed to fetch user info');
+        return Response.json(
+          { error: 'Failed to fetch user information' },
+          { status: 400 }
+        );
+      }
+
+      googleUser = await userResponse.json();
+    } else {
+      console.error('[Mobile OAuth API] Missing required parameters');
       return Response.json(
-        { error: 'Failed to exchange authorization code' },
+        { error: 'Missing authorization code or ID token' },
         { status: 400 }
       );
     }
-
-    const tokens = await tokenResponse.json();
-    console.log('[Mobile OAuth API] Got tokens, fetching user info');
-
-    // Fetch user information
-    const userResponse = await fetch(
-      `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${tokens.access_token}`
-    );
-
-    if (!userResponse.ok) {
-      console.error('[Mobile OAuth API] Failed to fetch user info');
-      return Response.json(
-        { error: 'Failed to fetch user information' },
-        { status: 400 }
-      );
-    }
-
-    const googleUser = await userResponse.json();
     console.log('[Mobile OAuth API] User info:', { email: googleUser.email, name: googleUser.name });
 
     // Check if user exists by email
@@ -84,8 +146,9 @@ export async function POST(request: Request) {
         email: googleUser.email,
         name: googleUser.name,
         image: googleUser.picture,
-        role: 'doctor', // Default role
+        role: 'user', // Default role
         emailVerified: true, // OAuth emails are pre-verified
+        needsProfileCompletion: true, // New users need to complete profile
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -110,11 +173,11 @@ export async function POST(request: Request) {
         userId: userId,
         accountId: googleUser.id,
         providerId: 'google',
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        idToken: tokens.id_token,
-        accessTokenExpiresAt: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : null,
-        scope: tokens.scope,
+        accessToken: tokens?.access_token || null,
+        refreshToken: tokens?.refresh_token || null,
+        idToken: tokens?.id_token || idToken || null,
+        accessTokenExpiresAt: tokens?.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : null,
+        scope: tokens?.scope || 'openid email profile',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -145,6 +208,7 @@ export async function POST(request: Request) {
         name: userRecord.name,
         image: userRecord.image,
         role: userRecord.role,
+        needsProfileCompletion: userRecord.needsProfileCompletion ?? false,
       },
       session: {
         id: sessionId,

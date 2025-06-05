@@ -33,21 +33,7 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(),
 }));
 
-// Mock React Native modules
-jest.mock('react-native', () => ({
-  Platform: {
-    OS: 'ios',
-    select: jest.fn((obj) => obj.ios),
-  },
-  Alert: {
-    alert: jest.fn(),
-  },
-  View: 'View',
-  Text: 'Text',
-  TouchableOpacity: 'TouchableOpacity',
-  ScrollView: 'ScrollView',
-  ActivityIndicator: 'ActivityIndicator',
-}));
+// React Native is mocked via moduleNameMapping in jest.config.js
 
 // Mock Better Auth
 const mockAuthClient = {
@@ -64,7 +50,7 @@ const mockAuthClient = {
   getCookie: jest.fn(),
 };
 
-jest.mock('@/lib/auth-client', () => ({
+jest.mock('@/lib/auth/auth-client', () => ({
   authClient: mockAuthClient,
 }));
 
@@ -85,13 +71,41 @@ jest.mock('@/lib/trpc', () => ({
 }));
 
 // Mock alert utility
-jest.mock('@/lib/alert', () => ({
+jest.mock('@/lib/core/alert', () => ({
   showErrorAlert: jest.fn(),
   showSuccessAlert: jest.fn(),
 }));
 
+// Mock database for server tests
+jest.mock('@/src/db', () => ({
+  db: {
+    insert: jest.fn().mockReturnValue({
+      values: jest.fn().mockResolvedValue({}),
+    }),
+    select: jest.fn().mockReturnValue({
+      from: jest.fn().mockReturnValue({
+        where: jest.fn().mockResolvedValue([{
+          id: 'test-id',
+          checksum: 'mock-checksum',
+        }]),
+      }),
+    }),
+  },
+}));
+
+// Mock nanoid
+jest.mock('nanoid', () => ({
+  nanoid: jest.fn(() => 'mock-id'),
+}));
+
 // Global test utilities
 global.mockAuthClient = mockAuthClient;
+global.jest = jest;
+
+// Polyfill jest for global usage
+if (typeof global !== 'undefined') {
+  global.jest = jest;
+}
 
 // Silence console warnings in tests
 const originalWarn = console.warn;

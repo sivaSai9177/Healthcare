@@ -1,5 +1,4 @@
 import "@/app/global.css";
-import { Button } from "@/components/shadcn/ui/button";
 import {
   Card,
   CardContent,
@@ -11,24 +10,64 @@ import {
 import { FormField, FormItem, FormMessage } from "@/components/shadcn/ui/form";
 import { Input } from "@/components/shadcn/ui/input";
 import { useAuth } from "@/hooks/useAuth";
-import { showErrorAlert } from "@/lib/alert";
+import { toAppUser } from "@/lib/stores/auth-store";
+import { showErrorAlert } from "@/lib/core/alert";
+import { generateUUID } from "@/lib/core/crypto";
+import { log } from "@/lib/core/logger";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
+import { api } from "@/lib/trpc";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, useRouter } from "expo-router";
+import { Link } from "expo-router";
 import React from "react";
 import { useForm } from "react-hook-form";
-import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View, Pressable, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
 
 export default function LoginScreen() {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = React.useState(false);
+  const { updateAuth, setLoading, setError } = useAuth();
+  
+  // Memoize mutation callbacks to prevent recreation on every render
+  const onSuccess = React.useCallback((data: any) => {
+    log.auth.login('Sign in successful via tRPC', { userId: data.user?.id });
+    if (data.user && data.token) {
+      // Convert user to AppUser with safe defaults
+      const appUser = toAppUser(data.user, 'user');
 
-  const { signIn } = useAuth();
+      // Update auth store with user and session
+      const session = {
+        id: generateUUID(),
+        token: data.token,
+        userId: appUser.id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      };
+      updateAuth(appUser, session);
+    }
+  }, [updateAuth]);
+
+  const onError = React.useCallback((error: any) => {
+    log.auth.error('Sign in failed', error);
+    setError(error.message);
+    showErrorAlert("Login Failed", error.message || "Failed to sign in. Please check your credentials.");
+  }, [setError]);
+
+  const onSettled = React.useCallback(() => {
+    setLoading(false);
+  }, [setLoading]);
+  
+  // Use tRPC mutation for sign in
+  const signInMutation = api.auth.signIn.useMutation({
+    onSuccess,
+    onError,
+    onSettled,
+  });
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
+    mode: "onChange", // Enable real-time validation
+    reValidateMode: "onChange", // Re-validate on change
     defaultValues: {
       email: "",
       password: "",
@@ -36,35 +75,50 @@ export default function LoginScreen() {
   });
 
   const onSubmit = async (data: LoginInput) => {
-    setIsLoading(true);
-    console.log("[LOGIN] Starting login attempt for:", data.email);
-    console.log("[LOGIN] Platform.OS:", Platform.OS);
+    log.auth.debug('Starting login attempt', { email: data.email });
+    
+    // Check if form has validation errors before submitting
+    if (!form.formState.isValid) {
+      log.auth.debug('Form validation errors preventing submission');
+      showErrorAlert("Invalid Form", "Please fix the validation errors before submitting.");
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
     
     try {
-      await signIn(data.email, data.password);
-      console.log("Login successful");
-      // Don't manually navigate - let AuthProvider handle it
-      // The useAuth context will trigger navigation in auth layout
+      await signInMutation.mutateAsync({
+        email: data.email,
+        password: data.password,
+      });
+      log.auth.login('Login process completed successfully');
+      
+      // Navigation will be handled by Expo Router's protected routes
+      
     } catch (error: any) {
-      console.log("Login error:", error);
-      const errorMessage = error?.message || "Failed to sign in";
-      showErrorAlert("Login Failed", errorMessage);
-    } finally {
-      setIsLoading(false);
+      log.auth.error('Login process failed', error);
+      // Error handling is done in the mutation's onError
+      // Clear the form password on error
+      form.setValue("password", "");
     }
   };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+      <ScrollView 
+        style={{ flex: 1 }} 
+        contentContainerStyle={{ paddingBottom: 40, paddingTop: 20 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ alignItems: 'center', padding: 16 }}>
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">
               Welcome back
             </CardTitle>
             <CardDescription className="text-center">
-              Sign in to your Hospital Alert account
+              Sign in to your account
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -76,7 +130,7 @@ export default function LoginScreen() {
                   <FormItem>
                     <Input
                       label="Email"
-                      placeholder="doctor@hospital.com"
+                      placeholder="user@example.com"
                       autoCapitalize="none"
                       autoComplete="email"
                       keyboardType="email-address"
@@ -118,14 +172,27 @@ export default function LoginScreen() {
                 </Link>
               </View>
 
-              <Button
-                variant="default"
-                disabled={isLoading}
-                className="w-full"
+              <Pressable
+                disabled={signInMutation.isPending || !form.formState.isValid}
                 onPress={() => form.handleSubmit(onSubmit)()}
+                style={[
+                  {
+                    backgroundColor: '#1f2937',
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 6,
+                    opacity: (signInMutation.isPending || !form.formState.isValid) ? 0.5 : 1,
+                  }
+                ]}
+                className="w-full h-12 flex-row items-center justify-center"
               >
-                {isLoading ? "Signing in..." : "Sign in"}
-              </Button>
+                {signInMutation.isPending && (
+                  <ActivityIndicator size="small" color="white" style={{ marginRight: 8 }} />
+                )}
+                <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
+                  {signInMutation.isPending ? "Signing in..." : "Sign in"}
+                </Text>
+              </Pressable>
 
               <View style={{ alignItems: 'center', marginVertical: 16 }}>
                 <Text style={{ color: '#666666', fontSize: 14 }}>OR</Text>

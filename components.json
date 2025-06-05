@@ -1,5 +1,4 @@
 {
-  "platforms": "universal",
   "$schema": "https://ui.shadcn.com/schema.json",
   "style": "new-york",
   "rsc": false,
@@ -13,7 +12,7 @@
   },
   "aliases": {
     "components": "@/components",
-    "utils": "@/lib/utils",
+    "utils": "@/lib/core/utils",
     "lib": "@/lib",
     "ui": "@/components/shadcn/ui",
     "hooks": "@/hooks"
