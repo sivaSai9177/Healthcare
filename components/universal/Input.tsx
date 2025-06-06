@@ -77,7 +77,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
     borderWidth: 1,
     borderColor: getBorderColor(),
     borderRadius: componentSpacing.borderRadius,
-    backgroundColor: isDisabled ? theme.muted : theme.background,
+    backgroundColor: isDisabled ? theme.muted : theme.card,
     height: config.height,
     flexDirection: 'row',
     alignItems: 'center',
@@ -89,11 +89,18 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
     } as any),
   };
   
+  // Ensure we use the correct text color - cardForeground for input text
+  const textColor = theme.cardForeground || theme.foreground;
+  
   const inputStyle: TextStyle = {
     flex: 1,
     fontSize: config.fontSize,
-    color: theme.foreground,
+    color: textColor,
     paddingVertical: spacing[config.paddingY],
+    // Platform-specific fixes
+    ...(Platform.OS === 'android' && {
+      textAlignVertical: 'center',
+    }),
     // Web-specific styles to disable autofill outline
     ...(Platform.OS === 'web' && {
       outline: 'none',
@@ -133,6 +140,8 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
           editable={!isDisabled}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          selectionColor={theme.primary}
+          underlineColorAndroid="transparent"
           {...props}
           {...(Platform.OS === 'web' && {
             autoComplete: props.autoComplete,

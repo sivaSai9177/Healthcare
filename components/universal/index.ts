@@ -15,6 +15,7 @@ export * from './Card';
 export * from './Checkbox';
 export * from './Switch';
 export * from './Tabs';
+export * from './Link';
 
 // Re-export design system tokens
 export { designSystem } from '@/lib/design-system';

@@ -16,6 +16,7 @@ interface GoogleSignInButtonProps extends Partial<ButtonProps> {
   text?: string;
   variant?: ButtonProps['variant'];
   size?: ButtonProps['size'];
+  iconOnly?: boolean;
 }
 
 export function GoogleSignInButton({ 
@@ -23,6 +24,7 @@ export function GoogleSignInButton({
   text = "Continue with Google",
   variant = "outline",
   size = "md",
+  iconOnly = false,
   ...buttonProps 
 }: GoogleSignInButtonProps) {
   const [isLoading, setIsLoading] = React.useState(false);
@@ -256,21 +258,21 @@ export function GoogleSignInButton({
       {...buttonProps}
     >
       {!isLoading && (
-        <HStack spacing={text ? 2 : 0} alignItems="center" justifyContent="center">
+        <HStack spacing={iconOnly || !text ? 0 : 2} alignItems="center" justifyContent="center">
           {/* Google Logo */}
           {showIcon && (
             <Ionicons 
               name="logo-google" 
-              size={size === "lg" ? 20 : 18} 
+              size={size === "lg" ? 20 : size === "sm" ? 16 : 18} 
               color={variant === 'outline' ? "#4285F4" : "#ffffff"}
             />
           )}
-          {text && (
+          {!iconOnly && text && (
             <Text size={size === "lg" ? "base" : "sm"} weight="medium">
               {text}
             </Text>
           )}
-          {!text && !showIcon && (
+          {iconOnly && (
             <Text size="xs" style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}>
               Login with Google
             </Text>

@@ -2,7 +2,7 @@
 
 A production-ready full-stack starter template built with React Native, Expo, and modern technologies. Perfect foundation for building cross-platform apps with authentication, database integration, and type-safe APIs.
 
-> **Last Updated**: June 5, 2025 - ✅ Tab navigation fix for web, reorganized documentation, platform-specific navigation implementation.
+> **Last Updated**: June 6, 2025 - ✅ Authentication UI modernization, type safety fixes, multi-agent development preparation.
 
 ## ✨ What's Included
 
@@ -45,8 +45,106 @@ A production-ready full-stack starter template built with React Native, Expo, an
 - **Compliance**: Built-in audit logging and security monitoring for business requirements
 - **Platform-Specific Navigation**: Custom tab implementation for web to prevent page reloads
 
+## 🤖 Multi-Agent Development System
+
+This starter kit includes an advanced multi-agent AI development system that can build complete applications from a Product Requirements Document (PRD).
+
+### How It Works
+
+1. **Create Your PRD**: Write your product requirements using our [PRD template](./docs/projects/PRD_TEMPLATE.md)
+2. **Save to Project Directory**: `docs/projects/your-app-name/PRD.md`
+3. **Invoke Manager Agent**: `Manager, process PRD at docs/projects/your-app-name/PRD.md`
+4. **Automated Development**: Watch as specialized agents build your app
+
+### Available Agents
+
+- **Manager Agent**: Analyzes PRD, plans architecture, assigns tasks
+- **Backend Developer**: Implements APIs, database, authentication
+- **Frontend Developer**: Builds UI components, screens, navigation
+- **Tester Agent**: Writes tests, ensures quality, reports bugs
+
+### Learn More
+- [Multi-Agent Workflow System](./docs/MULTI_AGENT_WORKFLOW_SYSTEM.md)
+- [Master Task Manager](./docs/MASTER_TASK_MANAGER.md)
+- [Agent Context Guide](./docs/AGENT_CONTEXT.md)
+
 ## 📁 Project Structure
 
+```
+my-expo/
+├── app/                          # Expo Router screens (file-based routing)
+│   ├── (auth)/                  # Public auth screens
+│   │   ├── _layout.tsx         # Auth stack navigator
+│   │   ├── login.tsx           # Modern email/password login
+│   │   ├── register.tsx        # User registration with role selection
+│   │   ├── complete-profile.tsx # 3-step profile completion wizard
+│   │   └── forgot-password.tsx # Password reset flow
+│   ├── (home)/                 # Protected app screens
+│   │   ├── _layout.tsx        # Tab navigator with role-based tabs
+│   │   ├── index.tsx          # Home dashboard
+│   │   ├── explore.tsx        # Explore features tab
+│   │   └── settings.tsx       # Settings with theme controls
+│   ├── api/                    # API routes
+│   │   ├── auth/              # Better Auth endpoints
+│   │   │   └── [...auth]+api.ts
+│   │   ├── debug/             # Debug utilities
+│   │   │   └── user+api.ts
+│   │   └── trpc/              # tRPC handler
+│   │       └── [trpc]+api.ts
+│   ├── _layout.tsx            # Root layout with providers
+│   ├── index.tsx              # Entry point with auth routing
+│   └── auth-callback.tsx      # OAuth callback handler
+├── components/                  # Reusable components
+│   ├── universal/             # Cross-platform design system (13 components)
+│   │   ├── Box.tsx           # Flexible container with theming
+│   │   ├── Button.tsx        # Accessible button component
+│   │   ├── Card.tsx          # Content card with variants
+│   │   ├── Input.tsx         # Form input with validation
+│   │   ├── Text.tsx          # Typography components
+│   │   ├── Stack.tsx         # Layout utilities (VStack/HStack)
+│   │   ├── Container.tsx     # Page wrapper with safe area
+│   │   ├── Link.tsx          # Universal navigation link
+│   │   ├── Tabs.tsx          # Tab component
+│   │   ├── Switch.tsx        # Toggle switch
+│   │   ├── Checkbox.tsx      # Checkbox with theming
+│   │   ├── ScrollContainer.tsx # Scrollable container
+│   │   └── ScrollHeader.tsx  # Collapsible header
+│   ├── ui/                    # UI utilities
+│   │   ├── IconSymbol.tsx    # Cross-platform icons
+│   │   └── ValidationIcon.tsx # Form validation indicators
+│   └── [Other Components]     # Feature-specific components
+├── lib/                        # Core utilities & configuration
+│   ├── auth/                  # Authentication system
+│   ├── core/                  # Core utilities (logger, env, etc.)
+│   ├── design-system/         # Design tokens and spacing
+│   ├── stores/                # Zustand state management
+│   ├── theme/                 # Theme configuration
+│   ├── validations/           # Zod validation schemas
+│   └── trpc.tsx              # tRPC client setup
+├── src/                        # Backend source code
+│   ├── db/                    # Database layer
+│   │   ├── schema.ts         # 8 tables (users, sessions, etc.)
+│   │   └── index.ts          # Database client
+│   └── server/               # tRPC backend
+│       ├── routers/          # API route handlers
+│       │   ├── auth.ts       # Authentication endpoints
+│       │   └── index.ts      # Root router
+│       ├── services/         # Business logic
+│       └── trpc.ts          # tRPC configuration
+├── contexts/                   # React contexts
+│   ├── ColorSchemeContext.tsx # Theme management
+│   └── SpacingContext.tsx     # Responsive spacing
+├── hooks/                      # Custom React hooks
+├── types/                      # TypeScript definitions
+├── constants/                  # App constants
+├── assets/                     # Images, fonts, etc.
+├── docs/                       # Comprehensive documentation
+│   ├── guides/                # Setup and integration guides
+│   ├── planning/              # Task management
+│   └── status/                # Project status reports
+└── __tests__/                  # Test suite
+    ├── unit/                  # Unit tests
+    └── integration/           # Integration tests
 ```
 my-expo/
 ├── app/                          # Expo Router - File-based routing

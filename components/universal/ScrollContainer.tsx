@@ -1,11 +1,10 @@
 import React, { useRef } from 'react';
 import { Animated, ScrollViewProps, View, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView , useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box, BoxProps } from './Box';
 import { ScrollHeader } from './ScrollHeader';
 import { useTheme } from '@/lib/theme/theme-provider';
 import { designSystem } from '@/lib/design-system';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ScrollContainerProps extends Omit<BoxProps, 'maxWidth'> {
   safe?: boolean;

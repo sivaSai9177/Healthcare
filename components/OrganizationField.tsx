@@ -41,9 +41,18 @@ export function OrganizationField({ form, role }: OrganizationFieldProps) {
           }
         />
         
-        <Text size="sm" colorTheme="mutedForeground" mt={2}>
-          💡 Don&apos;t have a code? No problem! You&apos;ll get your own personal workspace.
-        </Text>
+        <Box 
+          mt={2} 
+          p={2} 
+          bgTheme="muted"
+          rounded="sm"
+          borderWidth={1}
+          borderTheme="border"
+        >
+          <Text size="sm" colorTheme="mutedForeground">
+            💡 Don&apos;t have a code? No problem! You&apos;ll get your own personal workspace.
+          </Text>
+        </Box>
       </Box>
     );
   }
@@ -70,11 +79,18 @@ export function OrganizationField({ form, role }: OrganizationFieldProps) {
           }
         />
         
-        <Box mt={3} p={3} bgTheme="primary" opacity={0.1} rounded="md">
-          <Text size="sm" weight="medium" colorTheme="primary" mb={1}>
+        <Box 
+          mt={3} 
+          p={3} 
+          bgTheme="accent"
+          rounded="md"
+          borderWidth={1}
+          borderTheme="border"
+        >
+          <Text size="sm" weight="medium" colorTheme="foreground" mb={1}>
             🎉 Creating New Organization
           </Text>
-          <Text size="sm" colorTheme="mutedForeground">
+          <Text size="sm" colorTheme="mutedForeground" lineHeight="relaxed">
             • A unique organization code will be generated for your team
             {'\n'}• You&apos;ll be able to invite team members after signup
             {'\n'}• You&apos;ll have full administrative access
