@@ -46,17 +46,23 @@ eas build --profile preview --platform ios
 
 1. **First Android Build**: You'll be prompted to generate a keystore. Select "Yes"
 
-2. **API Access**: The preview build uses `localhost:8081`
+2. **EAS Environment Variables**: 
+   - Cannot have empty string values
+   - Use placeholder values like "https://placeholder.ngrok.io"
+   - Update with actual values when needed
+
+3. **API Access**: The preview build uses `localhost:8081`
    - For testing on physical devices, use ngrok:
    ```bash
-   ngrok http 8081
+   bun run ngrok:start
+   bun run ngrok:update-eas
+   bun run ngrok:build:android
    ```
-   - Update `EXPO_PUBLIC_API_URL` in `.env.preview` with ngrok URL
 
-3. **OAuth Testing**:
-   - Ensure your server is running: `bun run dev`
-   - Google OAuth will redirect to your local server
-   - Use ngrok URL for physical device testing
+4. **OAuth Testing**:
+   - Use the ngrok workflow for Android OAuth testing
+   - See [OAuth Android Preview Guide](../testing/OAUTH_ANDROID_PREVIEW_GUIDE.md)
+   - Keep ngrok running during entire test session
 
 ## 📊 Build Progress
 
@@ -78,19 +84,25 @@ https://expo.dev/accounts/siva9177/projects/expo-fullstack-starter/builds
 ## 🐛 Troubleshooting
 
 ### OAuth Not Working
-- Ensure server is running
-- Check redirect URIs in Google Console
-- Use ngrok for physical devices
+- Follow the [OAuth Android Preview Guide](../testing/OAUTH_ANDROID_PREVIEW_GUIDE.md)
+- Ensure ngrok is running and URL is updated
+- Check redirect URIs in Google Console match ngrok URL
 
 ### API Connection Issues
 - Verify server is running on port 8081
-- Check firewall settings
-- Use ngrok URL for remote access
+- Check ngrok tunnel is active: `curl https://your-ngrok-url.ngrok-free.app/api/health`
+- Ensure EAS config has been updated with `bun run ngrok:update-eas`
 
 ### Build Failures
-- Check EAS build logs
-- Verify all environment variables
-- Ensure credentials are correct
+- Check EAS build logs for specific errors
+- Ensure no empty string environment variables in eas.json
+- Run with `--clear-cache` flag if needed
+- Verify credentials: `eas credentials`
+
+### Environment Variable Errors
+- Replace empty strings with placeholder values
+- Example: `"EXPO_PUBLIC_API_URL_NGROK": "https://placeholder.ngrok.io"`
+- Update with actual values before building
 
 ## 📝 Next Steps
 
@@ -99,5 +111,27 @@ After successful builds:
 2. Verify all features work
 3. Check debug panel functionality
 4. Test on multiple devices
+
+## 📦 Bundle Size Optimization
+
+Recent optimizations:
+- **Removed**: lucide-react and lucide-react-native (saved 73MB)
+- **Using**: @expo/vector-icons for all icons
+- **Result**: Significantly smaller bundle size
+
+To check bundle size:
+```bash
+# Analyze bundle
+npx expo export --platform android --output-dir dist
+# Check dist folder size
+```
+
+## 🔄 Package Updates
+
+Latest versions (as of June 2025):
+- Expo SDK: 53.0.10
+- React Native: 0.79.3
+- React: 19.0.0
+- All dependencies updated to latest compatible versions
 
 Ready to build? Run: `./trigger-preview-builds.sh`

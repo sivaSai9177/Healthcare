@@ -1,6 +1,6 @@
 # 📚 Documentation Index
 
-*Last Updated: June 6, 2025*
+*Last Updated: June 6, 2025 - Added ngrok OAuth testing workflow*
 
 ## 🆕 Multi-Agent Development System
 
@@ -89,8 +89,13 @@ For specific projects built with the starter:
 #### Deployment
 - [Build Instructions](./guides/deployment/BUILD_INSTRUCTIONS.md)
 - [Android Build](./guides/deployment/ANDROID_BUILD_INSTRUCTIONS.md)
-- [Preview Builds](./guides/deployment/PREVIEW_BUILD_GUIDE.md)
+- [Preview Builds](./guides/deployment/PREVIEW_BUILD_GUIDE.md) ⚡ Updated
 - [EAS Setup](./guides/deployment/CREDENTIAL_SYNC_SETUP.md)
+
+#### Testing
+- [OAuth Android Preview Guide](./guides/testing/OAUTH_ANDROID_PREVIEW_GUIDE.md) ⭐ NEW
+- [Mobile OAuth Development](./guides/MOBILE_OAUTH_DEVELOPMENT_BUILD.md) ⚡ Updated
+- [Manual Test Checklist](./guides/testing/auth-flow-test-checklist.md)
 
 ### Planning & Tasks
 - [Master Task Plan](./planning/MASTER_TASK_PLAN.md)

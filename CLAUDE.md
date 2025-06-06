@@ -409,6 +409,7 @@ router.push('/screen');    // For regular navigation
 1. **OAuth in Expo Go**: Doesn't work, requires development build
 2. **Text Node Errors**: Avoid bare text in Views, wrap in Text components
 3. **FormMessage Component**: Don't use with Input components that handle their own errors
+4. **EAS Build Environment Variables**: Cannot have empty string values - use placeholder values instead
 
 ## 🔗 Related Documentation
 
@@ -419,7 +420,8 @@ router.push('/screen');    // For regular navigation
 - [Profile Completion Flow](docs/OAUTH_PROFILE_COMPLETION_FLOW.md)
 
 ### Development
-- [Mobile Development Setup](docs/guides/MOBILE_DEVELOPMENT_SETUP.md)
+- [Mobile OAuth Development Build](docs/guides/MOBILE_OAUTH_DEVELOPMENT_BUILD.md) - **UPDATED**
+- [OAuth Android Preview Guide](docs/guides/testing/OAUTH_ANDROID_PREVIEW_GUIDE.md) - **NEW**
 - [Environment Configuration](docs/guides/ENVIRONMENT_CONFIGURATION.md)
 - [Build Instructions](BUILD_INSTRUCTIONS.md)
 
@@ -529,18 +531,30 @@ bun run test    # Run tests
 - Audit logging is automatic for auth events
 - Mobile OAuth requires proper scheme configuration
 
+### OAuth Testing with Ngrok
+- Use `local-ngrok` build profile for Android OAuth testing
+- Run `bun run ngrok:start` to get ngrok URL
+- Update EAS config with `bun run ngrok:update-eas`
+- Build with `bun run ngrok:build:android`
+- Keep ngrok running during entire test session
+
+### Bundle Size Optimization
+- Removed lucide-react and lucide-react-native (saved 73MB)
+- Using expo/vector-icons and react-native-svg for icons
+- Keep bundle size under control by auditing dependencies
+
 ## 🔄 Last Updated
 
 **Date**: June 6, 2025
-**Last Change**: Prepared codebase for multi-agent development system
+**Last Change**: Ngrok OAuth testing workflow and bundle optimization
 **Changes**:
-- ✅ Modernized authentication UI (login, register, complete-profile, forgot-password)
-- ✅ Fixed all TypeScript errors in auth modules
-- ✅ Created comprehensive documentation for multi-agent system
-- ✅ Added Master Task Manager for agent workflow
-- ✅ Created Agent Context Guide with patterns and conventions
-- ✅ Updated project structure documentation
-- ✅ Fixed icon mappings for universal components
+- ✅ Added ngrok OAuth testing workflow with local-ngrok build profile
+- ✅ Fixed EAS configuration (no empty env vars)
+- ✅ Bundle size optimization - removed lucide libraries (saved 73MB)
+- ✅ Updated Expo SDK to latest versions (53.0.10)
+- ✅ Added ngrok build commands and scripts
+- ✅ Improved OAuth testing documentation
+- ✅ Enhanced environment setup with Docker support
 **Completed**: 
 - ✅ **Google OAuth Flow Working**: Complete web OAuth integration with Better Auth
 - ✅ **Validation Schema Fix**: Fixed nullable field handling in UserResponseSchema

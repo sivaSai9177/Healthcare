@@ -72,6 +72,8 @@ eas build --profile development --platform ios
 ```
 
 #### For Android
+
+#### Option 1: Standard Development Build
 ```bash
 # Create Android development build
 eas build --profile development --platform android
@@ -79,6 +81,23 @@ eas build --profile development --platform android
 # Follow the prompts:
 # - Select keystore option (create new for development)
 # - Wait for build to complete (10-20 minutes)
+```
+
+#### Option 2: Ngrok OAuth Testing Build (Recommended)
+```bash
+# 1. Start ngrok tunnel
+bun run ngrok:start
+
+# 2. Update EAS config with ngrok URL
+bun run ngrok:update-eas
+
+# 3. Build with ngrok profile
+bun run ngrok:build:android
+
+# This creates a build with:
+# - Ngrok URL as API endpoint
+# - OAuth credentials configured
+# - Debug mode enabled
 ```
 
 ### 4. Install Development Build
@@ -233,6 +252,40 @@ Before testing OAuth:
 | Build fails | Clear credentials, check certificates |
 | OAuth callback fails | Verify redirect URI configuration |
 | Can't connect to Metro | Check IP address and network |
+| EAS env var errors | No empty strings - use placeholder values |
+| Ngrok URL changes | Run `bun run ngrok:update-eas` after restart |
+
+## 🌐 Ngrok OAuth Testing Workflow
+
+### Complete Setup Steps
+1. **Start ngrok tunnel**
+   ```bash
+   bun run ngrok:start
+   # Copy the ngrok URL displayed
+   ```
+
+2. **Update Google OAuth Console**
+   - Add ngrok URL to authorized JavaScript origins
+   - Add ngrok URL + `/api/auth/callback/google` to redirect URIs
+
+3. **Update EAS configuration**
+   ```bash
+   bun run ngrok:update-eas
+   # This updates eas.json with current ngrok URL
+   ```
+
+4. **Build Android app**
+   ```bash
+   bun run ngrok:build:android
+   ```
+
+5. **Important**: Keep ngrok running during entire test session!
+
+### Key Scripts
+- `ngrok:start` - Starts ngrok tunnel on port 8081
+- `ngrok:update-eas` - Updates eas.json with current ngrok URL
+- `ngrok:build:android` - Builds Android with ngrok profile
+- `ngrok:build:ios` - Builds iOS with ngrok profile
 
 ---
 
