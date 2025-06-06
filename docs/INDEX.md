@@ -1,181 +1,131 @@
 # 📚 Documentation Index
 
-Welcome to the Full-Stack Expo Starter Kit documentation! This directory contains comprehensive guides, examples, and reference materials to help you understand and extend the project.
+*Last Updated: June 6, 2025*
 
-## 🚀 Quick Start Guides
+## 🆕 NEW: Multi-Agent Development System
 
-- **[README.md](../README.md)** - Main project overview and setup guide
-- **[Code Structure](./CODE_STRUCTURE.md)** - Detailed project architecture
-- **[Environment Setup](./guides/ENVIRONMENT_SETUP.md)** - Development environment configuration
+### 🤖 Automated Development from PRD
+- [🎯 Multi-Agent Workflow System](./MULTI_AGENT_WORKFLOW_SYSTEM.md) - **START HERE** - Complete system documentation
+- [📄 PRD Template](./projects/PRD_TEMPLATE.md) - Template for new projects
+- [📋 Master Task Manager](./MASTER_TASK_MANAGER.md) - Task tracking and assignment
+- [🤖 Agent Context Guide](./AGENT_CONTEXT.md) - Codebase knowledge for agents
 
-## 🔐 Authentication & Security
+### 🚀 Quick Start
+1. Copy [PRD Template](./projects/PRD_TEMPLATE.md) to `docs/projects/your-app/PRD.md`
+2. Run: `Manager, process PRD at docs/projects/your-app/PRD.md`
+3. Monitor progress: `Manager, show project status`
 
-### Core Authentication
-- **[Authentication Flow Architecture](../README.md#-authentication-flow-architecture)** - Complete backend auth stack deep dive
-- **[Google OAuth Setup](./guides/GOOGLE_OAUTH_SETUP.md)** - OAuth provider configuration
-- **[Social Login Flow](./guides/SOCIAL_LOGIN_COMPLETE_FLOW.md)** - OAuth + Profile completion flow
-- **[Session Management](./guides/AUTH_SESSION_MANAGEMENT.md)** - Session handling and security
-- **[Mobile Auth Complete Guide](./guides/MOBILE_AUTH_COMPLETE_GUIDE.md)** - Mobile authentication setup
-- **Email Validation** - Real-time email existence checking with debounced API calls (500ms)
+## 🎯 Quick Navigation
 
-### Security Features
-- **[tRPC Authorization Middleware](../CLAUDE.md#authorization-system-new)** - Role-based and permission-based procedures
-- **[Audit Logging](./guides/AUDIT_LOGGING.md)** - Security event tracking
-- **[Data Encryption](./guides/DATA_ENCRYPTION.md)** - Encryption implementation
-- **[Permission System](../README.md#permission-system)** - RBAC implementation details
+### 🚀 Getting Started
+- [README](../README.md) - Project overview and setup
+- [Environment Setup Guide](./ENVIRONMENT_SETUP_GUIDE.md) - Development environment configuration
+- [Running Your App Guide](./RUNNING_YOUR_APP_GUIDE.md) - How to run the application
 
-## 🏗️ Architecture & Development
+### 📚 Documentation Structure
+- [Starter Kit Docs](./starter-kit/README.md) - Generic documentation for all projects
+- [Project-Specific Docs](./projects/README.md) - Documentation for individual projects
+- [Codebase Status Report](./CODEBASE_STATUS_REPORT.md) - Current state of the starter kit
 
-### Technical Guides
-- **[Navigation Architecture](./guides/NAVIGATION_ARCHITECTURE.md)** - Platform-specific navigation with tab fix *(UPDATED)*
-- **[Frontend Architecture Plan](./guides/FRONTEND_ARCHITECTURE_PLAN.md)** - Modern Expo Router + TanStack Query + tRPC architecture
-- **[TanStack Query + tRPC Integration](./guides/TANSTACK_TRPC_INTEGRATION.md)** - Advanced state management patterns
-- **[tRPC Best Practices](./guides/EXPO_TRPC_BEST_PRACTICES.md)** - API development patterns
-- **[State Management](./guides/STATE_MANAGEMENT.md)** - Zustand + TanStack Query
-- **[Database Schema](./api/DATABASE_SCHEMA.md)** - PostgreSQL + Drizzle ORM
-- **[Cross-Platform Development](./guides/CROSS_PLATFORM.md)** - iOS, Android, Web
+### 🏗️ Architecture & Design
+- [Code Structure](./CODE_STRUCTURE.md) - Detailed project structure
+- [Design System](./DESIGN_SYSTEM.md) - Universal component library
+- [Navigation Architecture](./NAVIGATION_ARCHITECTURE.md) - Routing and navigation patterns
+- [Frontend Architecture Plan](./guides/FRONTEND_ARCHITECTURE_PLAN.md) - Frontend best practices
 
-### Development Workflow
-- **[Testing Strategy](./guides/TESTING_STRATEGY.md)** - Comprehensive testing approach
-- **[Code Quality](./guides/CODE_QUALITY.md)** - ESLint, TypeScript, best practices
-- **[Performance Optimization](./guides/PERFORMANCE.md)** - App performance tuning
+### 🔐 Authentication & Security
+- [Auth Flow Improvements](./AUTH_FLOW_IMPROVEMENTS_SUMMARY.md) - Authentication implementation
+- [Google OAuth Setup](./guides/GOOGLE_OAUTH_SETUP.md) - OAuth configuration guide
+- [Auth Session Management](./guides/AUTH_SESSION_MANAGEMENT.md) - Session handling patterns
+- [OAuth Profile Completion](./OAUTH_PROFILE_COMPLETION_FLOW.md) - Profile setup flow
 
-## 🧰 Tools & Utilities
+### 💻 Development Guides
+- [CLAUDE.md](../CLAUDE.md) - AI agent memory and patterns
+- [Expo tRPC Best Practices](./guides/EXPO_TRPC_BEST_PRACTICES.md) - API development guide
+- [TanStack tRPC Integration](./guides/TANSTACK_TRPC_INTEGRATION.md) - Query management
+- [Migrating to Design System](./guides/MIGRATING_TO_DESIGN_SYSTEM.md) - Component migration
 
-### Logging & Debugging
-- **[Enterprise Logging](./guides/ENTERPRISE_LOGGING.md)** - Structured logging system
-- **[Debug Tools](./guides/DEBUG_TOOLS.md)** - Development debugging utilities
-- **[Error Handling](./guides/ERROR_HANDLING.md)** - Error boundary and recovery
+### 📱 Mobile Development
+- [Mobile OAuth Setup Guide](./MOBILE_OAUTH_SETUP_GUIDE.md) - Mobile authentication
+- [Mobile Debugging Guide](./MOBILE_DEBUGGING_GUIDE.md) - Debugging techniques
+- [Mobile Environment Solution](./MOBILE_ENVIRONMENT_SOLUTION.md) - Environment configuration
 
-### Development Tools
-- **[Scripts Reference](./guides/SCRIPTS_REFERENCE.md)** - Available npm/bun scripts
-- **[Build & Deployment](./guides/deployment/)** - Production deployment guides
-  - [Build Instructions](./guides/deployment/BUILD_INSTRUCTIONS.md)
-  - [Expo Build Steps](./guides/deployment/EXPO_OFFICIAL_BUILD_STEPS.md)
-  - [Quick Build Guide](./guides/deployment/QUICK_BUILD_GUIDE.md)
-  - [Credentials Setup](./guides/deployment/CREDENTIAL_SYNC_SETUP.md)
-- **[Development Builds](./guides/MOBILE_OAUTH_DEVELOPMENT_BUILD.md)** - Mobile development builds
+### 🧪 Testing & Quality
+- [Test Summary](./final-test-summary.md) - Test results and coverage
+- [Auth Flow Test Results](./AUTH_FLOW_TEST_RESULTS.md) - Authentication testing
+- [Manual Test Procedures](./__tests__/manual/) - Manual testing guides
 
-## 📖 API Documentation
+### 📊 Project Management
+- [Master Task Plan](./planning/MASTER_TASK_PLAN.md) - Overall project roadmap
+- [Authentication Tasks](./planning/AUTHENTICATION_TASKS.md) - Auth feature tasks
+- [Database API Tasks](./planning/DATABASE_API_TASKS.md) - Backend tasks
+- [Security Compliance Tasks](./planning/SECURITY_COMPLIANCE_TASKS.md) - Security requirements
 
-### tRPC Endpoints
-- **[Authentication API](./api/AUTHENTICATION_API.md)** - Auth-related endpoints
-- **[User Management API](./api/USER_MANAGEMENT_API.md)** - User CRUD operations
-- **[Organization API](./api/ORGANIZATION_API.md)** - Organization management
-- **[Admin API](./api/ADMIN_API.md)** - Administrative functions
+### 🚢 Deployment & DevOps
+- [Build Instructions](./guides/deployment/BUILD_INSTRUCTIONS.md) - Build process
+- [Preview Build Guide](./PREVIEW_BUILD_GUIDE.md) - Preview builds with EAS
+- [Credential Sync Setup](./guides/deployment/CREDENTIAL_SYNC_SETUP.md) - Credential management
+- [EAS Configuration](../eas.json) - Expo Application Services config
 
-### Database
-- **[Schema Documentation](./api/DATABASE_SCHEMA.md)** - Complete schema reference
-- **[Migration Guide](./api/MIGRATION_GUIDE.md)** - Database migration procedures
+### 📝 Implementation Status
+- [Final Implementation Status](./FINAL_IMPLEMENTATION_STATUS.md) - Feature completion status
+- [UI Implementation Status](./COMPLETE_UI_IMPLEMENTATION_STATUS.md) - UI component status
+- [Navigation Flow Complete](./NAVIGATION_FLOW_COMPLETE.md) - Navigation implementation
 
-## 💡 Examples & Templates
+## 📂 Documentation Structure
 
-### Complete Examples
-- **[Healthcare Project](./examples/HEALTHCARE_PROJECT.md)** - Full healthcare app implementation
-- **[E-commerce App](./examples/ECOMMERCE_EXAMPLE.md)** - Shopping app example
-- **[SaaS Dashboard](./examples/SAAS_DASHBOARD.md)** - Multi-tenant application
+```
+docs/
+├── guides/                 # How-to guides and tutorials
+│   ├── deployment/        # Deployment-specific guides
+│   └── *.md              # Feature-specific guides
+├── planning/              # Project planning documents
+│   └── *_TASKS.md        # Task breakdowns by feature
+├── status/                # Status reports and updates
+├── archive/               # Historical documentation
+└── examples/              # Code examples and patterns
+```
 
-### Code Examples
-- **[Component Patterns](./examples/COMPONENT_PATTERNS.md)** - React Native component examples
-- **[API Usage Examples](./examples/API_USAGE.md)** - tRPC client usage patterns
-- **[Authentication Flows](./examples/AUTH_FLOWS.md)** - Various auth implementation examples
+## 🔍 Finding Information
 
-## 🗺️ Project Planning
+### By Role
+- **Backend Developer**: Start with [Agent Context](./AGENT_CONTEXT.md) → [tRPC Best Practices](./guides/EXPO_TRPC_BEST_PRACTICES.md)
+- **Frontend Developer**: Start with [Design System](./DESIGN_SYSTEM.md) → [Frontend Architecture](./guides/FRONTEND_ARCHITECTURE_PLAN.md)
+- **Tester**: Start with [Test Summary](./final-test-summary.md) → [Manual Test Procedures](./__tests__/manual/)
+- **Manager**: Start with [Master Task Manager](./MASTER_TASK_MANAGER.md) → [Codebase Status](./CODEBASE_STATUS_REPORT.md)
 
-### Task Management
-- **[Master Task Plan](./planning/MASTER_TASK_PLAN.md)** - Overall project roadmap
-- **[Authentication Tasks](./planning/AUTHENTICATION_TASKS.md)** - Auth system tasks
-- **[Security Compliance](./planning/SECURITY_COMPLIANCE_TASKS.md)** - Security requirements
-- **[Database Tasks](./planning/DATABASE_API_TASKS.md)** - Database-related tasks
+### By Feature
+- **Authentication**: See [Auth Flow Improvements](./AUTH_FLOW_IMPROVEMENTS_SUMMARY.md)
+- **UI Components**: See [Design System](./DESIGN_SYSTEM.md)
+- **API Development**: See [tRPC Best Practices](./guides/EXPO_TRPC_BEST_PRACTICES.md)
+- **Testing**: See [Test Summary](./final-test-summary.md)
 
-### Development Planning
-- **[Feature Roadmap](./planning/FEATURE_ROADMAP.md)** - Upcoming features
-- **[Technical Debt](./planning/TECHNICAL_DEBT.md)** - Code improvement tasks
-- **[Performance Tasks](./planning/PERFORMANCE_TASKS.md)** - Optimization priorities
+### By Task
+- **Setting up dev environment**: [Environment Setup Guide](./ENVIRONMENT_SETUP_GUIDE.md)
+- **Adding new features**: [Master Task Manager](./MASTER_TASK_MANAGER.md)
+- **Debugging issues**: [Mobile Debugging Guide](./MOBILE_DEBUGGING_GUIDE.md)
+- **Deploying app**: [Build Instructions](./guides/deployment/BUILD_INSTRUCTIONS.md)
 
-## 🔧 Troubleshooting
+## 📖 Key Documents
 
-### Common Issues
-- **[Build Issues](./troubleshooting/BUILD_ISSUES.md)** - Common build problems
-- **[Authentication Problems](./troubleshooting/AUTH_ISSUES.md)** - Auth-related issues
-- **[Database Connection](./troubleshooting/DATABASE_ISSUES.md)** - Database connectivity
-- **[Mobile Development](./troubleshooting/MOBILE_ISSUES.md)** - Mobile-specific problems
+### Must Read for All Agents
+1. [CLAUDE.md](../CLAUDE.md) - Core patterns and conventions
+2. [Agent Context Guide](./AGENT_CONTEXT.md) - Codebase overview
+3. [Master Task Manager](./MASTER_TASK_MANAGER.md) - Current tasks
 
-### Fixes & Solutions
-- **[Infinite Render Loop Fix](./INFINITE_RENDER_LOOP_FIX.md)** - React performance issues
-- **[OAuth Troubleshooting](./troubleshooting/OAUTH_TROUBLESHOOTING.md)** - OAuth flow debugging
-- **[Environment Issues](./troubleshooting/ENVIRONMENT_ISSUES.md)** - Configuration problems
+### Architecture References
+1. [Code Structure](./CODE_STRUCTURE.md) - File organization
+2. [Design System](./DESIGN_SYSTEM.md) - UI components
+3. [Frontend Architecture](./guides/FRONTEND_ARCHITECTURE_PLAN.md) - Frontend patterns
 
-## 📈 Monitoring & Analytics
+## 🔄 Documentation Updates
 
-### Performance Monitoring
-- **[Performance Metrics](./monitoring/PERFORMANCE_METRICS.md)** - Key metrics to track
-- **[Logging Analysis](./monitoring/LOGGING_ANALYSIS.md)** - Log analysis strategies
-- **[User Analytics](./monitoring/USER_ANALYTICS.md)** - User behavior tracking
-
-### Security Monitoring
-- **[Security Alerts](./monitoring/SECURITY_ALERTS.md)** - Security event monitoring
-- **[Audit Reports](./monitoring/AUDIT_REPORTS.md)** - Compliance reporting
-- **[Incident Response](./monitoring/INCIDENT_RESPONSE.md)** - Security incident procedures
-
-## 📁 Archive
-
-### Historical Documentation
-- **[Session Summary](./archive/SESSION_SUMMARY_JAN_2025.md)** - Development session notes
-- **[Authentication Improvements](./archive/AUTH_IMPROVEMENTS.md)** - Historical auth fixes
-- **[Mobile OAuth Fix](./archive/MOBILE_OAUTH_FIX.md)** - Mobile OAuth implementation
-- **[Profile Completion Fixes](./archive/PROFILE_COMPLETION_NAVIGATION_FIX.md)** - Historical fixes
-
-### Deprecated Guides
-- **[Legacy Testing](./archive/test-auth-flow.md)** - Old testing procedures
-- **[Old Google OAuth](./archive/test-google-oauth.md)** - Previous OAuth implementation
-
-## 🤝 Contributing
-
-### Development Guidelines
-- **[Contributing Guide](./CONTRIBUTING.md)** - How to contribute to the project
-- **[Code Review](./CODE_REVIEW.md)** - Code review process
-- **[Release Process](./RELEASE_PROCESS.md)** - Version release procedures
-
-### Community
-- **[Issue Templates](./ISSUE_TEMPLATES.md)** - Bug report and feature request templates
-- **[Discussion Guidelines](./DISCUSSION_GUIDELINES.md)** - Community discussion rules
+When updating documentation:
+1. Update the relevant document
+2. Update this INDEX.md if adding new files
+3. Update CLAUDE.md with significant changes
+4. Update Master Task Manager after task completion
 
 ---
 
-## 📊 Documentation Status
-
-| Section | Status | Last Updated |
-|---------|---------|--------------|
-| 🚀 Quick Start | ✅ Complete | June 2025 |
-| 🔐 Authentication | ✅ Complete | June 2025 |
-| 🏗️ Architecture | ✅ Complete | June 2025 |
-| 🧰 Tools | ✅ Complete | June 2025 |
-| 📖 API Docs | 🔄 In Progress | June 2025 |
-| 💡 Examples | 🔄 In Progress | June 2025 |
-| 🗺️ Planning | ✅ Complete | June 2025 |
-| 🔧 Troubleshooting | ✅ Complete | June 2025 |
-| 📈 Monitoring | 📝 Planned | - |
-| 🤝 Contributing | 📝 Planned | - |
-
-## 🎯 How to Use This Documentation
-
-1. **New to the project?** Start with [README.md](../README.md) and [Code Structure](./CODE_STRUCTURE.md)
-2. **Setting up development?** Follow [Environment Setup](./guides/ENVIRONMENT_SETUP.md)
-3. **Working on authentication?** Check the [Authentication & Security](#-authentication--security) section
-4. **Need API reference?** See [API Documentation](#-api-documentation)
-5. **Looking for examples?** Browse [Examples & Templates](#-examples--templates)
-6. **Troubleshooting issues?** Check [Troubleshooting](#-troubleshooting)
-
-## 📝 Documentation Standards
-
-- All documentation follows Markdown standards
-- Code examples include language specification for syntax highlighting
-- Each guide includes prerequisites, step-by-step instructions, and expected outcomes
-- Links are verified and maintained regularly
-- Screenshots and diagrams are used where helpful
-- All examples are tested and working
-
----
-
-**Need help?** If you can't find what you're looking for, check the [troubleshooting section](#-troubleshooting) or create an issue in the repository.
+*This index provides navigation to all project documentation. Keep it updated when adding new documents.*

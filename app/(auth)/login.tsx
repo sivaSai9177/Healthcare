@@ -1,35 +1,66 @@
-import React from "react";
-import { TouchableOpacity, Pressable, Platform, ScrollView, KeyboardAvoidingView } from "react-native";
-import { Link } from "expo-router";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import debounce from 'lodash.debounce';
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { IconSymbol } from "@/components/ui/IconSymbol";
+import { ValidationIcon } from "@/components/ui/ValidationIcon";
+import { Box } from "@/components/universal/Box";
+import { Button } from "@/components/universal/Button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/universal/Card";
+import { Container } from "@/components/universal/Container";
+import { Input } from "@/components/universal/Input";
+import { HStack, VStack } from "@/components/universal/Stack";
+import { Caption, Heading1, Text } from "@/components/universal/Text";
+import { UniversalLink, TextLink } from "@/components/universal/Link";
 import { useAuth } from "@/hooks/useAuth";
+import { showErrorAlert } from "@/lib/core/alert";
+import { generateUUID } from "@/lib/core/crypto";
+import { log } from "@/lib/core/logger";
 import { toAppUser } from "@/lib/stores/auth-store";
+import { useTheme } from "@/lib/theme/theme-provider";
 import { api } from "@/lib/trpc";
 import { signInSchema, type SignInInput } from "@/lib/validations/auth";
-import { showErrorAlert } from "@/lib/core/alert";
-import { log } from "@/lib/core/logger";
-import { generateUUID } from "@/lib/core/crypto";
-import { GoogleSignInButton } from "@/components/GoogleSignInButton";
-import { useTheme } from "@/lib/theme/theme-provider";
-import { Container } from "@/components/universal/Container";
-import { ValidationIcon } from "@/components/ui/ValidationIcon";
-import { IconSymbol } from "@/components/ui/IconSymbol";
-import { Box } from "@/components/universal/Box";
-import { Text, Heading1, Caption } from "@/components/universal/Text";
-import { VStack, HStack } from "@/components/universal/Stack";
-import { Button } from "@/components/universal/Button";
-import { Input } from "@/components/universal/Input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/universal/Card";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Link } from "expo-router";
+import debounce from 'lodash.debounce';
+import React from "react";
+import { useForm } from "react-hook-form";
+import { Dimensions, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { z } from "zod";
+import { LinearGradient } from 'expo-linear-gradient';
 
-export default function LoginScreen() {
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Social button icons as simple SVG paths
+const SocialIcons = {
+  meta: (
+    <Text size="xl" colorTheme="foreground" weight="bold">f</Text> // Simplified Meta logo
+  ),
+  x: (
+    <Text size="xl" colorTheme="foreground" weight="bold">𝕏</Text> // X (Twitter) logo
+  ),
+};
+
+export default function LoginScreenV2() {
   const { updateAuth, setLoading, setError } = useAuth();
   const theme = useTheme();
   const [showPassword, setShowPassword] = React.useState(false);
   const [emailExists, setEmailExists] = React.useState<boolean | null>(null);
   const [checkingEmail, setCheckingEmail] = React.useState(false);
+  const [screenWidth, setScreenWidth] = React.useState(SCREEN_WIDTH);
+  
+  // Update screen width on resize (web)
+  React.useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handleResize = () => {
+        setScreenWidth(Dimensions.get('window').width);
+      };
+      
+      const subscription = Dimensions.addEventListener('change', handleResize);
+      return () => subscription?.remove();
+    }
+  }, []);
+  
+  const isTabletOrDesktop = screenWidth >= 768;
+  const isLargeScreen = screenWidth >= 1024; // Only show image on larger screens
   
   // Memoize mutation callbacks to prevent recreation on every render
   const onSuccess = React.useCallback((data: any) => {
@@ -221,204 +252,615 @@ export default function LoginScreen() {
     }
   };
 
-  const content = (
-    <Box 
-      width="100%" 
-      maxWidth={400} 
-      p={4}
-      style={{
-        width: '100%',
-      }}
-    >
-      <Card 
-        shadow="lg"
-        bgTheme="card"
-        borderTheme="border"
-        style={{
-          ...(Platform.OS === 'web' && {
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-          }),
-        }}
-      >
-            <CardHeader>
-              <VStack spacing={1} alignItems="center">
-                <CardTitle>Welcome back</CardTitle>
-                <CardDescription>Login to your account</CardDescription>
-              </VStack>
-            </CardHeader>
-            <CardContent>
-              <VStack spacing={4}>
-              {/* Email Input */}
-              <Input
-                label="Email"
-                placeholder="your@email.com"
-                autoCapitalize="none"
-                autoComplete="email"
-                keyboardType="email-address"
-                name="email"
-                id="email"
-                error={form.formState.errors.email?.message}
-                success={hasInteractedWithEmail && !form.formState.errors.email && !!email && emailCheckData?.exists === true}
-                value={form.watch("email")}
-                onChangeText={(value) => {
-                  form.setValue("email", value);
-                  setHasInteractedWithEmail(true); // Mark as interacted when user types
-                  if (form.formState.touchedFields.email) {
-                    form.trigger("email");
-                  }
-                }}
-                onBlur={() => {
-                  setHasInteractedWithEmail(true); // Also mark on blur
-                  form.trigger("email");
-                }}
-                leftElement={
-                  <IconSymbol 
-                    name="envelope.fill" 
-                    size={20} 
-                    color={theme.mutedForeground}
-                  />
-                }
-                rightElement={
-                  form.formState.touchedFields.email && form.watch("email") ? (
-                    isCheckingEmail ? (
-                      <Text size="xs" colorTheme="mutedForeground">Checking...</Text>
-                    ) : emailCheckData ? (
-                      <ValidationIcon 
-                        status={
-                          form.formState.errors.email ? 'error' : 
-                          emailCheckData?.exists ? 'success' : 
-                          'error'
-                        } 
-                      />
-                    ) : null
-                  ) : null
-                }
-              />
-              
-              {/* Email validation message */}
-              {form.formState.touchedFields.email && !form.formState.errors.email && emailCheckData && (
-                <Text size="sm" colorTheme={emailCheckData.exists ? "success" : "destructive"}>
-                  {emailCheckData.exists ? "Email found - please enter your password" : "Email not found - please check or sign up"}
-                </Text>
-              )}
+  const handleSocialAuth = (provider: 'meta' | 'x') => {
+    // Placeholder for future implementation
+    showErrorAlert("Coming Soon", `${provider === 'meta' ? 'Meta' : 'X'} login will be available soon!`);
+  };
 
-              {/* Password Input with Forgot Link */}
-              <Box>
-                <Box flexDirection="row" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Text size="sm" weight="medium" colorTheme="foreground">
-                    Password
-                  </Text>
-                  <Link href="/(auth)/forgot-password" asChild>
-                    <TouchableOpacity>
-                      <Text size="sm" colorTheme="primary">
-                        Forgot your password?
-                      </Text>
-                    </TouchableOpacity>
-                  </Link>
-                </Box>
-                <Input
-                  placeholder="Enter your password"
-                  secureTextEntry={!showPassword}
-                  autoComplete="current-password"
-                  name="password"
-                  id="password"
-                  error={form.formState.errors.password?.message}
-                  success={form.formState.touchedFields.password && !form.formState.errors.password && !!form.watch("password")}
-                  value={form.watch("password")}
-                  onChangeText={(value) => {
-                    form.setValue("password", value);
-                    if (form.formState.touchedFields.password) {
-                      form.trigger("password");
-                    }
-                  }}
-                  onBlur={() => {
-                    form.trigger("password");
-                  }}
-                  leftElement={
+  const formContent = (
+    <Box p={isTabletOrDesktop ? 12 : 6} flex={1}>
+      <VStack spacing={6}>
+        {/* Header */}
+        <VStack spacing={2} alignItems="center">
+          <Heading1>Welcome back</Heading1>
+          <Text colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
+            Login to your Acme Inc account
+          </Text>
+        </VStack>
+
+        {/* Form Fields */}
+        <VStack spacing={3}>
+          {/* Email Field */}
+          <Input
+            label="Email"
+            placeholder="your@email.com"
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            name="email"
+            id="email"
+            error={form.formState.errors.email?.message}
+            success={hasInteractedWithEmail && !form.formState.errors.email && !!email && emailCheckData?.exists === true}
+            value={form.watch("email")}
+            onChangeText={(value) => {
+              form.setValue("email", value);
+              setHasInteractedWithEmail(true);
+              if (form.formState.touchedFields.email) {
+                form.trigger("email");
+              }
+            }}
+            onBlur={() => {
+              setHasInteractedWithEmail(true);
+              form.trigger("email");
+            }}
+            leftElement={
+              <IconSymbol 
+                name="envelope.fill" 
+                size={20} 
+                color={theme.mutedForeground}
+              />
+            }
+            rightElement={
+              form.formState.touchedFields.email && form.watch("email") ? (
+                isCheckingEmail ? (
+                  <Text size="xs" colorTheme="mutedForeground">Checking...</Text>
+                ) : emailCheckData ? (
+                  <ValidationIcon 
+                    status={
+                      form.formState.errors.email ? 'error' : 
+                      emailCheckData?.exists ? 'success' : 
+                      'error'
+                    } 
+                  />
+                ) : null
+              ) : null
+            }
+          />
+          
+          {/* Email validation message */}
+          {form.formState.touchedFields.email && !form.formState.errors.email && emailCheckData && (
+            <Text size="sm" colorTheme={emailCheckData.exists ? "success" : "destructive"}>
+              {emailCheckData.exists ? "Email found - please enter your password" : "Email not found - please check or sign up"}
+            </Text>
+          )}
+
+          {/* Password Field */}
+          <Box>
+            <Text size="sm" weight="medium" colorTheme="foreground" mb={2}>
+              Password
+            </Text>
+            <Input
+              placeholder="Enter your password"
+              secureTextEntry={!showPassword}
+              autoComplete="current-password"
+              name="password"
+              id="password"
+              error={form.formState.errors.password?.message}
+              success={form.formState.touchedFields.password && !form.formState.errors.password && !!form.watch("password")}
+              value={form.watch("password")}
+              onChangeText={(value) => {
+                form.setValue("password", value);
+                if (form.formState.touchedFields.password) {
+                  form.trigger("password");
+                }
+              }}
+              onBlur={() => {
+                form.trigger("password");
+              }}
+              leftElement={
+                <IconSymbol 
+                  name="lock.fill" 
+                  size={20} 
+                  color={theme.mutedForeground}
+                />
+              }
+              rightElement={
+                <Box flexDirection="row" alignItems="center" gap={2}>
+                  {form.formState.touchedFields.password && form.watch("password") && (
+                    <ValidationIcon 
+                      status={form.formState.errors.password ? 'error' : 'success'} 
+                    />
+                  )}
+                  <Pressable
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={{ padding: 4 }}
+                  >
                     <IconSymbol 
-                      name="lock.fill" 
+                      name={showPassword ? 'eye.slash.fill' : 'eye.fill' as any} 
                       size={20} 
                       color={theme.mutedForeground}
                     />
-                  }
-                  rightElement={
-                    <Box flexDirection="row" alignItems="center" gap={2}>
-                      {form.formState.touchedFields.password && form.watch("password") && (
-                        <ValidationIcon 
-                          status={form.formState.errors.password ? 'error' : 'success'} 
-                        />
-                      )}
-                      <Pressable
-                        onPress={() => setShowPassword(!showPassword)}
-                        style={{ padding: 4 }}
-                      >
+                  </Pressable>
+                </Box>
+              }
+            />
+            {/* Forgot password link */}
+            <Box alignItems="flex-end" mt={2}>
+              <TextLink 
+                href="/(auth)/forgot-password" 
+                size="sm"
+                variant="primary"
+              >
+                Forgot your password?
+              </TextLink>
+            </Box>
+          </Box>
+        </VStack>
+
+        {/* Submit Button */}
+        <Button
+          size="lg"
+          fullWidth
+          isDisabled={!hasValidValues || signInMutation.isPending}
+          onPress={() => form.handleSubmit(onSubmit)()}
+          isLoading={signInMutation.isPending}
+        >
+          {signInMutation.isPending ? "Signing in..." : "Login"}
+        </Button>
+
+        {/* Divider with "Or continue with" */}
+        <Box position="relative" my={4}>
+          <Box 
+            height={1} 
+            bgTheme="muted" 
+            position="absolute" 
+            top={10} 
+            left={0} 
+            right={0} 
+          />
+          <Box alignItems="center">
+            <Box bgTheme="card" px={2}>
+              <Caption colorTheme="mutedForeground">Or continue with</Caption>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Social Login Buttons */}
+        <HStack spacing={3} justifyContent="space-between">
+          <Box flex={1}>
+            <GoogleSignInButton 
+              size="md"
+              variant="outline"
+              fullWidth
+              iconOnly
+              text=""
+              style={{ height: 44 }}
+            />
+          </Box>
+          <Box flex={1}>
+            <Button
+              variant="outline"
+              size="md"
+              fullWidth
+              onPress={() => handleSocialAuth('meta')}
+              style={{ height: 44 }}
+            >
+              {SocialIcons.meta}
+            </Button>
+          </Box>
+          <Box flex={1}>
+            <Button
+              variant="outline"
+              size="md"
+              fullWidth
+              onPress={() => handleSocialAuth('x')}
+              style={{ height: 44 }}
+            >
+              {SocialIcons.x}
+            </Button>
+          </Box>
+        </HStack>
+
+        {/* Register link */}
+        <Box alignItems="center">
+          <HStack spacing={1}>
+            <Caption>Don&apos;t have an account?</Caption>
+            <TextLink 
+              href="/(auth)/register"
+              size="sm"
+              weight="medium"
+              variant="primary"
+            >
+              Register
+            </TextLink>
+          </HStack>
+        </Box>
+      </VStack>
+    </Box>
+  );
+
+  const imageColumn = (
+    <LinearGradient
+      colors={['#e8e9eb', '#f2f3f5', '#fafbfc']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{
+        flex: 1,
+        position: 'relative',
+        height: '100%',
+        width: '100%',
+      }}
+    >
+      <Box
+        flex={1}
+        justifyContent="center"
+        alignItems="center"
+        p={8}
+      >
+        <VStack spacing={6} alignItems="center">
+          {/* Rocket Emoji */}
+          <Text style={{ fontSize: 80 }}>
+            🚀
+          </Text>
+          
+          {/* Minimal Text */}
+          <VStack spacing={2} alignItems="center">
+            <Text 
+              size="3xl" 
+              weight="bold" 
+              style={{ color: theme.foreground }}
+            >
+              Welcome Back
+            </Text>
+            <Text 
+              size="lg" 
+              style={{ 
+                color: theme.mutedForeground,
+                textAlign: 'center',
+                maxWidth: 300,
+              }}
+            >
+              Build amazing cross-platform apps with React Native
+            </Text>
+          </VStack>
+        </VStack>
+      </Box>
+    </LinearGradient>
+  );
+
+  const cardContent = (
+    <Card 
+      shadow="xl"
+      bgTheme="card"
+      borderTheme="border"
+      style={{
+        width: isTabletOrDesktop ? '70%' : '100%',
+        maxWidth: isTabletOrDesktop ? 800 : 400,
+        overflow: 'hidden',
+        ...(Platform.OS === 'web' && {
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+        }),
+      }}
+    >
+      {isLargeScreen ? (
+        <Box 
+          flexDirection="row" 
+          style={{ 
+            minHeight: 600,
+            width: '100%',
+            display: 'flex' as any,
+          }}
+        >
+          <Box flex={6} style={{ display: 'flex' as any }}>
+            {formContent}
+          </Box>
+          <Box flex={4} style={{ display: 'flex' as any }}>
+            {imageColumn}
+          </Box>
+        </Box>
+      ) : (
+        // For non-large screens, just show the form content directly
+        formContent
+      )}
+    </Card>
+  );
+
+  const termsFooter = (
+    <Box p={4} maxWidth={isTabletOrDesktop ? 800 : 400} width="100%">
+      <Text size="xs" colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
+        By clicking continue, you agree to our{' '}
+        <Text size="xs" colorTheme="foreground" style={{ textDecorationLine: 'underline' }}>
+          Terms of Service
+        </Text>{' '}
+        and{' '}
+        <Text size="xs" colorTheme="foreground" style={{ textDecorationLine: 'underline' }}>
+          Privacy Policy
+        </Text>
+        .
+      </Text>
+    </Box>
+  );
+
+  const isMobile = screenWidth < 768;
+
+  // Mobile layout - no card, full screen with native feel
+  if (isMobile) {
+    return (
+      <Box flex={1} bgTheme="background">
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View style={{ flex: 1 }}>
+            
+            {/* Scrollable Form Content */}
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{
+                flexGrow: 1,
+                justifyContent: 'center',
+                paddingVertical: 20,
+              }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              bounces={true}
+            >
+              <Box flex={1} justifyContent="center">
+                {/* Welcome Section with Logo */}
+                <Box px={6} pb={6} alignItems="center">
+                  <Box style={{ marginBottom: 16, height: 60, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 56, lineHeight: 60 }}>⭐</Text>
+                  </Box>
+                  <Heading1 style={{ fontSize: 32, textAlign: 'center' }}>Welcome back</Heading1>
+                  <Text 
+                    size="base" 
+                    colorTheme="mutedForeground" 
+                    style={{ textAlign: 'center', marginTop: 8 }}
+                  >
+                    Enter your credentials to access your account
+                  </Text>
+                </Box>
+
+                {/* Form Section */}
+                <VStack px={6} spacing={6} pb={4}>
+                  {/* Email Field */}
+                  <Box>
+                    <Text size="sm" weight="medium" colorTheme="foreground" mb={2}>
+                      Email
+                    </Text>
+                    <Input
+                      placeholder="your@email.com"
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      keyboardType="email-address"
+                      name="email"
+                      id="email"
+                      error={form.formState.errors.email?.message}
+                      success={hasInteractedWithEmail && !form.formState.errors.email && !!email && emailCheckData?.exists === true}
+                      value={form.watch("email")}
+                      onChangeText={(value) => {
+                        form.setValue("email", value);
+                        setHasInteractedWithEmail(true);
+                        if (form.formState.touchedFields.email) {
+                          form.trigger("email");
+                        }
+                      }}
+                      onBlur={() => {
+                        setHasInteractedWithEmail(true);
+                        form.trigger("email");
+                      }}
+                      leftElement={
                         <IconSymbol 
-                          name={showPassword ? 'eye.slash.fill' : 'eye.fill' as any} 
+                          name="envelope.fill" 
                           size={20} 
                           color={theme.mutedForeground}
                         />
-                      </Pressable>
+                      }
+                      rightElement={
+                        form.formState.touchedFields.email && form.watch("email") ? (
+                          isCheckingEmail ? (
+                            <Text size="xs" colorTheme="mutedForeground">Checking...</Text>
+                          ) : emailCheckData ? (
+                            <ValidationIcon 
+                              status={
+                                form.formState.errors.email ? 'error' : 
+                                emailCheckData?.exists ? 'success' : 
+                                'error'
+                              } 
+                            />
+                          ) : null
+                        ) : null
+                      }
+                    />
+                    {form.formState.touchedFields.email && !form.formState.errors.email && emailCheckData && (
+                      <Text size="sm" colorTheme={emailCheckData.exists ? "success" : "destructive"} mt={1}>
+                        {emailCheckData.exists ? "Email found - please enter your password" : "Email not found - please check or sign up"}
+                      </Text>
+                    )}
+                  </Box>
+
+                  {/* Password Field */}
+                  <Box>
+                    <Text size="sm" weight="medium" colorTheme="foreground" mb={2}>
+                      Password
+                    </Text>
+                    <Input
+                      placeholder="Enter your password"
+                      secureTextEntry={!showPassword}
+                      autoComplete="current-password"
+                      name="password"
+                      id="password"
+                      error={form.formState.errors.password?.message}
+                      success={form.formState.touchedFields.password && !form.formState.errors.password && !!form.watch("password")}
+                      value={form.watch("password")}
+                      onChangeText={(value) => {
+                        form.setValue("password", value);
+                        if (form.formState.touchedFields.password) {
+                          form.trigger("password");
+                        }
+                      }}
+                      onBlur={() => {
+                        form.trigger("password");
+                      }}
+                      leftElement={
+                        <IconSymbol 
+                          name="lock.fill" 
+                          size={20} 
+                          color={theme.mutedForeground}
+                        />
+                      }
+                      rightElement={
+                        <Box flexDirection="row" alignItems="center" gap={2}>
+                          {form.formState.touchedFields.password && form.watch("password") && (
+                            <ValidationIcon 
+                              status={form.formState.errors.password ? 'error' : 'success'} 
+                            />
+                          )}
+                          <Pressable
+                            onPress={() => setShowPassword(!showPassword)}
+                            style={{ padding: 4 }}
+                          >
+                            <IconSymbol 
+                              name={showPassword ? 'eye.slash.fill' : 'eye.fill' as any} 
+                              size={20} 
+                              color={theme.mutedForeground}
+                            />
+                          </Pressable>
+                        </Box>
+                      }
+                    />
+                    {/* Forgot password link */}
+                    <Box alignItems="flex-end" mt={2}>
+                      <TextLink 
+                        href="/(auth)/forgot-password" 
+                        size="sm"
+                        variant="primary"
+                      >
+                        Forgot your password?
+                      </TextLink>
                     </Box>
-                  }
-                />
+                  </Box>
+
+                  {/* Submit Button */}
+                  <Button
+                    size="lg"
+                    fullWidth
+                    isDisabled={!hasValidValues || signInMutation.isPending}
+                    onPress={() => form.handleSubmit(onSubmit)()}
+                    isLoading={signInMutation.isPending}
+                    style={{ marginTop: 4, height: 52 }}
+                  >
+                    {signInMutation.isPending ? "Signing in..." : "Login"}
+                  </Button>
+
+                  {/* Divider */}
+                  <Box position="relative" my={6}>
+                    <Box 
+                      height={1} 
+                      bgTheme="muted" 
+                      position="absolute" 
+                      top={10} 
+                      left={0} 
+                      right={0} 
+                    />
+                    <Box alignItems="center">
+                      <Box bgTheme="background" px={3}>
+                        <Caption colorTheme="mutedForeground">Or continue with</Caption>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  {/* Social Login Buttons */}
+                  <VStack spacing={3}>
+                    <HStack spacing={3} justifyContent="space-between">
+                      <Box flex={1}>
+                        <GoogleSignInButton 
+                          size="lg"
+                          variant="outline"
+                          fullWidth
+                          iconOnly
+                          text=""
+                          style={{ height: 52 }}
+                        />
+                      </Box>
+                      <Box flex={1}>
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          fullWidth
+                          onPress={() => handleSocialAuth('meta')}
+                          style={{ height: 52 }}
+                        >
+                          {SocialIcons.meta}
+                        </Button>
+                      </Box>
+                      <Box flex={1}>
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          fullWidth
+                          onPress={() => handleSocialAuth('x')}
+                          style={{ height: 52 }}
+                        >
+                          {SocialIcons.x}
+                        </Button>
+                      </Box>
+                    </HStack>
+                    
+                    {/* Register link - moved here after social buttons */}
+                    <Box alignItems="center" mt={2}>
+                      <HStack spacing={1}>
+                        <Text size="sm" colorTheme="mutedForeground">Don't have an account?</Text>
+                        <TextLink 
+                          href="/(auth)/register"
+                          size="sm"
+                          weight="semibold"
+                          variant="primary"
+                        >
+                          Register
+                        </TextLink>
+                      </HStack>
+                    </Box>
+                  </VStack>
+                </VStack>
               </Box>
-
-              {/* Submit Button */}
-              <Button
-                size="lg"
-                fullWidth
-                isDisabled={!hasValidValues || signInMutation.isPending}
-                onPress={() => form.handleSubmit(onSubmit)()}
-                isLoading={signInMutation.isPending}
-              >
-                {signInMutation.isPending ? "Signing in..." : "Login"}
-              </Button>
-
-              {/* Divider */}
-              <Box alignItems="center" my={4}>
-                <Caption>OR</Caption>
-              </Box>
-
-              {/* Social Login */}
-              <GoogleSignInButton />
-            </VStack>
-          </CardContent>
-          <CardFooter flexDirection="column" alignItems="center">
-            <Box flexDirection="row" alignItems="center" gap={1}>
-              <Caption>
-                Don&apos;t have an account?
-              </Caption>
-              <Link href="/(auth)/signup" asChild>
-                <TouchableOpacity>
-                  <Text size="sm" weight="medium" colorTheme="primary">
-                    Sign up
-                  </Text>
-                </TouchableOpacity>
-              </Link>
+            </ScrollView>
+            
+            {/* Fixed Terms Footer */}
+            <Box 
+              px={6} 
+              py={3} 
+              borderTopWidth={1} 
+              borderTheme="border"
+              bgTheme="background"
+            >
+              <Text size="xs" colorTheme="mutedForeground" style={{ textAlign: 'center', lineHeight: 18 }}>
+                By clicking continue, you agree to our{' '}
+                <Text size="xs" colorTheme="primary" weight="medium">
+                  Terms of Service
+                </Text>{' '}
+                and{' '}
+                <Text size="xs" colorTheme="primary" weight="medium">
+                  Privacy Policy
+                </Text>
+              </Text>
             </Box>
-          </CardFooter>
-      </Card>
-    </Box>
-  );
+          </View>
+        </KeyboardAvoidingView>
+      </Box>
+    );
+  }
 
   if (Platform.OS === 'web') {
     return (
       <Box 
         flex={1} 
-        bgTheme="background"
+        bgTheme="muted"
         justifyContent="center"
         alignItems="center"
-        style={{ 
-          height: '100%',
+        px={isTabletOrDesktop ? 6 : 4}
+        style={Platform.OS === 'web' ? { 
+          minHeight: '100vh' as any,
           width: '100%',
-          position: 'absolute' as any,
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
+        } : {
+          flex: 1,
+          width: '100%',
         }}
       >
-        {content}
+        <VStack spacing={0} alignItems="center" style={{ width: '100%' }}>
+          {cardContent}
+          {termsFooter}
+        </VStack>
       </Box>
     );
   }
@@ -439,17 +881,19 @@ export default function LoginScreen() {
       >
         <Box 
           flex={1} 
-          bgTheme="background"
+          bgTheme="muted"
           justifyContent="center"
           alignItems="center"
           style={{ 
             flex: 1,
             width: '100%',
-            justifyContent: 'center',
-            alignItems: 'center',
+            paddingVertical: 20,
           }}
         >
-          {content}
+          <VStack spacing={0} alignItems="center">
+            {cardContent}
+            {termsFooter}
+          </VStack>
         </Box>
       </ScrollView>
     </KeyboardAvoidingView>

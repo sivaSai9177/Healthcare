@@ -31,6 +31,9 @@ const MAPPING = {
   'building.fill': 'business',
   'building.2.fill': 'domain',
   'lock.shield.fill': 'enhanced-encryption',
+  'phone.fill': 'phone',
+  'briefcase.fill': 'work',
+  'doc.text.fill': 'description',
 } as const;
 
 /**

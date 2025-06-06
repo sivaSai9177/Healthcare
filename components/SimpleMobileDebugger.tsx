@@ -14,13 +14,13 @@ import { useAuthStore } from '@/lib/stores/auth-store';
 import { IconSymbol } from './ui/IconSymbol';
 
 // Global log storage
-export const DEBUG_LOGS: Array<{
+export const DEBUG_LOGS: {
   id: string;
   timestamp: Date;
   level: 'error' | 'warn' | 'info' | 'debug';
   message: string;
   data?: any;
-}> = [];
+}[] = [];
 
 // Helper function to add logs
 export const addDebugLog = (
