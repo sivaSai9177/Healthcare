@@ -35,7 +35,7 @@ const getTrustedOrigins = () => {
   // Add local network IP for mobile testing
   if (process.env.NODE_ENV === "development") {
     // You can dynamically get your local IP or set it via environment variable
-    const localIP = process.env.LOCAL_IP || "192.168.1.104";
+    const localIP = process.env.LOCAL_IP || "192.168.1.101";
     // Also add the API URL's IP if different
     const apiUrlIP = process.env.EXPO_PUBLIC_API_URL?.match(/(\d+\.\d+\.\d+\.\d+)/)?.[1];
     origins.push(

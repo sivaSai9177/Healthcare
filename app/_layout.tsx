@@ -26,12 +26,14 @@ const LayoutDebugger = () => {
   const mountRef = useRef(0);
   
   useEffect(() => {
-    mountRef.current += 1;
-    console.log(`[ROOT LAYOUT] Mount #${mountRef.current} at ${new Date().toISOString()}`);
-    
-    return () => {
-      console.log(`[ROOT LAYOUT] Unmount #${mountRef.current} at ${new Date().toISOString()}`);
-    };
+    if (__DEV__) {
+      mountRef.current += 1;
+      console.log(`[ROOT LAYOUT] Mount #${mountRef.current} at ${new Date().toISOString()}`);
+      
+      return () => {
+        console.log(`[ROOT LAYOUT] Unmount #${mountRef.current} at ${new Date().toISOString()}`);
+      };
+    }
   }, []);
   
   return null;

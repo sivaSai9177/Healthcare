@@ -1,5 +1,6 @@
 import * as React from "react"
-import { Platform, TouchableOpacity } from "react-native"
+import { Platform, TouchableOpacity, View } from "react-native"
+import { Ionicons } from '@expo/vector-icons';
 
 // Define types first
 export interface CheckboxNativeProps {
@@ -16,7 +17,6 @@ let CheckboxComponent: React.ComponentType<any>;
 if (Platform.OS === 'web') {
   // Web implementation using Radix UI
   const CheckboxPrimitive = require("@radix-ui/react-checkbox");
-  const { Check } = require("lucide-react");
   const { cn } = require("@/lib/core/utils");
 
   CheckboxComponent = React.forwardRef<
@@ -34,14 +34,12 @@ if (Platform.OS === 'web') {
       <CheckboxPrimitive.Indicator
         className={cn("flex items-center justify-center text-current")}
       >
-        <Check className="h-4 w-4" />
+        <Ionicons name="checkmark" size={14} color="currentColor" />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   ));
 } else {
   // Mobile implementation using React Native components
-  const { Check } = require("lucide-react-native");
-
   CheckboxComponent = React.forwardRef<any, CheckboxNativeProps>(
     ({ className, checked = false, onCheckedChange, disabled = false, size = "md", ...props }, ref) => {
       const sizeMap = {
@@ -78,10 +76,10 @@ if (Platform.OS === 'web') {
           {...props}
         >
           {checked && (
-            <Check 
+            <Ionicons 
+              name="checkmark" 
               size={iconSize} 
               color="white"
-              strokeWidth={2.5}
             />
           )}
         </TouchableOpacity>
