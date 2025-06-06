@@ -70,6 +70,7 @@
     "expo:ios": "EXPO_GO=1 expo start --ios --clear --go",
     "expo:android": "EXPO_GO=1 expo start --android --clear --go",
     "expo:go": "EXPO_GO=1 expo start --clear --go",
+    "expo:go:local": "./scripts/start-expo-go-local.sh",
     "debug:ios": "EXPO_GO=1 expo start --ios --clear --go --dev",
     "debug:android": "EXPO_GO=1 expo start --android --clear --go --dev",
     "logs:ios": "react-native log-ios",

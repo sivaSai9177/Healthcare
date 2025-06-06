@@ -3,12 +3,11 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import { ValidationIcon } from "@/components/ui/ValidationIcon";
 import { Box } from "@/components/universal/Box";
 import { Button } from "@/components/universal/Button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/universal/Card";
-import { Container } from "@/components/universal/Container";
+import { Card } from "@/components/universal/Card";
 import { Input } from "@/components/universal/Input";
+import { TextLink } from "@/components/universal/Link";
 import { HStack, VStack } from "@/components/universal/Stack";
 import { Caption, Heading1, Text } from "@/components/universal/Text";
-import { UniversalLink, TextLink } from "@/components/universal/Link";
 import { useAuth } from "@/hooks/useAuth";
 import { showErrorAlert } from "@/lib/core/alert";
 import { generateUUID } from "@/lib/core/crypto";
@@ -18,14 +17,12 @@ import { useTheme } from "@/lib/theme/theme-provider";
 import { api } from "@/lib/trpc";
 import { signInSchema, type SignInInput } from "@/lib/validations/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "expo-router";
+import { LinearGradient } from 'expo-linear-gradient';
 import debounce from 'lodash.debounce';
 import React from "react";
 import { useForm } from "react-hook-form";
-import { Dimensions, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Dimensions, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { z } from "zod";
-import { LinearGradient } from 'expo-linear-gradient';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -742,7 +739,6 @@ export default function LoginScreenV2() {
                   >
                     {signInMutation.isPending ? "Signing in..." : "Login"}
                   </Button>
-
                   {/* Divider */}
                   <Box position="relative" my={6}>
                     <Box 
@@ -800,7 +796,7 @@ export default function LoginScreenV2() {
                     {/* Register link - moved here after social buttons */}
                     <Box alignItems="center" mt={2}>
                       <HStack spacing={1}>
-                        <Text size="sm" colorTheme="mutedForeground">Don't have an account?</Text>
+                        <Text size="sm" colorTheme="mutedForeground">Don&apos;t have an account?</Text>
                         <TextLink 
                           href="/(auth)/register"
                           size="sm"

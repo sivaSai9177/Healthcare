@@ -509,6 +509,18 @@ bun run ios     # iOS simulator
 bun run android # Android emulator
 ```
 
+### Local Development with Expo Go
+```bash
+# 1. Start local database (Docker required)
+bun db:local:up
+
+# 2. Run Expo Go with local database
+bun expo:go:local  # Automatically uses local PostgreSQL
+
+# Alternative: Use cloud database
+bun expo:go       # Uses Neon cloud database
+```
+
 ### Common Commands
 ```bash
 # Docker-based
@@ -543,10 +555,24 @@ bun run test    # Run tests
 - Using expo/vector-icons and react-native-svg for icons
 - Keep bundle size under control by auditing dependencies
 
+## 📱 Expo Go Development Environments
+
+### Database Configuration by Command
+- `bun expo:go` - Uses Neon cloud database (default)
+- `bun expo:go:local` - Uses local PostgreSQL (requires Docker)
+- `bun dev:local` - Development mode with local DB (press 's' for Expo Go)
+- `bun start` - Default mode with cloud database
+
+### Environment Variables
+The `expo:go:local` script automatically sets:
+- `APP_ENV=local`
+- `DATABASE_URL=postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev`
+- Forces Expo Go mode (bypasses development build requirement)
+
 ## 🔄 Last Updated
 
 **Date**: June 6, 2025
-**Last Change**: Ngrok OAuth testing workflow and bundle optimization
+**Last Change**: Added `bun expo:go:local` command for Expo Go with local database
 **Changes**:
 - ✅ Added ngrok OAuth testing workflow with local-ngrok build profile
 - ✅ Fixed EAS configuration (no empty env vars)

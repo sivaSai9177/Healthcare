@@ -21,9 +21,10 @@ bun web:ngrok     # Web with ngrok URL (for OAuth testing)
 ## 📱 Mobile Development (Expo Go)
 
 ```bash
-bun expo:ios      # iOS in Expo Go app
-bun expo:android  # Android in Expo Go app
-bun expo:go       # Start for Expo Go (both platforms)
+bun expo:ios       # iOS in Expo Go app (cloud database)
+bun expo:android   # Android in Expo Go app (cloud database)
+bun expo:go        # Start for Expo Go (both platforms, cloud database)
+bun expo:go:local  # Start Expo Go with local PostgreSQL database
 ```
 
 ## 🌍 Environment-Specific Development
@@ -149,6 +150,9 @@ bun db:local:up
 
 # 2. Run web with local database
 bun web:local
+
+# OR for Expo Go with local database
+bun expo:go:local
 ```
 
 ### Test OAuth with Ngrok
