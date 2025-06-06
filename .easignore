@@ -17,6 +17,8 @@
 docs/
 README.md
 LICENSE
+LOCAL_ENV_STATUS.md
+ENVIRONMENT_SETUP_QUICKSTART.md
 
 # Scripts (not needed for builds)
 scripts/
@@ -91,6 +93,10 @@ android/gradle.properties
 coverage/
 .nyc_output/
 
+# Native directories (managed by EAS Build)
+/android
+/ios
+
 # Large assets not needed for build
 assets/videos/
 assets/raw/
@@ -105,3 +111,25 @@ __pycache__/
 
 # EAS specific
 eas-build-*
+
+# Docker files (not needed for mobile builds)
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+docker/
+docker-volumes/
+
+# Environment setup files
+.env.local.example
+.env.development.example
+.env.staging.example
+.env.production.example
+
+# Database migrations (applied during CI/CD)
+drizzle/meta/
+migrations/
+
+# Local development tools
+pgadmin/
+redis-data/
+postgres-data/

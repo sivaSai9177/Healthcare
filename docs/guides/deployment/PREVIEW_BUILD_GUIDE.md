@@ -1,224 +1,103 @@
-# Preview Build Guide for Expo
+# Preview Build Guide
 
-## Overview
-This guide explains how to create and run preview builds for testing your Expo app on iOS and Android devices.
+## 🚀 Triggering Preview Builds
 
-## Preview Build vs Development Build
+I've set up everything for your preview builds. Here's how to proceed:
 
-### Development Build
-- Includes developer menu
-- Hot reloading enabled
-- Debug logging visible
-- Used for active development
-
-### Preview Build
-- Production-like experience
-- No developer menu
-- Optimized performance
-- Used for testing before release
-
-## Creating Preview Builds
-
-### Prerequisites
-1. EAS CLI installed: `npm install -g eas-cli`
-2. Expo account: `eas login`
-3. EAS configured: `eas build:configure`
-
-### iOS Preview Build
-
-#### 1. Create Preview Build Profile
-Add to `eas.json`:
-
-```json
-{
-  "build": {
-    "preview": {
-      "ios": {
-        "buildConfiguration": "Release",
-        "distribution": "internal",
-        "resourceClass": "ios-medium",
-        "env": {
-          "EXPO_PUBLIC_DEBUG_MODE": "false"
-        }
-      }
-    },
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "ios": {
-        "resourceClass": "m-medium"
-      }
-    },
-    "production": {
-      "ios": {
-        "resourceClass": "m-medium"
-      }
-    }
-  }
-}
+### Option 1: Run the Script (Recommended)
+```bash
+./trigger-preview-builds.sh
 ```
 
-#### 2. Build for iOS Preview
+### Option 2: Manual Commands
 ```bash
-# Create preview build
-eas build --profile preview --platform ios
-
-# Or use local credentials
-eas build --profile preview --platform ios --local
-```
-
-#### 3. Install on Simulator
-```bash
-# After build completes, download and install
-eas build:run -p ios --profile preview
-
-# Or manually install
-xcrun simctl install booted path/to/your.app
-```
-
-### Android Preview Build
-
-#### 1. Build for Android Preview
-```bash
-# Create preview build
+# Android build
 eas build --profile preview --platform android
 
-# Or create APK
-eas build --profile preview --platform android --output=./preview.apk
+# iOS build  
+eas build --profile preview --platform ios
 ```
 
-#### 2. Install on Device/Emulator
-```bash
-# Install using EAS
-eas build:run -p android --profile preview
+## 📱 Build Configuration
 
-# Or manually with ADB
-adb install preview.apk
-```
+### Android
+- **Build Type**: APK (for easy distribution)
+- **Distribution**: Internal
+- **Keystore**: Will be generated on first build (select "Yes" when prompted)
 
-## Quick Scripts
+### iOS
+- **Build Type**: Simulator build
+- **Distribution**: Internal
+- **Note**: Can be installed on simulators and devices registered with your Apple Developer account
 
-Add these to your `package.json`:
+## 🔧 Current Settings
 
-```json
-{
-  "scripts": {
-    "ios:preview": "eas build --profile preview --platform ios --local && eas build:run -p ios --latest",
-    "android:preview": "eas build --profile preview --platform android --local && eas build:run -p android --latest",
-    "preview:list": "eas build:list --platform all --status completed --limit 5",
-    "preview:download": "eas build:download --platform ios --id"
-  }
-}
-```
+### API Configuration
+- **URL**: `http://localhost:8081`
+- **Environment**: Preview
+- **Debug Mode**: Enabled
 
-## Testing Changes in Preview
+### OAuth Configuration
+- ✅ Google OAuth credentials included
+- ✅ Redirect URIs configured
+- ✅ Better Auth setup complete
 
-### 1. Build Locally (Faster)
-```bash
-# iOS local preview build
-eas build --profile preview --platform ios --local
+## ⚠️ Important Notes
 
-# Android local preview build  
-eas build --profile preview --platform android --local
-```
+1. **First Android Build**: You'll be prompted to generate a keystore. Select "Yes"
 
-### 2. Using Expo Orbit (Recommended for iOS)
-1. Install Expo Orbit from [expo.dev/orbit](https://expo.dev/orbit)
-2. Open Orbit and sign in
-3. Your preview builds will appear automatically
-4. Click to install on simulator
+2. **API Access**: The preview build uses `localhost:8081`
+   - For testing on physical devices, use ngrok:
+   ```bash
+   ngrok http 8081
+   ```
+   - Update `EXPO_PUBLIC_API_URL` in `.env.preview` with ngrok URL
 
-### 3. Manual Installation
+3. **OAuth Testing**:
+   - Ensure your server is running: `bun run dev`
+   - Google OAuth will redirect to your local server
+   - Use ngrok URL for physical device testing
 
-#### iOS Simulator
-```bash
-# Get list of simulators
-xcrun simctl list devices
+## 📊 Build Progress
 
-# Boot specific simulator
-xcrun simctl boot "iPhone 15"
+Monitor your builds at:
+https://expo.dev/accounts/siva9177/projects/expo-fullstack-starter/builds
 
-# Install app
-xcrun simctl install booted path/to/app.tar.gz
-```
+## 🧪 Testing the Builds
 
-#### Android Emulator
-```bash
-# List devices
-adb devices
+### Android
+1. Download the APK from EAS
+2. Install on device/emulator
+3. Test Google OAuth flow
 
-# Install APK
-adb install -r preview.apk
-```
+### iOS
+1. Download the simulator build
+2. Drag to simulator or install via Xcode
+3. Test all features
 
-## Environment Variables for Preview
+## 🐛 Troubleshooting
 
-Create `.env.preview`:
-```env
-EXPO_PUBLIC_API_URL=https://staging.yourapi.com
-EXPO_PUBLIC_DEBUG_MODE=false
-EXPO_PUBLIC_ENVIRONMENT=preview
-```
+### OAuth Not Working
+- Ensure server is running
+- Check redirect URIs in Google Console
+- Use ngrok for physical devices
 
-## Differences from Production
+### API Connection Issues
+- Verify server is running on port 8081
+- Check firewall settings
+- Use ngrok URL for remote access
 
-| Feature | Development | Preview | Production |
-|---------|-------------|---------|------------|
-| Debug Menu | ✅ | ❌ | ❌ |
-| Console Logs | ✅ | ✅ | ❌ |
-| Performance | Slower | Fast | Fastest |
-| Error Boundaries | Shows details | Shows details | User friendly |
-| API Endpoint | Local | Staging | Production |
+### Build Failures
+- Check EAS build logs
+- Verify all environment variables
+- Ensure credentials are correct
 
-## Common Commands
+## 📝 Next Steps
 
-```bash
-# Check build status
-eas build:list --status=in_queue
+After successful builds:
+1. Test OAuth flow thoroughly
+2. Verify all features work
+3. Check debug panel functionality
+4. Test on multiple devices
 
-# Cancel build
-eas build:cancel [BUILD_ID]
-
-# Download specific build
-eas build:download --id=[BUILD_ID]
-
-# Submit to TestFlight (iOS)
-eas submit --platform ios --profile preview
-
-# View build logs
-eas build:view [BUILD_ID]
-```
-
-## Troubleshooting
-
-### Build Fails
-```bash
-# Clear cache
-eas build --clear-cache --profile preview --platform ios
-
-# Check credentials
-eas credentials
-```
-
-### App Crashes on Launch
-1. Check environment variables
-2. Verify API endpoints
-3. Check native dependencies
-
-### Can't Install on Device
-1. Ensure device is registered (iOS)
-2. Enable developer mode (Android)
-3. Check provisioning profile (iOS)
-
-## Best Practices
-
-1. **Test on Real Devices**: Preview builds should be tested on actual devices
-2. **Use Staging API**: Point to staging environment, not production
-3. **Version Your Builds**: Use semantic versioning for preview builds
-4. **Automate Distribution**: Use CI/CD for automatic preview builds
-
-## Next Steps
-
-- Set up CI/CD for automatic preview builds
-- Configure crash reporting for preview builds
-- Set up beta testing with TestFlight/Play Console
+Ready to build? Run: `./trigger-preview-builds.sh`

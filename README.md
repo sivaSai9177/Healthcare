@@ -150,9 +150,9 @@ my-expo/
 ├── app/                          # Expo Router - File-based routing
 │   ├── (auth)/                  # Public authentication screens
 │   │   ├── _layout.tsx          # Auth layout (no protection needed)
-│   │   ├── login.tsx            # Email/password login
-│   │   ├── signup.tsx           # User registration with role selection
-│   │   ├── complete-profile.tsx # OAuth profile completion
+│   │   ├── login.tsx            # Modern email/password login
+│   │   ├── register.tsx         # User registration with role selection
+│   │   ├── complete-profile.tsx # 3-step profile completion wizard
 │   │   └── forgot-password.tsx  # Password reset flow
 │   ├── (home)/                  # Protected app screens (requires auth)
 │   │   ├── _layout.tsx          # Tab navigation with role-based tabs
@@ -328,8 +328,31 @@ my-expo/
 
 ## 🚀 Quick Start
 
+## 🐳 Docker Support (NEW)
+
+Complete Docker setup for consistent development environments:
+
+- **Development Environment**: PostgreSQL, Redis, API, and Expo in containers
+- **Testing Environment**: Isolated test database and runners
+- **Multi-Agent System**: Containerized agents for automated development
+- **Tool Integration**: pgAdmin, MailHog, and development tools
+
+```bash
+# Quick start with Docker
+./scripts/docker-setup.sh
+docker-compose --profile development up
+```
+
+See [Docker Integration Guide](./docs/guides/DOCKER_INTEGRATION_GUIDE.md) for detailed setup.
+
 ### Prerequisites
 
+#### Option 1: With Docker (Recommended)
+- **Docker Desktop** for Mac (latest version)
+- **8GB+ RAM** allocated to Docker
+- **Git**
+
+#### Option 2: Without Docker
 - **Bun** (recommended) or Node.js 18+
 - **PostgreSQL** database (local or cloud like Neon)
 - **Expo CLI**: `bun install -g expo`

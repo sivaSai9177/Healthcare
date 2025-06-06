@@ -392,3 +392,79 @@ GOOGLE_CLIENT_SECRET=...
 ---
 
 *This context guide should be read by every agent before starting work on the codebase. It ensures consistency and quality across all development efforts.*
+## 🐳 Docker Development Environment (NEW)
+
+### Overview
+The project now includes comprehensive Docker support for consistent development environments across all agents and developers.
+
+### Quick Start with Docker
+```bash
+# Initial setup (one-time)
+./scripts/docker-setup.sh
+
+# Start development environment
+docker-compose --profile development up
+
+# Access services
+# API: http://localhost:3000
+# Expo: http://localhost:8081
+# PostgreSQL: localhost:5432
+# Redis: localhost:6379
+```
+
+### Available Services
+```yaml
+Core Services:
+  postgres: PostgreSQL database (port 5432)
+  redis: Caching and queues (port 6379)
+  api: tRPC API server (port 3000)
+  expo: React Native development (port 8081)
+
+Optional Tools (--profile tools):
+  pgadmin: Database management UI (port 5050)
+  mailhog: Email testing (SMTP 1025, UI 8025)
+  devtools: Development utilities container
+
+Testing (separate compose file):
+  test-postgres: Isolated test database
+  test-runner: Automated test execution
+  e2e-runner: End-to-end testing
+```
+
+### Common Docker Commands
+```bash
+# Database operations
+docker-compose exec api bun run db:migrate
+docker-compose exec api bun run db:studio
+
+# Run tests
+docker-compose -f docker-compose.test.yml run test-runner
+
+# View logs
+docker-compose logs -f api
+
+# Shell access
+docker-compose exec api sh
+
+# Reset everything
+docker-compose down -v
+```
+
+### Multi-Agent Docker Support
+```bash
+# Start agent system
+docker-compose -f docker-compose.agents.yml --profile agents up
+
+# Execute agent commands
+docker-compose -f docker-compose.agents.yml exec manager-agent \
+  bun run process-prd /workspace/docs/projects/my-app/PRD.md
+```
+
+### Benefits for Agents
+- **Consistent Environment**: All agents work in identical setups
+- **Isolated Testing**: No interference between projects
+- **Easy Onboarding**: Single command setup
+- **Resource Management**: Optimized container allocation
+- **Debugging Support**: Integrated debugging tools
+
+EOF < /dev/null

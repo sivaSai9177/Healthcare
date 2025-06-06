@@ -157,7 +157,7 @@ my-expo/
 ├── app/                          # Expo Router screens (file-based routing)
 │   ├── (auth)/                  # Public auth screens
 │   │   ├── login.tsx           # Email/password login
-│   │   ├── signup.tsx          # User registration
+│   │   ├── register.tsx        # User registration
 │   │   ├── complete-profile.tsx # Profile completion flow
 │   │   └── forgot-password.tsx # Password reset
 │   ├── (home)/                 # Protected app screens
@@ -428,28 +428,97 @@ router.push('/screen');    // For regular navigation
 - [Authentication Tasks](docs/planning/AUTHENTICATION_TASKS.md)
 - [Security Compliance Tasks](docs/planning/SECURITY_COMPLIANCE_TASKS.md)
 
-## 🚀 Quick Start for New Agents
+## 🐳 Docker Development Environment (NEW)
 
-1. **Setup Environment**
-   ```bash
-   bun install
-   cp .env.example .env.local
-   # Configure environment variables
-   ```
+### Overview
+The project now includes a complete Docker setup for consistent development environments, isolated testing, and multi-agent coordination.
 
-2. **Run Development**
-   ```bash
-   bun run dev     # Web development
-   bun run ios     # iOS simulator
-   bun run android # Android emulator
-   ```
+### Quick Start
+```bash
+# Initial setup (one-time)
+./scripts/docker-setup.sh
 
-3. **Common Commands**
-   ```bash
-   bun run lint    # Check code quality
-   bun run build   # Production build
-   bun run test    # Run tests
-   ```
+# Start development
+docker-compose --profile development up
+
+# Access services
+# API: http://localhost:3000
+# Expo: http://localhost:8081
+# PostgreSQL: localhost:5432
+# Redis: localhost:6379
+```
+
+### Docker Services
+- **postgres**: PostgreSQL database (port 5432)
+- **redis**: Caching and queues (port 6379)
+- **api**: tRPC API server (port 3000)
+- **expo**: React Native development (port 8081)
+- **pgadmin**: Database management UI (port 5050)
+- **mailhog**: Email testing (SMTP 1025, UI 8025)
+
+### Common Docker Commands
+```bash
+# Database operations
+docker-compose exec api bun run db:migrate
+docker-compose exec api bun run db:studio
+
+# Run tests
+docker-compose -f docker-compose.test.yml run test-runner
+
+# Multi-agent system
+docker-compose -f docker-compose.agents.yml --profile agents up
+
+# View logs
+docker-compose logs -f [service-name]
+
+# Reset everything
+docker-compose down -v
+```
+
+## 🚀 Quick Start
+
+### With Docker (Recommended)
+```bash
+# 1. Clone and setup
+git clone <repo>
+cd my-expo
+./scripts/docker-setup.sh
+
+# 2. Start development
+docker-compose --profile development up
+
+# 3. In another terminal, run Expo
+docker-compose exec expo bun run start
+```
+
+### Without Docker
+```bash
+# 1. Install dependencies
+bun install
+cp .env.example .env.local
+
+# 2. Setup database
+bun run db:generate
+bun run db:migrate
+
+# 3. Run development
+bun run dev     # Web development
+bun run ios     # iOS simulator
+bun run android # Android emulator
+```
+
+### Common Commands
+```bash
+# Docker-based
+docker-compose exec api bun run lint
+docker-compose exec api bun run build
+docker-compose exec api bun test
+
+# Direct
+bun run lint    # Check code quality
+bun run build   # Production build
+bun run test    # Run tests
+```
 
 ## 📝 Important Notes
 
@@ -533,7 +602,7 @@ app/
 ├── (auth)/              # Public routes group
 │   ├── _layout.tsx      # Auth layout wrapper
 │   ├── login.tsx        # Login screen
-│   ├── signup.tsx       # Signup screen
+│   ├── register.tsx     # Registration screen
 │   └── complete-profile.tsx # Profile completion
 ├── (home)/              # Protected routes group (Stack.Protected)
 │   ├── _layout.tsx      # Tab navigator (protected by parent)

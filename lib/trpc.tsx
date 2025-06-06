@@ -1,7 +1,8 @@
 import { createTRPCReact } from '@trpc/react-query';
 import { httpBatchLink, TRPCClientError } from '@trpc/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+// React Query Devtools not available for React Native
+// import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import React, { useState } from 'react';
 import { Platform } from 'react-native';
 import type { AppRouter } from '@/src/server/routers';
@@ -148,14 +149,14 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
     <api.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
         {children}
-        {/* Only show DevTools in development and web platform */}
-        {__DEV__ && Platform.OS === 'web' && (
+        {/* React Query DevTools not available for React Native */}
+        {/* {__DEV__ && Platform.OS === 'web' && (
           <ReactQueryDevtools
             initialIsOpen={false}
             buttonPosition="bottom-left"
             position="bottom"
           />
-        )}
+        )} */}
       </QueryClientProvider>
     </api.Provider>
   );
