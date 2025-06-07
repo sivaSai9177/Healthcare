@@ -207,20 +207,10 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 };
 
 // Chart Tooltip Component
-export interface ChartTooltipProps {
-  visible: boolean;
-  x: number;
-  y: number;
-  title?: string;
-  items: Array<{
-    label: string;
-    value: string | number;
-    color?: string;
-  }>;
-  style?: ViewStyle;
-}
+// Removed old ChartTooltipProps interface
 
-export const ChartTooltip: React.FC<ChartTooltipProps> = ({
+// Old ChartTooltip implementation removed
+const OldChartTooltip: React.FC<any> = ({
   visible,
   x,
   y,
@@ -385,4 +375,93 @@ export const useChartConfig = (): ChartConfig => {
       },
     },
   };
+};
+
+// Chart Tooltip Component
+export const ChartTooltip = ({ active, payload, label, content: Content, ...props }: any) => {
+  if (!Content) return null;
+  return <Content active={active} payload={payload} label={label} {...props} />;
+};
+
+// Chart Tooltip Content Component
+export const ChartTooltipContent: React.FC<{
+  active?: boolean;
+  payload?: any[];
+  label?: string;
+  labelFormatter?: (value: any) => string;
+  indicator?: 'line' | 'dot' | 'dashed';
+}> = ({ active, payload, label, labelFormatter, indicator = 'dot' }) => {
+  const theme = useTheme();
+  
+  if (!active || !payload) return null;
+
+  return (
+    <View
+      style={{
+        backgroundColor: theme.popover,
+        borderWidth: 1,
+        borderColor: theme.border,
+        borderRadius: 6,
+        padding: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 5,
+      }}
+    >
+      {label && (
+        <Text
+          style={{
+            fontSize: 12,
+            color: theme.mutedForeground,
+            marginBottom: 4,
+          }}
+        >
+          {labelFormatter ? labelFormatter(label) : label}
+        </Text>
+      )}
+      {payload.map((entry: any, index: number) => (
+        <View
+          key={index}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginVertical: 2,
+          }}
+        >
+          <View
+            style={{
+              width: indicator === 'dot' ? 8 : 12,
+              height: indicator === 'dot' ? 8 : 2,
+              borderRadius: indicator === 'dot' ? 4 : 0,
+              backgroundColor: entry.color || entry.fill,
+              marginRight: 6,
+              borderStyle: indicator === 'dashed' ? 'dashed' : 'solid',
+              borderWidth: indicator === 'dashed' ? 1 : 0,
+              borderColor: entry.color || entry.fill,
+            }}
+          />
+          <Text
+            style={{
+              fontSize: 12,
+              color: theme.mutedForeground,
+              marginRight: 4,
+            }}
+          >
+            {entry.name || entry.dataKey}:
+          </Text>
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: '600',
+              color: theme.foreground,
+            }}
+          >
+            {entry.value.toLocaleString()}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
 };

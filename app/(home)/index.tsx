@@ -17,9 +17,10 @@ import {
   Text,
   VStack,
 } from "@/components/universal";
+import { AreaChartInteractive } from "@/components/universal/charts";
 import { useAuth } from "@/hooks/useAuth";
 import { log } from "@/lib/core/logger";
-import { SpacingScale } from "@/lib/design-system";
+import { spacing, SpacingScale } from "@/lib/design-system";
 import { useTheme } from "@/lib/theme/theme-provider";
 import { useRouter } from "expo-router";
 import React from "react";
@@ -290,8 +291,11 @@ export default function HomeScreen() {
             </CardContent>
           </Card>
 
+          {/* Visitor Analytics Chart */}
+          <AreaChartInteractive />
+
           {/* Metrics Dashboard */}
-          <Heading2 mb={4 as SpacingScale}>Overview</Heading2>
+          <Heading2 mb={4 as SpacingScale} mt={6 as SpacingScale}>Overview</Heading2>
           <DashboardMetrics metrics={metrics} />
 
           {/* Quick Actions */}

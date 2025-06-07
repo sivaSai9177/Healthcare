@@ -1,8 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import {
   View,
   ViewStyle,
   Dimensions,
+  Animated,
+  Platform,
 } from 'react-native';
 import Svg, {
   Path,
@@ -13,8 +15,11 @@ import Svg, {
   Defs,
   LinearGradient,
   Stop,
+  Rect,
 } from 'react-native-svg';
 import { useChartConfig } from './ChartContainer';
+import { Box, Text, HStack } from '../index';
+import { SpacingScale } from '@/lib/design-system';
 
 export interface LineChartData {
   labels: string[];
@@ -58,6 +63,17 @@ export const LineChart: React.FC<LineChartProps> = ({
   const chartConfig = useChartConfig();
   const screenWidth = Dimensions.get('window').width;
   const width = propWidth || screenWidth - 32;
+  
+  // Tooltip state
+  const [tooltip, setTooltip] = useState<{
+    x: number;
+    y: number;
+    value: number;
+    label: string;
+    datasetLabel: string;
+  } | null>(null);
+  const tooltipOpacity = useRef(new Animated.Value(0)).current;
+  const tooltipTimer = useRef<any>(null);
   
   const padding = {
     left: showYAxis ? 50 : 20,
@@ -162,9 +178,86 @@ export const LineChart: React.FC<LineChartProps> = ({
     return lines;
   }, [showGrid, data.labels, padding, chartHeight, chartWidth, xStep, chartConfig]);
   
+  // Handle point hover/press
+  const showTooltip = (datasetIndex: number, index: number, value: number, x: number, y: number) => {
+    const dataset = data.datasets[datasetIndex];
+    const label = data.labels[index];
+    
+    if (tooltipTimer.current) {
+      clearTimeout(tooltipTimer.current);
+    }
+    
+    setTooltip({
+      x,
+      y,
+      value,
+      label,
+      datasetLabel: dataset.label,
+    });
+    
+    Animated.timing(tooltipOpacity, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+    
+    onDataPointPress?.(datasetIndex, index, value);
+  };
+  
+  const hideTooltip = () => {
+    tooltipTimer.current = setTimeout(() => {
+      Animated.timing(tooltipOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        setTooltip(null);
+      });
+    }, Platform.OS === 'web' ? 100 : 3000);
+  };
+  
+  useEffect(() => {
+    return () => {
+      if (tooltipTimer.current) {
+        clearTimeout(tooltipTimer.current);
+      }
+    };
+  }, []);
+  
+  // Handle mouse/touch move for tooltip
+  const handleChartInteraction = (event: any) => {
+    const { locationX } = event.nativeEvent;
+    if (!locationX || locationX < padding.left || locationX > width - padding.right) {
+      hideTooltip();
+      return;
+    }
+    
+    // Find closest data point
+    const xIndex = Math.round((locationX - padding.left) / xStep);
+    if (xIndex >= 0 && xIndex < data.labels.length) {
+      // Find the dataset with data at this index
+      let closestDataset = 0;
+      let closestValue = data.datasets[0].data[xIndex];
+      let closestY = padding.top + (maxValue - closestValue) * yScale;
+      
+      // Show tooltip for the first dataset by default
+      showTooltip(closestDataset, xIndex, closestValue, padding.left + xIndex * xStep, closestY);
+    }
+  };
+  
   return (
     <View style={[{ width, height }, style]} testID={testID}>
-      <Svg width={width} height={height}>
+      <Svg 
+        width={width} 
+        height={height}
+        onTouchMove={handleChartInteraction}
+        onTouchStart={handleChartInteraction}
+        onTouchEnd={hideTooltip}
+        {...(Platform.OS === 'web' && {
+          onMouseMove: handleChartInteraction,
+          onMouseLeave: hideTooltip,
+        })}
+      >
         <Defs>
           {paths.map(({ dataset, datasetIndex }) => (
             dataset.filled && (
@@ -177,14 +270,14 @@ export const LineChart: React.FC<LineChartProps> = ({
                 y2="1"
               >
                 <Stop
-                  offset="0"
+                  offset="5%"
                   stopColor={dataset.color || chartConfig.colors[`chart${datasetIndex + 1}`]}
-                  stopOpacity="0.3"
+                  stopOpacity={datasetIndex === 0 ? 0.8 : 0.6}
                 />
                 <Stop
-                  offset="1"
+                  offset="95%"
                   stopColor={dataset.color || chartConfig.colors[`chart${datasetIndex + 1}`]}
-                  stopOpacity="0.05"
+                  stopOpacity={0.1}
                 />
               </LinearGradient>
             )
@@ -280,23 +373,77 @@ export const LineChart: React.FC<LineChartProps> = ({
                 stroke={color}
                 strokeWidth={dataset.strokeWidth || 2}
                 fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
               
-              {/* Data points */}
-              {(dataset.showPoints !== false) && points.map((point, index) => (
-                <Circle
-                  key={`point-${datasetIndex}-${index}`}
-                  cx={point.x}
-                  cy={point.y}
-                  r={4}
-                  fill={color}
-                  onPress={() => onDataPointPress?.(datasetIndex, index, point.value)}
-                />
+              {/* Data points - hidden by default, shown on hover */}
+              {points.map((point, index) => (
+                <G key={`point-${datasetIndex}-${index}`}>
+                  {tooltip?.x === point.x && tooltip?.y === point.y && (
+                    <Circle
+                      cx={point.x}
+                      cy={point.y}
+                      r={5}
+                      fill={color}
+                      strokeWidth={2}
+                      stroke={chartConfig.colors.background}
+                    />
+                  )}
+                </G>
               ))}
             </G>
           );
         })}
       </Svg>
+      
+      {/* Tooltip */}
+      {tooltip && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            left: Math.max(10, Math.min(tooltip.x - 75, width - 160)),
+            top: Math.max(10, tooltip.y - 80),
+            opacity: tooltipOpacity,
+            pointerEvents: 'none',
+            ...(Platform.OS === 'web' && {
+              transition: 'left 0.15s ease-out, top 0.15s ease-out',
+            }),
+          }}
+        >
+          <Box
+            bgTheme="popover"
+            borderWidth={1}
+            borderTheme="border"
+            rounded="md"
+            shadow="md"
+            p={2.5 as SpacingScale}
+            style={{
+              minWidth: 120,
+            }}
+          >
+            <HStack alignItems="center" spacing={1.5} mb={0.5 as SpacingScale}>
+              <Box
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: tooltip.datasetLabel === 'Desktop' ? 'hsl(var(--chart-1))' : 'hsl(var(--chart-2))',
+                }}
+              />
+              <Text size="xs" weight="medium" colorTheme="foreground">
+                {tooltip.datasetLabel}
+              </Text>
+            </HStack>
+            <Text size="xs" colorTheme="mutedForeground">
+              {tooltip.label}
+            </Text>
+            <Text size="sm" weight="bold" colorTheme="foreground" mt={0.5 as SpacingScale}>
+              {tooltip.value.toLocaleString()}
+            </Text>
+          </Box>
+        </Animated.View>
+      )}
     </View>
   );
 };

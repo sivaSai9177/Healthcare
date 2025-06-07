@@ -11,6 +11,8 @@ export * from './LineChart';
 export * from './BarChart';
 export * from './PieChart';
 export * from './AreaChart';
+export * from './AreaChartWithControls';
+export * from './AreaChartInteractive';
 export * from './RadarChart';
 export * from './RadialChart';
 

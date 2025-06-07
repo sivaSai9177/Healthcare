@@ -6,10 +6,12 @@ export interface AreaChartData extends LineChartData {}
 
 export interface AreaChartProps extends Omit<LineChartProps, 'data'> {
   data: AreaChartData;
+  showPoints?: boolean;
 }
 
 export const AreaChart: React.FC<AreaChartProps> = ({
   data,
+  showPoints = false,
   ...props
 }) => {
   // Area chart is essentially a line chart with filled areas
@@ -18,6 +20,7 @@ export const AreaChart: React.FC<AreaChartProps> = ({
     datasets: data.datasets.map(dataset => ({
       ...dataset,
       filled: true, // Always fill area charts
+      showPoints: showPoints, // Use prop value
     })),
   };
 
