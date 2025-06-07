@@ -60,7 +60,7 @@ export default function LoginScreenV2() {
   const isLargeScreen = screenWidth >= 1024; // Only show image on larger screens
   
   // Memoize mutation callbacks to prevent recreation on every render
-  const onSuccess = React.useCallback((data: any) => {
+  const onSuccess = React.useCallback(async (data: any) => {
     log.auth.login('Sign in successful via tRPC', { userId: data.user?.id });
     if (data.user && data.token) {
       // Convert user to AppUser with safe defaults
@@ -76,6 +76,22 @@ export default function LoginScreenV2() {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       };
       updateAuth(appUser, session);
+      
+      // Fix mobile session storage
+      if (Platform.OS !== 'web') {
+        try {
+          // Store the token directly for Expo Go
+          const { sessionManager } = await import('@/lib/auth/session-manager');
+          await sessionManager.storeMobileToken(data.token);
+          log.auth.login('Mobile token stored directly after login');
+          
+          // Note: postLoginFix won't work in Expo Go because Better Auth's
+          // session retrieval doesn't work without proper cookie support
+          // The token is already stored, so we can skip the fix
+        } catch (error) {
+          log.auth.error('Error storing mobile token', error);
+        }
+      }
     }
   }, [updateAuth]);
 

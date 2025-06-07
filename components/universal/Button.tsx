@@ -76,7 +76,22 @@ export const Button = React.forwardRef<View, ButtonProps>(({
   }, [onClick, onPress, type, ref, isLoading]);
 
   // Get size configuration from spacing context
-  const buttonSize = size === 'icon' ? { height: 40, minWidth: 40 } : componentSizes.button[size as 'sm' | 'md' | 'lg' | 'xl'];
+  const getButtonSize = () => {
+    if (size === 'icon') {
+      return { height: 40, minWidth: 40 };
+    }
+    const validSizes = ['sm', 'md', 'lg', 'xl'] as const;
+    const sizeKey = validSizes.includes(size as any) ? size : 'md';
+    return componentSizes.button[sizeKey as 'sm' | 'md' | 'lg' | 'xl'];
+  };
+  
+  const buttonSize = getButtonSize();
+  
+  if (!buttonSize) {
+    console.error(`Button: Invalid button size configuration for size "${size}"`);
+    return null;
+  }
+  
   const config = {
     paddingX: size === 'icon' ? 0 : componentSpacing.buttonPadding.x as SpacingScale,
     paddingY: size === 'icon' ? 0 : componentSpacing.buttonPadding.y as SpacingScale,

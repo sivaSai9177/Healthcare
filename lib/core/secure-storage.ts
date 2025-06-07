@@ -30,6 +30,16 @@ export const webStorage = {
 
 // Initialize storage by loading session data from SecureStore
 let storageInitialized = false;
+let storageInitPromise: Promise<void> | null = null;
+
+export const waitForStorageInit = async () => {
+  if (storageInitialized) return;
+  if (storageInitPromise) return storageInitPromise;
+  
+  storageInitPromise = initializeSecureStorage();
+  await storageInitPromise;
+};
+
 export const initializeSecureStorage = async () => {
   if (storageInitialized || Platform.OS === 'web') return;
   
@@ -42,11 +52,17 @@ export const initializeSecureStorage = async () => {
     }
     
     // Load all better-auth related keys from SecureStore
+    // Note: Better Auth expo plugin uses underscore notation by default
     const keys = [
       'better-auth_cookie', 
       'better-auth_session_data',
       'better-auth_session-token',
-      'better-auth_user_data'
+      'better-auth_user_data',
+      // Also check for dot notation keys
+      'better-auth.cookie', 
+      'better-auth.session_data',
+      'better-auth.session-token',
+      'better-auth.user_data'
     ];
     const loadPromises = keys.map(async (key) => {
       try {
@@ -82,15 +98,21 @@ export const mobileStorage = {
     try {
       // Ensure storage is initialized
       if (!storageInitialized) {
+        console.log('[MOBILE STORAGE] Storage not initialized, starting initialization...');
         initializeStorage(); // Start initialization if not done
       }
       
       const persistentStore = (global as any).__persistentStore || {};
-      const value = persistentStore[key] || '';
+      const value = persistentStore[key] || null;
+      
+      if (value) {
+        console.log(`[MOBILE STORAGE] Retrieved ${key}:`, value.substring(0, 50) + '...');
+      }
+      
       return value;
     } catch (error) {
       console.error('[MOBILE STORAGE] Error getting item:', error);
-      return '';
+      return null;
     }
   },
   setItem: (key: string, value: string) => {

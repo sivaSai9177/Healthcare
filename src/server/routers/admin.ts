@@ -115,8 +115,8 @@ export const adminRouter = router({
           .where(whereClause)
           .orderBy(
             input.sortOrder === 'desc' 
-              ? desc(userTable[input.sortBy as keyof typeof userTable])
-              : userTable[input.sortBy as keyof typeof userTable]
+              ? desc(userTable.createdAt) // Default to createdAt for now
+              : userTable.createdAt
           )
           .limit(input.limit)
           .offset((input.page - 1) * input.limit);

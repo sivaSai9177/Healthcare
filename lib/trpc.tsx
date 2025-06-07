@@ -91,18 +91,40 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
                 'Content-Type': 'application/json',
               };
               
-              // On mobile, add the session token from storage
+              console.log('[TRPC] Headers function called, Platform:', Platform.OS);
+              
+              // On mobile, add the Authorization header with Bearer token
               if (Platform.OS !== 'web') {
                 try {
-                  // Import sessionManager here to avoid circular dependency issues
-                  const { sessionManager } = require('./auth/auth-session-manager');
-                  return sessionManager.addAuthHeaders(baseHeaders);
+                  // Use the unified session manager
+                  const { sessionManager } = require('./auth/session-manager');
+                  
+                  // Get token synchronously
+                  const token = sessionManager.getSessionToken();
+                  
+                  if (token) {
+                    console.log('[TRPC] Adding Bearer token:', {
+                      tokenPreview: token.substring(0, 20) + '...',
+                      tokenLength: token.length,
+                    });
+                    const headersWithAuth = {
+                      ...baseHeaders,
+                      'Authorization': `Bearer ${token}`,
+                    };
+                    console.log('[TRPC] Returning headers with auth:', Object.keys(headersWithAuth));
+                    return headersWithAuth;
+                  } else {
+                    console.log('[TRPC] No session token available');
+                  }
                 } catch (error) {
+                  console.error('[TRPC] Failed to add auth headers:', error);
                   log.api.error('Failed to add auth headers', error);
-                  return baseHeaders;
                 }
+                console.log('[TRPC] Returning base headers without auth');
+                return baseHeaders;
               }
               
+              console.log('[TRPC] Web platform, returning base headers');
               return baseHeaders;
             },
             // Simplified fetch with timeout and error handling

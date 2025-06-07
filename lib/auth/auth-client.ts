@@ -12,12 +12,14 @@ import { sessionManager } from "./auth-session-manager";
 
 const BASE_URL = getApiUrlSync();
 
-// Log configuration once
-console.log("[AUTH CLIENT] Initialized:", {
-  platform: Platform.OS,
-  baseURL: BASE_URL,
-  authEndpoint: `${BASE_URL}/api/auth`
-});
+// Log configuration once (only on client side)
+if (typeof window !== 'undefined') {
+  console.log("[AUTH CLIENT] Initialized:", {
+    platform: Platform.OS,
+    baseURL: BASE_URL,
+    authEndpoint: `${BASE_URL}/api/auth`
+  });
+}
 
 export const authClient = createAuthClient({
   baseURL: `${BASE_URL}/api/auth`, // Full auth endpoint path
@@ -58,21 +60,17 @@ export const authClient = createAuthClient({
   fetchOptions: {
     credentials: 'include', // Important for cookie-based auth on web
     onRequest: (ctx: any) => {
-      // For mobile, add stored session token to headers
-      if (Platform.OS !== 'web') {
-        const token = sessionManager.getSessionToken();
-        if (token) {
-          if (!ctx.headers) ctx.headers = {};
-          ctx.headers['Authorization'] = `Bearer ${token}`;
-        }
-      }
+      // The Expo plugin handles cookie management automatically
+      // No need to manually add headers
+      console.log('[AUTH CLIENT] Request to:', ctx.url);
     },
     onResponse: async (ctx: any) => {
-      // Log response for debugging
+      // The Expo plugin handles cookie storage automatically
+      // Log for debugging purposes only
       if (ctx.response && ctx.response.headers) {
         const setCookie = ctx.response.headers.get('set-cookie');
         if (setCookie) {
-          console.log('[AUTH CLIENT] Set-Cookie header received:', setCookie);
+          console.log('[AUTH CLIENT] Set-Cookie header received (handled by Expo plugin)');
         }
       }
       
@@ -85,20 +83,49 @@ export const authClient = createAuthClient({
           if (ctx.url && (ctx.url.includes('/signin') || ctx.url.includes('/signup')) && data.user) {
             console.log('[AUTH CLIENT] Response received, storing session data');
             
+            // Log the response structure for debugging
+            console.log('[AUTH CLIENT] Sign-in response structure:', {
+              platform: Platform.OS,
+              hasToken: !!data.token,
+              hasSession: !!data.session,
+              hasSessionToken: !!data.session?.token,
+              tokenValue: data.token ? `${data.token.substring(0, 10)}...` : null,
+              sessionKeys: data.session ? Object.keys(data.session) : [],
+              dataKeys: Object.keys(data),
+            });
+            
+            // Better Auth returns the token at the top level or in session
+            const token = data.token || data.session?.token || data.sessionToken;
+            
             // Create a proper session object
-            const session = data.session || (data.token ? { 
+            const session = data.session || (token ? { 
               id: crypto.randomUUID(),
-              token: data.token, 
+              token: token, 
               userId: data.user.id,
               createdAt: new Date(),
               updatedAt: new Date(),
               expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
             } : null);
             
-            // Store session for mobile (auth store will handle its own state)
-            if (Platform.OS !== 'web' && session) {
-              await sessionManager.storeSession(session);
-              await sessionManager.storeUserData(data.user);
+            // Store token for mobile platforms
+            if (Platform.OS !== 'web' && token) {
+              console.log('[AUTH CLIENT] Mobile session - ensuring token is accessible');
+              
+              try {
+                // Store in session manager for persistence
+                await sessionManager.storeSession({ token, userId: data.user.id });
+                console.log('[AUTH CLIENT] Stored session token for mobile API access');
+                
+                // Update Zustand store with session info
+                const { useAuthStore } = require('@/lib/stores/auth-store');
+                const authStore = useAuthStore.getState();
+                if (session) {
+                  authStore.setSession(session);
+                }
+                
+              } catch (e) {
+                console.log('[AUTH CLIENT] Could not store session token:', e);
+              }
             }
           }
         } catch (error) {

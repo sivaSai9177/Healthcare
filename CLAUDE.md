@@ -21,6 +21,8 @@ This document serves as the central memory for AI agents working on this codebas
 - `src/server/trpc.ts` - **NEW** Authorization middleware implementation
 - `src/server/routers/auth.ts` - All auth endpoints with role-based procedures
 - `lib/auth/auth.ts` - Better Auth configuration
+- `lib/auth/get-session-with-bearer.ts` - **NEW** Enhanced session retrieval for mobile Bearer tokens
+- `lib/auth/auth-session-manager.ts` - **UPDATED** Token extraction from cookie storage
 - `lib/stores/auth-store.ts` - Zustand auth store
 - `app/api/auth/[...auth]+api.ts` - Auth API handler
 
@@ -443,6 +445,7 @@ router.push('/screen');    // For regular navigation
 2. **Text Node Errors**: Avoid bare text in Views, wrap in Text components
 3. **FormMessage Component**: Don't use with Input components that handle their own errors
 4. **EAS Build Environment Variables**: Cannot have empty string values - use placeholder values instead
+5. **Mobile Token Storage**: Better Auth expo plugin stores tokens in cookie format in `better-auth_cookie` key, not as raw tokens. The session manager now extracts tokens from cookie strings.
 
 ## 🔗 Related Documentation
 

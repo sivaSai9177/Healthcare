@@ -1,5 +1,6 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { auth } from '@/lib/auth';
+import { getSessionWithBearerFix } from '@/lib/auth/get-session-with-bearer-fix';
 import type { Session, User } from 'better-auth';
 import { log , trpcLogger } from '@/lib/core';
 
@@ -26,10 +27,8 @@ export interface AuthenticatedContext extends Context {
 // Create context function
 export async function createContext(req: Request): Promise<Context> {
   try {
-    // Get session from Better Auth with improved error handling
-    const sessionData = await auth.api.getSession({
-      headers: req.headers,
-    });
+    // Use the fixed session retrieval for Expo Go compatibility
+    const sessionData = await getSessionWithBearerFix(req.headers);
 
     // Log session status for debugging
     if (sessionData) {
@@ -37,6 +36,7 @@ export async function createContext(req: Request): Promise<Context> {
         userId: sessionData.user?.id,
         sessionId: sessionData.session?.id,
         userAgent: req.headers.get('user-agent'),
+        authMethod: req.headers.get('authorization') ? 'bearer' : 'cookie',
       });
     } else {
       log.auth.debug('No session found in tRPC context', {

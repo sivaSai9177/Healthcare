@@ -4,20 +4,22 @@ import { useAuth } from '@/hooks/useAuth';
 import { log } from '@/lib/core/logger';
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
-  const { updateAuth, clearAuth, user, hasHydrated } = useAuth();
+  const { updateAuth, clearAuth, hasHydrated } = useAuth();
   
   // Keep auth state synchronized between server and client using TanStack Query
   const { data, error } = api.auth.getSession.useQuery(undefined, {
-    // Only run the query after hydration and if we don't have a user
-    // This prevents unnecessary auth checks on app startup
-    enabled: hasHydrated && !user,
+    // Always enable the query after hydration to verify session
+    enabled: hasHydrated,
+    
+    // Don't retry too many times on mobile to prevent blocking
+    retry: 1,
     
     // Poll every 5 minutes (reduced frequency to minimize rerenders)
     refetchInterval: 5 * 60 * 1000,
     
-    // Refetch on app focus
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    // Refetch on app focus only on web
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     
     // Consider data fresh for 10 minutes
     staleTime: 10 * 60 * 1000,

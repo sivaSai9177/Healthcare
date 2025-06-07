@@ -141,14 +141,15 @@ export const useAuthStore = create<AuthStore>()(
             wasAuthenticated: prevState.isAuthenticated
           });
           
-          // Clear session from session manager on mobile
+          // Clear session from session manager
           if (Platform.OS !== 'web') {
             try {
               const { sessionManager } = await import('@/lib/auth/auth-session-manager');
               await sessionManager.clearSession();
-              log.store.update('Session cleared from session manager');
+              
+              log.store.update('Session cleared');
             } catch (error) {
-              log.store.debug('Failed to clear session from session manager', error);
+              log.store.debug('Failed to clear session', error);
             }
           }
           
@@ -202,19 +203,8 @@ export const useAuthStore = create<AuthStore>()(
             authChanged
           });
           
-          // Store session in session manager for mobile
-          if (Platform.OS !== 'web' && session) {
-            try {
-              const { sessionManager } = await import('@/lib/auth/auth-session-manager');
-              await sessionManager.storeSession(session);
-              if (user) {
-                await sessionManager.storeUserData(user);
-              }
-              log.store.update('Session stored in session manager');
-            } catch (error) {
-              log.store.debug('Failed to store session in session manager', error);
-            }
-          }
+          // Better Auth's Expo plugin handles session storage automatically
+          // No need to manually store sessions
           
           set({
             user,
