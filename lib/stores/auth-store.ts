@@ -206,6 +206,15 @@ export const useAuthStore = create<AuthStore>()(
           // Better Auth's Expo plugin handles session storage automatically
           // No need to manually store sessions
           
+          // On mobile, ensure token is stored if session has token
+          if (Platform.OS !== 'web' && session && 'token' in session && session.token) {
+            import('@/lib/auth/session-manager').then(({ sessionManager }) => {
+              sessionManager.storeMobileToken(session.token).catch(err => {
+                log.auth.error('Failed to store mobile token during updateAuth', err);
+              });
+            });
+          }
+          
           set({
             user,
             session,
@@ -297,6 +306,18 @@ export const useAuthStore = create<AuthStore>()(
           // Session validation will be handled by components via tRPC
           if (state?.user) {
             log.store.update('Rehydrated with user', { email: state.user.email });
+            
+            // On mobile, validate that we have a token
+            if (Platform.OS !== 'web') {
+              // Check if token exists asynchronously
+              import('@/lib/auth/session-manager').then(({ sessionManager }) => {
+                const token = sessionManager.getSessionToken();
+                if (!token) {
+                  log.auth.debug('User exists but no token found during rehydration, clearing auth state');
+                  state?.clearAuth();
+                }
+              });
+            }
           }
         },
         // Only persist non-sensitive data

@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { log } from '@/lib/core/logger';
 
 /**
  * Simple in-memory token store for mobile platforms
@@ -10,7 +11,9 @@ class MobileTokenStore {
   setToken(token: string | null) {
     if (Platform.OS !== 'web') {
       this.token = token;
-      console.log('[TOKEN STORE] Token updated:', token ? token.substring(0, 20) + '...' : 'null');
+      log.debug('Token updated', 'TOKEN_STORE', { 
+        tokenPreview: token ? token.substring(0, 20) + '...' : 'null' 
+      });
     }
   }
 

@@ -69,7 +69,10 @@ export default function AdminDashboard() {
     }
   );
 
-  const totalUsers = userCountQuery.data?.pagination.total;
+  // Safely access totalUsers with proper type checking
+  const totalUsers = userCountQuery.data && 'pagination' in userCountQuery.data 
+    ? userCountQuery.data.pagination.total 
+    : undefined;
 
 
 
@@ -272,8 +275,13 @@ const OverviewContent: React.FC = () => {
     }
   );
 
-  const userStats = analyticsQuery.data?.userStats;
-  const systemStats = analyticsQuery.data?.systemStats;
+  // Safely access analytics data with proper type checking
+  const userStats = analyticsQuery.data && 'userStats' in analyticsQuery.data 
+    ? analyticsQuery.data.userStats 
+    : undefined;
+  const systemStats = analyticsQuery.data && 'systemStats' in analyticsQuery.data 
+    ? analyticsQuery.data.systemStats 
+    : undefined;
 
   return (
     <VStack spacing={6}>
@@ -462,7 +470,10 @@ const UsersContent: React.FC<{
     }
   );
 
-  const users = usersQuery.data?.users || [];
+  // Safely access users data with proper type checking
+  const users = usersQuery.data && 'users' in usersQuery.data 
+    ? usersQuery.data.users 
+    : [];
 
   return (
     <VStack spacing={4}>
@@ -607,7 +618,10 @@ const AuditContent: React.FC = () => {
     }
   );
 
-  const auditLogs = auditLogsQuery.data?.logs || [];
+  // Safely access audit logs with proper type checking
+  const auditLogs = auditLogsQuery.data && 'logs' in auditLogsQuery.data 
+    ? auditLogsQuery.data.logs 
+    : [];
 
   return (
     <VStack spacing={4}>

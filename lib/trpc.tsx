@@ -96,7 +96,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
               // On mobile, add the Authorization header with Bearer token
               if (Platform.OS !== 'web') {
                 try {
-                  // Use the unified session manager
+                  // Use the correct session manager (not auth-session-manager)
                   const { sessionManager } = require('./auth/session-manager');
                   
                   // Get token synchronously

@@ -42,6 +42,14 @@ export const sessionManager = {
       const cookieValue = `better-auth.session-token=${token}; Path=/; HttpOnly`;
       mobileStorage.setItem(TOKEN_KEYS.COOKIE, cookieValue);
       
+      // Debug: Verify storage
+      console.log('[SESSION_MANAGER] Token stored, verifying...', {
+        memoryToken: !!mobileTokenStore.getToken(),
+        sessionToken: !!mobileStorage.getItem(TOKEN_KEYS.SESSION_TOKEN),
+        bearerToken: !!mobileStorage.getItem(TOKEN_KEYS.BEARER_TOKEN),
+        cookie: !!mobileStorage.getItem(TOKEN_KEYS.COOKIE),
+      });
+      
       log.auth.debug('Mobile token stored successfully');
     } catch (error) {
       log.auth.error('Failed to store mobile token', error);
@@ -65,6 +73,13 @@ export const sessionManager = {
         log.auth.debug('Token found in memory store');
         return memoryToken;
       }
+      
+      // Debug: Log what's in storage
+      console.log('[SESSION_MANAGER] Checking token storage...', {
+        hasSessionToken: !!mobileStorage.getItem(TOKEN_KEYS.SESSION_TOKEN),
+        hasBearerToken: !!mobileStorage.getItem(TOKEN_KEYS.BEARER_TOKEN),
+        hasCookie: !!mobileStorage.getItem(TOKEN_KEYS.COOKIE),
+      });
 
       // Check direct token storage
       const directToken = mobileStorage.getItem(TOKEN_KEYS.SESSION_TOKEN) || 
