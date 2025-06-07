@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Pressable, ViewStyle, Platform } from 'react-native';
+import { View, Pressable, ViewStyle, Platform, ScrollView } from 'react-native';
 import { Box } from './Box';
 import { Text } from './Text';
 import { useTheme } from '@/lib/theme/theme-provider';
@@ -45,11 +45,37 @@ const useTabsContext = () => {
 interface TabsListProps {
   children: React.ReactNode;
   style?: ViewStyle;
+  scrollable?: boolean;
 }
 
-const TabsList: React.FC<TabsListProps> = ({ children, style }) => {
+const TabsList: React.FC<TabsListProps> = ({ children, style, scrollable = false }) => {
   const theme = useTheme();
   const { spacing, componentSpacing } = useSpacing();
+  
+  if (scrollable) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: spacing[1],
+        }}
+        style={[{
+          backgroundColor: theme.muted,
+          borderRadius: componentSpacing.borderRadius,
+        }, style]}
+      >
+        <Box
+          p={1}
+          flexDirection="row"
+          alignItems="center"
+          gap={1}
+        >
+          {children}
+        </Box>
+      </ScrollView>
+    );
+  }
   
   return (
     <Box

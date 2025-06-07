@@ -132,7 +132,7 @@ export const useAuthStore = create<AuthStore>()(
           set({ isAuthenticated: authenticated });
         },
 
-        clearAuth: () => {
+        clearAuth: async () => {
           console.log('[AuthStore] clearAuth called');
           log.store.update('Clearing auth state');
           const prevState = get();
@@ -140,6 +140,18 @@ export const useAuthStore = create<AuthStore>()(
             hadUser: !!prevState.user,
             wasAuthenticated: prevState.isAuthenticated
           });
+          
+          // Clear session from session manager on mobile
+          if (Platform.OS !== 'web') {
+            try {
+              const { sessionManager } = await import('@/lib/auth/auth-session-manager');
+              await sessionManager.clearSession();
+              log.store.update('Session cleared from session manager');
+            } catch (error) {
+              log.store.debug('Failed to clear session from session manager', error);
+            }
+          }
+          
           set({
             user: null,
             session: null,
@@ -169,7 +181,7 @@ export const useAuthStore = create<AuthStore>()(
         },
 
         // Internal state management
-        updateAuth: (user, session) => {
+        updateAuth: async (user, session) => {
           const currentState = get();
           
           // More comprehensive comparison to prevent unnecessary updates
@@ -189,6 +201,20 @@ export const useAuthStore = create<AuthStore>()(
             userChanged,
             authChanged
           });
+          
+          // Store session in session manager for mobile
+          if (Platform.OS !== 'web' && session) {
+            try {
+              const { sessionManager } = await import('@/lib/auth/auth-session-manager');
+              await sessionManager.storeSession(session);
+              if (user) {
+                await sessionManager.storeUserData(user);
+              }
+              log.store.update('Session stored in session manager');
+            } catch (error) {
+              log.store.debug('Failed to store session in session manager', error);
+            }
+          }
           
           set({
             user,

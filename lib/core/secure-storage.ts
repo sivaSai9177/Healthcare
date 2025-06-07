@@ -30,8 +30,8 @@ export const webStorage = {
 
 // Initialize storage by loading session data from SecureStore
 let storageInitialized = false;
-const initializeStorage = async () => {
-  if (storageInitialized) return;
+export const initializeSecureStorage = async () => {
+  if (storageInitialized || Platform.OS === 'web') return;
   
   try {
     console.log('[MOBILE STORAGE] Initializing storage...');
@@ -42,7 +42,12 @@ const initializeStorage = async () => {
     }
     
     // Load all better-auth related keys from SecureStore
-    const keys = ['better-auth_cookie', 'better-auth_session_data'];
+    const keys = [
+      'better-auth_cookie', 
+      'better-auth_session_data',
+      'better-auth_session-token',
+      'better-auth_user_data'
+    ];
     const loadPromises = keys.map(async (key) => {
       try {
         const value = await SecureStore.getItemAsync(key);
@@ -62,6 +67,9 @@ const initializeStorage = async () => {
     console.error('[MOBILE STORAGE] Storage initialization failed:', error);
   }
 };
+
+// Keep internal reference for backward compatibility
+const initializeStorage = initializeSecureStorage;
 
 // Initialize storage immediately
 if (Platform.OS !== 'web') {

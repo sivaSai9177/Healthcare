@@ -1,45 +1,35 @@
-import React, { useState } from "react";
-import { View, ScrollView, ActivityIndicator, Platform, Dimensions, Alert, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
-import { useAuth } from "@/hooks/useAuth";
-import { api } from "@/lib/trpc";
-import { useTheme } from "@/lib/theme/theme-provider";
-import { SpacingScale } from "@/lib/design-system";
-import { log } from "@/lib/core/logger";
 import { useRequireRole } from "@/components/ProtectedRoute";
-import { Ionicons } from "@expo/vector-icons";
 import {
-  Container,
+  Avatar,
+  Badge,
   Box,
-  VStack,
-  HStack,
-  Text,
-  Heading1,
-  Heading2,
+  Button,
   Card,
+  CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardContent,
-  Button,
-  Badge,
-  Avatar,
-  Separator,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-  Skeleton,
+  ScrollContainer,
+  Heading1,
+  Heading2,
+  HStack,
   Input,
   SimpleBreadcrumb,
+  Skeleton,
+  Separator,
   Sidebar07Trigger,
+  Text,
+  VStack,
 } from "@/components/universal";
+import { useAuth } from "@/hooks/useAuth";
+import { SpacingScale } from "@/lib/design-system";
+import { useTheme } from "@/lib/theme/theme-provider";
+import { api } from "@/lib/trpc";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import { ActivityIndicator, Alert, Platform, ScrollView, TouchableOpacity } from "react-native";
 
-// Get device dimensions
-const { width: screenWidth } = Dimensions.get("window");
-const isDesktop = Platform.OS === "web" && screenWidth >= 1024;
-const isTablet = Platform.OS === "web" && screenWidth >= 768 && screenWidth < 1024;
-const isMobile = !isDesktop && !isTablet;
 
 // Navigation items
 const navItems = [
@@ -80,19 +70,18 @@ export default function AdminDashboard() {
   // State
   const [activeView, setActiveView] = useState("overview");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Loading state
   if (!hasHydrated || isLoading) {
     return (
-      <Container>
-        <Box flex={1} justifyContent="center" alignItems="center">
+      <ScrollContainer safe>
+        <Box flex={1} justifyContent="center" alignItems="center" minHeight={400}>
           <ActivityIndicator size="large" color={theme.primary} />
           <Text mt={2 as SpacingScale} colorTheme="mutedForeground">
             Loading admin dashboard...
           </Text>
         </Box>
-      </Container>
+      </ScrollContainer>
     );
   }
 
@@ -117,236 +106,110 @@ export default function AdminDashboard() {
     }
   };
 
-  // Desktop layout with sidebar
-  if (Platform.OS === "web" && !isMobile) {
-    return (
-      <Box flex={1} flexDirection="row" bgTheme="background">
-        {/* Sidebar */}
-        <Box
-          width={isSidebarOpen ? 240 : 60}
-          bgTheme="card"
-          borderRightWidth={1}
-          borderTheme="border"
-          style={{
-            transition: 'width 0.2s ease',
-          }}
-        >
-          {/* Sidebar Header */}
-          <Box p={3 as SpacingScale} borderBottomWidth={1} borderTheme="border">
-            <HStack justifyContent="space-between" alignItems="center">
-              {isSidebarOpen ? (
-                <Text weight="semibold" size="lg">Admin Portal</Text>
-              ) : (
-                <Ionicons name="shield-checkmark" size={24} color={theme.primary} />
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onPress={() => setIsSidebarOpen(!isSidebarOpen)}
-              >
-                <Ionicons 
-                  name={isSidebarOpen ? "chevron-back" : "chevron-forward"} 
-                  size={20} 
-                  color={theme.foreground} 
-                />
-              </Button>
+  // Render admin page with category-style navigation like explore page
+  return (
+    <ScrollContainer safe>
+      <VStack p={0} spacing={0}>
+        {/* Header with Toggle and Breadcrumbs - Only on Web */}
+        {Platform.OS === 'web' && (
+          <Box px={4 as SpacingScale} py={3 as SpacingScale} borderBottomWidth={1} borderTheme="border">
+            <HStack alignItems="center" spacing={2} mb={2 as SpacingScale}>
+              <Sidebar07Trigger />
+              <Separator orientation="vertical" style={{ height: 24 }} />
+              <SimpleBreadcrumb
+                items={[
+                  { label: 'Admin', current: true }
+                ]}
+                showHome={true}
+                homeLabel="Dashboard"
+                homeHref="/(home)"
+              />
             </HStack>
           </Box>
+        )}
 
-          {/* Navigation */}
-          <ScrollView style={{ flex: 1 }}>
-            <VStack p={2 as SpacingScale} spacing={1}>
+        <VStack p={4 as SpacingScale}>
+          {/* Header */}
+          <VStack mb={6 as SpacingScale}>
+            <Heading1>Admin Dashboard</Heading1>
+            <Text size="base" colorTheme="mutedForeground" mt={1 as SpacingScale}>
+              Manage your application, users, and system settings
+            </Text>
+          </VStack>
+
+          {/* Categories */}
+          <Box mb={4 as SpacingScale}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={{ marginHorizontal: -16 }}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+            >
               {navItems.map((item) => (
                 <TouchableOpacity
                   key={item.id}
                   onPress={() => setActiveView(item.id)}
-                  style={{
-                    backgroundColor: activeView === item.id ? theme.accent : 'transparent',
-                    borderRadius: 8,
-                    padding: 12,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: isSidebarOpen ? 'flex-start' : 'center',
-                  }}
                 >
-                  <Ionicons 
-                    name={item.icon} 
-                    size={20} 
-                    color={activeView === item.id ? theme.accentForeground : theme.mutedForeground} 
-                  />
-                  {isSidebarOpen && (
-                    <>
+                  <Box 
+                    bgTheme={activeView === item.id ? 'primary' : 'secondary'}
+                    px={4 as SpacingScale}
+                    py={2 as SpacingScale}
+                    rounded="full"
+                    mr={2 as SpacingScale}
+                  >
+                    <HStack spacing={2} alignItems="center">
+                      <Ionicons 
+                        name={item.icon} 
+                        size={16} 
+                        color={activeView === item.id ? theme.primaryForeground : theme.secondaryForeground} 
+                      />
                       <Text 
-                        ml={3 as SpacingScale}
-                        color={activeView === item.id ? theme.accentForeground : theme.foreground}
-                        weight={activeView === item.id ? "medium" : "normal"}
+                        colorTheme={activeView === item.id ? 'primaryForeground' : 'secondaryForeground'}
+                        weight="semibold"
                       >
                         {item.title}
                       </Text>
                       {item.badge && (
-                        <Badge size="sm" variant="secondary" ml="auto">
+                        <Badge 
+                          size="sm" 
+                          variant={activeView === item.id ? "default" : "secondary"}
+                        >
                           {item.badge}
                         </Badge>
                       )}
-                    </>
-                  )}
+                    </HStack>
+                  </Box>
                 </TouchableOpacity>
               ))}
-            </VStack>
-          </ScrollView>
-
-          {/* Sidebar Footer */}
-          <Box p={3 as SpacingScale} borderTopWidth={1} borderTheme="border">
-            <HStack spacing={2} alignItems="center">
-              <Avatar name={user?.name || user?.email} size="sm" />
-              {isSidebarOpen && (
-                <VStack flex={1} spacing={0}>
-                  <Text size="sm" weight="medium" numberOfLines={1}>
-                    {user?.name || 'Admin'}
-                  </Text>
-                  <Text size="xs" colorTheme="mutedForeground" numberOfLines={1}>
-                    {user?.email}
-                  </Text>
-                </VStack>
-              )}
-            </HStack>
-          </Box>
-        </Box>
-
-        {/* Main Content */}
-        <Box flex={1}>
-          {/* Header */}
-          <Box
-            bgTheme="background"
-            borderBottomWidth={1}
-            borderTheme="border"
-            style={{
-              height: 64,
-              ...(Platform.OS === 'ios' && {
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.05,
-                shadowRadius: 3,
-              }),
-              ...(Platform.OS === 'android' && {
-                elevation: 3,
-              }),
-              ...(Platform.OS === 'web' && {
-                boxShadow: '0 2px 3px rgba(0,0,0,0.05)',
-              } as any),
-            }}
-          >
-            <HStack
-              flex={1}
-              px={4 as SpacingScale}
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              {Platform.OS === 'web' && (
-                <HStack alignItems="center" spacing={2}>
-                  <Sidebar07Trigger />
-                  <Separator orientation="vertical" style={{ height: 24 }} />
-                  <SimpleBreadcrumb
-                    items={[
-                      { label: 'Admin', href: '/(home)/admin' },
-                      { label: activeView.charAt(0).toUpperCase() + activeView.slice(1), current: true }
-                    ]}
-                    showHome={true}
-                    homeLabel="Dashboard"
-                    homeHref="/(home)"
-                  />
-                </HStack>
-              )}
-
-              {/* Right side */}
-              <HStack spacing={2} alignItems="center">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onPress={() => router.push("/(home)")}
-                >
-                  <HStack spacing={2} alignItems="center">
-                    <Ionicons name="home-outline" size={16} />
-                    <Text>Back to App</Text>
-                  </HStack>
-                </Button>
-              </HStack>
-            </HStack>
+            </ScrollView>
           </Box>
 
-          {/* Page Content */}
-          <ScrollView style={{ flex: 1 }}>
-            <Container>
-              <Box p={4 as SpacingScale} pb={8 as SpacingScale}>
-                {renderContent()}
-              </Box>
-            </Container>
-          </ScrollView>
-        </Box>
-      </Box>
-    );
-  }
-
-  // Mobile layout with tabs
-  return (
-    <Container>
-      <Tabs value={activeView} onValueChange={setActiveView}>
-        <Box
-          bgTheme="background"
-          borderBottomWidth={1}
-          borderTheme="border"
-          pt={2 as SpacingScale}
-        >
-          <Heading1 px={4 as SpacingScale} mb={2 as SpacingScale}>
-            Admin Dashboard
-          </Heading1>
-          <TabsList scrollable>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="audit">Audit</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
-        </Box>
-        
-        <ScrollView style={{ flex: 1 }}>
-          <Box p={4 as SpacingScale}>
-            <TabsContent value="overview">
-              <OverviewContent />
-            </TabsContent>
-            <TabsContent value="users">
-              <UsersContent searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-            </TabsContent>
-            <TabsContent value="analytics">
-              <AnalyticsContent />
-            </TabsContent>
-            <TabsContent value="audit">
-              <AuditContent />
-            </TabsContent>
-            <TabsContent value="settings">
-              <SettingsContent />
-            </TabsContent>
+          {/* Content */}
+          <Box>
+            {renderContent()}
           </Box>
-        </ScrollView>
-      </Tabs>
-    </Container>
+        </VStack>
+      </VStack>
+    </ScrollContainer>
   );
 }
 
 // Overview Content Component
 const OverviewContent: React.FC = () => {
+  const theme = useTheme();
+  
   return (
     <VStack spacing={6}>
       <Box>
         <Heading2>Overview</Heading2>
         <Text colorTheme="mutedForeground" mt={1 as SpacingScale}>
-          Welcome back! Here's your system overview.
+          Welcome back! Here&apos;s your system overview.
         </Text>
       </Box>
 
       {/* Stats Cards */}
-      <Box flexDirection="row" flexWrap="wrap" gap={4 as SpacingScale}>
-        <Box flex={1} minWidth={200}>
+      <Box flexDirection="row" flexWrap="wrap" gap={3 as SpacingScale}>
+        <Box flex={1} minWidth={150}>
           <Card>
             <CardContent p={4 as SpacingScale}>
               <Text size="2xl" weight="bold" colorTheme="foreground">
@@ -359,7 +222,7 @@ const OverviewContent: React.FC = () => {
           </Card>
         </Box>
         
-        <Box flex={1} minWidth={200}>
+        <Box flex={1} minWidth={150}>
           <Card>
             <CardContent p={4 as SpacingScale}>
               <Text size="2xl" weight="bold" colorTheme="foreground">
@@ -409,13 +272,13 @@ const OverviewContent: React.FC = () => {
           <HStack spacing={2} flexWrap="wrap">
             <Button variant="outline" onPress={() => Alert.alert("Coming Soon", "This feature will be available soon.")}>
               <HStack spacing={2} alignItems="center">
-                <Ionicons name="person-add-outline" size={16} />
+                <Ionicons name="person-add-outline" size={16} color={theme.foreground} />
                 <Text>Add User</Text>
               </HStack>
             </Button>
             <Button variant="outline" onPress={() => Alert.alert("Coming Soon", "This feature will be available soon.")}>
               <HStack spacing={2} alignItems="center">
-                <Ionicons name="download-outline" size={16} />
+                <Ionicons name="download-outline" size={16} color={theme.foreground} />
                 <Text>Export Data</Text>
               </HStack>
             </Button>
@@ -452,7 +315,7 @@ const UsersContent: React.FC<{
 
   const users = usersQuery.data?.users || [];
 
-  return (
+  return (  
     <VStack spacing={4}>
       <Box>
         <Heading2>User Management</Heading2>
@@ -497,7 +360,7 @@ const UsersContent: React.FC<{
           ) : (
             <VStack spacing={3}>
               {users.map((user: any) => (
-                <Card key={user.id} variant="outline">
+                <Card key={user.id}>
                   <CardContent p={3 as SpacingScale}>
                     <HStack justifyContent="space-between" alignItems="center">
                       <HStack spacing={3} alignItems="center" flex={1}>
@@ -513,7 +376,7 @@ const UsersContent: React.FC<{
                             <Badge
                               variant={
                                 user.role === "admin"
-                                  ? "destructive"
+                                  ? "warning"
                                   : user.role === "manager"
                                   ? "default"
                                   : "outline"
@@ -539,6 +402,8 @@ const UsersContent: React.FC<{
 
 // Analytics Content Component
 const AnalyticsContent: React.FC = () => {
+  const theme = useTheme();
+  
   return (
     <VStack spacing={6}>
       <Box>
@@ -551,7 +416,7 @@ const AnalyticsContent: React.FC = () => {
       <Card>
         <CardContent p={8 as SpacingScale}>
           <Box alignItems="center">
-            <Ionicons name="analytics-outline" size={64} color="#666" />
+            <Ionicons name="analytics-outline" size={64} color={theme.mutedForeground} />
             <Text size="lg" colorTheme="mutedForeground" mt={4 as SpacingScale}>
               Analytics coming soon...
             </Text>
@@ -616,7 +481,7 @@ const AuditContent: React.FC = () => {
           ) : (
             <VStack spacing={3}>
               {auditLogs.map((log: any) => (
-                <Card key={log.id} variant="outline">
+                <Card key={log.id}>
                   <CardContent p={3 as SpacingScale}>
                     <HStack justifyContent="space-between" mb={2 as SpacingScale}>
                       <VStack spacing={1} flex={1}>
@@ -642,7 +507,7 @@ const AuditContent: React.FC = () => {
                       </VStack>
                       <VStack alignItems="flex-end" spacing={1}>
                         <Badge
-                          variant={log.outcome === "success" ? "default" : "destructive"}
+                          variant={log.outcome === "success" ? "default" : "warning"}
                           size="sm"
                         >
                           {log.outcome}
@@ -665,6 +530,8 @@ const AuditContent: React.FC = () => {
 
 // Settings Content Component
 const SettingsContent: React.FC = () => {
+  const theme = useTheme();
+  
   return (
     <VStack spacing={6}>
       <Box>
@@ -677,7 +544,7 @@ const SettingsContent: React.FC = () => {
       <Card>
         <CardContent p={8 as SpacingScale}>
           <Box alignItems="center">
-            <Ionicons name="settings-outline" size={64} color="#666" />
+            <Ionicons name="settings-outline" size={64} color={theme.mutedForeground} />
             <Text size="lg" colorTheme="mutedForeground" mt={4 as SpacingScale}>
               Settings coming soon...
             </Text>

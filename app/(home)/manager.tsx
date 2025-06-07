@@ -1,5 +1,5 @@
 import React from "react";
-import { ScrollView } from "react-native";
+import { ScrollView, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/lib/theme/theme-provider";

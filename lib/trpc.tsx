@@ -87,10 +87,23 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           httpBatchLink({
             url: trpcUrl,
             headers() {
-              // Keep headers simple - credentials: 'include' handles cookies automatically
-              return {
+              const baseHeaders = {
                 'Content-Type': 'application/json',
               };
+              
+              // On mobile, add the session token from storage
+              if (Platform.OS !== 'web') {
+                try {
+                  // Import sessionManager here to avoid circular dependency issues
+                  const { sessionManager } = require('./auth/auth-session-manager');
+                  return sessionManager.addAuthHeaders(baseHeaders);
+                } catch (error) {
+                  log.api.error('Failed to add auth headers', error);
+                  return baseHeaders;
+                }
+              }
+              
+              return baseHeaders;
             },
             // Simplified fetch with timeout and error handling
             async fetch(url, options) {

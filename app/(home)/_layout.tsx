@@ -1,33 +1,30 @@
 import { HapticTab } from "@/components/HapticTab";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import TabBarBackground from "@/components/ui/TabBarBackground";
-import { useTheme } from "@/lib/theme/theme-provider";
-import { useAuth } from "@/hooks/useAuth";
-import { Tabs, Slot, Redirect, usePathname } from "expo-router";
-import React from "react";
-import { Platform, View, ActivityIndicator, Dimensions } from "react-native";
-import { 
-  Sidebar07Provider,
-  Sidebar07,
-  Sidebar07Header,
-  Sidebar07Content,
-  Sidebar07Footer,
-  Sidebar07Rail,
-  Sidebar07Inset,
-  Sidebar07Trigger,
+import {
   NavMain07,
   NavUser07,
+  Sidebar07,
+  Sidebar07Content,
+  Sidebar07Footer,
+  Sidebar07Header,
+  Sidebar07Inset,
+  Sidebar07Provider,
+  Sidebar07Rail,
   TeamSwitcher07,
-  NavProjects07,
-  Text,
-  HStack,
-} from "@/components/universal/Sidebar07";
+} from "@/components/universal";
+import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/lib/theme/theme-provider";
 import { Ionicons } from "@expo/vector-icons";
+import { Redirect, Slot, Tabs, usePathname } from "expo-router";
+import React from "react";
+import { ActivityIndicator, Dimensions, Platform, View } from "react-native";
 
 export default function TabLayout() {
   const theme = useTheme();
   const { user, isAuthenticated, hasHydrated } = useAuth();
-  
+  const pathname = usePathname();
+
   // Wait for auth state to be loaded
   if (!hasHydrated) {
     return (
@@ -36,159 +33,132 @@ export default function TabLayout() {
       </View>
     );
   }
-  
+
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
     return <Redirect href="/(auth)/login" />;
   }
-  
+
   // Check if user has admin/manager role
-  const isAdmin = user?.role === 'admin';
-  const isManager = user?.role === 'manager';
-  
+  const isAdmin = user?.role === "admin";
+  const isManager = user?.role === "manager";
+
   // Define navigation items
   const navItems = [
     {
-      id: 'home',
-      title: 'Home',
-      href: '/(home)',
-      icon: 'home' as keyof typeof Ionicons.glyphMap,
+      id: "home",
+      title: "Home",
+      href: "/(home)",
+      icon: "home" as keyof typeof Ionicons.glyphMap,
     },
     {
-      id: 'explore',
-      title: 'Explore',
-      href: '/(home)/explore',
-      icon: 'compass' as keyof typeof Ionicons.glyphMap,
+      id: "explore",
+      title: "Explore",
+      href: "/(home)/explore",
+      icon: "compass" as keyof typeof Ionicons.glyphMap,
     },
   ];
-  
+
   // Add admin tab if user is admin
   if (isAdmin) {
     navItems.push({
-      id: 'admin',
-      title: 'Admin',
-      href: '/(home)/admin',
-      icon: 'shield-checkmark' as keyof typeof Ionicons.glyphMap,
-      requiresRole: ['admin'],
+      id: "admin",
+      title: "Admin",
+      href: "/(home)/admin",
+      icon: "shield-checkmark" as keyof typeof Ionicons.glyphMap,
     });
   }
-  
+
   // Add manager tab if user is manager
   if (isManager || isAdmin) {
     navItems.push({
-      id: 'team',
-      title: 'Team',
-      href: '/(home)/manager',
-      icon: 'people' as keyof typeof Ionicons.glyphMap,
-      requiresRole: ['manager', 'admin'],
+      id: "team",
+      title: "Team",
+      href: "/(home)/manager",
+      icon: "people" as keyof typeof Ionicons.glyphMap,
     });
   }
-  
+
   // Always add settings
   navItems.push({
-    id: 'settings',
-    title: 'Settings',
-    href: '/(home)/settings',
-    icon: 'settings' as keyof typeof Ionicons.glyphMap,
+    id: "settings",
+    title: "Settings",
+    href: "/(home)/settings",
+    icon: "settings" as keyof typeof Ionicons.glyphMap,
   });
-  
+
   // Get current pathname for active state
-  const pathname = usePathname();
-  
+
   // Convert nav items to sidebar format for NavMain07
   const sidebarItems = [
     {
-      title: 'Home',
-      url: '/(home)',
-      icon: 'home-outline' as keyof typeof Ionicons.glyphMap,
-      isActive: pathname === '/(home)' || pathname === '/(home)/index',
+      title: "Dashboard",
+      url: "/(home)",
+      icon: "home" as keyof typeof Ionicons.glyphMap,
+      isActive: pathname === "/(home)" || pathname === "/(home)/index",
     },
     {
-      title: 'Explore',
-      url: '/(home)/explore',
-      icon: 'compass-outline' as keyof typeof Ionicons.glyphMap,
+      title: "Explore",
+      url: "/(home)/explore",
+      icon: "compass" as keyof typeof Ionicons.glyphMap,
     },
   ];
 
-  // Add role-based items
+  // Add admin-specific items
   if (isAdmin) {
     sidebarItems.push({
-      title: 'Admin',
-      url: '/(home)/admin',
-      icon: 'shield-checkmark-outline' as keyof typeof Ionicons.glyphMap,
+      title: "Admin",
+      url: "/(home)/admin",
+      icon: "shield-checkmark" as keyof typeof Ionicons.glyphMap,
     });
   }
-  
+
+  // Add manager items
   if (isManager || isAdmin) {
     sidebarItems.push({
-      title: 'Team',
-      url: '/(home)/manager',
-      icon: 'people-outline' as keyof typeof Ionicons.glyphMap,
+      title: "Team",
+      url: "/(home)/manager",
+      icon: "people" as keyof typeof Ionicons.glyphMap,
     });
   }
-  
-  // Add settings with submenu
+
+  // Settings at the end
   sidebarItems.push({
-    title: 'Settings',
-    url: '/(home)/settings',
-    icon: 'settings-outline' as keyof typeof Ionicons.glyphMap,
-    items: [
-      { title: 'General', url: '/(home)/settings' },
-      { title: 'Theme', url: '/(home)/settings#theme' },
-      { title: 'Account', url: '/(home)/settings#account' },
-    ],
+    title: "Settings",
+    url: "/(home)/settings",
+    icon: "settings-outline" as keyof typeof Ionicons.glyphMap,
   });
 
-  // Get window dimensions and track resize
-  const [windowWidth, setWindowWidth] = React.useState(() => {
-    return Dimensions.get('window').width;
-  });
-  
-  // Update dimensions on resize
-  React.useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    
-    const updateDimensions = () => {
-      setWindowWidth(Dimensions.get('window').width);
-    };
-    
-    const subscription = Dimensions.addEventListener('change', updateDimensions);
-    
-    return () => {
-      subscription?.remove();
-    };
-  }, []);
-  
-  const isDesktop = Platform.OS === 'web' && windowWidth >= 1024;
+  // Get window dimensions
+  const { width: screenWidth } = Dimensions.get("window");
+  const isDesktop = Platform.OS === "web" && screenWidth >= 1024;
 
-  // Use Sidebar07 for desktop web, but switch to tabs on mobile web
-  if (Platform.OS === 'web') {
-    // Always use sidebar on web, it will handle responsive behavior internally
-    // The sidebar component will show as a drawer on mobile
+  // Use Sidebar07 for desktop web
+  if (Platform.OS === "web" && isDesktop) {
     return (
       <Sidebar07Provider defaultOpen={true}>
-        <View style={{ flex: 1, flexDirection: 'row' }}>
+        <View style={{ flex: 1, flexDirection: "row" }}>
           <Sidebar07 collapsible="icon">
             <Sidebar07Header>
               <TeamSwitcher07
                 teams={[
                   {
-                    name: 'Acme Inc',
-                    plan: 'Enterprise',
+                    name: "Acme Inc",
+                    plan: "Enterprise",
                     logo: ({ size, color }) => (
                       <Ionicons name="business" size={size} color={color} />
                     ),
                   },
                   {
-                    name: 'Acme Corp.',
-                    plan: 'Startup',
+                    name: "Acme Corp.",
+                    plan: "Startup",
                     logo: ({ size, color }) => (
                       <Ionicons name="rocket" size={size} color={color} />
                     ),
                   },
                   {
-                    name: 'My Organization',
-                    plan: 'Free',
+                    name: "My Organization",
+                    plan: "Free",
                   },
                 ]}
               />
@@ -199,8 +169,8 @@ export default function TabLayout() {
             <Sidebar07Footer>
               <NavUser07
                 user={{
-                  name: user?.name || 'User',
-                  email: user?.email || '',
+                  name: user?.name || "User",
+                  email: user?.email || "",
                   avatar: user?.image,
                 }}
               />
@@ -216,7 +186,7 @@ export default function TabLayout() {
       </Sidebar07Provider>
     );
   }
-  
+
   // Use native tabs on mobile
   return (
     <Tabs

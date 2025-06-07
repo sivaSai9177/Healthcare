@@ -597,10 +597,8 @@ export const Sidebar07MenuButton = React.forwardRef<View, Sidebar07MenuButtonPro
     <Pressable
       ref={ref}
       onPress={onPress}
-      {...(Platform.OS === 'web' && {
-        onHoverIn: () => setIsHovered(true),
-        onHoverOut: () => setIsHovered(false),
-      } as any)}
+      onPointerEnter={Platform.OS === 'web' ? () => setIsHovered(true) : undefined}
+      onPointerLeave={Platform.OS === 'web' ? () => setIsHovered(false) : undefined}
       style={({ pressed }) => [
         {
           flexDirection: "row",
@@ -612,9 +610,9 @@ export const Sidebar07MenuButton = React.forwardRef<View, Sidebar07MenuButtonPro
           backgroundColor: pressed
             ? theme.accent
             : isActive
-            ? theme.accent
+            ? theme.primary
             : isHovered
-            ? theme.accent
+            ? theme.muted
             : 'transparent',
           overflow: "hidden",
           minHeight: heights[size],
@@ -760,6 +758,51 @@ const CollapsibleContent: React.FC<{ children: React.ReactNode }> = ({
   return <>{children}</>;
 };
 
+// Sub Navigation Item Component
+const SubNavItem: React.FC<{
+  subItem: { title: string; url: string };
+  isActive: boolean;
+  onPress: () => void;
+}> = ({ subItem, isActive, onPress }) => {
+  const theme = useTheme();
+  const { spacing } = useSpacing();
+  const [isHovered, setIsHovered] = useState(false);
+  
+  return (
+    <Pressable
+      onPress={onPress}
+      onPointerEnter={Platform.OS === 'web' ? () => setIsHovered(true) : undefined}
+      onPointerLeave={Platform.OS === 'web' ? () => setIsHovered(false) : undefined}
+      style={({ pressed }) => ({
+        paddingHorizontal: spacing[2],
+        paddingVertical: spacing[1.5],
+        borderRadius: 6,
+        backgroundColor: 
+          isActive ? theme.primary :
+          pressed ? theme.accent :
+          isHovered ? theme.muted :
+          "transparent",
+        marginBottom: spacing[0.5],
+        ...(Platform.OS === "web" && {
+          transition: "all 0.15s ease",
+          cursor: "pointer",
+        }),
+      })}
+    >
+      <Text
+        size="sm"
+        style={{
+          color: isActive
+            ? theme.primaryForeground
+            : theme.mutedForeground,
+        }}
+      >
+        {subItem.title}
+      </Text>
+    </Pressable>
+  );
+};
+
 export const NavMain07: React.FC<NavMain07Props> = ({ items }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -781,9 +824,19 @@ export const NavMain07: React.FC<NavMain07Props> = ({ items }) => {
         <Sidebar07Menu>
           {items.map((item) => {
             const hasChildren = item.items && item.items.length > 0;
-            const isActive = item.url
-              ? pathname === item.url || pathname.startsWith(item.url + "/")
-              : item.isActive;
+            // Check for exact match first
+            let isActive = false;
+            if (item.url) {
+              // Special handling for home route
+              if (item.url === '/(home)') {
+                isActive = pathname === '/(home)' || pathname === '/(home)/index';
+              } else {
+                // For other routes, check exact match
+                isActive = pathname === item.url;
+              }
+            } else {
+              isActive = item.isActive || false;
+            }
 
             return (
               <Collapsible
@@ -817,7 +870,7 @@ export const NavMain07: React.FC<NavMain07Props> = ({ items }) => {
                             size={20}
                             color={
                               isActive
-                                ? theme.accentForeground
+                                ? theme.primaryForeground
                                 : theme.foreground
                             }
                           />
@@ -828,7 +881,7 @@ export const NavMain07: React.FC<NavMain07Props> = ({ items }) => {
                               style={{
                                 flex: 1,
                                 color: isActive
-                                  ? theme.accentForeground
+                                  ? theme.primaryForeground
                                   : theme.foreground,
                               }}
                             >
@@ -881,41 +934,17 @@ export const NavMain07: React.FC<NavMain07Props> = ({ items }) => {
                             pathname.startsWith(subItem.url + "/");
 
                           return (
-                            <Pressable
+                            <SubNavItem
                               key={subItem.title}
+                              subItem={subItem}
+                              isActive={subIsActive}
                               onPress={() => {
                                 if (pathname !== subItem.url) {
                                   router.replace(subItem.url as any);
                                   setActiveItem(subItem.url);
                                 }
                               }}
-                              style={({ pressed, hovered }: any) => ({
-                                paddingHorizontal: spacing[2],
-                                paddingVertical: spacing[1.5],
-                                borderRadius: 6,
-                                backgroundColor: pressed || (Platform.OS === 'web' && hovered)
-                                  ? theme.accent
-                                  : subIsActive
-                                  ? theme.accent
-                                  : "transparent",
-                                marginBottom: spacing[0.5],
-                                ...(Platform.OS === "web" && {
-                                  transition: "all 0.15s ease",
-                                  cursor: "pointer",
-                                }),
-                              })}
-                            >
-                              <Text
-                                size="sm"
-                                style={{
-                                  color: subIsActive
-                                    ? theme.accentForeground
-                                    : theme.mutedForeground,
-                                }}
-                              >
-                                {subItem.title}
-                              </Text>
-                            </Pressable>
+                            />
                           );
                         })}
                       </View>
@@ -945,7 +974,7 @@ export const NavUser07: React.FC<NavUser07Props> = ({ user }) => {
   const { state } = useSidebar07();
   const router = useRouter();
   const { spacing } = useSpacing();
-  const [isHovered, setIsHovered] = useState(false);
+  const [isHoveredCollapsed, setIsHoveredCollapsed] = useState(false);
   const [isHoveredExpanded, setIsHoveredExpanded] = useState(false);
 
   if (state === "collapsed") {
@@ -954,13 +983,15 @@ export const NavUser07: React.FC<NavUser07Props> = ({ user }) => {
         <DropdownMenuTrigger asChild>
           <Pressable
             {...(Platform.OS === 'web' && {
+              onHoverIn: () => setIsHoveredCollapsed(true),
+              onHoverOut: () => setIsHoveredCollapsed(false),
             } as any)}
             style={({ pressed }) => ({
               padding: spacing[2],
               alignItems: "center",
               justifyContent: "center",
               borderRadius: spacing[1.5],
-              backgroundColor: pressed || isHovered ? theme.accent : "transparent",
+              backgroundColor: pressed || isHoveredCollapsed ? theme.accent : "transparent",
               opacity: pressed ? 0.8 : 1,
               ...(Platform.OS === "web" && {
                 transition: "all 0.15s ease",
@@ -1107,7 +1138,7 @@ export const NavUser07: React.FC<NavUser07Props> = ({ user }) => {
           }}
         >
           <HStack spacing={2} alignItems="center">
-            <Ionicons name="log-out-outline" size={16} />
+            <Ionicons name="log-out-outline" size={16} color={theme.foreground} />
             <Text>Log out</Text>
           </HStack>
         </DropdownMenuItem>
@@ -1207,7 +1238,7 @@ export const TeamSwitcher07: React.FC<TeamSwitcher07Props> = ({
           </DropdownMenuTrigger>
 
           <DropdownMenuContent
-            align="start"
+            align={state === "collapsed" ? "start" : "end"}
             sideOffset={4}
             minWidth={224} // min-w-56
           >
@@ -1352,14 +1383,14 @@ export const NavProjects07: React.FC<NavProjects07Props> = ({ projects }) => {
                       name={project.icon}
                       size={20}
                       color={
-                        isActive ? theme.accentForeground : theme.foreground
+                        isActive ? theme.primaryForeground : theme.foreground
                       }
                     />
                     <Text
                       style={{
                         flex: 1,
                         color: isActive
-                          ? theme.accentForeground
+                          ? theme.primaryForeground
                           : theme.foreground,
                       }}
                     >

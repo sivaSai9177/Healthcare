@@ -4,10 +4,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { log } from '@/lib/core/logger';
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
-  const { updateAuth, clearAuth } = useAuth();
+  const { updateAuth, clearAuth, user, hasHydrated } = useAuth();
   
   // Keep auth state synchronized between server and client using TanStack Query
   const { data, error } = api.auth.getSession.useQuery(undefined, {
+    // Only run the query after hydration and if we don't have a user
+    // This prevents unnecessary auth checks on app startup
+    enabled: hasHydrated && !user,
+    
     // Poll every 5 minutes (reduced frequency to minimize rerenders)
     refetchInterval: 5 * 60 * 1000,
     
@@ -27,12 +31,13 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   
   // Handle state updates with useEffect (TanStack Query v5 pattern)
   useEffect(() => {
-    if (data) {
+    // Only update if we have actual data
+    if (data && (data as any).user) {
       updateAuth((data as any).user, (data as any).session);
-    } else if (data === null) {
-      clearAuth();
     }
-  }, [data, updateAuth, clearAuth]);
+    // Don't clear auth just because the query returned null
+    // Let the error handler deal with actual auth failures
+  }, [data, updateAuth]);
   
   // Handle auth errors
   useEffect(() => {

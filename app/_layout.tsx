@@ -2,9 +2,10 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Platform } from "react-native";
 
 // Import crypto polyfill early for React Native
 import "@/lib/core/crypto";
@@ -16,26 +17,14 @@ import { ColorSchemeProvider } from "@/contexts/ColorSchemeContext";
 import { SpacingProvider } from "@/contexts/SpacingContext";
 import { EnhancedThemeProvider } from "@/lib/theme/enhanced-theme-provider";
 import { TRPCProvider } from "@/lib/trpc";
+import { initializeSecureStorage } from "@/lib/core/secure-storage";
 import "./global.css";
 
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync();
 
-// Debug component to track mount/unmount
+// Debug component to track mount/unmount (disabled to reduce console noise)
 const LayoutDebugger = () => {
-  const mountRef = useRef(0);
-  
-  useEffect(() => {
-    if (__DEV__) {
-      mountRef.current += 1;
-      console.log(`[ROOT LAYOUT] Mount #${mountRef.current} at ${new Date().toISOString()}`);
-      
-      return () => {
-        console.log(`[ROOT LAYOUT] Unmount #${mountRef.current} at ${new Date().toISOString()}`);
-      };
-    }
-  }, []);
-  
   return null;
 };
 
@@ -43,15 +32,25 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
+  const [storageReady, setStorageReady] = useState(Platform.OS === 'web');
 
   useEffect(() => {
-    if (loaded) {
+    // Initialize storage on mobile
+    if (Platform.OS !== 'web') {
+      initializeSecureStorage().then(() => {
+        setStorageReady(true);
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (loaded && storageReady) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [loaded, storageReady]);
 
-  // Only wait for fonts to load - auth state is handled by the index route
-  if (!loaded) {
+  // Wait for both fonts and storage to be ready
+  if (!loaded || !storageReady) {
     return null;
   }
 

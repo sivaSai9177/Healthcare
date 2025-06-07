@@ -17,7 +17,7 @@ import {
   Separator,
   Sidebar07Trigger
 } from "@/components/universal";
-import { ScrollView } from "react-native";
+import { ScrollView, Platform } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
 import { log } from "@/lib/core/logger";
 import { useTheme } from "@/lib/theme/theme-provider";

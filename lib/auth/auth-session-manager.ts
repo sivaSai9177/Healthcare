@@ -2,9 +2,9 @@ import { Platform } from 'react-native';
 import { webStorage, mobileStorage } from '../core/secure-storage';
 import { Session, User } from 'better-auth/types';
 
-const SESSION_TOKEN_KEY = 'better-auth.session-token';
-const SESSION_DATA_KEY = 'better-auth.session_data';
-const USER_DATA_KEY = 'better-auth.user_data';
+const SESSION_TOKEN_KEY = 'better-auth_session-token';
+const SESSION_DATA_KEY = 'better-auth_session_data';
+const USER_DATA_KEY = 'better-auth_user_data';
 
 export const sessionManager = {
   // Get session token for API requests (simplified)
