@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Alert, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
 import { 
   ScrollContainer, 
   Box, 
@@ -12,15 +13,18 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-  Button
+  Button,
+  Avatar,
+  SimpleBreadcrumb,
+  Separator,
+  Sidebar07Trigger
 } from '@/components/universal';
-import { Avatar } from '@/components/Avatar';
 import { DarkModeToggle } from '@/components/DarkModeToggle';
 import { SpacingDensitySelector } from '@/components/SpacingDensitySelector';
+import { ThemeSelector } from '@/components/ThemeSelector';
 import { useAuth } from '@/hooks/useAuth';
-import { useRouter } from 'expo-router';
 import { log } from '@/lib/core/logger';
-import { useTheme } from '@/lib/theme/theme-provider';
+import { useTheme } from '@/lib/theme/enhanced-theme-provider';
 import { notificationService } from '@/lib/notifications/notification-service';
 import * as Notifications from 'expo-notifications';
 
@@ -118,20 +122,39 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollContainer safe headerTitle="Settings">
-      <VStack p={4} spacing={4}>
-        <Heading1 mb={6}>
-          Settings
-        </Heading1>
+    <ScrollContainer safe>
+      <VStack p={0} spacing={0}>
+        {/* Header with Toggle and Breadcrumbs - Only on Web */}
+        {Platform.OS === 'web' && (
+          <Box px={4} py={3} borderBottomWidth={1} borderTheme="border">
+            <HStack alignItems="center" spacing={2} mb={2}>
+              <Sidebar07Trigger />
+              <Separator orientation="vertical" style={{ height: 24 }} />
+              <SimpleBreadcrumb
+                items={[
+                  { label: 'Settings', current: true }
+                ]}
+                showHome={true}
+                homeLabel="Dashboard"
+                homeHref="/(home)"
+              />
+            </HStack>
+          </Box>
+        )}
+
+        <VStack p={4} spacing={4}>
+          <Heading1 mb={6}>
+            Settings
+          </Heading1>
 
         {/* Profile Section */}
         <Card>
           <CardHeader>
             <HStack spacing={4} alignItems="center">
               <Avatar 
-                image={user?.image}
+                source={user?.image ? { uri: user.image } : undefined}
                 name={user?.name || 'User'}
-                size={60}
+                size="xl"
               />
               <Box flex={1}>
                 <CardTitle>{user?.name || 'User'}</CardTitle>
@@ -193,6 +216,39 @@ export default function SettingsScreen() {
           </CardContent>
         </Card>
 
+        {/* Admin Section - Only show for admin users */}
+        {user?.role === 'admin' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Administration</CardTitle>
+              <CardDescription>Admin tools and settings</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <VStack spacing={3}>
+                <Button
+                  variant="solid"
+                  fullWidth
+                  onPress={() => {
+                    router.push('/(home)/admin');
+                  }}
+                >
+                  Admin Dashboard
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  fullWidth
+                  onPress={() => {
+                    Alert.alert("Coming Soon", "System settings will be available in the next update.");
+                  }}
+                >
+                  System Settings
+                </Button>
+              </VStack>
+            </CardContent>
+          </Card>
+        )}
+
         {/* App Settings */}
         <Card>
           <CardHeader>
@@ -202,6 +258,10 @@ export default function SettingsScreen() {
           <CardContent>
             <VStack spacing={4}>
               <DarkModeToggle />
+              
+              <Box borderTopWidth={1} borderTheme="border" pt={4} mt={2}>
+                <ThemeSelector />
+              </Box>
               
               <Box borderTopWidth={1} borderTheme="border" pt={4} mt={2}>
                 <SpacingDensitySelector />
@@ -288,6 +348,49 @@ export default function SettingsScreen() {
           </CardContent>
         </Card>
 
+        {/* Developer Options */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Developer Options</CardTitle>
+            <CardDescription>Tools and demos for development</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <VStack spacing={3}>
+              <Button
+                variant="outline"
+                fullWidth
+                onPress={() => router.push('/(home)/demo-universal')}
+              >
+                Universal Components Demo
+              </Button>
+              <Text size="xs" colorTheme="mutedForeground" align="center">
+                View Dialog and DropdownMenu examples
+              </Text>
+            </VStack>
+          </CardContent>
+        </Card>
+
+        {/* Developer Options (only in development) */}
+        {__DEV__ && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Developer Options</CardTitle>
+              <CardDescription>Advanced options for development</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <VStack spacing={3}>
+                <Button
+                  variant="outline"
+                  fullWidth
+                  onPress={() => router.push('/(auth)/theme-test')}
+                >
+                  Theme Testing Playground
+                </Button>
+              </VStack>
+            </CardContent>
+          </Card>
+        )}
+
         {/* About Section */}
         <Card>
           <CardHeader>
@@ -334,6 +437,7 @@ export default function SettingsScreen() {
             </VStack>
           </CardContent>
         </Card>
+        </VStack>
       </VStack>
     </ScrollContainer>
   );

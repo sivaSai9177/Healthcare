@@ -5,29 +5,76 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Box, Text } from '@/components/universal';
 import { useTheme } from '@/lib/theme/theme-provider';
 import { useSpacing } from '@/contexts/SpacingContext';
+import { useAuth } from '@/hooks/useAuth';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 
 interface TabConfig {
   name: string;
   href: string;
   icon: string;
   label: string;
+  requiresRole?: string;
+  IconComponent?: React.ComponentType<any>;
 }
 
-const tabs: TabConfig[] = [
+const baseTabs: TabConfig[] = [
   { name: 'index', href: '/(home)', icon: 'house.fill', label: 'Home' },
   { name: 'explore', href: '/(home)/explore', icon: 'paperplane.fill', label: 'Explore' },
-  { name: 'settings', href: '/(home)/settings', icon: 'gearshape.fill', label: 'Settings' },
 ];
+
+const roleTabs: TabConfig[] = [
+  { 
+    name: 'admin', 
+    href: '/(home)/admin', 
+    icon: 'shield-checkmark', 
+    label: 'Admin',
+    requiresRole: 'admin',
+    IconComponent: Ionicons 
+  },
+  { 
+    name: '_manager', 
+    href: '/(home)/_manager', 
+    icon: 'people', 
+    label: 'Team',
+    requiresRole: 'manager',
+    IconComponent: Ionicons 
+  },
+];
+
+const settingsTab: TabConfig = { 
+  name: 'settings', 
+  href: '/(home)/settings', 
+  icon: 'gearshape.fill', 
+  label: 'Settings' 
+};
 
 export function WebTabBar() {
   const router = useRouter();
   const pathname = usePathname();
   const theme = useTheme();
   const { spacing } = useSpacing();
+  const { user } = useAuth();
   const activeColor = theme.primary;
   const inactiveColor = theme.mutedForeground;
   const [hoveredTab, setHoveredTab] = React.useState<string | null>(null);
+
+  // Build tabs based on user role
+  const tabs = React.useMemo(() => {
+    const userTabs = [...baseTabs];
+    
+    // Add role-specific tabs
+    roleTabs.forEach(tab => {
+      if (tab.requiresRole && user?.role === tab.requiresRole) {
+        userTabs.push(tab);
+      }
+    });
+    
+    // Always add settings at the end
+    userTabs.push(settingsTab);
+    
+    return userTabs;
+  }, [user?.role]);
 
   const handleTabPress = (e: any, href: string) => {
     // Prevent default browser navigation
@@ -98,14 +145,25 @@ export function WebTabBar() {
             })}
           >
             <Box alignItems="center" position="relative">
-              <IconSymbol 
-                size={28} 
-                name={tab.icon as any} 
-                color={color} 
-                style={Platform.OS === 'web' ? {
-                  transition: 'color 0.2s ease',
-                } as any : undefined}
-              />
+              {tab.IconComponent ? (
+                <tab.IconComponent
+                  size={24}
+                  name={tab.icon}
+                  color={color}
+                  style={Platform.OS === 'web' ? {
+                    transition: 'color 0.2s ease',
+                  } as any : undefined}
+                />
+              ) : (
+                <IconSymbol 
+                  size={28} 
+                  name={tab.icon as any} 
+                  color={color} 
+                  style={Platform.OS === 'web' ? {
+                    transition: 'color 0.2s ease',
+                  } as any : undefined}
+                />
+              )}
               <Text 
                 size="xs" 
                 weight={active ? 'semibold' : 'normal'}

@@ -14,7 +14,7 @@ import { EnhancedDebugPanel } from "@/components/EnhancedDebugPanel";
 import { SyncProvider } from "@/components/SyncProvider";
 import { ColorSchemeProvider } from "@/contexts/ColorSchemeContext";
 import { SpacingProvider } from "@/contexts/SpacingContext";
-import { ShadcnThemeProvider } from "@/lib/theme/theme-provider";
+import { EnhancedThemeProvider } from "@/lib/theme/enhanced-theme-provider";
 import { TRPCProvider } from "@/lib/trpc";
 import "./global.css";
 
@@ -62,7 +62,7 @@ export default function RootLayout() {
           <SpacingProvider>
             <TRPCProvider>
               <SyncProvider>
-                <ShadcnThemeProvider>
+                <EnhancedThemeProvider>
                   <Stack screenOptions={{ headerShown: false }}>
                     {/* Entry point */}
                     <Stack.Screen name="index" />
@@ -80,7 +80,7 @@ export default function RootLayout() {
                   <StatusBar style="auto" />
                   <EnhancedDebugPanel />
                   <LayoutDebugger />
-                </ShadcnThemeProvider>
+                </EnhancedThemeProvider>
               </SyncProvider>
             </TRPCProvider>
           </SpacingProvider>

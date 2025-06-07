@@ -6,7 +6,7 @@ import { Box } from './Box';
 import { BorderRadius, SpacingScale, FontSize } from '@/lib/design-system';
 import { useSpacing } from '@/contexts/SpacingContext';
 
-type ButtonVariant = 'solid' | 'outline' | 'ghost' | 'link';
+type ButtonVariant = 'solid' | 'outline' | 'ghost' | 'link' | 'secondary';
 type ButtonSize = 'sm' | 'md' | 'lg' | 'xl' | 'icon';
 type ButtonColorScheme = 'primary' | 'secondary' | 'destructive' | 'accent' | 'muted';
 
@@ -96,15 +96,15 @@ export const Button = React.forwardRef<View, ButtonProps>(({
 
     const colors = {
       solid: {
-        bg: theme[colorScheme],
+        bg: theme[colorScheme] || theme.primary,
         text: theme[`${colorScheme}Foreground`] || (colorScheme === 'muted' ? theme.mutedForeground : theme.background),
         border: 'transparent',
         hover: {
-          bg: theme[colorScheme] + 'e6', // 90% opacity
+          bg: (theme[colorScheme] || theme.primary) + 'e6', // 90% opacity
           text: theme[`${colorScheme}Foreground`] || (colorScheme === 'muted' ? theme.mutedForeground : theme.background),
         },
         active: {
-          bg: theme[colorScheme] + 'cc', // 80% opacity
+          bg: (theme[colorScheme] || theme.primary) + 'cc', // 80% opacity
         },
       },
       outline: {
@@ -143,12 +143,30 @@ export const Button = React.forwardRef<View, ButtonProps>(({
           bg: 'transparent',
         },
       },
+      // Add 'secondary' as an alias for 'outline' with secondary color scheme
+      secondary: {
+        bg: 'transparent',
+        text: theme.secondary || theme.foreground,
+        border: theme.secondary || theme.border,
+        hover: {
+          bg: (theme.secondary || theme.foreground) + '1a', // 10% opacity background
+          text: theme.secondary || theme.foreground,
+        },
+        active: {
+          bg: (theme.secondary || theme.foreground) + '33', // 20% opacity
+        },
+      },
     };
     
     return colors[variant];
   };
   
   const colors = getButtonColors();
+  if (!colors) {
+    console.error(`Button: Invalid variant "${variant}"`);
+    return null;
+  }
+  
   const currentBg = isPressed && 'active' in colors && colors.active ? colors.active.bg : (isHovered && 'hover' in colors && colors.hover ? colors.hover.bg : colors.bg);
   const currentText = isHovered && 'hover' in colors && colors.hover ? colors.hover.text : colors.text;
   

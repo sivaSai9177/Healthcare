@@ -1,6 +1,6 @@
 # 🤖 Agent Context Guide - Multi-Agent Development System
 
-*Last Updated: June 6, 2025*
+*Last Updated: January 7, 2025*
 
 ## 📋 Overview
 
@@ -152,6 +152,30 @@ if (!isAuthenticated) redirect('/login'); // Don't do this
 2. Success → Update Zustand store
 3. Store update → Triggers navigation
 4. Protected routes → Check store.hasHydrated && store.isAuthenticated
+
+// OAuth/Social Login Flow
+1. User clicks Google Sign In → Redirects to OAuth provider
+2. OAuth Callback → /app/auth-callback.tsx handles response
+3. Check Profile Status:
+   - If needsProfileCompletion === true OR role === 'guest'
+   - Redirect to /complete-profile
+4. Profile Completion (3 steps):
+   - Step 1: Personal info (name, phone, bio)
+   - Step 2: Role Selection (Guest/User/Manager/Admin)
+   - Step 3: Professional details (org, department, job title)
+5. Complete Profile → api.auth.completeProfile.useMutation()
+6. Update user with selected role → Navigate to /(home)
+
+// Role Assignment Logic
+- Guest: Browse-only access, must complete profile for full access
+- User: Personal workspace (optional organization)
+- Manager: Team management (requires organization creation)
+- Admin: Full system access (requires organization creation)
+
+// Key Fields
+- needsProfileCompletion: boolean flag for new OAuth users
+- role: 'guest' | 'user' | 'manager' | 'admin'
+- organizationId: Required for manager/admin roles
 ```
 
 ### 5. API Development Patterns
@@ -242,9 +266,17 @@ const isDesktop = screenWidth >= 1024;
 
 ### 2. Theme Usage
 ```typescript
-// Always use theme colors
+// ✅ CORRECT - useTheme() returns ExtendedTheme directly
 const theme = useTheme();
 <Text style={{ color: theme.foreground }}>
+<Box style={{ backgroundColor: theme.primary }}>
+
+// ❌ WRONG - No colors property
+<Text style={{ color: theme.colors.foreground }}> // WRONG!
+
+// ✅ Safe access with fallbacks
+const bgColor = theme[colorScheme] || theme.primary;
+const textColor = theme[`${colorScheme}Foreground`] || theme.foreground;
 
 // Never hardcode colors
 <Text style={{ color: '#000000' }}> // ❌ Wrong
@@ -388,6 +420,97 @@ GOOGLE_CLIENT_SECRET=...
 - Track technical debt
 - Monitor code quality metrics
 - Facilitate agent communication
+
+## 🎨 Universal Components & Charts (NEW)
+
+### Overview
+The project now includes a comprehensive Universal Design System with 48+ components and a complete charts library. All components are cross-platform (iOS, Android, Web) with full theme integration.
+
+### Universal Component Library
+```typescript
+// Component Categories (48+ components)
+- Layout: Box, Stack, Container, Grid, Card
+- Typography: Text, Heading1-4, Label
+- Forms: Input, Button, Checkbox, Switch, Select, Slider, DatePicker
+- Feedback: Alert, Badge, Progress, Skeleton, Toast
+- Navigation: Tabs, Breadcrumb, Pagination, Stepper
+- Data Display: Avatar, Table, EmptyState, Timeline, Rating, Stats
+- Overlays: Dialog, DropdownMenu, Tooltip, Popover, Drawer
+- Charts: Line, Bar, Pie, Area, Radar, Radial
+
+// Import pattern
+import { Box, Text, Button, LineChart } from '@/components/universal';
+```
+
+### Charts Library Features
+```typescript
+// Chart usage example
+import { LineChart, ChartContainer } from '@/components/universal';
+
+<ChartContainer title="Revenue Trend" description="Monthly data">
+  <LineChart
+    data={{
+      labels: ['Jan', 'Feb', 'Mar'],
+      datasets: [{
+        label: '2024',
+        data: [30, 45, 60],
+        color: theme.primary,
+      }]
+    }}
+    bezier
+    showGrid
+    showLegend
+  />
+</ChartContainer>
+```
+
+### Key Component Patterns
+```typescript
+// All components use forwardRef
+export const ComponentName = React.forwardRef<View, ComponentProps>(
+  ({ prop1, prop2, ...props }, ref) => {
+    const theme = useTheme();
+    const { spacing } = useSpacing();
+    
+    return (
+      <View ref={ref} {...props}>
+        {/* Component implementation */}
+      </View>
+    );
+  }
+);
+
+// Theme integration
+const styles = {
+  backgroundColor: theme.background,
+  borderColor: theme.border,
+  color: theme.foreground,
+};
+
+// Responsive spacing
+padding: spacing[4], // 12px compact, 16px medium, 20px large
+```
+
+### Design System Features
+- **5 Built-in Themes**: Default, Bubblegum, Ocean, Forest, Sunset
+- **Dynamic Theme Switching**: Runtime theme changes with persistence
+- **Shadow System**: 8 levels (shadow2xs to shadow2xl)
+- **Responsive Spacing**: 3 density modes (compact, medium, large)
+- **Dark Mode**: All themes support light/dark variants
+- **Cross-Platform**: Consistent behavior across all platforms
+
+### Component Status
+- **Completed**: 48+ components (96% of planned components)
+- **Charts**: 6 chart types with full theme integration
+- **Documentation**: Comprehensive guides and examples
+- **Bundle Size**: Optimized (removed lucide-react, saved 73MB)
+
+### Key Files
+- `components/universal/` - All universal components
+- `components/universal/charts/` - Chart components
+- `lib/theme/theme-registry.tsx` - Theme definitions
+- `lib/design-system/` - Design tokens and spacing
+- `docs/design-system/` - Complete documentation
 
 ---
 

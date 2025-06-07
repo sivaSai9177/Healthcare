@@ -16,7 +16,7 @@ export interface TextProps extends RNTextProps {
   
   // Color
   color?: string;
-  colorTheme?: 'foreground' | 'mutedForeground' | 'cardForeground' | 'primaryForeground' | 'secondaryForeground' | 'destructiveForeground' | 'primary' | 'secondary' | 'destructive' | 'accent' | 'success';
+  colorTheme?: 'foreground' | 'mutedForeground' | 'cardForeground' | 'primaryForeground' | 'secondaryForeground' | 'destructiveForeground' | 'accentForeground' | 'primary' | 'secondary' | 'destructive' | 'accent' | 'success' | 'popoverForeground';
   
   // Spacing (for inline text)
   mt?: SpacingScale;
@@ -143,7 +143,7 @@ export const Caption = React.forwardRef<RNText, TextProps>((props, ref) => (
   <Text ref={ref} size="sm" weight="normal" colorTheme="mutedForeground" {...props} />
 ));
 
-export const Label = React.forwardRef<RNText, TextProps>((props, ref) => (
+export const TextLabel = React.forwardRef<RNText, TextProps>((props, ref) => (
   <Text ref={ref} size="sm" weight="medium" {...props} />
 ));
 
@@ -159,5 +159,5 @@ Heading5.displayName = 'Heading5';
 Heading6.displayName = 'Heading6';
 Paragraph.displayName = 'Paragraph';
 Caption.displayName = 'Caption';
-Label.displayName = 'Label';
+TextLabel.displayName = 'TextLabel';
 Code.displayName = 'Code';

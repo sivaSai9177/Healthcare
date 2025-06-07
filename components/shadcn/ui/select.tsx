@@ -7,8 +7,9 @@ import {
   ScrollView,
   Pressable,
 } from "react-native";
-import { ChevronDown } from "lucide-react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { cn } from "@/lib/core/utils";
+import { useTheme } from "@/lib/theme/theme-provider";
 
 interface SelectOption {
   label: string;
@@ -40,6 +41,7 @@ const Select = React.forwardRef<View, SelectProps>(
   ) => {
     const [isOpen, setIsOpen] = React.useState(false);
     const selectedOption = options.find((opt) => opt.value === value);
+    const theme = useTheme();
 
     return (
       <View ref={ref} className="w-full">
@@ -65,7 +67,7 @@ const Select = React.forwardRef<View, SelectProps>(
           >
             {selectedOption ? selectedOption.label : placeholder}
           </Text>
-          <ChevronDown size={16} color="#9ca3af" />
+          <Ionicons name="chevron-down" size={16} color={theme.mutedForeground} />
         </TouchableOpacity>
         {error && (
           <Text className="text-xs text-destructive mt-1">{error}</Text>
