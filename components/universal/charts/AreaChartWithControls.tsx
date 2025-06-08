@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useTransition } from 'react';
 import { ViewStyle, Dimensions } from 'react-native';
 import { AreaChart, AreaChartData } from './AreaChart';
 import { ChartContainer, ChartLegend } from './ChartContainer';
@@ -44,6 +44,7 @@ export const AreaChartWithControls: React.FC<AreaChartWithControlsProps> = ({
   const theme = useTheme();
   const [selectedRange, setSelectedRange] = useState(defaultTimeRange);
   const [isMobile, setIsMobile] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     const updateIsMobile = () => {
@@ -56,10 +57,12 @@ export const AreaChartWithControls: React.FC<AreaChartWithControlsProps> = ({
     return () => subscription?.remove();
   }, []);
 
-  const handleRangeChange = (range: string) => {
-    setSelectedRange(range);
-    onTimeRangeChange?.(range);
-  };
+  const handleRangeChange = useCallback((range: string) => {
+    startTransition(() => {
+      setSelectedRange(range);
+      onTimeRangeChange?.(range);
+    });
+  }, [onTimeRangeChange]);
 
   const currentData = data[selectedRange] || data[defaultTimeRange];
 
@@ -144,7 +147,16 @@ export const AreaChartWithControls: React.FC<AreaChartWithControlsProps> = ({
 };
 
 // Helper function to generate sample visitor data
-export const generateVisitorData = (days: number): AreaChartData => {
+// Wrapped in a hook for memoization
+export const useGenerateVisitorData = (days: number): AreaChartData => {
+  return useMemo(() => {
+  // Use stable seed for consistent data during re-renders
+  const seed = days;
+  const random = (index: number) => {
+    const x = Math.sin(seed + index) * 10000;
+    return x - Math.floor(x);
+  };
+
   const labels: string[] = [];
   const desktopData: number[] = [];
   const mobileData: number[] = [];
@@ -174,12 +186,75 @@ export const generateVisitorData = (days: number): AreaChartData => {
       labels.push(label);
     }
     
-    // Generate realistic visitor data
-    const baseVisitors = 300 + Math.random() * 200;
+    // Generate realistic visitor data with stable seed
+    const baseVisitors = 300 + random(i) * 200;
     const weekendMultiplier = (date.getDay() === 0 || date.getDay() === 6) ? 0.7 : 1;
     
-    desktopData.push(Math.floor(baseVisitors * weekendMultiplier * (0.6 + Math.random() * 0.2)));
-    mobileData.push(Math.floor(baseVisitors * weekendMultiplier * (0.4 + Math.random() * 0.2)));
+    desktopData.push(Math.floor(baseVisitors * weekendMultiplier * (0.6 + random(i + 1000) * 0.2)));
+    mobileData.push(Math.floor(baseVisitors * weekendMultiplier * (0.4 + random(i + 2000) * 0.2)));
+  }
+  
+  return {
+    labels,
+    datasets: [
+      {
+        label: 'Desktop',
+        data: desktopData,
+        filled: true,
+        color: 'hsl(var(--chart-1))',
+        strokeWidth: 2,
+      },
+      {
+        label: 'Mobile',
+        data: mobileData,
+        filled: true,
+        color: 'hsl(var(--chart-2))',
+        strokeWidth: 2,
+      },
+    ],
+  };
+  }, [days]);
+};
+
+// Non-hook version for external use
+export const generateVisitorData = (days: number): AreaChartData => {
+  // Use stable seed for consistent data
+  const seed = days;
+  const random = (index: number) => {
+    const x = Math.sin(seed + index) * 10000;
+    return x - Math.floor(x);
+  };
+
+  const labels: string[] = [];
+  const desktopData: number[] = [];
+  const mobileData: number[] = [];
+  
+  const now = new Date();
+  
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    
+    let label: string;
+    if (days <= 7) {
+      label = date.toLocaleDateString('en-US', { weekday: 'short' });
+    } else {
+      label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    
+    if (days > 30 && i % 7 !== 0) {
+      labels.push('');
+    } else if (days > 7 && days <= 30 && i % 2 !== 0) {
+      labels.push('');
+    } else {
+      labels.push(label);
+    }
+    
+    const baseVisitors = 300 + random(i) * 200;
+    const weekendMultiplier = (date.getDay() === 0 || date.getDay() === 6) ? 0.7 : 1;
+    
+    desktopData.push(Math.floor(baseVisitors * weekendMultiplier * (0.6 + random(i + 1000) * 0.2)));
+    mobileData.push(Math.floor(baseVisitors * weekendMultiplier * (0.4 + random(i + 2000) * 0.2)));
   }
   
   return {

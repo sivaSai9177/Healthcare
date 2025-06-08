@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useTransition, useDeferredValue } from 'react';
 import {
   View,
   Text,
@@ -26,15 +26,85 @@ const LOG_COLORS = {
   [LogLevel.DEBUG]: '#10b981',
 };
 
+// Memoized log entry component for better performance
+const LogEntryItem = React.memo(({ 
+  logEntry, 
+  onPress, 
+  onLongPress 
+}: { 
+  logEntry: LogEntry; 
+  onPress: () => void; 
+  onLongPress: () => void;
+}) => {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      onLongPress={onLongPress}
+      style={{
+        backgroundColor: '#fff',
+        marginBottom: 8,
+        padding: 12,
+        borderRadius: 8,
+        borderLeftWidth: 4,
+        borderLeftColor: LOG_COLORS[logEntry.level],
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+      }}
+    >
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+        <Text style={{ 
+          fontSize: 11,
+          fontWeight: '600',
+          color: LOG_COLORS[logEntry.level],
+        }}>
+          {LogLevel[logEntry.level]} • {logEntry.component}
+        </Text>
+        <Text style={{ fontSize: 10, color: '#9ca3af' }}>
+          {logEntry.timestamp.toLocaleTimeString()}
+        </Text>
+      </View>
+      <Text style={{ fontSize: 13, color: '#374151', marginBottom: 2 }}>
+        {logEntry.message}
+      </Text>
+      {logEntry.data && (
+        <Text style={{
+          fontSize: 11,
+          color: '#6b7280',
+          fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+        }}>
+          {JSON.stringify(logEntry.data, null, 2)}
+        </Text>
+      )}
+      <Text style={{ 
+        fontSize: 10, 
+        color: '#9ca3af', 
+        marginTop: 4,
+        fontStyle: 'italic',
+      }}>
+        Tap to copy • Long press for details
+      </Text>
+    </TouchableOpacity>
+  );
+});
+
+LogEntryItem.displayName = 'LogEntryItem';
+
 export function EnhancedDebugPanel() {
   const [visible, setVisible] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [logFilter, setLogFilter] = useState<LogLevel>(LogLevel.DEBUG);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'logs' | 'tanstack'>('logs');
+  const [isPending, startTransition] = useTransition();
   const { user, isAuthenticated, hasHydrated } = useAuth();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  
+  // Defer search query for better performance
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   const refreshLogs = useCallback(() => {
     setLogs(getLogHistory({ level: logFilter }));
@@ -97,16 +167,36 @@ export function EnhancedDebugPanel() {
     Alert.alert('Copied', 'Log entry copied to clipboard');
   };
 
-  const filteredLogs = logs.filter(log => {
-    const matchesFilter = logFilter >= log.level;
-    const matchesSearch = !searchQuery || 
-      log.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.component.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (log.data && JSON.stringify(log.data).toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesFilter && matchesSearch;
-  });
+  // Memoize filtered logs for better performance
+  const filteredLogs = useMemo(() => {
+    const searchLower = deferredSearchQuery.toLowerCase();
+    return logs.filter(log => {
+      const matchesFilter = logFilter >= log.level;
+      if (!matchesFilter) return false;
+      
+      if (!searchLower) return true;
+      
+      const matchesSearch = 
+        log.message.toLowerCase().includes(searchLower) ||
+        log.component.toLowerCase().includes(searchLower) ||
+        (log.data && JSON.stringify(log.data).toLowerCase().includes(searchLower));
+      return matchesSearch;
+    });
+  }, [logs, logFilter, deferredSearchQuery]);
 
-  const errorCount = logs.filter(l => l.level === LogLevel.ERROR).length;
+  // Memoize error count
+  const errorCount = useMemo(() => 
+    logs.filter(l => l.level === LogLevel.ERROR).length,
+    [logs]
+  );
+  
+  // Memoize log counts for filter buttons
+  const logCounts = useMemo(() => ({
+    [LogLevel.ERROR]: logs.filter(l => l.level === LogLevel.ERROR).length,
+    [LogLevel.WARN]: logs.filter(l => l.level === LogLevel.WARN).length,
+    [LogLevel.INFO]: logs.filter(l => l.level === LogLevel.INFO).length,
+    [LogLevel.DEBUG]: logs.filter(l => l.level === LogLevel.DEBUG).length,
+  }), [logs]);
 
   return (
     <>
@@ -273,12 +363,17 @@ export function EnhancedDebugPanel() {
               <TextInput
                 placeholder="Search logs..."
                 value={searchQuery}
-                onChangeText={setSearchQuery}
+                onChangeText={(text) => {
+                  startTransition(() => {
+                    setSearchQuery(text);
+                  });
+                }}
                 style={{
                   backgroundColor: '#f3f4f6',
                   padding: 8,
                   borderRadius: 8,
                   fontSize: 14,
+                  opacity: isPending ? 0.6 : 1,
                 }}
               />
             </View>
@@ -310,7 +405,7 @@ export function EnhancedDebugPanel() {
                     fontSize: 12,
                     fontWeight: '600',
                   }}>
-                    {LogLevel[level]} ({logs.filter(l => l.level === level).length})
+                    {LogLevel[level]} ({logCounts[level]})
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -389,8 +484,9 @@ export function EnhancedDebugPanel() {
                 </Text>
               ) : (
               filteredLogs.map((logEntry) => (
-                <TouchableOpacity
+                <LogEntryItem
                   key={logEntry.id}
+                  logEntry={logEntry}
                   onPress={() => copyLogEntry(logEntry)}
                   onLongPress={() => {
                     Alert.alert(
@@ -404,53 +500,7 @@ export function EnhancedDebugPanel() {
                       ]
                     );
                   }}
-                  style={{
-                    backgroundColor: '#fff',
-                    marginBottom: 8,
-                    padding: 12,
-                    borderRadius: 8,
-                    borderLeftWidth: 4,
-                    borderLeftColor: LOG_COLORS[logEntry.level],
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.05,
-                    shadowRadius: 2,
-                    elevation: 1,
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <Text style={{ 
-                      fontSize: 11,
-                      fontWeight: '600',
-                      color: LOG_COLORS[logEntry.level],
-                    }}>
-                      {LogLevel[logEntry.level]} • {logEntry.component}
-                    </Text>
-                    <Text style={{ fontSize: 10, color: '#9ca3af' }}>
-                      {logEntry.timestamp.toLocaleTimeString()}
-                    </Text>
-                  </View>
-                  <Text style={{ fontSize: 13, color: '#374151', marginBottom: 2 }}>
-                    {logEntry.message}
-                  </Text>
-                  {logEntry.data && (
-                    <Text style={{
-                      fontSize: 11,
-                      color: '#6b7280',
-                      fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
-                    }}>
-                      {JSON.stringify(logEntry.data, null, 2)}
-                    </Text>
-                  )}
-                  <Text style={{ 
-                    fontSize: 10, 
-                    color: '#9ca3af', 
-                    marginTop: 4,
-                    fontStyle: 'italic',
-                  }}>
-                    Tap to copy • Long press for details
-                  </Text>
-                </TouchableOpacity>
+                />
               ))
               )
             ) : (

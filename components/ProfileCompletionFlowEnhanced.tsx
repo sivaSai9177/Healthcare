@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useOptimistic, useTransition } from 'react';
 import { View, Text, ScrollView, Alert, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,6 +27,7 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
   const utils = api.useUtils();
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
+  const [isPending, startTransition] = useTransition();
   
   // Use refs to prevent infinite loops
   const isSubmittingRef = useRef(false);
@@ -46,6 +47,12 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
     bio: undefined,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Use optimistic updates for profile completion status
+  const [optimisticProfileComplete, setOptimisticProfileComplete] = useOptimistic(
+    user?.needsProfileCompletion === false,
+    (state, newValue: boolean) => newValue
+  );
 
   // Stabilized mutation to prevent re-creation on every render
   const completeProfileMutation = api.auth.completeProfile.useMutation({
@@ -153,13 +160,24 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
       // Validate cleaned data
       const validatedData = CompleteProfileInputSchema.parse(cleanedFormData);
       
+      // Optimistically update the profile completion status
+      startTransition(() => {
+        setOptimisticProfileComplete(true);
+      });
+      
       logger.info('Submitting profile completion data', 'PROFILE_COMPLETION', { 
         fields: Object.keys(validatedData), 
         data: validatedData 
       });
+      
       await completeProfileMutation.mutateAsync(validatedData);
     } catch (error) {
       isSubmittingRef.current = false;
+      
+      // Revert optimistic update on error
+      startTransition(() => {
+        setOptimisticProfileComplete(false);
+      });
       
       if (error instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {};
@@ -172,7 +190,7 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
         logger.warn('Validation errors', 'PROFILE_COMPLETION', fieldErrors);
       }
     }
-  }, [formData, completeProfileMutation]);
+  }, [formData, completeProfileMutation, setOptimisticProfileComplete]);
 
   const handleSkip = useCallback(() => {
     // Prevent navigation if already completed

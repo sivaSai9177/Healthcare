@@ -136,9 +136,13 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
               }, 30000);
               
               try {
+                // Check if we're in tunnel mode
+                const isTunnel = url.toString().includes('.exp.direct') || url.toString().includes('.exp.host');
+                
                 const response = await fetch(url, {
                   ...options,
-                  credentials: 'include',
+                  // Use 'omit' for mobile in tunnel mode to avoid CORS issues
+                  credentials: Platform.OS === 'web' ? 'include' : (isTunnel ? 'omit' : 'include'),
                   signal: controller.signal,
                 });
                 clearTimeout(timeoutId);
@@ -148,7 +152,12 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
                 if (error.name === 'AbortError') {
                   log.api.error('tRPC request aborted', { url: url.toString() });
                 } else {
-                  log.api.error('tRPC request failed', error);
+                  log.api.error('tRPC request failed', { 
+                    error: error.message,
+                    url: url.toString(),
+                    platform: Platform.OS,
+                    isTunnel: url.toString().includes('.exp.direct') || url.toString().includes('.exp.host')
+                  });
                 }
                 throw error;
               }

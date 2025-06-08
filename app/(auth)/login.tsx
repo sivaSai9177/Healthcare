@@ -19,22 +19,22 @@ import { signInSchema, type SignInInput } from "@/lib/validations/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LinearGradient } from 'expo-linear-gradient';
 import debounce from 'lodash.debounce';
-import React from "react";
+import React, { useMemo, useCallback, useDeferredValue, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { Dimensions, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { z } from "zod";
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Social button icons as simple SVG paths
-const SocialIcons = {
+// Memoize social icons to prevent re-creation
+const getSocialIcons = () => ({
   meta: (
-    <Text size="xl" colorTheme="foreground" weight="bold">f</Text> // Simplified Meta logo
+    <Text size="xl" colorTheme="foreground" weight="bold" style={{ fontSize: 20, fontFamily: Platform.OS === 'ios' ? 'Helvetica' : 'sans-serif' }}>f</Text> // Simplified Meta logo
   ),
   x: (
-    <Text size="xl" colorTheme="foreground" weight="bold">𝕏</Text> // X (Twitter) logo
+    <Text size="xl" colorTheme="foreground" weight="bold" style={{ fontSize: 20, fontFamily: Platform.OS === 'ios' ? 'Helvetica' : 'sans-serif' }}>X</Text> // X (Twitter) logo - using regular X instead of special character
   ),
-};
+});
 
 export default function LoginScreenV2() {
   const { updateAuth, setLoading, setError } = useAuth();
@@ -43,6 +43,10 @@ export default function LoginScreenV2() {
   const [emailExists, setEmailExists] = React.useState<boolean | null>(null);
   const [checkingEmail, setCheckingEmail] = React.useState(false);
   const [screenWidth, setScreenWidth] = React.useState(SCREEN_WIDTH);
+  const [isPending, startTransition] = useTransition();
+  
+  // Get social icons
+  const socialIcons = React.useMemo(() => getSocialIcons(), []);
   
   // Update screen width on resize (web)
   React.useEffect(() => {
@@ -60,7 +64,7 @@ export default function LoginScreenV2() {
   const isLargeScreen = screenWidth >= 1024; // Only show image on larger screens
   
   // Memoize mutation callbacks to prevent recreation on every render
-  const onSuccess = React.useCallback(async (data: any) => {
+  const onSuccess = useCallback(async (data: any) => {
     log.auth.login('Sign in successful via tRPC', { userId: data.user?.id });
     if (data.user && data.token) {
       // Convert user to AppUser with safe defaults
@@ -95,13 +99,13 @@ export default function LoginScreenV2() {
     }
   }, [updateAuth]);
 
-  const onError = React.useCallback((error: any) => {
+  const onError = useCallback((error: any) => {
     log.auth.error('Sign in failed', error);
     setError(error.message);
     showErrorAlert("Login Failed", error.message || "Failed to sign in. Please check your credentials.");
   }, [setError]);
 
-  const onSettled = React.useCallback(() => {
+  const onSettled = useCallback(() => {
     setLoading(false);
   }, [setLoading]);
   
@@ -126,20 +130,23 @@ export default function LoginScreenV2() {
   const email = form.watch('email');
   const password = form.watch('password');
   
+  // Use deferred value for email validation to prevent blocking UI
+  const deferredEmail = useDeferredValue(email);
+  
   // Email validation using Zod
   const emailSchema = z.string().email();
   const [shouldCheckEmail, setShouldCheckEmail] = React.useState(false);
   const [hasInteractedWithEmail, setHasInteractedWithEmail] = React.useState(false);
   
-  // Validate email with Zod
-  const isValidEmail = React.useMemo(() => {
+  // Validate email with Zod using deferred value
+  const isValidEmail = useMemo(() => {
     try {
-      emailSchema.parse(email);
+      emailSchema.parse(deferredEmail);
       return true;
     } catch {
       return false;
     }
-  }, [email]);
+  }, [deferredEmail]);
   
   // Only enable query when all conditions are met
   const enableQuery = shouldCheckEmail && isValidEmail && hasInteractedWithEmail;
@@ -156,9 +163,9 @@ export default function LoginScreenV2() {
     });
   }, [email, isValidEmail, shouldCheckEmail, form.formState.touchedFields.email, hasInteractedWithEmail, enableQuery]);
   
-  // Use the query hook with strict conditions
+  // Use the query hook with strict conditions and deferred email
   const checkEmailQuery = api.auth.checkEmailExists.useQuery(
-    { email: enableQuery ? email : 'noreply@example.com' }, // Use placeholder when disabled
+    { email: enableQuery ? deferredEmail : 'noreply@example.com' }, // Use placeholder when disabled
     {
       enabled: enableQuery,
       retry: false,
@@ -228,13 +235,13 @@ export default function LoginScreenV2() {
   const isCheckingEmail = enableQuery && checkEmailQuery.isFetching;
   
   // Check if form has valid values (not just validation state)
-  const hasValidValues = React.useMemo(() => {
+  const hasValidValues = useMemo(() => {
     const isPasswordValid = password && password.length >= 1;
     
     return isValidEmail && isPasswordValid;
   }, [isValidEmail, password]);
 
-  const onSubmit = async (data: SignInInput) => {
+  const onSubmit = useCallback(async (data: SignInInput) => {
     log.auth.debug('Starting login attempt', { email: data.email });
     
     // Trigger validation for all fields before submission
@@ -246,8 +253,10 @@ export default function LoginScreenV2() {
       return;
     }
     
-    setLoading(true);
-    setError(null);
+    startTransition(() => {
+      setLoading(true);
+      setError(null);
+    });
     
     try {
       await signInMutation.mutateAsync({
@@ -263,7 +272,7 @@ export default function LoginScreenV2() {
       // Clear the form password on error
       form.setValue("password", "");
     }
-  };
+  }, [form, signInMutation, setLoading, setError]);
 
   const handleSocialAuth = (provider: 'meta' | 'x') => {
     // Placeholder for future implementation
@@ -448,7 +457,7 @@ export default function LoginScreenV2() {
               onPress={() => handleSocialAuth('meta')}
               style={{ height: 44 }}
             >
-              {SocialIcons.meta}
+              {socialIcons.meta}
             </Button>
           </Box>
           <Box flex={1}>
@@ -459,7 +468,7 @@ export default function LoginScreenV2() {
               onPress={() => handleSocialAuth('x')}
               style={{ height: 44 }}
             >
-              {SocialIcons.x}
+              {socialIcons.x}
             </Button>
           </Box>
         </HStack>
@@ -793,7 +802,7 @@ export default function LoginScreenV2() {
                           onPress={() => handleSocialAuth('meta')}
                           style={{ height: 52 }}
                         >
-                          {SocialIcons.meta}
+                          {socialIcons.meta}
                         </Button>
                       </Box>
                       <Box flex={1}>
@@ -804,7 +813,7 @@ export default function LoginScreenV2() {
                           onPress={() => handleSocialAuth('x')}
                           style={{ height: 52 }}
                         >
-                          {SocialIcons.x}
+                          {socialIcons.x}
                         </Button>
                       </Box>
                     </HStack>

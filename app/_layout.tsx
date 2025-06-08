@@ -3,12 +3,18 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Platform } from "react-native";
 
+// Only import reanimated on native platforms
+if (Platform.OS !== 'web') {
+  require("react-native-reanimated");
+}
+
 // Import crypto polyfill early for React Native
 import "@/lib/core/crypto";
+// Suppress common Expo Go warnings
+import "@/lib/core/suppress-warnings";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EnhancedDebugPanel } from "@/components/EnhancedDebugPanel";

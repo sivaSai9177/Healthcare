@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Full-Stack Expo Starter",
-    "slug": "expo-fullstack-starter",
+    "name": "Expo Modern Starter",
+    "slug": "expo-modern-starter",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

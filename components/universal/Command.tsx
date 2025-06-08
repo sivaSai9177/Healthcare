@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef, useDeferredValue, useTransition } from 'react';
 import {
   View,
   Text,
@@ -64,7 +64,7 @@ const fuzzySearch = (query: string, text: string, keywords?: string[]): boolean 
   return queryIndex === lowerQuery.length;
 };
 
-export const Command = React.forwardRef<View, CommandProps>(
+export const Command = React.memo(React.forwardRef<View, CommandProps>(
   (
     {
       open,
@@ -85,17 +85,21 @@ export const Command = React.forwardRef<View, CommandProps>(
     const { spacing } = useSpacing();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
+    const [isPending, startTransition] = useTransition();
     const flatListRef = useRef<FlatList>(null);
     const inputRef = useRef<TextInput>(null);
+    
+    // Use deferred value for better search performance
+    const deferredSearchQuery = useDeferredValue(searchQuery);
 
-    // Filter and group items
+    // Filter and group items with deferred value
     const filteredItems = useMemo(() => {
-      if (!searchQuery) return items;
+      if (!deferredSearchQuery) return items;
       
       return items.filter(item =>
-        fuzzySearch(searchQuery, item.label, item.keywords)
+        fuzzySearch(deferredSearchQuery, item.label, item.keywords)
       );
-    }, [items, searchQuery]);
+    }, [items, deferredSearchQuery]);
 
     const groupedItems = useMemo(() => {
       if (!showCategories) return { '': filteredItems };
@@ -166,11 +170,14 @@ export const Command = React.forwardRef<View, CommandProps>(
 
     const handleItemSelect = useCallback((item: CommandItem) => {
       if (item.disabled) return;
-      item.onSelect();
-      onOpenChange(false);
+      startTransition(() => {
+        item.onSelect();
+        onOpenChange(false);
+      });
     }, [onOpenChange]);
 
-    const renderItem = ({ item, index }: { item: any; index: number }) => {
+    // Memoize renderItem for better performance
+    const renderItem = useCallback(({ item, index }: { item: any; index: number }) => {
       if ('isCategory' in item) {
         return (
           <View
@@ -277,7 +284,7 @@ export const Command = React.forwardRef<View, CommandProps>(
           )}
         </TouchableOpacity>
       );
-    };
+    }, [selectedIndex, handleItemSelect, theme, spacing, itemStyle]);
 
     if (!open) return null;
 
@@ -343,6 +350,7 @@ export const Command = React.forwardRef<View, CommandProps>(
                       flex: 1,
                       fontSize: 16,
                       color: theme.foreground,
+                      opacity: isPending ? 0.7 : 1,
                     }}
                     autoFocus
                     autoCorrect={false}
@@ -395,7 +403,7 @@ export const Command = React.forwardRef<View, CommandProps>(
       </Modal>
     );
   }
-);
+));
 
 Command.displayName = 'Command';
 

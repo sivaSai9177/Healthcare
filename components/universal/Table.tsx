@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, ScrollView, ViewStyle, TextStyle } from 'react-native';
+import React, { useMemo, useCallback } from 'react';
+import { View, ScrollView, ViewStyle, TextStyle, Pressable } from 'react-native';
 import { useTheme } from '@/lib/theme/enhanced-theme-provider';
 import { useSpacing } from '@/contexts/SpacingContext';
 import { Text } from './Text';
@@ -125,7 +125,7 @@ export interface TableRowProps {
   onPress?: () => void;
 }
 
-export const TableRow: React.FC<TableRowProps> = ({
+export const TableRow = React.memo<TableRowProps>(({
   children,
   style,
   striped = false,
@@ -165,7 +165,7 @@ export const TableRow: React.FC<TableRowProps> = ({
       )}
     </Pressable>
   );
-};
+});
 
 // Table Cell Props
 export interface TableCellProps {
@@ -178,7 +178,7 @@ export interface TableCellProps {
   header?: boolean;
 }
 
-export const TableCell: React.FC<TableCellProps> = ({
+export const TableCell = React.memo<TableCellProps>(({
   children,
   style,
   textStyle,
@@ -217,7 +217,7 @@ export const TableCell: React.FC<TableCellProps> = ({
       )}
     </View>
   );
-};
+});
 
 // Simple Table Component
 export interface SimpleTableColumn {
@@ -239,7 +239,7 @@ export interface SimpleTableProps {
   style?: ViewStyle;
 }
 
-export const SimpleTable: React.FC<SimpleTableProps> = ({
+export const SimpleTable = React.memo<SimpleTableProps>(({
   columns,
   data,
   striped = false,
@@ -248,22 +248,32 @@ export const SimpleTable: React.FC<SimpleTableProps> = ({
   onRowPress,
   style,
 }) => {
+  // Memoize row press handlers to prevent recreation
+  const handleRowPress = useCallback((row: any, rowIndex: number) => {
+    return onRowPress ? () => onRowPress(row, rowIndex) : undefined;
+  }, [onRowPress]);
+
+  // Memoize header row
+  const headerRow = useMemo(() => (
+    <TableRow>
+      {columns.map((col) => (
+        <TableCell
+          key={col.key}
+          header
+          width={col.width}
+          flex={col.flex}
+          align={col.align}
+        >
+          {col.header}
+        </TableCell>
+      ))}
+    </TableRow>
+  ), [columns]);
+
   return (
     <Table striped={striped} bordered={bordered} hoverable={hoverable} style={style}>
       <TableHeader>
-        <TableRow>
-          {columns.map((col) => (
-            <TableCell
-              key={col.key}
-              header
-              width={col.width}
-              flex={col.flex}
-              align={col.align}
-            >
-              {col.header}
-            </TableCell>
-          ))}
-        </TableRow>
+        {headerRow}
       </TableHeader>
       <TableBody>
         {data.map((row, rowIndex) => (
@@ -272,7 +282,7 @@ export const SimpleTable: React.FC<SimpleTableProps> = ({
             index={rowIndex}
             striped={striped}
             hoverable={hoverable}
-            onPress={onRowPress ? () => onRowPress(row, rowIndex) : undefined}
+            onPress={handleRowPress(row, rowIndex)}
           >
             {columns.map((col) => (
               <TableCell
@@ -292,7 +302,4 @@ export const SimpleTable: React.FC<SimpleTableProps> = ({
       </TableBody>
     </Table>
   );
-};
-
-// Import Pressable
-import { Pressable } from 'react-native';
+});

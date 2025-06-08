@@ -31,6 +31,17 @@ const getTrustedOrigins = () => {
     "http://127.0.0.1:8082",
     "http://127.0.0.1:3000",
   ];
+  
+  // Add Expo tunnel URLs dynamically
+  if (process.env.NODE_ENV === "development") {
+    // Add wildcard patterns for Expo tunnel domains
+    origins.push(
+      "https://*.exp.direct",
+      "https://*.exp.host",
+      "https://*.expo.dev",
+      "https://*.expo.io"
+    );
+  }
 
   // Add local network IP for mobile testing
   if (process.env.NODE_ENV === "development") {
@@ -88,6 +99,10 @@ export const auth = betterAuth({
   baseURL: getBaseURL(),
   secret:
     process.env.BETTER_AUTH_SECRET || "your-secret-key-change-in-production",
+  // Disable trusted origins check in development for tunnel URLs
+  ...(process.env.NODE_ENV === "development" && {
+    disableCsrf: true,
+  }),
   socialProviders: {
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && {
       google: {
@@ -199,7 +214,12 @@ export const auth = betterAuth({
     }) // Admin functionality
   ],
   // CORS and trusted origins - include app scheme for mobile
-  trustedOrigins: [
+  trustedOrigins: process.env.NODE_ENV === "development" ? 
+    // In development, accept all origins
+    (origin: string) => {
+      log.auth.debug('Development mode: accepting origin', { origin });
+      return true;
+    } : [
     ...getTrustedOrigins(),
     "expo-starter://", // Add your app scheme
     "expo-starter://auth-callback", // Specific callback path
@@ -216,11 +236,43 @@ export const auth = betterAuth({
     // Expo auth proxy patterns
     "https://auth.expo.io/*",
     "https://auth.expo.io",
+    // Use a custom function to validate tunnel URLs dynamically
+    (origin: string) => {
+      // Allow all Expo tunnel URLs
+      const tunnelPatterns = [
+        /^https:\/\/[\w-]+\.exp\.direct$/,
+        /^https:\/\/[\w-]+\.exp\.host$/,
+        /^https:\/\/[\w-]+\.expo\.dev$/,
+        /^https:\/\/[\w-]+\.expo\.io$/,
+      ];
+      return tunnelPatterns.some(pattern => pattern.test(origin));
+    },
   ],
   
   // Explicit CORS configuration
   cors: {
-    origin: getTrustedOrigins(),
+    origin: (origin: string) => {
+      // Check static origins
+      const staticOrigins = getTrustedOrigins();
+      if (staticOrigins.includes(origin)) {
+        return true;
+      }
+      
+      // Check tunnel patterns
+      const tunnelPatterns = [
+        /^https:\/\/[\w-]+\.exp\.direct$/,
+        /^https:\/\/[\w-]+\.exp\.host$/,
+        /^https:\/\/[\w-]+\.expo\.dev$/,
+        /^https:\/\/[\w-]+\.expo\.io$/,
+      ];
+      
+      const isTunnel = tunnelPatterns.some(pattern => pattern.test(origin));
+      if (isTunnel) {
+        log.auth.debug('Allowing tunnel origin', { origin });
+      }
+      
+      return isTunnel;
+    },
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],

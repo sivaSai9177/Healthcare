@@ -1,12 +1,14 @@
-# CLAUDE.md - Agent Memory and Context
+# CLAUDE.md - Claude Code Development Context
 
-This document serves as the central memory for AI agents working on this codebase. It contains key implementation details, patterns, and context needed for effective collaboration.
+This document serves as the central memory and context for Claude Code development on this codebase. It contains key implementation details, patterns, and current project status.
 
 ## 🏗️ Project Overview
 
-**Project**: Full-Stack Expo Starter Kit
+**Project**: Modern Expo Starter Kit
+**Development**: Single-agent approach with Claude Code
 **Stack**: Expo (React Native), TypeScript, tRPC, Better Auth, Drizzle ORM, TanStack Query
-**Purpose**: Enterprise-ready mobile/web application with authentication, authorization, and organization management
+**Purpose**: The most comprehensive, production-ready starter kit for modern app development
+**Status**: 98% Complete - Production Ready
 
 ## 🔐 Authentication & Authorization System
 
@@ -681,24 +683,245 @@ app/
 4. No manual auth checks in protected routes
 5. Authentication state updates trigger automatic re-routing
 
+## ⚡ React 19 Performance Optimizations (NEW)
+
+### Overview
+The codebase has been optimized with React 19's latest features for significantly improved performance, especially on lower-end devices and during heavy computations.
+
+### Key Optimizations Implemented
+
+#### 1. **EnhancedDebugPanel** (`/components/EnhancedDebugPanel.tsx`)
+- **React.memo**: LogEntryItem component for reduced re-renders
+- **useMemo**: Filtered logs, error counts, and log counts calculations
+- **useDeferredValue**: Search query for non-blocking search
+- **useTransition**: Search input updates for smooth typing
+
+#### 2. **List Component** (`/components/universal/List.tsx`)
+- **React.memo**: ListItem with custom comparison function
+- **Memoized Components**: SwipeActionButton for better performance
+- **useMemo**: PanResponder creation to avoid recreation on every render
+- **useCallback**: All event handlers properly memoized
+
+#### 3. **Search Component** (`/components/universal/Search.tsx`)
+- **useDeferredValue**: Search value for better performance during typing
+- **React.memo**: SuggestionItem component
+- **useMemo**: Filtered suggestions with deferred value
+- **useTransition**: Search updates for non-blocking UI
+- **Note**: When using spacing, access as `spacing[key]` not `spacing(key)`
+
+#### 4. **Chart Components** (`/components/universal/charts/`)
+- **useTransition**: Time range changes for smooth transitions
+- **useMemo**: Data transformations with stable seed for consistency
+- **useCallback**: Event handlers to prevent unnecessary re-renders
+- **Performance**: Heavy data generation now uses stable seed to prevent recalculation
+
+#### 5. **ProfileCompletionFlowEnhanced** (`/components/ProfileCompletionFlowEnhanced.tsx`)
+- **useOptimistic**: Immediate UI feedback for profile completion
+- **useTransition**: Form submission for non-blocking updates
+- **Optimistic Updates**: Shows success state immediately, reverts on error
+
+#### 6. **ThemeSelector** (`/components/ThemeSelector.tsx`)
+- **useTransition**: Theme switching with loading indicator
+- **React.memo**: ColorSwatch component
+- **useCallback**: Theme change handlers
+- **Visual Feedback**: Shows "Applying..." during theme transitions
+
+#### 7. **Command Component** (`/components/universal/Command.tsx`)
+- **useDeferredValue**: Search query for non-blocking search
+- **React.memo**: Entire component wrapped for better performance
+- **useCallback**: Memoized renderItem and event handlers
+- **useTransition**: Item selection for smooth interactions
+- **Performance**: Fuzzy search now runs on deferred value
+
+#### 8. **Table Components** (`/components/universal/Table.tsx`)
+- **React.memo**: TableRow, TableCell, and SimpleTable components
+- **useCallback**: Row press handlers to prevent recreation
+- **useMemo**: Header row memoization in SimpleTable
+- **Performance**: Reduced re-renders for large data sets
+
+#### 9. **Login Screen** (`/app/(auth)/login.tsx`)
+- **useDeferredValue**: Email validation for non-blocking UI
+- **useTransition**: Form submission with loading states
+- **useCallback**: All event handlers properly memoized
+- **useMemo**: Email validation logic with deferred value
+- **Performance**: Smooth typing experience with async email validation
+
+### React 19 Hooks Usage Guide
+
+```typescript
+// useDeferredValue - For expensive computations
+const deferredSearchQuery = useDeferredValue(searchQuery);
+const filteredResults = useMemo(() => 
+  items.filter(item => item.includes(deferredSearchQuery)),
+  [items, deferredSearchQuery]
+);
+
+// useTransition - For non-blocking updates
+const [isPending, startTransition] = useTransition();
+const handleUpdate = () => {
+  startTransition(() => {
+    // Heavy state update
+    setComplexState(newValue);
+  });
+};
+
+// useOptimistic - For immediate UI feedback
+const [optimisticValue, setOptimisticValue] = useOptimistic(
+  actualValue,
+  (currentState, optimisticValue) => optimisticValue
+);
+
+// React.memo with custom comparison
+const Component = React.memo(({ prop1, prop2 }) => {
+  // Component implementation
+}, (prevProps, nextProps) => {
+  // Return true if props are equal (skip re-render)
+  return prevProps.prop1 === nextProps.prop1;
+});
+```
+
+### Performance Best Practices
+
+1. **Memoization Strategy**
+   - Use `React.memo` for components that re-render frequently with same props
+   - Apply `useMemo` for expensive calculations
+   - Implement `useCallback` for functions passed as props
+
+2. **Deferred Updates**
+   - Use `useDeferredValue` for search/filter operations
+   - Apply to any value that triggers expensive re-renders
+
+3. **Transitions**
+   - Wrap state updates in `startTransition` for non-urgent updates
+   - Show pending state with `isPending` for user feedback
+
+4. **Optimistic Updates**
+   - Use `useOptimistic` for form submissions
+   - Provide immediate feedback, handle errors gracefully
+
+### Migration Checklist for New Components
+
+- [ ] Identify components with frequent re-renders
+- [ ] Add React.memo to child components
+- [ ] Use useMemo for expensive computations
+- [ ] Apply useCallback to event handlers
+- [ ] Add useDeferredValue for search/filter inputs
+- [ ] Implement useTransition for heavy state updates
+- [ ] Consider useOptimistic for user actions with API calls
+
+### 📊 Performance Audit Documentation
+
+For detailed performance analysis and implementation tracking:
+- **[React 19 Optimization Audit](docs/design-system/REACT_19_OPTIMIZATION_AUDIT.md)** - Comprehensive audit with metrics and subtasks
+- **[React 19 Implementation Tracker](docs/design-system/REACT_19_IMPLEMENTATION_TRACKER.md)** - Phase-by-phase implementation status
+
+## 🚀 Development Commands (UPDATED)
+
+### Quick Start with Expo Go (Default)
+```bash
+# Start with Expo Go mode (default)
+bun start              # Local network, Expo Go
+bun start:tunnel       # Tunnel mode, Expo Go
+
+# Environment-specific with Expo Go
+bun local              # Local DB (Docker PostgreSQL)
+bun dev                # Development DB (Neon Cloud)
+bun staging            # Staging DB (Neon Cloud)
+
+# Tunnel mode with environments
+bun local:tunnel       # Local DB + Tunnel
+bun dev:tunnel         # Dev DB + Tunnel
+```
+
+### Development Build Mode
+```bash
+# For development builds (not Expo Go)
+bun start:dev          # Local network, dev build
+bun start:tunnel:dev   # Tunnel mode, dev build
+```
+
+### Database Configuration
+- **Local Development**: Uses Docker PostgreSQL (`APP_ENV=local`)
+- **Development/Staging**: Uses Neon Cloud Database (`APP_ENV=development`)
+- **Automatic Detection**: Based on `APP_ENV` environment variable
+
+## 🔄 Latest Session Updates
+
+**Date**: January 8, 2025
+**Session Summary**: Major reorganization and cleanup
+
+### Changes Made:
+
+1. **Expo Go as Default Mode** ✅
+   - All `bun start` commands now use `--go` flag
+   - Expo Go mode is the default for all environments
+   - Development build mode available with `:dev` suffix
+
+2. **Database Configuration Clarified** ✅
+   - Local environment uses Docker PostgreSQL
+   - Development/Staging use Neon Cloud
+   - Clear separation in package.json scripts
+
+3. **Documentation Reorganized** ✅
+   - Created new documentation structure with clear categories
+   - Moved session-specific files to archive
+   - Updated INDEX.md with comprehensive navigation
+   - Cleaned up root directory markdown files
+
+4. **Tunnel Mode Improvements** ✅
+   - Fixed OAuth issues with dynamic origin acceptance
+   - Added development mode CSRF bypass
+   - Better error handling for tunnel URLs
+   - Note: Google OAuth still requires manual Console configuration
+
+5. **Cleanup Performed** ✅
+   - Removed temporary session files
+   - Archived tunnel-specific guides
+   - Removed unused scripts and plugins
+   - Organized all guides into proper categories
+
+### Key Fixes from Session:
+
+1. **Fixed socialIcons error in login.tsx**
+   - Changed from `SocialIcons` to `socialIcons`
+   - Added proper memoization
+
+2. **Fixed Reanimated errors on web**
+   - Added platform checks for Reanimated imports
+   - Created mock for web platform
+   - Suppressed warnings appropriately
+
+3. **Fixed tunnel OAuth 403 errors**
+   - Added dynamic origin validation
+   - Disabled CSRF in development mode
+   - Enhanced CORS handling
+
 ## 🔄 Last Updated
 
-**Date**: January 7, 2025
-**Last Change**: Implemented Universal Charts Library
+**Date**: January 8, 2025
+**Last Change**: Session Cleanup and Reorganization
 **Changes**:
-- ✅ Implemented Universal Charts Library with 6 chart types (Line, Bar, Pie, Area, Radar, Radial)
-- ✅ Cross-platform charts using react-native-svg (already installed)
-- ✅ Full theme integration - charts adapt to all 5 themes
-- ✅ ChartContainer, ChartLegend, and ChartTooltip components
-- ✅ Responsive sizing and touch interactions
-- ✅ Previously completed: 48+ universal components
+- ✅ Configured Expo Go as default mode for all commands
+- ✅ Clarified database configuration (Docker for local, Neon for dev)
+- ✅ Reorganized entire documentation structure
+- ✅ Fixed tunnel mode OAuth issues
+- ✅ Cleaned up temporary session files
+- ✅ Updated package.json with better script organization
+- ✅ Previously: React 19 optimizations across 9 components
+- ✅ Previously: Universal Charts Library with 6 chart types
+- ✅ Previously: 48+ universal components
 
 **Current Status**: 
+- **Default Mode**: ✅ Expo Go for all environments
+- **Database Setup**: ✅ Clear separation (local=Docker, dev=Neon)
+- **Documentation**: ✅ Reorganized with proper categories
+- **Tunnel Mode**: ✅ Working with OAuth fixes
+- **React 19 Optimizations**: ✅ Complete for critical components
 - **Universal Components**: ✅ 48+ components + 6 chart types (98% complete)
 - **Charts Library**: ✅ Complete with theme integration
 - **Theme System**: ✅ 5 themes with dynamic switching and persistence
 - **Bundle Size**: ✅ Optimized (charts add only ~15KB)
-- **Documentation**: ✅ Complete component and charts documentation
+- **Performance**: ✅ Significantly improved with React 19 features
 
 **Note**: FilePicker component shows demo implementation. To enable full functionality:
 ```bash
@@ -706,6 +929,35 @@ bun add expo-image-picker expo-document-picker
 ```
 Then update the FilePicker component to use the actual picker packages.
 
+## 🤖 Development Approach with Claude Code
+
+### Overview
+This project uses **Claude Code as the single development agent**, focusing on sequential, high-quality implementation rather than multi-agent coordination.
+
+### Key Principles
+1. **Sequential Execution**: One task at a time, completed thoroughly
+2. **Documentation First**: Document before implementing
+3. **Test Driven**: Write tests alongside features
+4. **Performance Aware**: Consider performance from the start
+5. **Security Minded**: Security is not an afterthought
+
+### Workflow
+1. Review project status in `/docs/status/PROJECT_STATUS_2025.md`
+2. Check master plan in `/docs/planning/MASTER_TASK_PLAN.md`
+3. Follow workflow guide in `/docs/planning/CLAUDE_CODE_WORKFLOW.md`
+4. Update this document after significant changes
+
+### Current Focus
+- **Production Infrastructure**: Enhanced logging, monitoring, CI/CD
+- **Advanced Features**: Real-time, offline support, push notifications
+- **Developer Experience**: Interactive docs, video tutorials, examples
+
+### Benefits of Single-Agent Approach
+- **Consistency**: One development style throughout
+- **Quality**: Deep understanding of entire codebase
+- **Efficiency**: No coordination overhead
+- **Documentation**: Comprehensive and cohesive
+
 ---
 
-*This document should be updated whenever significant changes are made to the authentication system, state management, or overall architecture.*
+*This document should be updated whenever significant changes are made to the authentication system, state management, overall architecture, or development approach.*

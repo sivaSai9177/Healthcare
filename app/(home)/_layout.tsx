@@ -69,13 +69,13 @@ export default function TabLayout() {
     });
   }
 
-  // Add manager tab if user is manager
+  // Add manager tab if user is manager or admin
   if (isManager || isAdmin) {
     navItems.push({
-      id: "team",
-      title: "Team",
+      id: "manager",
+      title: "Manager",
       href: "/(home)/manager",
-      icon: "people" as keyof typeof Ionicons.glyphMap,
+      icon: "people-circle" as keyof typeof Ionicons.glyphMap,
     });
   }
 
@@ -239,20 +239,18 @@ export default function TabLayout() {
           href: null, // Always hidden
         }}
       />
-      {/* Manager Dashboard - Only visible for manager users */}
-      {isManager && (
-        <Tabs.Screen
-          name="manager"
-          options={{
-            title: "Team",
-            tabBarIcon: ({ color }) => (
-              <Ionicons size={24} name="people" color={color} />
-            ),
-            // Hide if not manager
-            href: isManager ? undefined : null,
-          }}
-        />
-      )}
+      {/* Manager Dashboard - Only visible for manager or admin users */}
+      <Tabs.Screen
+        name="manager"
+        options={{
+          title: "Manager",
+          tabBarIcon: ({ color }) => (
+            <Ionicons size={24} name="people-circle" color={color} />
+          ),
+          // Hide tab for non-manager/admin users
+          href: (isManager || isAdmin) ? undefined : null,
+        }}
+      />
       <Tabs.Screen
         name="settings"
         options={{

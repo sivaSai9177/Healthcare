@@ -2,17 +2,42 @@ import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { appRouter } from '@/src/server/routers';
 import { createContext } from '@/src/server/trpc';
 
-// Handle all tRPC requests
-const handler = (request: Request) => {
-  return fetchRequestHandler({
+// Handle all tRPC requests with proper CORS
+const handler = async (request: Request) => {
+  const origin = request.headers.get('origin') || '*';
+  
+  // CORS headers
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Credentials': 'true',
+  };
+
+  // Handle preflight
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders,
+    });
+  }
+
+  const response = await fetchRequestHandler({
     endpoint: '/api/trpc',
     req: request,
     router: appRouter,
     createContext: () => createContext(request),
     onError: ({ error, path }) => {
-      console.error(`tRPC error on ${path}:`, error);
+      // Error logging handled by tRPC logger middleware
     },
   });
+
+  // Add CORS headers to response
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+
+  return response;
 };
 
-export { handler as GET, handler as POST };
+export { handler as GET, handler as POST, handler as OPTIONS };

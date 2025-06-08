@@ -12,22 +12,6 @@ import {
 } from 'react-native';
 import { useTheme } from '@/lib/theme/theme-provider';
 import { useSpacing } from '@/contexts/SpacingContext';
-
-// Only import Reanimated on native platforms
-let Animated: any = View;
-let useAnimatedStyle: any = () => ({ style: {} });
-let useSharedValue: any = () => ({ value: 0 });
-let withTiming: any = (value: number) => value;
-let interpolate: any = (value: number, inputRange: number[], outputRange: number[]) => outputRange[0];
-
-if (Platform.OS !== 'web') {
-  const ReanimatedModule = require('react-native-reanimated');
-  Animated = ReanimatedModule.default;
-  useAnimatedStyle = ReanimatedModule.useAnimatedStyle;
-  useSharedValue = ReanimatedModule.useSharedValue;
-  withTiming = ReanimatedModule.withTiming;
-  interpolate = ReanimatedModule.interpolate;
-}
 import { designSystem } from '@/lib/design-system';
 
 export type PopoverPlacement =
@@ -67,8 +51,6 @@ interface Position {
   arrowRotation?: string;
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 export const Popover = React.forwardRef<View, PopoverProps>(
   (
     {
@@ -92,7 +74,7 @@ export const Popover = React.forwardRef<View, PopoverProps>(
     const [internalOpen, setInternalOpen] = useState(false);
     const [triggerLayout, setTriggerLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
     const [contentSize, setContentSize] = useState({ width: 0, height: 0 });
-    const animationProgress = useSharedValue(0);
+    const [isAnimating, setIsAnimating] = useState(false);
     const triggerRef = useRef<View>(null);
 
     const isControlled = controlledOpen !== undefined;
@@ -117,9 +99,8 @@ export const Popover = React.forwardRef<View, PopoverProps>(
     useEffect(() => {
       if (isOpen) {
         measureTrigger();
-        animationProgress.value = withTiming(1, { duration: 200 });
-      } else {
-        animationProgress.value = withTiming(0, { duration: 150 });
+        setIsAnimating(true);
+        setTimeout(() => setIsAnimating(false), 200);
       }
     }, [isOpen]);
 
@@ -213,16 +194,6 @@ export const Popover = React.forwardRef<View, PopoverProps>(
 
     const position = calculatePosition();
 
-    const animatedContentStyle = useAnimatedStyle(() => {
-      const scale = interpolate(animationProgress.value, [0, 1], [0.95, 1]);
-      const opacity = interpolate(animationProgress.value, [0, 1], [0, 1]);
-
-      return {
-        transform: [{ scale }],
-        opacity,
-      };
-    });
-
     const arrowStyles: ViewStyle = {
       position: 'absolute',
       width: 0,
@@ -250,23 +221,20 @@ export const Popover = React.forwardRef<View, PopoverProps>(
       ...designSystem.shadows.md,
       top: position.top,
       left: position.left,
+      opacity: isAnimating ? 0 : 1,
+      transform: [{ scale: isAnimating ? 0.95 : 1 }],
       ...contentStyle,
     };
 
     const trigger = React.cloneElement(children as React.ReactElement<any>, {
       ref: triggerRef,
       onPress: () => handleOpenChange(true),
-      ...(Platform.OS === 'web' && {
-        style: ({ pressed, hovered }: any) => [
-          (children as React.ReactElement<any>).props.style,
-          {
-            opacity: pressed ? 0.8 : 1,
-            transform: hovered ? 'scale(1.02)' : 'scale(1)',
-            transition: 'all 0.2s ease',
-            cursor: 'pointer',
-          },
-        ],
-      }),
+      style: [
+        (children as React.ReactElement<any>).props.style,
+        {
+          cursor: 'pointer',
+        },
+      ],
     } as any);
 
     return (
@@ -275,7 +243,7 @@ export const Popover = React.forwardRef<View, PopoverProps>(
         <Modal
           visible={isOpen}
           transparent
-          animationType="none"
+          animationType="fade"
           onRequestClose={() => handleOpenChange(false)}
           testID={testID}
         >
@@ -283,8 +251,8 @@ export const Popover = React.forwardRef<View, PopoverProps>(
             style={{ flex: 1 }}
             onPress={() => dismissOnTouchOutside && handleOpenChange(false)}
           >
-            <AnimatedPressable
-              style={[defaultContentStyle, animatedContentStyle]}
+            <Pressable
+              style={defaultContentStyle}
               onLayout={(event: LayoutChangeEvent) => {
                 const { width, height } = event.nativeEvent.layout;
                 setContentSize({ width, height });
@@ -299,7 +267,7 @@ export const Popover = React.forwardRef<View, PopoverProps>(
               ) : (
                 content
               )}
-            </AnimatedPressable>
+            </Pressable>
           </Pressable>
         </Modal>
       </>

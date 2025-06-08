@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 import { resolveApiUrl, getCurrentApiUrl } from './api-resolver';
 import { getCurrentEnvironment, isDebugEnabled as isDebug, isEASBuild } from './env-config';
 import { log } from './logger';
+import { isInTunnelMode, getApiUrlForTunnel } from './tunnel-config';
 
 // Cache for API URL to avoid repeated resolution
 let cachedApiUrl: string | null = null;
@@ -61,6 +62,14 @@ export function getApiUrlSync(): string {
   const currentEndpoint = getCurrentApiUrl();
   if (currentEndpoint) {
     return currentEndpoint;
+  }
+
+  // Check if we're in tunnel mode first
+  if (isInTunnelMode()) {
+    const baseUrl = Platform.OS === "web" && typeof window !== 'undefined' 
+      ? window.location.origin 
+      : (process.env.EXPO_PUBLIC_API_URL || "http://localhost:8081");
+    return getApiUrlForTunnel(baseUrl);
   }
 
   // For web, use the same origin to avoid CORS cookie issues

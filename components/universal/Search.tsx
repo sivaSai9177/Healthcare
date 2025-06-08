@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo, useDeferredValue, useTransition } from 'react';
 import {
   View,
   TextInput,
@@ -48,6 +48,52 @@ export interface SearchProps {
   testID?: string;
 }
 
+// Memoized suggestion item component
+const SuggestionItem = React.memo(({ 
+  item, 
+  onPress, 
+  theme, 
+  spacing, 
+  iconSize 
+}: { 
+  item: SearchSuggestion;
+  onPress: (item: SearchSuggestion) => void;
+  theme: any;
+  spacing: Record<number, number>;
+  iconSize: number;
+}) => (
+  <Pressable
+    onPress={() => onPress(item)}
+    style={({ pressed }) => ({
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: spacing[3],
+      backgroundColor: pressed ? theme.accent : 'transparent',
+    })}
+  >
+    {item.icon && (
+      <Ionicons
+        name={item.icon}
+        size={iconSize}
+        color={theme.mutedForeground}
+        style={{ marginRight: spacing[2] }}
+      />
+    )}
+    <View style={{ flex: 1 }}>
+      <Text size="md" colorTheme="foreground">
+        {item.label}
+      </Text>
+      {item.category && (
+        <Text size="xs" colorTheme="mutedForeground">
+          {item.category}
+        </Text>
+      )}
+    </View>
+  </Pressable>
+));
+
+SuggestionItem.displayName = 'SuggestionItem';
+
 export const Search = React.forwardRef<TextInput, SearchProps>(
   (
     {
@@ -78,9 +124,15 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
     const { spacing } = useSpacing();
     const [isFocused, setIsFocused] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
+    const [isPending, startTransition] = useTransition();
     const debounceTimeout = useRef<NodeJS.Timeout>();
+    
+    // Defer value for better search performance
+    const deferredValue = useDeferredValue(value);
 
-    const sizeConfig = {
+
+    // Memoize size config
+    const sizeConfig = useMemo(() => ({
       sm: {
         height: 36,
         fontSize: 14,
@@ -99,12 +151,14 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
         iconSize: 24,
         padding: 4,
       },
-    }[size];
+    }[size]), [size]);
 
-    // Debounced value change
+    // Debounced value change with transition
     const handleValueChange = useCallback(
       (text: string) => {
-        onValueChange(text);
+        startTransition(() => {
+          onValueChange(text);
+        });
 
         if (debounceTimeout.current) {
           clearTimeout(debounceTimeout.current);
@@ -176,7 +230,7 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
       flexDirection: 'row',
       alignItems: 'center',
       borderRadius: variant === 'minimal' ? 0 : 8,
-      paddingHorizontal: spacing(sizeConfig.padding),
+      paddingHorizontal: spacing[sizeConfig.padding],
       opacity: disabled ? 0.5 : 1,
       ...variantStyles.container,
       ...(isFocused && { borderColor: theme.ring }),
@@ -193,7 +247,7 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
 
     const suggestionContainerStyle: ViewStyle = {
       position: 'absolute',
-      top: sizeConfig.height + spacing(1),
+      top: sizeConfig.height + spacing[1],
       left: 0,
       right: 0,
       maxHeight: 300,
@@ -210,43 +264,40 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
       ...suggestionStyle,
     };
 
-    const renderSuggestion = ({ item }: { item: SearchSuggestion }) => (
-      <Pressable
-        onPress={() => handleSuggestionPress(item)}
-        style={({ pressed }) => ({
-          flexDirection: 'row',
-          alignItems: 'center',
-          padding: spacing(3),
-          backgroundColor: pressed ? theme.accent : 'transparent',
-        })}
-      >
-        {item.icon && (
-          <Ionicons
-            name={item.icon}
-            size={sizeConfig.iconSize}
-            color={theme.mutedForeground}
-            style={{ marginRight: spacing(2) }}
-          />
-        )}
-        <View style={{ flex: 1 }}>
-          <Text size={size} colorTheme="foreground">
-            {item.label}
-          </Text>
-          {item.category && (
-            <Text size="xs" colorTheme="mutedForeground">
-              {item.category}
-            </Text>
-          )}
-        </View>
-      </Pressable>
-    );
+    // Memoize renderSuggestion for better performance
+    const renderSuggestion = useCallback(({ item }: { item: SearchSuggestion }) => (
+      <SuggestionItem
+        item={item}
+        onPress={handleSuggestionPress}
+        theme={theme}
+        spacing={spacing}
+        iconSize={sizeConfig.iconSize}
+      />
+    ), [handleSuggestionPress, theme, spacing, sizeConfig.iconSize]);
 
-    const filteredSuggestions = suggestions.slice(0, maxSuggestions);
-    const showSuggestionsList =
+    // Memoize filtered suggestions using deferred value
+    const filteredSuggestions = useMemo(() => {
+      // Use deferred value for filtering to prevent blocking UI
+      const searchLower = deferredValue.toLowerCase();
+      if (!searchLower || searchLower.length < minSearchLength) {
+        return [];
+      }
+      
+      return suggestions
+        .filter(suggestion => 
+          suggestion.label.toLowerCase().includes(searchLower) ||
+          suggestion.value.toLowerCase().includes(searchLower) ||
+          (suggestion.category && suggestion.category.toLowerCase().includes(searchLower))
+        )
+        .slice(0, maxSuggestions);
+    }, [deferredValue, suggestions, maxSuggestions, minSearchLength]);
+
+    const showSuggestionsList = useMemo(() =>
       showSuggestions &&
       isFocused &&
-      value.length >= minSearchLength &&
-      (filteredSuggestions.length > 0 || recentSearches.length > 0);
+      deferredValue.length >= minSearchLength &&
+      (filteredSuggestions.length > 0 || recentSearches.length > 0),
+    [showSuggestions, isFocused, deferredValue, minSearchLength, filteredSuggestions.length, recentSearches.length]);
 
     return (
       <View style={{ position: 'relative' }}>
@@ -255,7 +306,7 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
             name="search"
             size={sizeConfig.iconSize}
             color={theme.mutedForeground}
-            style={{ marginRight: spacing(2) }}
+            style={{ marginRight: spacing[2] }}
           />
 
           <TextInput
@@ -268,14 +319,14 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
             editable={!disabled}
             autoFocus={autoFocus}
             returnKeyType="search"
-            style={inputFieldStyle}
+            style={[inputFieldStyle, isPending && { opacity: 0.7 }]}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setTimeout(() => setIsFocused(false), 200)}
             testID={testID}
           />
 
           {loading && (
-            <View style={{ marginLeft: spacing(2) }}>
+            <View style={{ marginLeft: spacing[2] }}>
               <Ionicons
                 name="reload"
                 size={sizeConfig.iconSize}
@@ -287,7 +338,7 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
           {showClearButton && value.length > 0 && (
             <Pressable
               onPress={handleClear}
-              style={{ marginLeft: spacing(2) }}
+              style={{ marginLeft: spacing[2] }}
             >
               <Ionicons
                 name="close-circle"
@@ -307,8 +358,8 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
                     flexDirection: 'row',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    paddingHorizontal: spacing(3),
-                    paddingVertical: spacing(2),
+                    paddingHorizontal: spacing[3],
+                    paddingVertical: spacing[2],
                     borderBottomWidth: 1,
                     borderBottomColor: theme.border,
                   }}
@@ -392,12 +443,12 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            padding: spacing(4),
+            padding: spacing[4],
             borderBottomWidth: 1,
             borderBottomColor: theme.border,
           }}
         >
-          <Pressable onPress={onClose} style={{ marginRight: spacing(3) }}>
+          <Pressable onPress={onClose} style={{ marginRight: spacing[3] }}>
             <Ionicons name="arrow-back" size={24} color={theme.foreground} />
           </Pressable>
           <Text size="lg" weight="semibold" style={{ flex: 1 }}>
@@ -405,7 +456,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           </Text>
         </View>
 
-        <View style={{ padding: spacing(4) }}>
+        <View style={{ padding: spacing[4] }}>
           <Search {...searchProps} autoFocus />
         </View>
       </KeyboardAvoidingView>

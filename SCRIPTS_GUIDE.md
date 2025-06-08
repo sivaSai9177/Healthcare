@@ -4,10 +4,22 @@
 
 ### Primary Development
 ```bash
-bun start          # Start Expo (all platforms)
-bun ios           # Start iOS development
-bun android       # Start Android development  
-bun web           # Start web development
+bun start                # Start Expo with LAN (auto-detects network)
+bun start:tunnel         # Start Expo with tunnel (works across networks) 
+bun start:multi-network  # Start with primary WiFi IP
+bun start:secondary-wifi # Start with secondary WiFi IP
+bun ios                  # Start iOS development
+bun android              # Start Android development  
+bun web                  # Start web development (localhost:8081)
+bun web:tunnel           # Start web with tunnel support
+```
+
+### Network Troubleshooting
+```bash
+bun scripts/check-network.ts        # Check network configuration and test endpoints
+bun scripts/test-tunnel-connection.ts # Test Expo tunnel connectivity
+bun scripts/verify-tunnel-fixes.ts  # Verify tunnel mode fixes are applied
+bun env:update-ip                   # Update IP addresses in environment files
 ```
 
 ### Web Development with Database Selection
@@ -137,6 +149,266 @@ bun lint           # Run linter
 bun reset-project  # Reset project
 bun reset-profile  # Reset user profile completion
 bun delete-user    # Delete test user
+```
+
+## 🔍 Setup Verification & Health Checks
+
+### Network Connectivity
+```bash
+bun scripts/check-network.ts          # Full network diagnostics
+bun scripts/fix-mobile-network.ts     # Fix mobile network issues
+bun api:health                        # Check API health endpoint
+```
+
+### Database Connection
+```bash
+bun scripts/check-environment.ts      # Verify database connectivity
+bun db:studio:local                   # Visual DB verification (local)
+bun db:studio:dev                     # Visual DB verification (cloud)
+```
+
+### API & Environment Validation
+```bash
+bun scripts/check-api-health.ts       # Comprehensive API health check
+bun scripts/test-api-endpoints.ts     # Test all API endpoints
+bun scripts/test-auth-headers.ts      # Verify auth headers
+bun env:generate                      # Regenerate environment files
+```
+
+### Expo & OAuth Verification
+```bash
+bun scripts/check-build-environment.ts # Verify build environment
+bun scripts/test-oauth-flow.ts        # Test OAuth configuration
+bun scripts/check-user-status.ts      # Check user auth status
+```
+
+### Platform-Specific Checks
+```bash
+# iOS Simulator
+bun scripts/fix-ios-simulator.sh      # Fix iOS simulator network
+
+# Android Emulator  
+bun scripts/setup-ngrok-android.sh    # Setup Android with ngrok
+
+# Web Browser
+bun scripts/browser-oauth-test.js     # Test OAuth in browser
+```
+
+## 🎯 Quick Setup Audit
+
+### Pre-flight Checklist
+Before starting development, run these commands in order:
+
+```bash
+# 1. Environment Setup
+bun install                           # Install dependencies
+bun env:generate                      # Generate env files
+bun env:update-ip                     # Update IP addresses
+
+# 2. Database Setup
+bun db:local:up                       # Start local PostgreSQL
+bun db:migrate:local                  # Run migrations
+bun db:studio:local                   # Verify database schema
+
+# 3. API Verification
+bun scripts/check-api-health.ts       # Verify API is running
+bun scripts/test-api-endpoints.ts     # Test API endpoints
+
+# 4. Platform-Specific Setup
+bun scripts/check-network.ts          # Check network config
+bun scripts/check-build-environment.ts # Verify build setup
+```
+
+### Common Setup Issues & Solutions
+
+#### "No development build" Error
+```bash
+# Solution 1: Use Expo Go
+bun expo:go                           # Cloud database
+bun expo:go:local                     # Local database
+
+# Solution 2: Create development build
+bun eas:build:ios                     # iOS dev build
+bun eas:build:android                 # Android dev build
+```
+
+#### Network Connection Issues
+```bash
+# LAN issues
+bun start:tunnel                      # Use tunnel instead
+
+# Multiple networks
+bun start:multi-network               # Primary WiFi
+bun start:secondary-wifi              # Secondary WiFi
+
+# Tunnel mode issues
+bun scripts/test-tunnel-connection.ts # Test tunnel connectivity
+# Press 's' in terminal to switch to Expo Go mode
+# Use exp://[tunnel-id].exp.direct URL in Expo Go
+```
+
+#### Database Connection Failed
+```bash
+# Check Docker is running
+docker ps                             # Should show postgres container
+
+# Restart local database
+bun db:local:reset                    # Reset and restart
+
+# Use cloud database instead
+bun web:dev                           # Cloud DB for web
+bun expo:go                           # Cloud DB for mobile
+```
+
+#### OAuth Not Working
+```bash
+# For local testing
+bun ngrok:start                       # Start ngrok tunnel
+bun ngrok:update-eas                  # Update EAS config
+bun ngrok:build:android               # Build with ngrok URL
+
+# Verify OAuth config
+bun scripts/test-oauth-flow.ts        # Test OAuth flow
+```
+
+#### Expo Go Tunnel Mode Issues
+```bash
+# Common tunnel mode errors and fixes:
+
+# 1. "AsyncStorage has been extracted" warning
+# This is normal in Expo Go - warning is suppressed automatically
+
+# 2. API calls failing with network errors
+bun scripts/test-tunnel-connection.ts # Verify tunnel is working
+# Ensure you're in Expo Go mode (press 's' in terminal)
+
+# 3. Authentication not persisting
+# This is expected in tunnel mode - tokens are stored differently
+# Login will be required each time you reload
+
+# 4. CORS errors on API calls
+# The tunnel config automatically handles CORS
+# If still failing, restart Expo with: bun start:tunnel --clear
+
+# 5. Reanimated errors on web
+# "ProgressTransitionRegister is not available on non-native platform"
+# This is handled by the web fix - animations are disabled on web
+# Clear cache if still seeing: bun start:tunnel --clear
+
+# 6. Web opens tunnel URL instead of localhost
+# When pressing 'w' in tunnel mode, it opens https://[id].exp.direct
+# Solution: Manually open http://localhost:8081 in your browser
+# Or use: bun web (without tunnel) for local web development
+
+# 7. Google OAuth fails on tunnel URL
+# Error: "Failed to load resource: 403"
+# Cause: Tunnel URL not in Google OAuth authorized domains
+# Solutions:
+#   a) Use localhost instead: bun web:open
+#   b) Add tunnel URL to Google Console (changes each restart)
+#   c) Use ngrok for stable URL: bun ngrok:start
+# See: GOOGLE_OAUTH_TUNNEL_SETUP.md for details
+```
+
+### Platform-Specific Verification
+
+#### iOS Development
+```bash
+# Verify iOS setup
+bun ios                               # Should open simulator
+bun debug:ios                         # Check console logs
+bun logs:ios                          # View detailed logs
+```
+
+#### Android Development
+```bash
+# Verify Android setup
+bun android                           # Should open emulator
+bun debug:android                     # Check console logs
+bun logs:android                      # View detailed logs
+```
+
+#### Web Development
+```bash
+# Verify web setup
+bun web:local                         # Should open browser
+bun api:health                        # Check API endpoint
+bun scripts/browser-oauth-test.js     # Test OAuth in browser
+```
+
+## 📊 Development Status Dashboard
+
+### Check All Services Status
+```bash
+# Run comprehensive status check
+bun scripts/check-api-health.ts       # API health with details
+bun scripts/check-network.ts          # Network configuration
+bun scripts/check-environment.ts      # Environment validation
+docker ps                             # Docker services status
+```
+
+### Monitor Performance Metrics
+```bash
+# API Performance
+bun scripts/test-api-endpoints.ts     # Response time metrics
+
+# Database Performance
+bun db:studio:local                   # Query performance monitor
+
+# Build Performance
+eas build:list --platform=all         # Build status and times
+```
+
+### View Recent Errors
+```bash
+# Application Logs
+bun logs:ios                          # iOS error logs
+bun logs:android                      # Android error logs
+
+# API Logs
+docker logs my-expo-api -f            # API container logs
+docker logs my-expo-postgres -f       # Database logs
+
+# Debug Panel (in-app)
+# Enable debug mode in Settings > Developer Options
+```
+
+### Test Authentication Flows
+```bash
+# Email/Password Auth
+bun scripts/test-auth-simple.ts       # Basic auth test
+bun scripts/test-complete-profile.ts  # Profile completion test
+
+# OAuth Flow
+bun scripts/test-oauth-flow.ts        # Full OAuth test
+bun scripts/test-oauth-profile-completion.ts # OAuth + profile
+
+# Mobile Auth
+bun scripts/test-mobile-auth.ts       # Mobile-specific auth
+bun scripts/debug-mobile-auth.ts      # Debug mobile auth issues
+
+# Session Management
+bun scripts/check-user-status.ts      # Current session status
+bun scripts/test-logout.ts            # Logout functionality
+```
+
+### Quick Status Commands
+```bash
+# One-line status checks
+bun api:health && echo "✅ API is healthy" || echo "❌ API is down"
+docker ps --format "table {{.Names}}\t{{.Status}}" | grep my-expo
+bun scripts/check-network.ts | grep "✅"
+```
+
+### Development Build Status
+```bash
+# Check build availability
+eas build:list --platform=ios --limit=1
+eas build:list --platform=android --limit=1
+
+# Download latest builds
+bun preview:run:ios                   # Install latest iOS
+bun preview:run:android               # Install latest Android
 ```
 
 ---

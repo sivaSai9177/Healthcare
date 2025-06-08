@@ -6,6 +6,7 @@
 import { Platform } from 'react-native';
 import { getEnvironmentConfig, cacheEndpoint, getCachedEndpoint, type ApiEndpoint } from './env-config';
 import { log } from './logger';
+import { getAllPossibleEndpoints } from './network-config';
 
 interface TestResult {
   endpoint: ApiEndpoint;
@@ -196,6 +197,28 @@ class ApiResolver {
 
     const config = await getEnvironmentConfig();
     const { endpoints, fallbackEnabled } = config.api;
+
+    // Add network-aware endpoints for development
+    if (config.name !== 'production' && config.name !== 'staging') {
+      try {
+        const networkEndpoints = await getAllPossibleEndpoints();
+        const additionalEndpoints: ApiEndpoint[] = networkEndpoints.map((url, index) => ({
+          type: 'lan' as const,
+          url,
+          priority: 10 + index, // Lower priority than configured endpoints
+          testPath: '/api/health'
+        }));
+        
+        // Merge with existing endpoints
+        endpoints.push(...additionalEndpoints);
+        log.debug('Added network-aware endpoints', 'API_RESOLVER', { 
+          count: additionalEndpoints.length,
+          endpoints: networkEndpoints 
+        });
+      } catch (error) {
+        log.warn('Failed to get network endpoints', 'API_RESOLVER', error);
+      }
+    }
 
     if (!fallbackEnabled && endpoints.length > 0) {
       // Fallback disabled, use first endpoint

@@ -13,16 +13,24 @@ import { sessionManager } from "./auth-session-manager";
 const BASE_URL = getApiUrlSync();
 
 // Log configuration once (only on client side)
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' || __DEV__) {
   console.log("[AUTH CLIENT] Initialized:", {
     platform: Platform.OS,
     baseURL: BASE_URL,
-    authEndpoint: `${BASE_URL}/api/auth`
+    authEndpoint: `${BASE_URL}/api/auth`,
+    isExpoGo: !Platform.OS || Platform.OS === 'ios' || Platform.OS === 'android'
   });
 }
 
 export const authClient = createAuthClient({
   baseURL: `${BASE_URL}/api/auth`, // Full auth endpoint path
+  fetchOptions: {
+    // Add credentials for cookie support in tunnel mode
+    credentials: Platform.OS === 'web' ? 'include' : 'omit',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  },
   plugins: [
     expoClient({
       scheme: "expo-starter", // App scheme from app.json

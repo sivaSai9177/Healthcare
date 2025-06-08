@@ -23,8 +23,50 @@ import { log } from "@/lib/core/logger";
 import { spacing, SpacingScale } from "@/lib/design-system";
 import { useTheme } from "@/lib/theme/theme-provider";
 import { useRouter } from "expo-router";
-import React from "react";
-import { Alert, Platform } from "react-native";
+import React, { useState, useCallback, useTransition, useDeferredValue, useEffect } from "react";
+import { Alert, Platform, RefreshControl, ScrollView, Animated, View, Dimensions, Easing } from "react-native";
+
+// Shimmer effect component for loading state
+const ShimmerPlaceholder = ({ width = "100%", height = 20, borderRadius = 4 }) => {
+  const theme = useTheme();
+  const shimmerAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 1000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerAnim, {
+          toValue: 0,
+          duration: 1000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [shimmerAnim]);
+
+  const opacity = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.7],
+  });
+
+  return (
+    <Animated.View
+      style={{
+        width,
+        height,
+        borderRadius,
+        backgroundColor: theme.muted,
+        opacity,
+      }}
+    />
+  );
+};
 
 // Generic dashboard metrics component
 const DashboardMetrics = ({ metrics }: { metrics: any[] }) => {
@@ -86,9 +128,86 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const theme = useTheme();
+  const [refreshing, setRefreshing] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [refreshKey, setRefreshKey] = useState(0);
+  const fadeAnim = React.useRef(new Animated.Value(1)).current;
+  const translateY = React.useRef(new Animated.Value(0)).current;
 
   // You can use tRPC queries here to fetch real data
   // const { data: dashboardData } = api.dashboard.getMetrics.useQuery();
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    
+    // Animate content while refreshing
+    Animated.sequence([
+      // Pull down effect
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0.6,
+          duration: 200,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: 15,
+          duration: 200,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        })
+      ]),
+      // Hold position
+      Animated.delay(100),
+    ]).start();
+
+    // Simulate data refresh
+    startTransition(() => {
+      // In a real app, you would fetch new data here
+      // Example: await api.dashboard.refresh.mutate()
+      
+      setTimeout(() => {
+        setRefreshKey(prev => prev + 1);
+        
+        // Bounce back animation
+        Animated.sequence([
+          // Overshoot
+          Animated.parallel([
+            Animated.spring(fadeAnim, {
+              toValue: 1,
+              tension: 100,
+              friction: 8,
+              useNativeDriver: true,
+            }),
+            Animated.spring(translateY, {
+              toValue: -5,
+              tension: 100,
+              friction: 8,
+              useNativeDriver: true,
+            })
+          ]),
+          // Settle
+          Animated.spring(translateY, {
+            toValue: 0,
+            tension: 60,
+            friction: 10,
+            useNativeDriver: true,
+          })
+        ]).start();
+        
+        setRefreshing(false);
+        log.info('Dashboard refreshed', 'HOME', { timestamp: new Date().toISOString() });
+        
+        // Haptic feedback on iOS
+        if (Platform.OS === 'ios') {
+          // @ts-ignore
+          if (window.navigator?.vibrate) {
+            window.navigator.vibrate(10);
+          }
+        }
+      }, 1500);
+    });
+  }, [fadeAnim, translateY]);
 
   // Define metrics based on user role
   const getMetricsByRole = () => {
@@ -198,30 +317,11 @@ export default function HomeScreen() {
 
   const metrics = getMetricsByRole();
   const quickActions = getQuickActionsByRole();
+  const deferredMetrics = useDeferredValue(metrics);
+  const deferredActions = useDeferredValue(quickActions);
 
-  return (
-    <ScrollContainer safe>
-      <VStack p={0} spacing={0}>
-        {/* Header with Toggle and Breadcrumbs */}
-        {Platform.OS === 'web' && (
-          <Box
-            px={4 as SpacingScale}
-            py={3 as SpacingScale}
-            borderBottomWidth={1}
-            borderTheme="border"
-          >
-            <HStack alignItems="center" spacing={2} mb={2 as SpacingScale}>
-              <Sidebar07Trigger />
-              <Separator orientation="vertical" style={{ height: 24 }} />
-              <SimpleBreadcrumb
-                items={[{ label: "Dashboard", current: true }]}
-                showHome={false}
-              />
-            </HStack>
-          </Box>
-        )}
-
-        <VStack p={4 as SpacingScale} spacing={4}>
+  const dashboardContent = (
+    <>
           {/* Header */}
           <HStack
             justifyContent="space-between"
@@ -292,14 +392,14 @@ export default function HomeScreen() {
           </Card>
 
           {/* Visitor Analytics Chart */}
-          <AreaChartInteractive />
+          <AreaChartInteractive key={refreshKey} />
 
           {/* Metrics Dashboard */}
           <Heading2 mb={4 as SpacingScale} mt={6 as SpacingScale}>Overview</Heading2>
-          <DashboardMetrics metrics={metrics} />
+          <DashboardMetrics metrics={deferredMetrics} />
 
           {/* Quick Actions */}
-          <QuickActions actions={quickActions} />
+          <QuickActions actions={deferredActions} />
 
           {/* Dev Tools */}
           <Card mb={4 as SpacingScale}>
@@ -379,6 +479,74 @@ export default function HomeScreen() {
               </VStack>
             </CardContent>
           </Card>
+    </>
+  );
+
+  // For mobile, use ScrollView with RefreshControl
+  if (Platform.OS !== 'web') {
+    const SafeAreaView = require('react-native-safe-area-context').SafeAreaView;
+    
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={theme.primary}
+              colors={[theme.primary, theme.secondary, theme.accent]}
+              progressBackgroundColor={theme.card}
+              progressViewOffset={Platform.OS === 'ios' ? -20 : 20}
+              size="large"
+              title={refreshing ? "Refreshing..." : "Pull to refresh"}
+              titleColor={theme.mutedForeground}
+            />
+          }
+        >
+          <Animated.View 
+            style={{ 
+              opacity: fadeAnim,
+              transform: [{ translateY }],
+              flex: 1 
+            }}
+          >
+            <VStack p={0} spacing={0}>
+              <VStack p={4 as SpacingScale} spacing={4}>
+                {dashboardContent}
+              </VStack>
+            </VStack>
+          </Animated.View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // For web, use ScrollContainer
+  return (
+    <ScrollContainer safe>
+      <VStack p={0} spacing={0}>
+        {/* Header with Toggle and Breadcrumbs */}
+        <Box
+          px={4 as SpacingScale}
+          py={3 as SpacingScale}
+          borderBottomWidth={1}
+          borderTheme="border"
+        >
+          <HStack alignItems="center" spacing={2} mb={2 as SpacingScale}>
+            <Sidebar07Trigger />
+            <Separator orientation="vertical" style={{ height: 24 }} />
+            <SimpleBreadcrumb
+              items={[{ label: "Dashboard", current: true }]}
+              showHome={false}
+            />
+          </HStack>
+        </Box>
+
+        <VStack p={4 as SpacingScale} spacing={4}>
+          {dashboardContent}
         </VStack>
       </VStack>
     </ScrollContainer>

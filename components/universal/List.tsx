@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -51,7 +51,49 @@ export interface SwipeAction {
 const SWIPE_THRESHOLD = 80;
 const SWIPE_FULL_THRESHOLD = 200;
 
-export const ListItem = React.forwardRef<View, ListItemProps>(
+// Memoized swipe action component for better performance
+const SwipeActionButton = React.memo(({ 
+  action, 
+  theme, 
+  spacing, 
+  onPress 
+}: { 
+  action: SwipeAction;
+  theme: any;
+  spacing: any;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity
+    onPress={onPress}
+    style={{
+      width: 80,
+      backgroundColor: action.backgroundColor || theme.destructive,
+      justifyContent: 'center',
+      alignItems: 'center',
+    }}
+  >
+    {action.icon && (
+      <Ionicons
+        name={action.icon as any}
+        size={24}
+        color={action.color || theme.destructiveForeground}
+      />
+    )}
+    <Text
+      style={{
+        color: action.color || theme.destructiveForeground,
+        fontSize: 12,
+        marginTop: spacing[1],
+      }}
+    >
+      {action.label}
+    </Text>
+  </TouchableOpacity>
+));
+
+SwipeActionButton.displayName = 'SwipeActionButton';
+
+export const ListItem = React.memo(React.forwardRef<View, ListItemProps>(
   (
     {
       title,
@@ -77,15 +119,37 @@ export const ListItem = React.forwardRef<View, ListItemProps>(
     const swipeAnim = useRef(new Animated.Value(0)).current;
     const [isSwipeOpen, setIsSwipeOpen] = React.useState(false);
 
-    const paddingMap = {
+    const paddingMap = useMemo(() => ({
       compact: spacing[2],
       default: spacing[3],
       large: spacing[4],
-    };
+    }), [spacing]);
 
     const itemPadding = paddingMap[variant];
 
-    const panResponder = useRef(
+    // Memoize closeSwipe callback
+    const closeSwipe = useCallback(() => {
+      Animated.timing(swipeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      setIsSwipeOpen(false);
+    }, [swipeAnim]);
+
+    // Memoize openSwipe callback
+    const openSwipe = useCallback(() => {
+      const actionWidth = swipeActions.length * 80;
+      Animated.timing(swipeAnim, {
+        toValue: -actionWidth,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      setIsSwipeOpen(true);
+    }, [swipeActions.length, swipeAnim]);
+
+    // Memoize panResponder for better performance
+    const panResponder = useMemo(() => 
       PanResponder.create({
         onStartShouldSetPanResponder: () => false,
         onMoveShouldSetPanResponder: (_, gestureState) => {
@@ -111,27 +175,9 @@ export const ListItem = React.forwardRef<View, ListItemProps>(
             closeSwipe();
           }
         },
-      })
-    ).current;
-
-    const openSwipe = useCallback(() => {
-      const actionWidth = swipeActions.length * 80;
-      Animated.timing(swipeAnim, {
-        toValue: -actionWidth,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-      setIsSwipeOpen(true);
-    }, [swipeActions.length, swipeAnim]);
-
-    const closeSwipe = useCallback(() => {
-      Animated.timing(swipeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-      setIsSwipeOpen(false);
-    }, [swipeAnim]);
+      }),
+    [swipeActions, swipeAnim, closeSwipe, openSwipe]
+    );
 
     const handlePress = () => {
       if (isSwipeOpen) {
@@ -158,46 +204,27 @@ export const ListItem = React.forwardRef<View, ListItemProps>(
       marginTop: spacing[0.5],
     };
 
-    const renderSwipeActions = () => {
+    // Memoize renderSwipeActions for better performance
+    const renderSwipeActions = useCallback(() => {
       if (swipeActions.length === 0 || Platform.OS === 'web') return null;
 
       return (
         <View style={[StyleSheet.absoluteFillObject, { flexDirection: 'row', justifyContent: 'flex-end' }]}>
-          {swipeActions.map((action, index) => (
-            <TouchableOpacity
+          {swipeActions.map((action) => (
+            <SwipeActionButton
               key={action.key}
+              action={action}
+              theme={theme}
+              spacing={spacing}
               onPress={() => {
                 action.onPress();
                 closeSwipe();
               }}
-              style={{
-                width: 80,
-                backgroundColor: action.backgroundColor || theme.destructive,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              {action.icon && (
-                <Ionicons
-                  name={action.icon as any}
-                  size={24}
-                  color={action.color || theme.destructiveForeground}
-                />
-              )}
-              <Text
-                style={{
-                  color: action.color || theme.destructiveForeground,
-                  fontSize: 12,
-                  marginTop: spacing[1],
-                }}
-              >
-                {action.label}
-              </Text>
-            </TouchableOpacity>
+            />
           ))}
         </View>
       );
-    };
+    }, [swipeActions, theme, spacing, closeSwipe]);
 
     return (
       <View ref={ref} testID={testID}>
@@ -259,7 +286,15 @@ export const ListItem = React.forwardRef<View, ListItemProps>(
       </View>
     );
   }
-);
+), (prevProps, nextProps) => {
+  // Custom comparison for better performance
+  return prevProps.title === nextProps.title &&
+         prevProps.description === nextProps.description &&
+         prevProps.selected === nextProps.selected &&
+         prevProps.disabled === nextProps.disabled &&
+         prevProps.variant === nextProps.variant &&
+         prevProps.swipeActions === nextProps.swipeActions;
+});
 
 ListItem.displayName = 'ListItem';
 
