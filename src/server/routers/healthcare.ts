@@ -598,55 +598,192 @@ export const healthcareRouter = router({
       }
     }),
 
-  // TODO: Subscriptions require WebSocket support - not yet implemented
-  // Subscribe to hospital alerts (real-time updates)
-  // subscribeToAlerts: viewAlertsProcedure
-  //   .input(z.object({
-  //     hospitalId: z.string().uuid(),
-  //   }))
-  //   .subscription(({ input, ctx }) => {
-  //     log.info('Alert subscription started', 'HEALTHCARE', {
-  //       hospitalId: input.hospitalId,
-  //       userId: ctx.user.id,
-  //     });
-
-  //     return subscribeToHospitalAlerts(input.hospitalId, ctx.signal);
-  //   }),
-
-  // // Subscribe to a specific alert
-  // subscribeToAlert: viewAlertsProcedure
-  //   .input(z.object({
-  //     alertId: z.string().uuid(),
-  //   }))
-  //   .subscription(({ input, ctx }) => {
-  //     log.info('Single alert subscription started', 'HEALTHCARE', {
-  //       alertId: input.alertId,
-  //       userId: ctx.user.id,
-  //     });
-
-  //     return subscribeToAlert(input.alertId, ctx.signal);
-  //   }),
-
-  // // Subscribe with tracked events (supports reconnection)
-  // subscribeToAlertsTracked: viewAlertsProcedure
-  //   .input(z.object({
-  //     hospitalId: z.string().uuid(),
-  //     lastEventId: z.string().optional(),
-  //   }))
-  //   .subscription(async function* ({ input, ctx }) {
-  //     log.info('Tracked alert subscription started', 'HEALTHCARE', {
-  //       hospitalId: input.hospitalId,
-  //       userId: ctx.user.id,
-  //       lastEventId: input.lastEventId,
-  //     });
-
-  //     try {
-  //       for await (const event of trackedHospitalAlerts(input.hospitalId, input.lastEventId)) {
-  //         yield event;
-  //       }
-  //     } catch (error) {
-  //       log.error('Tracked subscription error', 'HEALTHCARE', error);
-  //       throw error;
-  //     }
-  //   }),
+  // Get metrics for dashboard
+  getMetrics: viewAlertsProcedure
+    .input(z.object({
+      timeRange: z.enum(['1h', '6h', '24h', '7d']).default('24h'),
+      department: z.string().default('all'),
+    }))
+    .query(async ({ input }) => {
+      try {
+        // Mock metrics data (in a real app, this would aggregate from database)
+        const activeAlerts = Math.floor(Math.random() * 10) + 5;
+        const staffOnline = Math.floor(Math.random() * 20) + 15;
+        
+        const metrics = {
+          // Primary metrics
+          activeAlerts,
+          alertsTrend: Math.random() > 0.5 ? Math.floor(Math.random() * 20) - 10 : 0,
+          alertCapacity: 50,
+          
+          // Response times
+          avgResponseTime: parseFloat((Math.random() * 5 + 1).toFixed(1)),
+          
+          // Staff metrics
+          staffOnline,
+          totalStaff: 30,
+          minStaffRequired: 15,
+          
+          // Alert breakdown
+          criticalAlerts: Math.floor(activeAlerts * 0.2),
+          urgentAlerts: Math.floor(activeAlerts * 0.3),
+          standardAlerts: Math.floor(activeAlerts * 0.5),
+          resolvedToday: Math.floor(Math.random() * 20) + 10,
+          
+          // Department stats
+          departmentStats: [
+            { id: 'emergency', name: 'Emergency', alerts: 3, responseRate: 0.95 },
+            { id: 'icu', name: 'ICU', alerts: 2, responseRate: 0.98 },
+            { id: 'cardiology', name: 'Cardiology', alerts: 1, responseRate: 0.92 },
+            { id: 'general', name: 'General', alerts: 4, responseRate: 0.88 },
+          ],
+        };
+        
+        log.info('Metrics fetched', 'HEALTHCARE', {
+          timeRange: input.timeRange,
+          department: input.department,
+        });
+        
+        return metrics;
+      } catch (error) {
+        log.error('Failed to fetch metrics', 'HEALTHCARE', error);
+        throw new Error('Failed to fetch metrics');
+      }
+    }),
+    
+  // Get active alerts with more details
+  getActiveAlerts: viewAlertsProcedure
+    .input(z.object({
+      includeResolved: z.boolean().default(false),
+    }))
+    .query(async ({ ctx }) => {
+      try {
+        // Mock enhanced alert data
+        const mockAlerts = [
+          {
+            id: 'alert-1',
+            roomNumber: '302',
+            alertType: 'cardiac' as const,
+            urgency: 5,
+            description: 'Patient experiencing chest pain',
+            status: 'active' as const,
+            createdAt: new Date(Date.now() - 5 * 60 * 1000),
+            createdBy: 'user-1',
+            createdByName: 'Operator Smith',
+            hospitalId: 'hospital-1',
+            acknowledged: false,
+            acknowledgedAt: null,
+            acknowledgedBy: null,
+            acknowledgedByName: null,
+            resolved: false,
+            resolvedAt: null,
+            resolvedBy: null,
+            resolvedByName: null,
+          },
+          {
+            id: 'alert-2',
+            roomNumber: '215',
+            alertType: 'fall' as const,
+            urgency: 3,
+            description: 'Patient fall detected',
+            status: 'acknowledged' as const,
+            createdAt: new Date(Date.now() - 15 * 60 * 1000),
+            createdBy: 'user-2',
+            createdByName: 'Operator Johnson',
+            hospitalId: 'hospital-1',
+            acknowledged: true,
+            acknowledgedAt: new Date(Date.now() - 10 * 60 * 1000),
+            acknowledgedBy: 'user-3',
+            acknowledgedByName: 'Nurse Davis',
+            resolved: false,
+            resolvedAt: null,
+            resolvedBy: null,
+            resolvedByName: null,
+          },
+        ];
+        
+        const alerts = mockAlerts.filter(alert => 
+          !alert.resolved || input.includeResolved
+        );
+        
+        return {
+          alerts,
+          total: alerts.length,
+        };
+      } catch (error) {
+        log.error('Failed to fetch active alerts', 'HEALTHCARE', error);
+        throw new Error('Failed to fetch active alerts');
+      }
+    }),
+    
+  // Subscribe to alerts (mock implementation for now)
+  subscribeToAlerts: viewAlertsProcedure
+    .subscription(async function* ({ ctx }) {
+      log.info('Alert subscription started', 'HEALTHCARE', {
+        userId: ctx.user.id,
+      });
+      
+      // Simulate real-time alert updates
+      while (true) {
+        yield {
+          type: 'alert.created' as const,
+          data: {
+            id: `alert-${Date.now()}`,
+            roomNumber: String(Math.floor(Math.random() * 400) + 100),
+            alertType: ['cardiac', 'fall', 'fire', 'medical-emergency'][Math.floor(Math.random() * 4)] as any,
+            urgency: Math.floor(Math.random() * 5) + 1,
+            createdAt: new Date(),
+          }
+        };
+        
+        // Random interval between 10-60 seconds
+        await new Promise(resolve => setTimeout(resolve, (Math.random() * 50 + 10) * 1000));
+      }
+    }),
+    
+  // Subscribe to metrics (mock implementation)
+  subscribeToMetrics: viewAlertsProcedure
+    .subscription(async function* ({ ctx }) {
+      log.info('Metrics subscription started', 'HEALTHCARE', {
+        userId: ctx.user.id,
+      });
+      
+      // Simulate real-time metrics updates
+      while (true) {
+        yield {
+          activeAlerts: Math.floor(Math.random() * 10) + 5,
+          staffOnline: Math.floor(Math.random() * 20) + 15,
+          responseRate: parseFloat((Math.random() * 0.2 + 0.8).toFixed(2)),
+        };
+        
+        // Update every 5 seconds
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+    }),
+    
+  // Acknowledge patient alert (for patient card)
+  acknowledgePatientAlert: doctorProcedure
+    .input(z.object({
+      alertId: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      try {
+        // In a real app, this would update the database
+        log.info('Patient alert acknowledged', 'HEALTHCARE', {
+          alertId: input.alertId,
+          userId: ctx.user.id,
+        });
+        
+        return {
+          success: true,
+          alertId: input.alertId,
+          acknowledged: true,
+          acknowledgedAt: new Date(),
+          acknowledgedBy: ctx.user.id,
+        };
+      } catch (error) {
+        log.error('Failed to acknowledge patient alert', 'HEALTHCARE', error);
+        throw new Error('Failed to acknowledge patient alert');
+      }
+    }),
 });
