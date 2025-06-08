@@ -38,8 +38,8 @@ const AlertCardItem = memo(({
   const [isPending, startTransition] = useTransition();
   
   const getUrgencyColor = (urgency: number) => {
-    if (urgency >= 4) return healthcareColors.emergency;
-    if (urgency >= 3) return healthcareColors.warning;
+    if (urgency <= 2) return healthcareColors.emergency;
+    if (urgency === 3) return healthcareColors.warning;
     return healthcareColors.info;
   };
   

@@ -23,31 +23,19 @@ import { immer } from 'zustand/middleware/immer';
 import { log } from '@/lib/core/logger';
 import { showErrorAlert, showSuccessAlert } from '@/lib/core/alert';
 
-// Alert validation schemas
-export const alertTypeSchema = z.enum([
-  'cardiac',
-  'code-blue',
-  'fall',
-  'fire',
-  'security',
-  'medical-emergency'
-]);
-
-export const createAlertSchema = z.object({
-  roomNumber: z.string().regex(/^\d{3}$/, 'Room number must be 3 digits'),
-  alertType: alertTypeSchema,
-  urgency: z.number().min(1).max(5).default(3),
-  description: z.string().optional(),
-  departmentId: z.string().uuid(),
-  hospitalId: z.string().uuid(),
-});
-
-export type CreateAlertInput = z.infer<typeof createAlertSchema>;
+// Import healthcare types
+import { 
+  AlertType, 
+  CreateAlertSchema, 
+  CreateAlertInput,
+  ALERT_TYPE_CONFIG,
+  URGENCY_LEVEL_CONFIG 
+} from '@/types/healthcare';
 
 // Alert template type
 interface AlertTemplate {
   id: string;
-  type: z.infer<typeof alertTypeSchema>;
+  type: AlertType;
   icon: string;
   label: string;
   color: string;
@@ -55,14 +43,48 @@ interface AlertTemplate {
   defaultDescription?: string;
 }
 
-// Default alert templates
+// Default alert templates based on ALERT_TYPE_CONFIG
 const defaultTemplates: AlertTemplate[] = [
-  { id: 'cardiac', type: 'cardiac', icon: '❤️', label: 'Cardiac', color: healthcareColors.emergency, defaultUrgency: 5 },
-  { id: 'code-blue', type: 'code-blue', icon: '🔵', label: 'Code Blue', color: healthcareColors.emergency, defaultUrgency: 5 },
-  { id: 'fall', type: 'fall', icon: '🚶', label: 'Fall', color: healthcareColors.warning, defaultUrgency: 3 },
-  { id: 'fire', type: 'fire', icon: '🔥', label: 'Fire', color: healthcareColors.emergency, defaultUrgency: 5 },
-  { id: 'security', type: 'security', icon: '🔒', label: 'Security', color: healthcareColors.warning, defaultUrgency: 4 },
-  { id: 'medical-emergency', type: 'medical-emergency', icon: '🚨', label: 'Medical', color: healthcareColors.emergency, defaultUrgency: 4 },
+  { 
+    id: 'cardiac_arrest', 
+    type: 'cardiac_arrest', 
+    icon: ALERT_TYPE_CONFIG.cardiac_arrest.icon, 
+    label: 'Cardiac', 
+    color: ALERT_TYPE_CONFIG.cardiac_arrest.color, 
+    defaultUrgency: ALERT_TYPE_CONFIG.cardiac_arrest.defaultUrgency 
+  },
+  { 
+    id: 'code_blue', 
+    type: 'code_blue', 
+    icon: ALERT_TYPE_CONFIG.code_blue.icon, 
+    label: 'Code Blue', 
+    color: ALERT_TYPE_CONFIG.code_blue.color, 
+    defaultUrgency: ALERT_TYPE_CONFIG.code_blue.defaultUrgency 
+  },
+  { 
+    id: 'fire', 
+    type: 'fire', 
+    icon: ALERT_TYPE_CONFIG.fire.icon, 
+    label: 'Fire', 
+    color: ALERT_TYPE_CONFIG.fire.color, 
+    defaultUrgency: ALERT_TYPE_CONFIG.fire.defaultUrgency 
+  },
+  { 
+    id: 'security', 
+    type: 'security', 
+    icon: ALERT_TYPE_CONFIG.security.icon, 
+    label: 'Security', 
+    color: ALERT_TYPE_CONFIG.security.color, 
+    defaultUrgency: ALERT_TYPE_CONFIG.security.defaultUrgency 
+  },
+  { 
+    id: 'medical_emergency', 
+    type: 'medical_emergency', 
+    icon: ALERT_TYPE_CONFIG.medical_emergency.icon, 
+    label: 'Medical', 
+    color: ALERT_TYPE_CONFIG.medical_emergency.color, 
+    defaultUrgency: ALERT_TYPE_CONFIG.medical_emergency.defaultUrgency 
+  },
 ];
 
 // Zustand store for alert creation
@@ -106,7 +128,7 @@ const useAlertCreationStore = create<AlertCreationState>()(
               state.formData = {
                 ...state.formData,
                 alertType: template.type,
-                urgency: template.defaultUrgency,
+                urgencyLevel: template.defaultUrgency,
                 description: template.defaultDescription,
               };
             }
@@ -233,10 +255,9 @@ export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
   const validateAndSubmit = () => {
     startTransition(() => {
       try {
-        const validatedData = createAlertSchema.parse({
+        const validatedData = CreateAlertSchema.parse({
           ...formData,
           hospitalId,
-          departmentId: user?.departmentId || 'a47ac10b-58cc-4372-a567-0e02b2c3d479', // Default UUID
         });
         
         createAlertMutation.mutate(validatedData);
@@ -252,7 +273,7 @@ export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
   // React 19 - Optimistic UI for template selection
   const [optimisticTemplate, setOptimisticTemplate] = useOptimistic(
     formData.alertType,
-    (_, newTemplate: string) => newTemplate as z.infer<typeof alertTypeSchema>
+    (_, newTemplate: string) => newTemplate as AlertType
   );
   
   return (
@@ -279,7 +300,7 @@ export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
           maxLength={3}
           size="large"
           autoFocus
-          error={formData.roomNumber && !createAlertSchema.shape.roomNumber.safeParse(formData.roomNumber).success}
+          error={formData.roomNumber && !CreateAlertSchema.shape.roomNumber.safeParse(formData.roomNumber).success}
         />
         
         {/* Room suggestions placeholder */}
@@ -331,22 +352,35 @@ export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
         <VStack gap={goldenSpacing.sm}>
           <Text weight="medium">Urgency Level</Text>
           <HStack gap={goldenSpacing.md}>
-            {[1, 2, 3, 4, 5].map((level) => (
-              <Button
-                key={level}
-                variant={formData.urgency === level ? "default" : "outline"}
-                size="small"
-                onPress={() => updateFormData({ urgency: level })}
-                style={{
-                  backgroundColor: formData.urgency === level 
-                    ? level >= 4 ? healthcareColors.emergency : level >= 3 ? healthcareColors.warning : healthcareColors.info
-                    : 'transparent',
-                  borderColor: level >= 4 ? healthcareColors.emergency : level >= 3 ? healthcareColors.warning : healthcareColors.info,
-                }}
-              >
-                {level}
-              </Button>
-            ))}
+            {[1, 2, 3, 4, 5].map((level) => {
+              const urgencyConfig = URGENCY_LEVEL_CONFIG[level as keyof typeof URGENCY_LEVEL_CONFIG];
+              return (
+                <Button
+                  key={level}
+                  variant={formData.urgencyLevel === level ? "default" : "outline"}
+                  size="small"
+                  onPress={() => updateFormData({ urgencyLevel: level as 1 | 2 | 3 | 4 | 5 })}
+                  style={{
+                    backgroundColor: formData.urgencyLevel === level 
+                      ? urgencyConfig.color
+                      : 'transparent',
+                    borderColor: urgencyConfig.color,
+                  }}
+                >
+                  <Text 
+                    size="xs" 
+                    weight="medium"
+                    style={{ 
+                      color: formData.urgencyLevel === level 
+                        ? urgencyConfig.textColor 
+                        : urgencyConfig.color 
+                    }}
+                  >
+                    {urgencyConfig.label}
+                  </Text>
+                </Button>
+              );
+            })}
           </HStack>
         </VStack>
       )}
