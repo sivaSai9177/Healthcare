@@ -2,7 +2,9 @@ import React, { useMemo, useState, useEffect, useCallback, useTransition } from 
 import { ViewStyle, Dimensions } from 'react-native';
 import { AreaChart, AreaChartData } from './AreaChart';
 import { ChartContainer, ChartLegend } from './ChartContainer';
-import { HStack, Box, Button } from '../index';
+import { HStack } from '../Stack';
+import { Box } from '../Box';
+import { Button } from '../Button';
 import { SpacingScale } from '@/lib/design-system';
 import { useTheme } from '@/lib/theme/theme-provider';
 

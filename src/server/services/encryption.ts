@@ -347,7 +347,7 @@ export class EncryptionService {
     this.currentKeyId = newKeyId;
     
     // In production, save key metadata to secure storage
-    console.log(`[ENCRYPTION] Key rotated to ${newKeyId}`);
+// TODO: Replace with structured logging - console.log(`[ENCRYPTION] Key rotated to ${newKeyId}`);
     
     return newKeyId;
   }

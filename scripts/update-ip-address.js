@@ -54,7 +54,7 @@ function updateIPInContent(content, newIP) {
     updated = updated.replace(pattern, (match, prefix, oldIP, suffix = '') => {
       if (oldIP !== newIP && oldIP !== 'localhost' && oldIP !== '127.0.0.1') {
         changeCount++;
-        console.log(`  Updating: ${oldIP} → ${newIP}`);
+// TODO: Replace with structured logging - console.log(`  Updating: ${oldIP} → ${newIP}`);
         return prefix + newIP + suffix;
       }
       return match;
@@ -67,7 +67,7 @@ function updateIPInContent(content, newIP) {
       /(EXPO_PUBLIC_API_URL(?:_LOCAL)?=http:\/\/)(localhost|127\.0\.0\.1)(:\d+)/g,
       (match, prefix, host, port) => {
         changeCount++;
-        console.log(`  Updating: ${host} → ${newIP}`);
+// TODO: Replace with structured logging - console.log(`  Updating: ${host} → ${newIP}`);
         return prefix + newIP + port;
       }
     );
@@ -82,16 +82,16 @@ function updateFile(filePath, newIP) {
     return false;
   }
   
-  console.log(`\nChecking ${path.basename(filePath)}...`);
+// TODO: Replace with structured logging - console.log(`\nChecking ${path.basename(filePath)}...`);
   const content = fs.readFileSync(filePath, 'utf8');
   const { content: updated, changes } = updateIPInContent(content, newIP);
   
   if (changes > 0) {
     fs.writeFileSync(filePath, updated);
-    console.log(`  ✓ Updated ${changes} IP reference(s)`);
+// TODO: Replace with structured logging - console.log(`  ✓ Updated ${changes} IP reference(s)`);
     return true;
   } else {
-    console.log('  No changes needed');
+// TODO: Replace with structured logging - console.log('  No changes needed');
     return false;
   }
 }
@@ -99,11 +99,11 @@ function updateFile(filePath, newIP) {
 // Main function
 function main() {
   const localIP = getLocalIP();
-  console.log(`Local IP Address: ${localIP}`);
+// TODO: Replace with structured logging - console.log(`Local IP Address: ${localIP}`);
   
   if (localIP === 'localhost') {
-    console.log('\nWarning: Could not detect a network IP address');
-    console.log('Make sure you are connected to a network');
+// TODO: Replace with structured logging - console.log('\nWarning: Could not detect a network IP address');
+// TODO: Replace with structured logging - console.log('Make sure you are connected to a network');
     return;
   }
   
@@ -143,29 +143,29 @@ function main() {
   }
   
   // Summary
-  console.log(`\n✅ Updated ${updatedCount} file(s) with IP: ${localIP}`);
+// TODO: Replace with structured logging - console.log(`\n✅ Updated ${updatedCount} file(s) with IP: ${localIP}`);
   
   // Additional instructions
   if (updatedCount > 0) {
-    console.log('\nNext steps:');
-    console.log('1. Restart your Expo development server');
-    console.log('2. Clear the app cache on your device');
-    console.log('3. Reload the app');
+// TODO: Replace with structured logging - console.log('\nNext steps:');
+// TODO: Replace with structured logging - console.log('1. Restart your Expo development server');
+// TODO: Replace with structured logging - console.log('2. Clear the app cache on your device');
+// TODO: Replace with structured logging - console.log('3. Reload the app');
     
     if (process.platform === 'darwin') {
-      console.log(`\nYour IP on this network: ${localIP}`);
-      console.log('Make sure your device is on the same network!');
+// TODO: Replace with structured logging - console.log(`\nYour IP on this network: ${localIP}`);
+// TODO: Replace with structured logging - console.log('Make sure your device is on the same network!');
     }
   }
 }
 
 // Show help
 if (process.argv.includes('--help')) {
-  console.log('Usage: node update-ip-address.js [options]');
-  console.log('\nOptions:');
-  console.log('  --replace-localhost  Also replace localhost/127.0.0.1 with network IP');
-  console.log('  --all               Check all config files, not just .env files');
-  console.log('  --help              Show this help message');
+// TODO: Replace with structured logging - console.log('Usage: node update-ip-address.js [options]');
+// TODO: Replace with structured logging - console.log('\nOptions:');
+// TODO: Replace with structured logging - console.log('  --replace-localhost  Also replace localhost/127.0.0.1 with network IP');
+// TODO: Replace with structured logging - console.log('  --all               Check all config files, not just .env files');
+// TODO: Replace with structured logging - console.log('  --help              Show this help message');
   process.exit(0);
 }
 

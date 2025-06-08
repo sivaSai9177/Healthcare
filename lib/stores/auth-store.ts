@@ -11,7 +11,7 @@ import { log } from '@/lib/core/logger';
 
 // Types
 export interface AppUser extends User {
-  role: 'admin' | 'manager' | 'user' | 'guest';
+  role: 'admin' | 'manager' | 'user' | 'guest' | 'operator' | 'nurse' | 'doctor' | 'head_doctor';
   organizationId?: string;
   organizationName?: string;
   department?: string;
@@ -20,7 +20,7 @@ export interface AppUser extends User {
 
 // Helper type to ensure user objects can be converted to AppUser
 export type UserToAppUser<T extends User> = T & {
-  role: 'admin' | 'manager' | 'user' | 'guest';
+  role: 'admin' | 'manager' | 'user' | 'guest' | 'operator' | 'nurse' | 'doctor' | 'head_doctor';
   organizationId?: string;
   organizationName?: string;
   department?: string;
@@ -28,7 +28,7 @@ export type UserToAppUser<T extends User> = T & {
 };
 
 // Helper function to safely convert any user object to AppUser
-export function toAppUser(user: any, fallbackRole: 'admin' | 'manager' | 'user' | 'guest' = 'user'): AppUser {
+export function toAppUser(user: any, fallbackRole: 'admin' | 'manager' | 'user' | 'guest' | 'operator' | 'nurse' | 'doctor' | 'head_doctor' = 'user'): AppUser {
   return {
     ...user,
     role: user.role || fallbackRole,
@@ -133,10 +133,9 @@ export const useAuthStore = create<AuthStore>()(
         },
 
         clearAuth: async () => {
-          console.log('[AuthStore] clearAuth called');
-          log.store.update('Clearing auth state');
+          log.store.update('clearAuth called');
           const prevState = get();
-          console.log('[AuthStore] Previous state:', {
+          log.store.debug('Previous state', {
             hadUser: !!prevState.user,
             wasAuthenticated: prevState.isAuthenticated
           });
@@ -159,7 +158,7 @@ export const useAuthStore = create<AuthStore>()(
             isAuthenticated: false,
             error: null,
           });
-          console.log('[AuthStore] State cleared');
+          log.info('[AuthStore] State cleared', 'COMPONENT');
         },
 
         logout: async (reason = 'user_initiated') => {

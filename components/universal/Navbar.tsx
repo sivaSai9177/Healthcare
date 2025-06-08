@@ -77,10 +77,7 @@ const WebTabBarVariant: React.FC<NavbarProps> = ({ items, user, onItemPress }) =
         backgroundColor: theme.background,
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: theme.border,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
+        boxShadow: '0px 2px 3px rgba(0, 0, 0, 0.05)',
         elevation: 3,
       }}
     >

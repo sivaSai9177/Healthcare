@@ -47,10 +47,7 @@ const LogEntryItem = React.memo(({
         borderRadius: 8,
         borderLeftWidth: 4,
         borderLeftColor: LOG_COLORS[logEntry.level],
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
+        boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
         elevation: 1,
       }}
     >
@@ -214,10 +211,7 @@ export function EnhancedDebugPanel() {
           justifyContent: 'center',
           alignItems: 'center',
           elevation: 8,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
+          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.25)',
           zIndex: 1000,
         }}
       >

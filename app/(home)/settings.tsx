@@ -26,7 +26,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { log } from '@/lib/core/logger';
 import { useTheme } from '@/lib/theme/enhanced-theme-provider';
 import { notificationService } from '@/lib/notifications/notification-service';
-import * as Notifications from 'expo-notifications';
 
 export default function SettingsScreen() {
   const { user, logout } = useAuth();
@@ -63,18 +62,8 @@ export default function SettingsScreen() {
 
   const checkNotificationPermission = async () => {
     try {
-      if (Platform.OS === 'web') {
-        // Check browser notification permission
-        if ('Notification' in window) {
-          setNotificationPermission(Notification.permission);
-        } else {
-          setNotificationPermission('unsupported');
-        }
-      } else {
-        // Check native notification permission
-        const { status } = await Notifications.getPermissionsAsync();
-        setNotificationPermission(status);
-      }
+      const status = await notificationService.checkPermissionStatus();
+      setNotificationPermission(status);
     } catch (error) {
       log.error('Failed to check notification permission', 'SETTINGS', error);
     }

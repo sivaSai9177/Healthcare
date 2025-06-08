@@ -10,7 +10,7 @@ export async function getSessionWithBearer(headers: Headers): Promise<{
   user: User;
 } | null> {
   try {
-    console.log('[SESSION] getSessionWithBearer called with headers:', {
+// TODO: Replace with structured logging - console.log('[SESSION] getSessionWithBearer called with headers:', {
       authorization: headers.get('authorization'),
       cookie: headers.get('cookie')?.substring(0, 50) + '...',
     });
@@ -18,19 +18,19 @@ export async function getSessionWithBearer(headers: Headers): Promise<{
     // First try standard cookie-based auth
     const cookieSession = await auth.api.getSession({ headers });
     if (cookieSession) {
-      console.log('[SESSION] Found session via cookie');
+// TODO: Replace with structured logging - console.log('[SESSION] Found session via cookie');
       return cookieSession;
     }
 
     // If no cookie session, check for Bearer token
     const authHeader = headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('[SESSION] No Bearer token found');
+// TODO: Replace with structured logging - console.log('[SESSION] No Bearer token found');
       return null;
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    console.log('[SESSION] Trying Bearer token:', token.substring(0, 20) + '...');
+// TODO: Replace with structured logging - console.log('[SESSION] Trying Bearer token:', token.substring(0, 20) + '...');
     
     // Better Auth expects the token in a cookie format
     // Create a new headers object with the token as a cookie
@@ -43,9 +43,9 @@ export async function getSessionWithBearer(headers: Headers): Promise<{
     });
     
     if (bearerSession) {
-      console.log('[SESSION] Found session via Bearer token');
+// TODO: Replace with structured logging - console.log('[SESSION] Found session via Bearer token');
     } else {
-      console.log('[SESSION] No session found with Bearer token');
+// TODO: Replace with structured logging - console.log('[SESSION] No session found with Bearer token');
     }
     
     return bearerSession;

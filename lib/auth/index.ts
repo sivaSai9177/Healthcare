@@ -4,7 +4,7 @@
  */
 
 // Core authentication setup
-export { auth } from './auth';
+// Note: Server-side auth should be imported directly from './auth-server'
 export { authClient } from './auth-client';
 export type { AuthClient } from './auth-client';
 

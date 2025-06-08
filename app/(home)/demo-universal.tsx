@@ -84,7 +84,7 @@ export default function DemoUniversalScreen() {
               description="This action cannot be undone. This will permanently delete your account and remove your data from our servers."
               confirmText="Delete Account"
               cancelText="Cancel"
-              onConfirm={() => console.log('Account deleted')}
+// TODO: Replace with structured logging - onConfirm={() => console.log('Account deleted')}
               destructive
             />
           </VStack>
@@ -109,26 +109,26 @@ export default function DemoUniversalScreen() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     icon={<Ionicons name="person-outline" size={16} />}
-                    onPress={() => console.log('Profile')}
+// TODO: Replace with structured logging - onPress={() => console.log('Profile')}
                   >
                     Profile
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     icon={<Ionicons name="card-outline" size={16} />}
-                    onPress={() => console.log('Billing')}
+// TODO: Replace with structured logging - onPress={() => console.log('Billing')}
                   >
                     Billing
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     icon={<Ionicons name="settings-outline" size={16} />}
-                    onPress={() => console.log('Settings')}
+// TODO: Replace with structured logging - onPress={() => console.log('Settings')}
                   >
                     Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     icon={<Ionicons name="log-out-outline" size={16} />}
-                    onPress={() => console.log('Logout')}
+// TODO: Replace with structured logging - onPress={() => console.log('Logout')}
                     destructive
                   >
                     Log out

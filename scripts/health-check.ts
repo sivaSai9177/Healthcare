@@ -22,11 +22,11 @@ function addCheck(name: string, status: 'PASS' | 'FAIL' | 'WARN', message: strin
 }
 
 async function runHealthChecks() {
-  console.log('🏥 Running Authentication App Health Check');
-  console.log('==========================================\n');
+// TODO: Replace with structured logging - console.log('🏥 Running Authentication App Health Check');
+// TODO: Replace with structured logging - console.log('==========================================\n');
 
   // 1. Check project structure
-  console.log('📁 Checking Project Structure...');
+// TODO: Replace with structured logging - console.log('📁 Checking Project Structure...');
   const requiredFiles = [
     'package.json',
     'app.json',
@@ -48,7 +48,7 @@ async function runHealthChecks() {
   });
 
   // 2. Check package.json for required dependencies
-  console.log('📦 Checking Dependencies...');
+// TODO: Replace with structured logging - console.log('📦 Checking Dependencies...');
   try {
     const packageJson = JSON.parse(readFileSync('package.json', 'utf-8'));
     const requiredDeps = [
@@ -79,7 +79,7 @@ async function runHealthChecks() {
   }
 
   // 3. Check environment configuration
-  console.log('🔧 Checking Environment Configuration...');
+// TODO: Replace with structured logging - console.log('🔧 Checking Environment Configuration...');
   const envVars = [
     'DATABASE_URL',
     'BETTER_AUTH_SECRET',
@@ -96,7 +96,7 @@ async function runHealthChecks() {
   });
 
   // 4. Check configuration files
-  console.log('⚙️  Checking Configuration Files...');
+// TODO: Replace with structured logging - console.log('⚙️  Checking Configuration Files...');
   const configFiles = [
     'tsconfig.json',
     'tailwind.config.ts', 
@@ -114,7 +114,7 @@ async function runHealthChecks() {
   });
 
   // 5. Check .gitignore for security
-  console.log('🔒 Checking Security Configuration...');
+// TODO: Replace with structured logging - console.log('🔒 Checking Security Configuration...');
   try {
     const gitignore = readFileSync('.gitignore', 'utf-8');
     const securityPatterns = [
@@ -140,70 +140,70 @@ async function runHealthChecks() {
   }
 
   // Generate Report
-  console.log('\n📊 Health Check Results');
-  console.log('========================');
+// TODO: Replace with structured logging - console.log('\n📊 Health Check Results');
+// TODO: Replace with structured logging - console.log('========================');
 
   const passCount = checks.filter(c => c.status === 'PASS').length;
   const failCount = checks.filter(c => c.status === 'FAIL').length;
   const warnCount = checks.filter(c => c.status === 'WARN').length;
 
-  console.log(`✅ PASS: ${passCount}`);
-  console.log(`❌ FAIL: ${failCount}`);
-  console.log(`⚠️  WARN: ${warnCount}`);
-  console.log(`📈 Total: ${checks.length}`);
+// TODO: Replace with structured logging - console.log(`✅ PASS: ${passCount}`);
+// TODO: Replace with structured logging - console.log(`❌ FAIL: ${failCount}`);
+// TODO: Replace with structured logging - console.log(`⚠️  WARN: ${warnCount}`);
+// TODO: Replace with structured logging - console.log(`📈 Total: ${checks.length}`);
 
   const healthScore = Math.round((passCount / checks.length) * 100);
-  console.log(`🏥 Health Score: ${healthScore}%`);
+// TODO: Replace with structured logging - console.log(`🏥 Health Score: ${healthScore}%`);
 
   if (healthScore >= 90) {
-    console.log('🎉 Excellent! Your app is in great health.');
+// TODO: Replace with structured logging - console.log('🎉 Excellent! Your app is in great health.');
   } else if (healthScore >= 75) {
-    console.log('👍 Good! Your app is mostly healthy with minor issues.');
+// TODO: Replace with structured logging - console.log('👍 Good! Your app is mostly healthy with minor issues.');
   } else if (healthScore >= 60) {
-    console.log('⚠️  Fair! Your app has some issues that should be addressed.');
+// TODO: Replace with structured logging - console.log('⚠️  Fair! Your app has some issues that should be addressed.');
   } else {
-    console.log('🚨 Poor! Your app has significant issues that need immediate attention.');
+// TODO: Replace with structured logging - console.log('🚨 Poor! Your app has significant issues that need immediate attention.');
   }
 
   // Show detailed results
-  console.log('\n📋 Detailed Results');
-  console.log('===================');
+// TODO: Replace with structured logging - console.log('\n📋 Detailed Results');
+// TODO: Replace with structured logging - console.log('===================');
   
   checks.forEach(check => {
     const icon = check.status === 'PASS' ? '✅' : check.status === 'FAIL' ? '❌' : '⚠️';
-    console.log(`${icon} ${check.name}: ${check.message}`);
+// TODO: Replace with structured logging - console.log(`${icon} ${check.name}: ${check.message}`);
     if (check.details) {
-      console.log(`   Details: ${JSON.stringify(check.details, null, 2)}`);
+// TODO: Replace with structured logging - console.log(`   Details: ${JSON.stringify(check.details, null, 2)}`);
     }
   });
 
-  console.log('\n🚀 Next Steps');
-  console.log('=============');
+// TODO: Replace with structured logging - console.log('\n🚀 Next Steps');
+// TODO: Replace with structured logging - console.log('=============');
   
   const failures = checks.filter(c => c.status === 'FAIL');
   if (failures.length > 0) {
-    console.log('❌ Critical Issues to Fix:');
+// TODO: Replace with structured logging - console.log('❌ Critical Issues to Fix:');
     failures.forEach(failure => {
-      console.log(`   - ${failure.name}: ${failure.message}`);
+// TODO: Replace with structured logging - console.log(`   - ${failure.name}: ${failure.message}`);
     });
   }
 
   const warnings = checks.filter(c => c.status === 'WARN');
   if (warnings.length > 0) {
-    console.log('\n⚠️  Warnings to Consider:');
+// TODO: Replace with structured logging - console.log('\n⚠️  Warnings to Consider:');
     warnings.forEach(warning => {
-      console.log(`   - ${warning.name}: ${warning.message}`);
+// TODO: Replace with structured logging - console.log(`   - ${warning.name}: ${warning.message}`);
     });
   }
 
   if (failures.length === 0 && warnings.length === 0) {
-    console.log('🎉 No issues found! Your authentication app is ready for production.');
+// TODO: Replace with structured logging - console.log('🎉 No issues found! Your authentication app is ready for production.');
   }
 
-  console.log('\n📚 Additional Checks to Run:');
-  console.log('   - bun run test (Jest test suite)');
-  console.log('   - bun run lint (Code quality)');
-  console.log('   - bun run start (Manual testing)');
+// TODO: Replace with structured logging - console.log('\n📚 Additional Checks to Run:');
+// TODO: Replace with structured logging - console.log('   - bun run test (Jest test suite)');
+// TODO: Replace with structured logging - console.log('   - bun run lint (Code quality)');
+// TODO: Replace with structured logging - console.log('   - bun run start (Manual testing)');
 
   return { healthScore, passCount, failCount, warnCount, checks };
 }

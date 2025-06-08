@@ -28,9 +28,18 @@ echo ""
 export APP_ENV=local
 export DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev"
 export LOCAL_DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev"
+
+# IMPORTANT: Use localhost for OAuth (Google doesn't allow private IPs)
 export BETTER_AUTH_BASE_URL="http://localhost:8081/api/auth"
 export BETTER_AUTH_URL="http://localhost:8081"
 export EXPO_PUBLIC_API_URL="http://localhost:8081"
+
+# Load Google OAuth credentials from .env if not already set
+if [ -z "$GOOGLE_CLIENT_ID" ]; then
+    if [ -f .env ]; then
+        export $(cat .env | grep -E '^GOOGLE_|^EXPO_PUBLIC_GOOGLE_' | xargs)
+    fi
+fi
 
 # Clear any conflicting environment variables
 unset EXPO_PUBLIC_API_URL_NGROK
@@ -40,6 +49,18 @@ unset NEON_DATABASE_URL
 export EXPO_USE_DEV_CLIENT=false
 
 echo "📱 Starting in Expo Go mode..."
+echo ""
+
+# Check if healthcare tables exist by looking for the alerts table
+echo "Checking healthcare setup..."
+if ! docker exec myexpo-postgres-local psql -U myexpo -d myexpo_dev -c "SELECT 1 FROM alerts LIMIT 1;" &>/dev/null; then
+    echo "⚠️  Healthcare tables not found. Setting up..."
+    APP_ENV=local DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev" bun run scripts/setup-healthcare-local.ts
+    echo "✅ Healthcare setup complete!"
+else
+    echo "✅ Healthcare tables already exist"
+fi
+
 echo ""
 
 # Start Expo with explicit flags for Expo Go

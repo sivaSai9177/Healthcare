@@ -6,8 +6,14 @@ import { z } from 'zod';
 // User & Authentication Schemas
 // ========================================
 
-export const UserRoleSchema = z.enum(['admin', 'manager', 'user', 'guest'], {
-  errorMap: () => ({ message: 'Invalid user role. Must be admin, manager, user, or guest.' })
+// ID Schema that accepts both UUID format and Better Auth's nanoid format (32 hex chars)
+export const UserIdSchema = z.string().regex(
+  /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  'Invalid ID format'
+);
+
+export const UserRoleSchema = z.enum(['admin', 'manager', 'user', 'guest', 'operator', 'nurse', 'doctor', 'head_doctor'], {
+  errorMap: () => ({ message: 'Invalid user role. Must be admin, manager, user, guest, operator, nurse, doctor, or head_doctor.' })
 });
 
 export const UserPermissionSchema = z.enum([
@@ -31,7 +37,7 @@ export const UserStatusSchema = z.enum(['active', 'inactive', 'suspended', 'pend
 
 // Base user schema for database operations
 export const BaseUserSchema = z.object({
-  id: z.string().uuid('Invalid user ID format'),
+  id: UserIdSchema,
   email: z.string()
     .email('Invalid email format')
     .toLowerCase()
@@ -163,13 +169,13 @@ export const ListUsersInputSchema = PaginationSchema.merge(SearchFilterSchema).s
 // ========================================
 
 export const UpdateUserRoleInputSchema = z.object({
-  userId: z.string().uuid('Invalid user ID'),
+  userId: UserIdSchema,
   newRole: UserRoleSchema,
   reason: z.string().min(1, 'Reason is required for role changes').max(500),
 }).strict();
 
 export const ForcePasswordResetInputSchema = z.object({
-  userId: z.string().uuid('Invalid user ID'),
+  userId: UserIdSchema,
   reason: z.string().min(1, 'Reason is required').max(500),
 }).strict();
 
@@ -201,7 +207,7 @@ export const AnalyticsInputSchema = z.object({
 export const AuditLogFilterSchema = z.object({
   startDate: z.date().optional(),
   endDate: z.date().optional(),
-  userId: z.string().uuid().optional(),
+  userId: UserIdSchema.optional(),
   action: z.string().optional(),
   severity: z.enum(['INFO', 'WARNING', 'ERROR', 'CRITICAL']).optional(),
   entityType: z.string().optional(),
@@ -242,7 +248,7 @@ export const SuccessResponseSchema = z.object({
 });
 
 export const UserResponseSchema = z.object({
-  id: z.string().uuid('Invalid user ID format'),
+  id: UserIdSchema,
   email: z.string().email('Invalid email format'),
   name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
   role: UserRoleSchema,
@@ -338,16 +344,20 @@ export const validateEmail = (email: unknown): string => {
 };
 
 export const validateUUID = (id: unknown): string => {
-  return z.string().uuid().parse(id);
+  return UserIdSchema.parse(id);
 };
 
 // Role hierarchy validation
 export const canUserAccessRole = (userRole: UserRole, requiredRole: UserRole): boolean => {
   const hierarchy: Record<UserRole, UserRole[]> = {
-    admin: ['admin', 'manager', 'user', 'guest'],
+    admin: ['admin', 'manager', 'user', 'guest', 'operator', 'nurse', 'doctor', 'head_doctor'],
     manager: ['manager', 'user', 'guest'],
     user: ['user', 'guest'],
     guest: ['guest'],
+    head_doctor: ['head_doctor', 'doctor', 'nurse', 'operator'],
+    doctor: ['doctor', 'nurse'],
+    nurse: ['nurse'],
+    operator: ['operator'],
   };
   
   return hierarchy[userRole]?.includes(requiredRole) ?? false;
@@ -360,6 +370,10 @@ export const validateUserPermission = (userRole: UserRole, permission: UserPermi
     manager: ['manage_users', 'view_analytics', 'manage_content', 'view_team', 'view_reports'],
     user: ['view_content', 'edit_profile'],
     guest: ['view_content'],
+    head_doctor: ['manage_users', 'view_analytics', 'manage_content', 'view_team', 'view_reports', 'manage_schedule', 'manage_approvals'],
+    doctor: ['view_analytics', 'view_content', 'edit_profile', 'view_team', 'view_reports'],
+    nurse: ['view_content', 'edit_profile', 'view_team'],
+    operator: ['view_content', 'edit_profile', 'view_reports'],
   };
   
   const permissions = rolePermissions[userRole] || [];

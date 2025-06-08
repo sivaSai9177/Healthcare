@@ -1,5 +1,5 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-import { auth } from '@/lib/auth';
+import { auth } from '@/lib/auth/auth-server';
 import { getSessionWithBearerFix } from '@/lib/auth/get-session-with-bearer-fix';
 import type { Session, User } from 'better-auth';
 import { log , trpcLogger } from '@/lib/core';

@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth-server";
 
 // Simple Better Auth handler with proper CORS
 async function handler(request: Request) {
@@ -21,6 +21,49 @@ async function handler(request: Request) {
   }
 
   try {
+    // Debug logging
+// TODO: Replace with structured logging - console.log('[AUTH API] Request received:', {
+      url: request.url,
+      method: request.method,
+      headers: Object.fromEntries(request.headers.entries()),
+    });
+    
+    // Log request body if POST
+    if (request.method === 'POST' && request.headers.get('content-type')?.includes('application/json')) {
+      try {
+        const clonedRequest = request.clone();
+        const bodyText = await clonedRequest.text();
+// TODO: Replace with structured logging - console.log('[AUTH API] Raw request body:', bodyText);
+        
+        try {
+          const bodyJson = JSON.parse(bodyText);
+// TODO: Replace with structured logging - console.log('[AUTH API] Parsed request body:', bodyJson);
+        } catch (parseError) {
+// TODO: Replace with structured logging - console.log('[AUTH API] Could not parse body as JSON:', parseError.message);
+        }
+      } catch (e) {
+// TODO: Replace with structured logging - console.log('[AUTH API] Could not read request body:', e);
+      }
+    }
+    
+    // Check if auth handler exists
+    if (!auth || typeof auth.handler !== 'function') {
+      console.error('[AUTH API ERROR]: auth.handler is not a function', {
+        authExists: !!auth,
+        handlerType: typeof auth?.handler
+      });
+      return new Response(
+        JSON.stringify({ error: 'Auth handler not properly initialized' }), 
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+    
     // Parse URL to check the path
     const url = new URL(request.url);
     
@@ -145,7 +188,9 @@ async function handler(request: Request) {
     }
     
     // Call Better Auth handler for normal requests
+// TODO: Replace with structured logging - console.log('[AUTH API] Calling auth.handler...');
     const response = await auth.handler(request);
+// TODO: Replace with structured logging - console.log('[AUTH API] Response from auth.handler:', response.status);
     
     // Response handled by Better Auth
     
@@ -156,18 +201,22 @@ async function handler(request: Request) {
 
     return response;
   } catch (error) {
-    // Log error in production logger
-    // Error details available in development mode
+    console.error('[AUTH API ERROR]:', error);
+    console.error('[AUTH API ERROR] Full error:', {
+      message: (error as Error).message,
+      stack: (error as Error).stack,
+      name: (error as Error).name,
+    });
     
     // Return more detailed error in development
     const errorMessage = process.env.NODE_ENV === 'development' 
-      ? error.message || 'Internal Server Error'
+      ? (error as Error).message || 'Internal Server Error'
       : 'Internal Server Error';
     
     return new Response(
       JSON.stringify({ 
         error: errorMessage,
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        details: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
       }), 
       {
         status: 500,

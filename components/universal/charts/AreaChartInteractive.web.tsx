@@ -2,7 +2,10 @@ import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts"
 import { View, Dimensions } from "react-native"
 // Removed card imports - using Box instead
-import { Button, HStack, Box, Text } from "../index"
+import { Button } from "../Button"
+import { HStack } from "../Stack"
+import { Box } from "../Box"
+import { Text } from "../Text"
 import { SpacingScale } from "@/lib/design-system"
 import { useTheme } from "@/lib/theme/theme-provider"
 
@@ -44,10 +47,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         borderColor: theme.border,
         borderRadius: 6,
         padding: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
       }}>
         <Text style={{ fontSize: 12, color: theme.mutedForeground, marginBottom: 4 }}>
           {new Date(label).toLocaleDateString("en-US", {

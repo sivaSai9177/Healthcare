@@ -194,3 +194,6 @@ export const twoFactorToken = pgTable("two_factor_token", {
     .$defaultFn(() => new Date())
     .notNull(),
 });
+
+// Alias export for backward compatibility
+export const users = user;

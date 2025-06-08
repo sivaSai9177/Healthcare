@@ -6,15 +6,16 @@ import { createAuthClient } from "better-auth/react";
 import { inferAdditionalFields } from "better-auth/client/plugins";
 import { Platform } from "react-native";
 import { webStorage, mobileStorage } from "../core/secure-storage";
-import { getApiUrlSync } from "../core/config";
+import { getAuthUrl } from "../core/unified-env";
 import { sessionManager } from "./auth-session-manager";
+import { log } from "../core/logger";
 // Note: Removed auth-store import to prevent circular dependency
 
-const BASE_URL = getApiUrlSync();
+const BASE_URL = getAuthUrl(); // Use OAuth-safe URL
 
 // Log configuration once (only on client side)
 if (typeof window !== 'undefined' || __DEV__) {
-  console.log("[AUTH CLIENT] Initialized:", {
+  log.info('Auth client initialized', 'AUTH_CLIENT', {
     platform: Platform.OS,
     baseURL: BASE_URL,
     authEndpoint: `${BASE_URL}/api/auth`,
@@ -22,15 +23,22 @@ if (typeof window !== 'undefined' || __DEV__) {
   });
 }
 
+// Custom fetch implementation to fix body serialization
+const customFetch: typeof fetch = async (input, init) => {
+  // If there's a body and it's an object, ensure it's properly stringified
+  if (init?.body && typeof init.body === 'object' && !(init.body instanceof FormData)) {
+    init = {
+      ...init,
+      body: JSON.stringify(init.body),
+    };
+  }
+  
+  return fetch(input, init);
+};
+
 export const authClient = createAuthClient({
   baseURL: `${BASE_URL}/api/auth`, // Full auth endpoint path
-  fetchOptions: {
-    // Add credentials for cookie support in tunnel mode
-    credentials: Platform.OS === 'web' ? 'include' : 'omit',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  },
+  fetch: customFetch, // Use custom fetch to fix serialization
   plugins: [
     expoClient({
       scheme: "expo-starter", // App scheme from app.json
@@ -66,11 +74,27 @@ export const authClient = createAuthClient({
     }),
   ],
   fetchOptions: {
-    credentials: 'include', // Important for cookie-based auth on web
+    credentials: Platform.OS === 'web' ? 'include' : 'omit', // Important for cookie-based auth on web
+    headers: {
+      'Content-Type': 'application/json',
+    },
     onRequest: (ctx: any) => {
       // The Expo plugin handles cookie management automatically
       // No need to manually add headers
-      console.log('[AUTH CLIENT] Request to:', ctx.url);
+      log.debug('Request to', 'AUTH_CLIENT', { url: ctx.url });
+      
+      // Debug the request body
+      if (ctx.options?.body) {
+        log.debug('Request body', 'AUTH_CLIENT', {
+          bodyType: typeof ctx.options.body,
+          hasBody: !!ctx.options.body
+        });
+        
+        // Ensure body is properly stringified
+        if (typeof ctx.options.body === 'object' && !(ctx.options.body instanceof FormData)) {
+          ctx.options.body = JSON.stringify(ctx.options.body);
+        }
+      }
     },
     onResponse: async (ctx: any) => {
       // The Expo plugin handles cookie storage automatically
@@ -78,7 +102,7 @@ export const authClient = createAuthClient({
       if (ctx.response && ctx.response.headers) {
         const setCookie = ctx.response.headers.get('set-cookie');
         if (setCookie) {
-          console.log('[AUTH CLIENT] Set-Cookie header received (handled by Expo plugin)');
+          log.debug('Set-Cookie header received (handled by Expo plugin)', 'AUTH_CLIENT');
         }
       }
       
@@ -89,10 +113,10 @@ export const authClient = createAuthClient({
           
           // Handle sign-in/sign-up responses
           if (ctx.url && (ctx.url.includes('/signin') || ctx.url.includes('/signup')) && data.user) {
-            console.log('[AUTH CLIENT] Response received, storing session data');
+            log.debug('Response received, storing session data', 'AUTH_CLIENT');
             
             // Log the response structure for debugging
-            console.log('[AUTH CLIENT] Sign-in response structure:', {
+            log.debug('Sign-in response structure', 'AUTH_CLIENT', {
               platform: Platform.OS,
               hasToken: !!data.token,
               hasSession: !!data.session,
@@ -117,12 +141,12 @@ export const authClient = createAuthClient({
             
             // Store token for mobile platforms
             if (Platform.OS !== 'web' && token) {
-              console.log('[AUTH CLIENT] Mobile session - ensuring token is accessible');
+              log.debug('Mobile session - ensuring token is accessible', 'AUTH_CLIENT');
               
               try {
                 // Store in session manager for persistence
                 await sessionManager.storeSession({ token, userId: data.user.id });
-                console.log('[AUTH CLIENT] Stored session token for mobile API access');
+                log.debug('Stored session token for mobile API access', 'AUTH_CLIENT');
                 
                 // Update Zustand store with session info
                 const { useAuthStore } = require('@/lib/stores/auth-store');
@@ -132,7 +156,7 @@ export const authClient = createAuthClient({
                 }
                 
               } catch (e) {
-                console.log('[AUTH CLIENT] Could not store session token:', e);
+                log.error('Could not store session token', 'AUTH_CLIENT', e);
               }
             }
           }

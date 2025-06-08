@@ -18,7 +18,9 @@ import Svg, {
   Rect,
 } from 'react-native-svg';
 import { useChartConfig } from './ChartContainer';
-import { Box, Text, HStack } from '../index';
+import { Box } from '../Box';
+import { Text } from '../Text';
+import { HStack } from '../Stack';
 import { SpacingScale } from '@/lib/design-system';
 
 export interface LineChartData {

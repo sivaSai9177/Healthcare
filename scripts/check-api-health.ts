@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 async function checkApiHealth() {
-  console.log('🔍 Checking API health...\n');
+// TODO: Replace with structured logging - console.log('🔍 Checking API health...\n');
   
   const baseUrl = 'http://localhost:8081';
   
@@ -14,7 +14,7 @@ async function checkApiHealth() {
   
   for (const endpoint of endpoints) {
     try {
-      console.log(`Checking ${baseUrl}${endpoint}...`);
+// TODO: Replace with structured logging - console.log(`Checking ${baseUrl}${endpoint}...`);
       const response = await fetch(`${baseUrl}${endpoint}`, {
         method: endpoint.includes('trpc') ? 'GET' : 'GET',
         headers: {
@@ -22,26 +22,26 @@ async function checkApiHealth() {
         }
       });
       
-      console.log(`✅ ${endpoint}: ${response.status} ${response.statusText}`);
+// TODO: Replace with structured logging - console.log(`✅ ${endpoint}: ${response.status} ${response.statusText}`);
       
       if (endpoint === '/api/auth') {
         const text = await response.text();
-        console.log(`   Response preview: ${text.substring(0, 100)}...`);
+// TODO: Replace with structured logging - console.log(`   Response preview: ${text.substring(0, 100)}...`);
       }
     } catch (error) {
-      console.log(`❌ ${endpoint}: ${error.message}`);
+// TODO: Replace with structured logging - console.log(`❌ ${endpoint}: ${error.message}`);
     }
-    console.log('');
+// TODO: Replace with structured logging - console.log('');
   }
   
   // Check if server is running
   try {
     const response = await fetch(baseUrl);
     if (response.ok) {
-      console.log('✅ Expo server is running');
+// TODO: Replace with structured logging - console.log('✅ Expo server is running');
     }
   } catch (error) {
-    console.log('❌ Expo server is not running. Start it with: bun start');
+// TODO: Replace with structured logging - console.log('❌ Expo server is not running. Start it with: bun start');
   }
 }
 

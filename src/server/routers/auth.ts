@@ -8,7 +8,7 @@ import {
   managerProcedure,
   viewAnalyticsProcedure
 } from '../trpc';
-import { auth } from '@/lib/auth';
+import { auth } from '@/lib/auth/auth-server';
 import { TRPCError } from '@trpc/server';
 import { log } from '@/lib/core/logger';
 
@@ -113,7 +113,7 @@ export const authRouter = router({
         }
 
         // Debug: Log the raw response from Better Auth
-        console.log('[AUTH] Raw Better Auth signin response:', JSON.stringify(response, null, 2));
+        log.info('[AUTH] Raw Better Auth signin response:', 'COMPONENT');
 
         // Query the database directly to get the complete user data with custom fields
         const { db } = await import('@/src/db');
@@ -126,7 +126,7 @@ export const authRouter = router({
           .where(eq(userTable.id, response.user.id))
           .limit(1);
         
-        console.log('[AUTH] Database user data:', dbUser);
+        log.info('[AUTH] Database user data:', 'COMPONENT');
 
         // Log successful login
         await auditService.logAuth(
@@ -149,7 +149,7 @@ export const authRouter = router({
           needsProfileCompletion: dbUser?.needsProfileCompletion ?? (response.user as any).needsProfileCompletion ?? false,
         };
 
-        console.log('[AUTH] Complete user object being returned:', completeUser);
+        log.info('[AUTH] Complete user object being returned:', 'COMPONENT');
 
         return {
           success: true,
@@ -200,7 +200,7 @@ export const authRouter = router({
       }
       
       try {
-        console.log('[AUTH] Processing signup with input:', {
+        log.info('[AUTH] Processing signup with input:', 'COMPONENT');
           email: sanitizedEmail,
           role: input.role,
           hasOrgCode: !!input.organizationCode,
@@ -227,7 +227,7 @@ export const authRouter = router({
           });
         }
 
-        console.log('[AUTH] User created successfully:', signUpResponse.user.id);
+        log.info('[AUTH] User created successfully:', 'COMPONENT');
 
         // Immediately update user with role and other fields in database
         const { db } = await import('@/src/db');
@@ -249,7 +249,7 @@ export const authRouter = router({
         // Handle organization creation/joining based on role
         if (input.role === 'manager' || input.role === 'admin') {
           if (sanitizedOrgName) {
-            console.log('[AUTH] Creating organization placeholder for:', sanitizedOrgName);
+            log.info('[AUTH] Creating organization placeholder for:', 'COMPONENT');
             
             // Generate a proper UUID for the organization
             const { randomUUID } = await import('crypto');
@@ -270,7 +270,7 @@ export const authRouter = router({
               slug: sanitizedOrgName.toLowerCase().replace(/\s+/g, '-')
             };
             
-            console.log('[AUTH] Organization placeholder created:', orgId);
+            log.info('[AUTH] Organization placeholder created:', 'COMPONENT');
             
             // TODO: Implement proper organization creation with Better Auth after database migration
             // try {
@@ -281,7 +281,7 @@ export const authRouter = router({
           }
         } else if (input.role === 'user' && input.organizationCode) {
           // TODO: Implement organization joining by code
-          console.log('[AUTH] Organization joining by code not yet implemented');
+          log.info('[AUTH] Organization joining by code not yet implemented', 'COMPONENT');
           // For now, just continue without organization
         }
         
@@ -375,7 +375,7 @@ export const authRouter = router({
         // Check if this is a new OAuth user who needs profile completion
         // If user has no role or guest role, they need to complete their profile
         if (dbUser && (!dbUser.role || dbUser.role === 'guest')) {
-          console.log('[AUTH] Detected OAuth user with incomplete profile:', {
+          log.info('[AUTH] Detected OAuth user with incomplete profile:', 'COMPONENT');
             id: dbUser.id,
             role: dbUser.role,
             needsProfileCompletion: dbUser.needsProfileCompletion,
@@ -385,7 +385,7 @@ export const authRouter = router({
           
           // If they haven't been marked for profile completion yet, do it now
           if (!dbUser.needsProfileCompletion) {
-            console.log('[AUTH] Marking OAuth user for profile completion');
+            log.info('[AUTH] Marking OAuth user for profile completion', 'COMPONENT');
             
             const [updatedUser] = await db
               .update(userTable)
@@ -398,7 +398,7 @@ export const authRouter = router({
               .returning();
             
             dbUser = updatedUser;
-            console.log('[AUTH] Updated OAuth user for profile completion:', {
+            log.info('[AUTH] Updated OAuth user for profile completion:', 'COMPONENT');
               id: dbUser.id,
               role: dbUser.role,
               needsProfileCompletion: dbUser.needsProfileCompletion
@@ -504,7 +504,7 @@ export const authRouter = router({
       const context = auditHelpers.extractContext(ctx.req);
 
       try {
-        console.log('[AUTH] Social sign-in initiated', {
+        log.info('[AUTH] Social sign-in initiated', 'COMPONENT');
           provider: input.provider,
           hasToken: !!input.token,
           hasUserInfo: !!input.userInfo,
@@ -528,7 +528,7 @@ export const authRouter = router({
 
         // If user exists, return their current state
         if (existingUser) {
-          console.log('[AUTH] Existing social user found:', {
+          log.info('[AUTH] Existing social user found:', 'COMPONENT');
             id: existingUser.id,
             email: existingUser.email,
             role: existingUser.role,
@@ -577,7 +577,7 @@ export const authRouter = router({
           });
         }
 
-        console.log('[AUTH] Creating new social user:', {
+        log.info('[AUTH] Creating new social user:', 'COMPONENT');
           email: input.userInfo.email,
           name: input.userInfo.name,
           provider: input.provider
@@ -603,7 +603,7 @@ export const authRouter = router({
             })
             .returning();
 
-          console.log('[AUTH] New social user created:', {
+          log.info('[AUTH] New social user created:', 'COMPONENT');
             id: newUser.id,
             email: newUser.email,
             role: newUser.role,
@@ -684,8 +684,8 @@ export const authRouter = router({
     .input(CompleteProfileInputSchema)
     .output(z.object({ success: z.literal(true), user: UserResponseSchema, organizationId: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
-      console.log('[AUTH] completeProfile called with input:', JSON.stringify(input, null, 2));
-      console.log('[AUTH] completeProfile user context:', {
+      log.info('[AUTH] completeProfile called with input:', 'COMPONENT');
+      log.info('[AUTH] completeProfile user context:', 'COMPONENT');
         userId: ctx.user.id,
         userEmail: ctx.user.email,
         currentRole: (ctx.user as any).role,
@@ -715,20 +715,20 @@ export const authRouter = router({
         if (input.role === 'manager' || input.role === 'admin') {
           if (input.organizationName) {
             // Create new organization
-            console.log('[AUTH] Creating new organization:', input.organizationName);
+            log.info('[AUTH] Creating new organization:', 'COMPONENT');
             const { randomUUID } = await import('crypto');
             const orgId = randomUUID();
             finalOrganizationId = orgId;
           }
         } else if (input.role === 'user' && input.organizationCode) {
           // Look up organization by code
-          console.log('[AUTH] Looking up organization by code:', input.organizationCode);
+          log.info('[AUTH] Looking up organization by code:', 'COMPONENT');
           // TODO: Actually look up the organization by code
           const { randomUUID } = await import('crypto');
           finalOrganizationId = randomUUID();
         } else if (input.role === 'user' && !input.organizationCode) {
           // Create personal workspace
-          console.log('[AUTH] Creating personal workspace for user');
+          log.info('[AUTH] Creating personal workspace for user', 'COMPONENT');
           const { randomUUID } = await import('crypto');
           const personalOrgId = randomUUID();
           finalOrganizationId = personalOrgId;
@@ -763,7 +763,7 @@ export const authRouter = router({
         }
         
         const updatedUser = updatedUsers[0];
-        console.log('[AUTH] Profile completed for user:', {
+        log.info('[AUTH] Profile completed for user:', 'COMPONENT');
           id: updatedUser.id,
           role: updatedUser.role,
           organizationId: updatedUser.organizationId,
@@ -776,7 +776,7 @@ export const authRouter = router({
             headers: ctx.req.headers,
             body: updateData,
           });
-          console.log('[AUTH] Better Auth user updated');
+          log.info('[AUTH] Better Auth user updated', 'COMPONENT');
         } catch (authError) {
           console.warn('[AUTH] Better Auth update failed, but database was updated:', authError);
         }
@@ -860,7 +860,7 @@ export const authRouter = router({
         // If role is being updated, mark profile as complete
         if (input.role) {
           updateData.needsProfileCompletion = false;
-          console.log('[AUTH] Profile completion - setting needsProfileCompletion: false');
+          log.info('[AUTH] Profile completion - setting needsProfileCompletion: false', 'COMPONENT');
         }
         
         updateData.updatedAt = new Date();
@@ -880,7 +880,7 @@ export const authRouter = router({
         }
         
         const updatedUser = updatedUsers[0];
-        console.log('[AUTH] User updated in database:', {
+        log.info('[AUTH] User updated in database:', 'COMPONENT');
           id: updatedUser.id,
           role: updatedUser.role,
           needsProfileCompletion: updatedUser.needsProfileCompletion
@@ -892,7 +892,7 @@ export const authRouter = router({
             headers: ctx.req.headers,
             body: updateData,
           });
-          console.log('[AUTH] Better Auth user updated');
+          log.info('[AUTH] Better Auth user updated', 'COMPONENT');
         } catch (authError) {
           console.warn('[AUTH] Better Auth update failed, but database was updated:', authError);
         }
@@ -950,7 +950,7 @@ export const authRouter = router({
           { reason: 'user_initiated' }
         );
 
-        console.log('[AUTH] User signed out successfully:', ctx.user.id);
+        log.info('[AUTH] User signed out successfully:', 'COMPONENT');
         
         return { success: true };
       } catch (error) {
@@ -979,7 +979,7 @@ export const authRouter = router({
     .query(async ({ input }) => {
       // In a real app, check database for existing email
       // For now, return false (email available)
-      console.log('[AUTH] Checking email availability:', input.email);
+      log.info('[AUTH] Checking email availability:', 'COMPONENT');
       return {
         exists: false,
         available: true,
@@ -993,7 +993,7 @@ export const authRouter = router({
     .mutation(async ({ ctx }) => {
       // Two-factor authentication would be implemented here
       // Better Auth doesn't have built-in 2FA support yet
-      console.log('[SECURITY] 2FA requested for user:', ctx.user.id);
+      log.info('[SECURITY] 2FA requested for user:', 'COMPONENT');
       
       // In production, you would:
       // 1. Generate a secret for the user
@@ -1014,7 +1014,7 @@ export const authRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       // Two-factor verification would be implemented here
-      console.log('[SECURITY] 2FA verification attempted for user:', ctx.user.id, 'with code:', input.code);
+      log.info('[SECURITY] 2FA verification attempted for user:', 'COMPONENT');
       
       // In production, you would:
       // 1. Retrieve the user's 2FA secret
@@ -1038,7 +1038,7 @@ export const authRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       // Authorization is handled by adminProcedure middleware
-      console.log('[AUDIT] Audit logs requested by:', ctx.user.id, 'filters:', input);
+      log.info('[AUDIT] Audit logs requested by:', 'COMPONENT');
       
       return {
         logs: [], // Would return actual audit logs from database
@@ -1054,7 +1054,7 @@ export const authRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       // Authorization is handled by adminProcedure middleware
-      console.log('[SECURITY] Password reset forced by:', ctx.user.id, 'for user:', input.userId, 'reason:', input.reason);
+      log.info('[SECURITY] Password reset forced by:', 'COMPONENT');
       
       // In production, implement actual password reset logic
       return { success: true };
@@ -1065,7 +1065,7 @@ export const authRouter = router({
     .query(async ({ ctx }) => {
       try {
         // In production, query session table for user's active sessions
-        console.log('[SESSION] Active sessions requested for user:', ctx.user.id);
+        log.info('[SESSION] Active sessions requested for user:', 'COMPONENT');
         
         return {
           sessions: [], // Would return actual sessions from database
@@ -1089,7 +1089,7 @@ export const authRouter = router({
         // Better Auth's revokeSession expects a token, not sessionId
         // In a real implementation, you would look up the session by ID
         // and then revoke it using the token
-        console.log('[SECURITY] Session revoke requested by user:', ctx.user.id, 'for session:', input.sessionId);
+        log.info('[SECURITY] Session revoke requested by user:', 'COMPONENT');
         
         // In production, you would:
         // 1. Query the database for the session by ID
@@ -1120,7 +1120,7 @@ export const authRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       // Authorization is handled by managerProcedure middleware
-      console.log('[USERS] User list requested by:', ctx.user.id, 'with filters:', input);
+      log.info('[USERS] User list requested by:', 'COMPONENT');
       
       try {
         const { db } = await import('@/src/db');
@@ -1191,7 +1191,7 @@ export const authRouter = router({
     .output(z.object({ success: z.literal(true), user: UserResponseSchema }))
     .mutation(async ({ input, ctx }) => {
       // Authorization is handled by adminProcedure middleware
-      console.log('[ADMIN] Role change requested by:', ctx.user.id, 'for user:', input.userId, 'new role:', input.newRole);
+      log.info('[ADMIN] Role change requested by:', 'COMPONENT');
       
       if (input.userId === ctx.user.id) {
         throw new TRPCError({
@@ -1271,7 +1271,7 @@ export const authRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       // Authorization is handled by viewAnalyticsProcedure middleware
-      console.log('[ANALYTICS] Analytics requested by:', ctx.user.id, 'metric:', input.metric);
+      log.info('[ANALYTICS] Analytics requested by:', 'COMPONENT');
       
       // Mock analytics data - in production, this would query actual metrics
       const mockData = {

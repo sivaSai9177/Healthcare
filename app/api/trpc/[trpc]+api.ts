@@ -1,6 +1,14 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { appRouter } from '@/src/server/routers';
 import { createContext } from '@/src/server/trpc';
+import { initializeBackgroundServices } from '@/src/server/services/server-startup';
+
+// Initialize background services on first load
+let servicesInitialized = false;
+if (!servicesInitialized) {
+  initializeBackgroundServices();
+  servicesInitialized = true;
+}
 
 // Handle all tRPC requests with proper CORS
 const handler = async (request: Request) => {

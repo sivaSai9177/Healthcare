@@ -11,7 +11,7 @@ import { auth } from '../lib/auth/auth';
 const PORT = process.env.PORT || 8082;
 
 async function startApiServer() {
-  console.log('🚀 Starting API server...\n');
+// TODO: Replace with structured logging - console.log('🚀 Starting API server...\n');
 
   const server = createServer(async (req, res) => {
     // Set CORS headers
@@ -25,7 +25,7 @@ async function startApiServer() {
       return;
     }
 
-    console.log(`[API] ${req.method} ${req.url}`);
+// TODO: Replace with structured logging - console.log(`[API] ${req.method} ${req.url}`);
 
     // Handle auth routes
     if (req.url?.startsWith('/api/auth')) {
@@ -55,10 +55,10 @@ async function startApiServer() {
   });
 
   server.listen(PORT, () => {
-    console.log(`✅ API server running on http://localhost:${PORT}`);
-    console.log(`📍 Auth endpoints: http://localhost:${PORT}/api/auth/*`);
-    console.log('\n💡 You can test OAuth at:');
-    console.log(`   http://localhost:${PORT}/api/auth/sign-in/provider/google`);
+// TODO: Replace with structured logging - console.log(`✅ API server running on http://localhost:${PORT}`);
+// TODO: Replace with structured logging - console.log(`📍 Auth endpoints: http://localhost:${PORT}/api/auth/*`);
+// TODO: Replace with structured logging - console.log('\n💡 You can test OAuth at:');
+// TODO: Replace with structured logging - console.log(`   http://localhost:${PORT}/api/auth/sign-in/provider/google`);
   });
 }
 

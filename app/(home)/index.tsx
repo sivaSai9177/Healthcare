@@ -23,7 +23,7 @@ import { log } from "@/lib/core/logger";
 import { spacing, SpacingScale } from "@/lib/design-system";
 import { useTheme } from "@/lib/theme/theme-provider";
 import { useRouter } from "expo-router";
-import React, { useState, useCallback, useTransition, useDeferredValue, useEffect } from "react";
+import React, { useState, useCallback, useTransition, useDeferredValue, useEffect, useMemo } from "react";
 import { Alert, Platform, RefreshControl, ScrollView, Animated, View, Dimensions, Easing } from "react-native";
 
 // Shimmer effect component for loading state
@@ -128,6 +128,14 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const theme = useTheme();
+  
+  // Redirect healthcare users to healthcare dashboard
+  React.useEffect(() => {
+    const healthcareRoles = ['operator', 'doctor', 'nurse', 'head_doctor'];
+    if (user?.role && healthcareRoles.includes(user.role)) {
+      router.replace('/(home)/healthcare-dashboard');
+    }
+  }, [user?.role, router]);
   const [refreshing, setRefreshing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [refreshKey, setRefreshKey] = useState(0);
@@ -209,8 +217,8 @@ export default function HomeScreen() {
     });
   }, [fadeAnim, translateY]);
 
-  // Define metrics based on user role
-  const getMetricsByRole = () => {
+  // Memoize metrics based on user role
+  const metrics = useMemo(() => {
     switch (user?.role) {
       case "admin":
         return [
@@ -234,10 +242,10 @@ export default function HomeScreen() {
           { label: "This Week", value: "12" },
         ];
     }
-  };
+  }, [user?.role]);
 
-  // Define quick actions based on user role
-  const getQuickActionsByRole = () => {
+  // Memoize quick actions based on user role
+  const quickActions = useMemo(() => {
     const commonActions = [
       {
         label: "View Profile",
@@ -313,10 +321,8 @@ export default function HomeScreen() {
           ...commonActions,
         ];
     }
-  };
+  }, [user?.role, router]);
 
-  const metrics = getMetricsByRole();
-  const quickActions = getQuickActionsByRole();
   const deferredMetrics = useDeferredValue(metrics);
   const deferredActions = useDeferredValue(quickActions);
 

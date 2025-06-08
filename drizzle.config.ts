@@ -24,9 +24,9 @@ switch (APP_ENV) {
     DATABASE_URL = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL || '';
 }
 
-console.log(`📦 Drizzle Kit Configuration`);
-console.log(`🌍 Environment: ${APP_ENV}`);
-console.log(`📊 Database: ${DATABASE_URL.includes('localhost') ? 'Local PostgreSQL' : 'Neon Cloud'}`);
+// TODO: Replace with structured logging - console.log(`📦 Drizzle Kit Configuration`);
+// TODO: Replace with structured logging - console.log(`🌍 Environment: ${APP_ENV}`);
+// TODO: Replace with structured logging - console.log(`📊 Database: ${DATABASE_URL.includes('localhost') ? 'Local PostgreSQL' : 'Neon Cloud'}`);
 
 export default defineConfig({
   out: "./drizzle",

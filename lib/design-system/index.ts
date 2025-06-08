@@ -134,121 +134,79 @@ export const borderRadius = {
 export const shadows = {
   none: Platform.select({
     ios: {
-      shadowColor: 'transparent',
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0,
-      shadowRadius: 0,
+      boxShadow: 'none',
     },
     android: {
       elevation: 0,
     },
     web: {
-      shadowColor: 'transparent',
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0,
-      shadowRadius: 0,
+      boxShadow: 'none',
     },
   }),
   sm: Platform.select({
     ios: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
+      boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
     },
     android: {
       elevation: 2,
     },
     web: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
+      boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
     },
   }),
   base: Platform.select({
     ios: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
+      boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
     },
     android: {
       elevation: 4,
     },
     web: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
+      boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
     },
   }),
   md: Platform.select({
     ios: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 6,
+      boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.15)',
     },
     android: {
       elevation: 6,
     },
     web: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 6,
+      boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.15)',
     },
   }),
   lg: Platform.select({
     ios: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.2,
-      shadowRadius: 10,
+      boxShadow: '0px 8px 10px rgba(0, 0, 0, 0.2)',
     },
     android: {
       elevation: 8,
     },
     web: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.2,
-      shadowRadius: 10,
+      boxShadow: '0px 8px 10px rgba(0, 0, 0, 0.2)',
     },
   }),
   xl: Platform.select({
     ios: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.25,
-      shadowRadius: 15,
+      boxShadow: '0px 12px 15px rgba(0, 0, 0, 0.25)',
     },
     android: {
       elevation: 12,
     },
     web: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.25,
-      shadowRadius: 15,
+      boxShadow: '0px 12px 15px rgba(0, 0, 0, 0.25)',
     },
   }),
   '2xl': Platform.select({
     ios: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 20 },
-      shadowOpacity: 0.3,
-      shadowRadius: 25,
+      boxShadow: '0px 20px 25px rgba(0, 0, 0, 0.3)',
     },
     android: {
       elevation: 16,
     },
     web: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 20 },
-      shadowOpacity: 0.3,
-      shadowRadius: 25,
+      boxShadow: '0px 20px 25px rgba(0, 0, 0, 0.3)',
     },
   }),
 } as const;

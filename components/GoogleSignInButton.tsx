@@ -78,32 +78,59 @@ export function GoogleSignInButton({
         log.auth.debug('Starting OAuth with Better Auth client', { platform: Platform.OS });
         
         if (Platform.OS === 'web') {
-          // For web, use Better Auth client which should now work with server output
-          log.auth.debug('Starting web OAuth flow', { 
+          // For web, use direct navigation to avoid the API error
+          log.auth.debug('Starting web OAuth flow with direct navigation', { 
             provider: 'google',
             callbackURL,
             platform: Platform.OS 
           });
           
           try {
-            // With server output, this should properly redirect to Google
-            await defaultAuthClient.signIn.social({
-              provider: 'google',
-              callbackURL,
+            // Make direct POST request to avoid Better Auth client serialization issues
+            const response = await fetch(`${window.location.origin}/api/auth/sign-in/social`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                provider: 'google',
+                callbackURL
+              })
             });
             
-            // If we reach here, keep loading state as we should be redirecting
-            return;
-          } catch (error: any) {
-            log.auth.error('OAuth initiation failed', error);
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`OAuth request failed: ${response.status} - ${errorText}`);
+            }
             
-            // If Better Auth client fails, try direct navigation as fallback
-            const authBaseUrl = `${window.location.origin}/api/auth`;
-            const oauthUrl = `${authBaseUrl}/signin/google?callbackURL=${encodeURIComponent(callbackURL)}`;
+            const result = await response.json();
+            log.auth.debug('OAuth initiated for web', { hasResult: !!result, result });
             
-            log.auth.debug('Falling back to direct navigation', { oauthUrl });
-            window.location.href = oauthUrl;
+            // If we get a redirect URL, navigate to it
+            if (result?.url) {
+              window.location.href = result.url;
+            }
             return;
+          } catch (webError: any) {
+            log.auth.error('Web OAuth error', { 
+              error: webError,
+              message: webError?.message,
+              response: webError?.response,
+              status: webError?.status
+            });
+            
+            // Try to get error details from response
+            if (webError?.response) {
+              try {
+                const errorData = await webError.response.json();
+                log.auth.error('OAuth error response data', errorData);
+              } catch (e) {
+                log.auth.error('Could not parse error response');
+              }
+            }
+            
+            throw webError;
           }
         } else {
           // Mobile OAuth flow

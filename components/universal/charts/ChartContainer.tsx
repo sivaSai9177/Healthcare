@@ -238,10 +238,7 @@ const OldChartTooltip: React.FC<any> = ({
           minWidth: 120,
           ...Platform.select({
             ios: {
-              shadowColor: theme.foreground,
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
+              boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
             },
             android: {
               elevation: 4,
@@ -403,10 +400,7 @@ export const ChartTooltipContent: React.FC<{
         borderColor: theme.border,
         borderRadius: 6,
         padding: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
         elevation: 5,
       }}
     >

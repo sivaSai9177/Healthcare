@@ -230,7 +230,7 @@ export const departmentSchema = z.string()
   .max(100, 'Department name too long')
   .trim();
 
-export const roleSchema = z.enum(['admin', 'manager', 'user', 'guest']);
+export const roleSchema = z.enum(['admin', 'manager', 'user', 'guest', 'operator', 'doctor', 'nurse', 'head_doctor']);
 
 export const permissionSchema = z.string()
   .min(1, 'Permission is required')

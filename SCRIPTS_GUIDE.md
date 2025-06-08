@@ -2,16 +2,72 @@
 
 ## 🚀 Quick Start Commands
 
-### Primary Development
+### Unified Environment System (NEW - Recommended)
 ```bash
-bun start                # Start Expo with LAN (auto-detects network)
-bun start:tunnel         # Start Expo with tunnel (works across networks) 
-bun start:multi-network  # Start with primary WiFi IP
-bun start:secondary-wifi # Start with secondary WiFi IP
-bun ios                  # Start iOS development
-bun android              # Start Android development  
-bun web                  # Start web development (localhost:8081)
-bun web:tunnel           # Start web with tunnel support
+# Unified start commands - Works for all scenarios
+bun start               # Network mode - mobile devices via IP
+bun start:local         # Local mode - everything on localhost
+bun start:oauth         # OAuth mode - optimized for OAuth testing
+bun start:tunnel        # Tunnel mode - remote access via Expo
+
+# These commands automatically:
+# - Detect environment mode
+# - Use OAuth-safe URLs when needed
+# - Handle mobile/web differences
+# - Start local services if needed
+```
+
+### Legacy Primary Development
+```bash
+# Healthcare-specific commands
+bun run local:healthcare    # Start local with healthcare setup
+bun run dev:healthcare      # Start dev (Neon) with healthcare
+bun run start:healthcare    # Auto-detect environment + healthcare
+
+# Standard commands
+bun ios                  # Start iOS in Expo Go
+bun android              # Start Android in Expo Go
+bun web                  # Start web in Expo Go
+```
+
+### Environment Modes Explained
+```bash
+# LOCAL MODE (start:local)
+# - Everything on localhost:8081
+# - Uses local Docker PostgreSQL
+# - Perfect for OAuth testing
+# - No network issues
+
+# NETWORK MODE (start) - DEFAULT
+# - API on network IP (192.168.x.x)
+# - Auth on localhost (OAuth compatibility)
+# - Mobile devices can connect
+# - Best for device testing
+
+# TUNNEL MODE (start:tunnel)
+# - Public URL via Expo tunnel
+# - Uses cloud database
+# - Share with team/testers
+# - Works anywhere
+
+# OAUTH MODE (start:oauth)
+# - Optimized for OAuth flows
+# - Everything on localhost
+# - Ensures OAuth success
+# - Profile completion testing
+```
+
+### Legacy Environment Commands
+```bash
+# Local environment (Docker PostgreSQL)
+bun run local            # Expo Go with local database
+bun run local:healthcare # With healthcare setup
+bun run local:tunnel     # Local with tunnel
+
+# Development environment (Neon Cloud)
+bun run dev              # Expo Go with Neon database
+bun run dev:healthcare   # With healthcare setup
+bun run dev:tunnel       # Dev with tunnel
 ```
 
 ### Network Troubleshooting
@@ -58,25 +114,33 @@ bun db:local:down  # Stop local services
 bun db:local:reset # Reset and restart local DB
 ```
 
-### Database Migrations
+### Database Operations (Environment-Aware)
 ```bash
-bun db:migrate:local   # Migrate local database
-bun db:migrate:preview # Migrate preview database
-bun db:migrate:dev     # Migrate development database
+# Migrations - auto-detect environment
+bun db:migrate            # Uses DATABASE_URL
+bun db:migrate:local      # Force local database
+bun db:migrate:dev        # Force Neon database
+
+# Schema Push
+bun db:push               # Uses DATABASE_URL
+bun db:push:local         # Force local database
+bun db:push:dev           # Force Neon database
+
+# Drizzle Studio (GUI)
+bun db:studio             # Uses DATABASE_URL
+bun db:studio:local       # Force local database
+bun db:studio:dev         # Force Neon database
 ```
 
-### Database Schema Push
+### Healthcare Setup (NEW)
 ```bash
-bun db:push:local   # Push schema to local DB
-bun db:push:preview # Push schema to preview DB
-bun db:push:dev     # Push schema to development DB
-```
+# Setup healthcare tables and demo data
+bun run healthcare:setup       # Uses current environment
+bun run healthcare:setup:local # Force local database
+bun run healthcare:setup:dev   # Force Neon database
 
-### Database Studio (GUI)
-```bash
-bun db:studio:local   # Open Drizzle Studio for local DB
-bun db:studio:preview # Open Drizzle Studio for preview DB
-bun db:studio:dev     # Open Drizzle Studio for dev DB
+# Combined commands
+bun run healthcare:demo        # Alias for healthcare:setup
 ```
 
 ## 🏗️ EAS Build Commands
@@ -260,15 +324,25 @@ bun web:dev                           # Cloud DB for web
 bun expo:go                           # Cloud DB for mobile
 ```
 
-#### OAuth Not Working
+#### OAuth Not Working (UPDATED)
 ```bash
-# For local testing
+# For local OAuth testing (NEW - RECOMMENDED)
+./scripts/fix-oauth-local.sh          # Fix OAuth with localhost
+
+# This script automatically:
+# - Forces localhost URLs (required by Google)
+# - Checks database is running
+# - Sets up healthcare tables
+# - Starts Expo with correct config
+
+# Alternative: Ngrok for stable URL
 bun ngrok:start                       # Start ngrok tunnel
 bun ngrok:update-eas                  # Update EAS config
 bun ngrok:build:android               # Build with ngrok URL
 
 # Verify OAuth config
 bun scripts/test-oauth-flow.ts        # Test OAuth flow
+bun scripts/test-healthcare-endpoints.ts # Test all endpoints
 ```
 
 #### Expo Go Tunnel Mode Issues
@@ -413,18 +487,65 @@ bun preview:run:android               # Install latest Android
 
 ---
 
+## 🏥 Healthcare Demo Workflows (NEW)
+
+### Quick Start Healthcare Demo
+```bash
+# Option 1: One command to rule them all
+bun run local:healthcare
+
+# Option 2: OAuth-friendly setup
+./scripts/fix-oauth-local.sh
+
+# Option 3: Manual steps
+bun db:local:up                    # Start database
+bun run healthcare:setup:local     # Setup healthcare
+bun run local                      # Start Expo
+```
+
+### Healthcare Demo Credentials
+```
+Operator: johncena@gmail.com (any password)
+Nurse: doremon@gmail.com (any password)
+Doctor: johndoe@gmail.com (any password)
+Head Doctor: saipramod273@gmail.com (any password)
+```
+
+### Test Healthcare Features
+```bash
+# Test all endpoints
+bun run scripts/test-healthcare-endpoints.ts
+
+# Check database
+bun db:studio:local
+# View: alerts, healthcare_users, hospitals tables
+
+# Reset healthcare data
+bun db:local:reset
+bun run healthcare:setup:local
+```
+
 ## 📋 Common Workflows
 
-### Start Local Development with Local DB
+### Start Local Development with Healthcare
 ```bash
-# 1. Start local database
-bun db:local:up
+# Recommended approach
+bun run local:healthcare
 
-# 2. Run web with local database
-bun web:local
+# This single command:
+# 1. Starts Docker PostgreSQL
+# 2. Sets up healthcare tables
+# 3. Creates demo users and alerts
+# 4. Starts Expo in correct mode
+```
 
-# OR for Expo Go with local database
-bun expo:go:local
+### Fix OAuth Issues
+```bash
+# OAuth requires localhost (not IP addresses)
+./scripts/fix-oauth-local.sh
+
+# Access at: http://localhost:8081
+# Click "Continue with Google" to test
 ```
 
 ### Test OAuth with Ngrok

@@ -5,13 +5,16 @@ import { Platform } from 'react-native';
 import { log } from '@/lib/core/logger';
 
 // Configure how notifications should be presented when the app is in the foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Only set up notification handler on mobile platforms
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 export interface NotificationPermissionStatus {
   granted: boolean;

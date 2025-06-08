@@ -1,27 +1,42 @@
-# 🤖 Claude Code Agent User Guide
+# 🤖 Claude Code Agent User Guide - Hospital Alert System
 
-A comprehensive guide for developers using Claude Code to work with the Expo Modern Starter Kit.
+A comprehensive guide for developers using Claude Code to work with the Hospital Alert System MVP.
 
 ## 📋 Table of Contents
 
 1. [Introduction](#introduction)
-2. [Getting Started](#getting-started)
-3. [Understanding the Codebase](#understanding-the-codebase)
-4. [Common Development Tasks](#common-development-tasks)
-5. [Best Practices](#best-practices)
-6. [Troubleshooting](#troubleshooting)
-7. [Advanced Usage](#advanced-usage)
+2. [Project Context](#project-context)
+3. [Getting Started](#getting-started)
+4. [Understanding the Architecture](#understanding-the-architecture)
+5. [Module Development](#module-development)
+6. [Common Development Tasks](#common-development-tasks)
+7. [Best Practices](#best-practices)
+8. [Troubleshooting](#troubleshooting)
+9. [Advanced Usage](#advanced-usage)
 
 ## 🎯 Introduction
 
-The Expo Modern Starter Kit is a production-ready, full-stack application template that provides:
-- **Universal Components**: 48+ cross-platform components
-- **Authentication**: Complete auth system with OAuth
-- **Modern Stack**: React 19, Expo SDK 53, TypeScript
-- **Performance**: Optimized with React 19 features
-- **Developer Experience**: Comprehensive tooling and documentation
+The Hospital Alert System is a critical real-time notification platform for emergency medical situations. Built on the Expo Modern Starter Kit, it provides:
+- **Real-time Alerts**: Instant push notifications for medical emergencies
+- **Role-Based Access**: Operator, Doctor, Nurse, Head Doctor roles
+- **Automatic Escalation**: Timer-based alert escalation system
+- **HIPAA Compliance**: Audit trails and security features
+- **Cross-Platform**: iOS, Android, and Web support
 
-This guide helps you leverage Claude Code effectively for development tasks.
+## 📊 Project Context
+
+### Current Status
+- **Phase**: Week 1-2 of 8-week MVP
+- **Progress**: 15% complete
+- **Focus**: Foundation & database schema implementation
+
+### Key Documents
+- `ARCHITECT_MASTER_INDEX.md` - Complete architecture overview
+- `HOSPITAL_ALERT_PRD.md` - Product requirements
+- `HOSPITAL_MVP_TASK_PLAN.md` - Sprint planning
+- `MODULE_WORKFLOW_DOCUMENTATION.md` - Implementation workflows
+
+This guide helps you leverage Claude Code effectively for Hospital Alert System development.
 
 ## 🚀 Getting Started
 
@@ -30,7 +45,7 @@ This guide helps you leverage Claude Code effectively for development tasks.
 1. **Clone the Repository**
    ```bash
    git clone [repository-url]
-   cd expo-modern-starter
+   cd my-expo  # Hospital Alert System project
    ```
 
 2. **Install Dependencies**
@@ -64,30 +79,55 @@ This guide helps you leverage Claude Code effectively for development tasks.
 | `bun local` | Local development | Docker PostgreSQL |
 | `bun dev` | Development mode | Neon Cloud |
 | `bun test` | Run tests | - |
-| `bun lint` | Run linter | - |
+| `bun test:alerts` | Test alert system | - |
 | `bun db:studio` | Open Drizzle Studio | - |
+| `bun db:push` | Push schema changes | - |
+| `bun setup:healthcare` | Setup healthcare demo | - |
 
-## 📚 Understanding the Codebase
+## 🏗️ Understanding the Architecture
 
-### Project Structure
+### Module-Based Structure
 ```
-expo-modern-starter/
+my-expo/
 ├── app/                    # Expo Router screens
 │   ├── (auth)/            # Public auth screens
 │   ├── (home)/            # Protected app screens
+│   │   ├── healthcare-dashboard.tsx  # Main medical dashboard
+│   │   ├── operator-dashboard.tsx    # Operator specific
+│   │   └── index.tsx                 # Role-based routing
 │   └── api/               # API routes
 ├── components/            # Reusable components
 │   ├── universal/         # Cross-platform components
+│   ├── healthcare/        # Healthcare-specific
+│   │   ├── AlertCreationForm.tsx
+│   │   ├── AlertDashboard.tsx
+│   │   └── EscalationTimer.tsx
 │   └── shadcn/           # UI components
 ├── lib/                   # Core utilities
 │   ├── auth/             # Authentication
 │   ├── stores/           # State management
 │   └── validations/      # Zod schemas
 ├── src/                   # Backend code
-│   ├── db/               # Database schema
-│   └── server/           # tRPC server
+│   ├── db/               
+│   │   ├── schema.ts     # Base schema
+│   │   └── healthcare-schema.ts  # Healthcare tables
+│   └── server/           
+│       ├── routers/      
+│       │   ├── healthcare.ts  # Alert procedures
+│       │   └── auth.ts        # Auth procedures
+│       └── services/     
+│           ├── alert-subscriptions.ts
+│           ├── escalation-timer.ts
+│           └── notification.service.ts
 └── docs/                  # Documentation
 ```
+
+### 5 Core Modules
+1. **Authentication Module** - User auth & roles
+2. **Alert Management Module** - Alert CRUD operations
+3. **Escalation Engine Module** - Timer-based escalation
+4. **Notification Module** - Push & real-time alerts
+5. **Dashboard Module** - Role-specific views
 
 ### Key Technologies
 - **Frontend**: Expo, React Native, React Native Web
@@ -99,43 +139,105 @@ expo-modern-starter/
 - **Auth**: Better Auth
 
 ### Important Files
-- `CLAUDE.md` - Development context and patterns
-- `app/_layout.tsx` - Root layout with providers
-- `lib/stores/auth-store.ts` - Authentication state
-- `src/server/trpc.ts` - tRPC configuration
-- `components/universal/` - Reusable components
+- `ARCHITECT_MASTER_INDEX.md` - Complete architecture guide
+- `HOSPITAL_ALERT_PRD.md` - Product requirements
+- `MODULE_WORKFLOW_DOCUMENTATION.md` - Implementation workflows
+- `src/db/healthcare-schema.ts` - Healthcare database schema
+- `src/server/routers/healthcare.ts` - Alert API endpoints
+- `components/healthcare/` - Healthcare UI components
+
+## 🏥 Module Development
+
+### Working with Modules
+
+Each module follows a consistent structure:
+```typescript
+module/
+├── frontend/
+│   ├── screens/      # UI screens
+│   ├── components/   # Module components
+│   ├── hooks/        # Custom hooks
+│   └── store/        # State management
+├── backend/
+│   ├── router.ts     # tRPC procedures
+│   ├── service.ts    # Business logic
+│   └── schema.ts     # Validation
+└── shared/
+    ├── types.ts      # Shared types
+    └── constants.ts  # Constants
+```
+
+### Module Communication
+Modules communicate via events:
+```typescript
+// Alert created → Notification service
+EventBus.emit('alert:created', alert)
+
+// Alert acknowledged → Stop escalation
+EventBus.emit('alert:acknowledged', alertId)
+```
 
 ## 💻 Common Development Tasks
 
-### 1. Adding a New Screen
+### 1. Implementing Alert Creation (Operator Feature)
 
 ```typescript
 // Ask Claude Code:
-"Create a new screen for [feature] in the (home) group with:
-- Protected route
-- Universal components
-- Proper TypeScript types
-- Loading and error states"
+"Implement alert creation form for operators with:
+- Room number input with validation
+- Alert type selector (5 types)
+- Urgency level picker (1-5)
+- Quick action presets
+- Confirmation before sending"
 ```
 
-Example structure:
+Example implementation:
 ```typescript
-// app/(home)/new-feature.tsx
-import { Container, VStack, Text, Button } from '@/components/universal';
+// components/healthcare/AlertCreationForm.tsx
+import { Form, Input, Select, Button } from '@/components/universal';
+import { api } from '@/lib/trpc';
 
-export default function NewFeatureScreen() {
+export function AlertCreationForm() {
+  const createAlert = api.alerts.create.useMutation();
+  
   return (
-    <Container scroll>
-      <VStack p={4} spacing={4}>
-        <Text variant="heading1">New Feature</Text>
-        {/* Your content */}
-      </VStack>
-    </Container>
+    <Form onSubmit={handleSubmit}>
+      <Input name="roomNumber" label="Room Number" required />
+      <Select name="alertType" options={ALERT_TYPES} />
+      <Select name="urgencyLevel" options={URGENCY_LEVELS} />
+      <Button type="submit" size="large" variant="danger">
+        Send Alert
+      </Button>
+    </Form>
   );
 }
 ```
 
-### 2. Creating a Universal Component
+### 2. Adding Alert Acknowledgment Flow
+
+```typescript
+// Ask Claude Code:
+"Add alert acknowledgment for medical staff with:
+- One-tap acknowledgment button
+- Response time tracking
+- Stop escalation on acknowledgment
+- Real-time UI updates
+- Audit trail logging"
+```
+
+### 3. Implementing Escalation Logic
+
+```typescript
+// Ask Claude Code:
+"Implement escalation timer that:
+- Starts 2-minute timer for nurses
+- Escalates to doctors after timeout
+- Then to head doctor (3 min)
+- Finally broadcasts to all staff
+- Tracks escalation history"
+```
+
+### 4. Creating Healthcare Components
 
 ```typescript
 // Ask Claude Code:
@@ -146,30 +248,49 @@ export default function NewFeatureScreen() {
 - Has theme integration"
 ```
 
-### 3. Adding API Endpoints
+### 5. Adding Healthcare API Endpoints
 
 ```typescript
 // Ask Claude Code:
-"Add a tRPC endpoint for [feature] that:
-- Uses proper authorization (protectedProcedure)
-- Has Zod validation
-- Includes error handling
-- Updates the database"
+"Add alert management endpoints with:
+- Role-based access (operator for create)
+- Alert validation (room, type, urgency)
+- Notification triggering
+- Escalation scheduling
+- Audit logging"
 ```
 
 Example:
 ```typescript
-// src/server/routers/feature.ts
-export const featureRouter = router({
-  create: protectedProcedure
-    .input(createFeatureSchema)
+// src/server/routers/healthcare.ts
+export const healthcareRouter = router({
+  createAlert: operatorProcedure
+    .input(createAlertSchema)
+    .mutation(async ({ input, ctx }) => {
+      // 1. Create alert
+      const alert = await db.insert(alerts).values(input);
+      
+      // 2. Trigger notifications
+      await notificationService.distribute(alert);
+      
+      // 3. Start escalation timer
+      await escalationService.schedule(alert);
+      
+      // 4. Log audit trail
+      await auditService.log('alert_created', alert);
+      
+      return alert;
+    }),
+    
+  acknowledgeAlert: medicalStaffProcedure
+    .input(z.object({ alertId: z.string() }))
     .mutation(async ({ input, ctx }) => {
       // Implementation
     }),
 });
 ```
 
-### 4. Implementing Authentication Features
+### 6. Implementing Healthcare Roles
 
 ```typescript
 // Ask Claude Code:
@@ -180,7 +301,31 @@ export const featureRouter = router({
 - OAuth provider integration"
 ```
 
-### 5. Optimizing Performance
+### 7. Real-time Features with WebSocket
+
+```typescript
+// Ask Claude Code:
+"Implement real-time alert updates using:
+- WebSocket connection management
+- Role-based room subscriptions
+- Alert status broadcasts
+- Reconnection handling
+- Offline queue"
+```
+
+### 8. Push Notifications Setup
+
+```typescript
+// Ask Claude Code:
+"Setup push notifications for:
+- iOS critical alerts (bypass DND)
+- Android high-priority channels
+- Expo notification handling
+- Delivery tracking
+- Action buttons (Acknowledge)"
+```
+
+### 9. Optimizing Performance
 
 ```typescript
 // Ask Claude Code:
@@ -191,7 +336,35 @@ export const featureRouter = router({
 - Bundle size optimization"
 ```
 
-## 🎨 Best Practices
+## 🎨 Best Practices for Hospital Alert System
+
+### Healthcare-Specific Guidelines
+
+1. **Safety-Critical UI**
+   - Large touch targets (min 44px) for emergency use
+   - High contrast colors for visibility
+   - Clear urgency indicators
+   - Confirmation for critical actions
+
+2. **Real-time Requirements**
+   - Notification delivery < 5 seconds
+   - WebSocket latency < 100ms
+   - Alert creation < 200ms
+   - Dashboard updates immediate
+
+3. **Compliance & Security**
+   - Audit every action
+   - HIPAA-compliant data handling
+   - Role-based access enforcement
+   - Secure session management
+
+4. **Reliability**
+   - Offline queue for alerts
+   - Retry logic for notifications
+   - Fallback delivery channels
+   - Error recovery mechanisms
+
+## 🎨 General Best Practices
 
 ### 1. Component Development
 - Use universal components from `/components/universal`
@@ -225,6 +398,32 @@ export const featureRouter = router({
 
 ## 🔧 Troubleshooting
 
+### Healthcare-Specific Issues
+
+1. **Push Notifications Not Arriving**
+   - Check Expo push token registration
+   - Verify notification permissions
+   - Test with Expo push tool
+   - Check urgency level settings
+
+2. **Escalation Timer Issues**
+   - Verify Redis is running
+   - Check timer configuration
+   - Review escalation logs
+   - Test with shorter intervals
+
+3. **Role-Based Access Problems**
+   - Verify user role in database
+   - Check procedure middleware
+   - Review permission mappings
+   - Test with different roles
+
+4. **Real-time Updates Failing**
+   - Check WebSocket connection
+   - Verify room subscriptions
+   - Test event broadcasting
+   - Review CORS settings
+
 ### Common Issues
 
 1. **Expo Go vs Development Build**
@@ -247,7 +446,39 @@ export const featureRouter = router({
    - Check Platform.OS conditions
    - Review universal component usage
 
-## 🚀 Advanced Usage
+## 🚀 Advanced Hospital Alert Features
+
+### 1. Critical Alert Configuration
+```typescript
+// Ask Claude Code:
+"Configure iOS critical alerts that:
+- Bypass Do Not Disturb
+- Play urgent sound
+- Require special entitlement
+- Show fullscreen on Android"
+```
+
+### 2. Advanced Escalation Rules
+```typescript
+// Ask Claude Code:
+"Implement custom escalation rules:
+- Different timers by urgency
+- Skip tiers for critical
+- Department-based routing
+- On-call staff integration"
+```
+
+### 3. Analytics Dashboard
+```typescript
+// Ask Claude Code:
+"Create analytics dashboard showing:
+- Average response times
+- Escalation frequency
+- Alert volume by type
+- Department performance"
+```
+
+## 🚀 General Advanced Usage
 
 ### 1. Custom Themes
 ```typescript
@@ -288,7 +519,33 @@ export const featureRouter = router({
 - Performance budgets"
 ```
 
-## 📋 Task Templates
+## 📋 Hospital Alert Task Templates
+
+### Alert Feature Template
+```markdown
+Implement [alert feature] with:
+1. Database schema for alert data
+2. tRPC endpoints with role checks
+3. Notification distribution logic
+4. Escalation timer setup
+5. Real-time WebSocket events
+6. Mobile UI with large touch targets
+7. Push notification configuration
+8. Audit trail logging
+```
+
+### Healthcare Module Template
+```markdown
+Create [healthcare module] including:
+1. Role-based access control
+2. HIPAA-compliant data handling
+3. Real-time updates
+4. Offline support
+5. Performance optimization
+6. Comprehensive testing
+```
+
+## 📋 General Task Templates
 
 ### Feature Development Template
 ```markdown
@@ -321,7 +578,39 @@ Optimize [component/feature]:
 5. Document changes
 ```
 
-## 🤝 Working with Claude Code
+## 🤝 Working with Claude Code on Hospital Alerts
+
+### Healthcare-Specific Prompts
+
+1. **Alert System Features**
+   ```
+   "Implement alert distribution that sends to all nurses 
+   in the department, with push notifications and WebSocket 
+   updates, tracking delivery status"
+   ```
+
+2. **Escalation Logic**
+   ```
+   "Create escalation timer that waits 2 minutes for nurse 
+   acknowledgment, then escalates to doctors with urgent 
+   notification sound"
+   ```
+
+3. **Dashboard Features**
+   ```
+   "Build operator dashboard showing active alerts, 
+   response times, and quick create button with 
+   recent rooms dropdown"
+   ```
+
+4. **Compliance Features**
+   ```
+   "Add HIPAA-compliant audit logging that tracks 
+   user, action, timestamp, and alert details with 
+   7-year retention"
+   ```
+
+## 🤝 General Claude Code Tips
 
 ### Effective Prompts
 
@@ -368,18 +657,25 @@ Optimize [component/feature]:
 
 ## 📚 Resources
 
-### Internal Documentation
+### Hospital Alert Documentation
+- `ARCHITECT_MASTER_INDEX.md` - Complete system architecture
+- `HOSPITAL_ALERT_PRD.md` - Product requirements
+- `HOSPITAL_MVP_TASK_PLAN.md` - Current sprint tasks
+- `MODULE_WORKFLOW_DOCUMENTATION.md` - Detailed workflows
+- `ARCHITECT_MODULE_INDEX.md` - Module specifications
+
+### Technical Documentation
 - `/docs/INDEX.md` - Documentation index
 - `/CLAUDE.md` - Development context
-- `/docs/planning/CLAUDE_CODE_WORKFLOW.md` - Workflow guide
-- `/docs/status/PROJECT_STATUS_2025.md` - Current status
+- `src/db/healthcare-schema.ts` - Database schema
+- `components/healthcare/` - UI components
 
 ### External Resources
-- [Expo Documentation](https://docs.expo.dev)
-- [React Native Docs](https://reactnative.dev)
-- [tRPC Documentation](https://trpc.io)
-- [Better Auth Docs](https://better-auth.com)
+- [Expo Push Notifications](https://docs.expo.dev/push-notifications/overview/)
+- [Socket.io Docs](https://socket.io/docs/v4/)
+- [React Native Performance](https://reactnative.dev/docs/performance)
+- [HIPAA Compliance Guide](https://www.hhs.gov/hipaa/for-professionals/security/index.html)
 
 ---
 
-*Remember: Claude Code works best when you provide clear context and requirements. The more specific you are, the better the results!*
+*Remember: When working on the Hospital Alert System, always consider the critical nature of medical alerts. Prioritize reliability, speed, and clarity in all implementations!*

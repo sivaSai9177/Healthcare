@@ -9,7 +9,7 @@ import { user as userTable } from '../src/db/schema';
 import { eq, and, isNull, or } from 'drizzle-orm';
 
 async function fixOAuthUsers() {
-  console.log('🔍 Finding OAuth users who need profile completion...');
+// TODO: Replace with structured logging - console.log('🔍 Finding OAuth users who need profile completion...');
 
   try {
     // Find users who are likely OAuth users that skipped profile completion
@@ -33,18 +33,18 @@ async function fixOAuthUsers() {
         )
       );
 
-    console.log(`📋 Found ${usersToFix.length} users to potentially fix:`);
+// TODO: Replace with structured logging - console.log(`📋 Found ${usersToFix.length} users to potentially fix:`);
     
     for (const user of usersToFix) {
-      console.log(`  - ${user.email} (role: ${user.role || 'null'}, needsProfileCompletion: ${user.needsProfileCompletion})`);
+// TODO: Replace with structured logging - console.log(`  - ${user.email} (role: ${user.role || 'null'}, needsProfileCompletion: ${user.needsProfileCompletion})`);
     }
 
     if (usersToFix.length === 0) {
-      console.log('✅ No users need fixing!');
+// TODO: Replace with structured logging - console.log('✅ No users need fixing!');
       return;
     }
 
-    console.log('\n🔧 Updating users to require profile completion...');
+// TODO: Replace with structured logging - console.log('\n🔧 Updating users to require profile completion...');
 
     // Update users to require profile completion
     for (const user of usersToFix) {
@@ -58,15 +58,15 @@ async function fixOAuthUsers() {
         .where(eq(userTable.id, user.id))
         .returning();
 
-      console.log(`✅ Updated ${updatedUser.email}:`, {
+// TODO: Replace with structured logging - console.log(`✅ Updated ${updatedUser.email}:`, {
         id: updatedUser.id,
         role: updatedUser.role,
         needsProfileCompletion: updatedUser.needsProfileCompletion,
       });
     }
 
-    console.log(`\n🎉 Successfully updated ${usersToFix.length} users!`);
-    console.log('These users will now be prompted to complete their profile on next login.');
+// TODO: Replace with structured logging - console.log(`\n🎉 Successfully updated ${usersToFix.length} users!`);
+// TODO: Replace with structured logging - console.log('These users will now be prompted to complete their profile on next login.');
 
   } catch (error) {
     console.error('❌ Error fixing OAuth users:', error);
@@ -77,7 +77,7 @@ async function fixOAuthUsers() {
 // Run the fix
 fixOAuthUsers()
   .then(() => {
-    console.log('\n✅ OAuth user fix completed successfully!');
+// TODO: Replace with structured logging - console.log('\n✅ OAuth user fix completed successfully!');
     process.exit(0);
   })
   .catch((error) => {

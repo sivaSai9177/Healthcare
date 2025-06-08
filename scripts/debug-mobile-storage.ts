@@ -3,11 +3,11 @@ import { Platform } from 'react-native';
 
 export async function debugMobileStorage() {
   if (Platform.OS === 'web') {
-    console.log('[DEBUG] This script is for mobile only');
+// TODO: Replace with structured logging - console.log('[DEBUG] This script is for mobile only');
     return;
   }
 
-  console.log('[DEBUG] Checking all SecureStore keys...');
+// TODO: Replace with structured logging - console.log('[DEBUG] Checking all SecureStore keys...');
   
   const keysToCheck = [
     'better-auth_cookie',
@@ -24,36 +24,36 @@ export async function debugMobileStorage() {
     try {
       const value = await SecureStore.getItemAsync(key);
       if (value) {
-        console.log(`[DEBUG] ${key}:`);
-        console.log(`  Raw value: ${value}`);
-        console.log(`  Length: ${value.length}`);
-        console.log(`  First 100 chars: ${value.substring(0, 100)}...`);
+// TODO: Replace with structured logging - console.log(`[DEBUG] ${key}:`);
+// TODO: Replace with structured logging - console.log(`  Raw value: ${value}`);
+// TODO: Replace with structured logging - console.log(`  Length: ${value.length}`);
+// TODO: Replace with structured logging - console.log(`  First 100 chars: ${value.substring(0, 100)}...`);
         
         // Try to parse as JSON
         try {
           const parsed = JSON.parse(value);
-          console.log(`  Parsed as JSON:`, parsed);
+// TODO: Replace with structured logging - console.log(`  Parsed as JSON:`, parsed);
         } catch {
-          console.log(`  Not valid JSON`);
+// TODO: Replace with structured logging - console.log(`  Not valid JSON`);
         }
       } else {
-        console.log(`[DEBUG] ${key}: <empty>`);
+// TODO: Replace with structured logging - console.log(`[DEBUG] ${key}: <empty>`);
       }
     } catch (error) {
-      console.log(`[DEBUG] ${key}: Error reading - ${error.message}`);
+// TODO: Replace with structured logging - console.log(`[DEBUG] ${key}: Error reading - ${error.message}`);
     }
   }
   
   // Also check the global persistent store
   const persistentStore = (global as any).__persistentStore;
   if (persistentStore) {
-    console.log('\n[DEBUG] Global persistent store:');
+// TODO: Replace with structured logging - console.log('\n[DEBUG] Global persistent store:');
     Object.keys(persistentStore).forEach(key => {
       const value = persistentStore[key];
-      console.log(`  ${key}: ${value ? value.substring(0, 50) + '...' : '<empty>'}`);
+// TODO: Replace with structured logging - console.log(`  ${key}: ${value ? value.substring(0, 50) + '...' : '<empty>'}`);
     });
   } else {
-    console.log('\n[DEBUG] No global persistent store found');
+// TODO: Replace with structured logging - console.log('\n[DEBUG] No global persistent store found');
   }
 }
 

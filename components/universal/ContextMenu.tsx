@@ -267,10 +267,7 @@ export const ContextMenu = React.forwardRef<View, ContextMenuProps>(
                     maxHeight: SCREEN_HEIGHT * 0.8,
                     ...Platform.select({
                       ios: {
-                        shadowColor: theme.foreground,
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.15,
-                        shadowRadius: 8,
+                        boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.15)',
                       },
                       android: {
                         elevation: 8,

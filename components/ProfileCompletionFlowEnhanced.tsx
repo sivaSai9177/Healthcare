@@ -112,7 +112,7 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
       // Show success message (non-blocking on web)
       if (Platform.OS === 'web') {
         // On web, use a simple notification instead of Alert
-        console.log('Profile Complete! 🎉 Welcome! Your profile has been set up successfully.');
+        log.info('Profile Complete! 🎉 Welcome! Your profile has been set up successfully.', 'COMPONENT');
       } else {
         // On mobile, show the alert after navigation
         setTimeout(() => {

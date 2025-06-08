@@ -43,7 +43,7 @@ export const sessionManager = {
       mobileStorage.setItem(TOKEN_KEYS.COOKIE, cookieValue);
       
       // Debug: Verify storage
-      console.log('[SESSION_MANAGER] Token stored, verifying...', {
+      log.debug('Token stored, verifying...', 'SESSION_MANAGER', {
         memoryToken: !!mobileTokenStore.getToken(),
         sessionToken: !!mobileStorage.getItem(TOKEN_KEYS.SESSION_TOKEN),
         bearerToken: !!mobileStorage.getItem(TOKEN_KEYS.BEARER_TOKEN),
@@ -75,7 +75,7 @@ export const sessionManager = {
       }
       
       // Debug: Log what's in storage
-      console.log('[SESSION_MANAGER] Checking token storage...', {
+      log.debug('Checking token storage...', 'SESSION_MANAGER', {
         hasSessionToken: !!mobileStorage.getItem(TOKEN_KEYS.SESSION_TOKEN),
         hasBearerToken: !!mobileStorage.getItem(TOKEN_KEYS.BEARER_TOKEN),
         hasCookie: !!mobileStorage.getItem(TOKEN_KEYS.COOKIE),
@@ -187,6 +187,5 @@ export const sessionManager = {
     };
 
     log.auth.debug('Token storage status', debug);
-    console.log('[TOKEN DEBUG]', debug);
   }
 };

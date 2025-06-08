@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React, { useState } from 'react';
 import { Platform } from 'react-native';
 import type { AppRouter } from '@/src/server/routers';
-import { getApiUrlSync } from './core/config';
+import { getApiUrl } from './core/unified-env';
 import { log } from '@/lib/core/logger';
 
 // Create tRPC React hooks
@@ -67,7 +67,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
   // Use static URL instead of dynamic updates to prevent re-renders
   const trpcUrl = React.useMemo(() => {
     try {
-      const apiUrl = getApiUrlSync();
+      const apiUrl = getApiUrl();
       const url = `${apiUrl}/api/trpc`;
       log.api.request('TRPC URL configured', { url });
       return url;
@@ -91,7 +91,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
                 'Content-Type': 'application/json',
               };
               
-              console.log('[TRPC] Headers function called, Platform:', Platform.OS);
+              log.debug('Headers function called', 'TRPC', { platform: Platform.OS });
               
               // On mobile, add the Authorization header with Bearer token
               if (Platform.OS !== 'web') {
@@ -103,7 +103,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
                   const token = sessionManager.getSessionToken();
                   
                   if (token) {
-                    console.log('[TRPC] Adding Bearer token:', {
+                    log.debug('Adding Bearer token', 'TRPC', {
                       tokenPreview: token.substring(0, 20) + '...',
                       tokenLength: token.length,
                     });
@@ -111,20 +111,19 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
                       ...baseHeaders,
                       'Authorization': `Bearer ${token}`,
                     };
-                    console.log('[TRPC] Returning headers with auth:', Object.keys(headersWithAuth));
+                    log.debug('Returning headers with auth', 'TRPC');
                     return headersWithAuth;
                   } else {
-                    console.log('[TRPC] No session token available');
+                    log.debug('No session token available', 'TRPC');
                   }
                 } catch (error) {
-                  console.error('[TRPC] Failed to add auth headers:', error);
                   log.api.error('Failed to add auth headers', error);
                 }
-                console.log('[TRPC] Returning base headers without auth');
+                log.debug('Returning base headers without auth', 'TRPC');
                 return baseHeaders;
               }
               
-              console.log('[TRPC] Web platform, returning base headers');
+              log.debug('Web platform, returning base headers', 'TRPC');
               return baseHeaders;
             },
             // Simplified fetch with timeout and error handling

@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Expo Modern Starter",
-    "slug": "expo-modern-starter",
-    "version": "1.0.0",
+    "name": "Hospital Alert System",
+    "slug": "hospital-alert-system",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "expo-starter",
+    "scheme": "hospital-alerts",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -25,7 +25,7 @@
         "backgroundColor": "#ffc1cc"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.siva9177.expofullstackstarter"
+      "package": "com.hospital.alerts"
     },
     "web": {
       "bundler": "metro",

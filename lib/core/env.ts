@@ -98,6 +98,16 @@ export const isDevelopment = getCurrentEnvironment() !== 'production' && getCurr
 export const isProduction = getCurrentEnvironment() === 'production';
 export const isDebugMode = isDebug();
 
+// Import unified functions
+import { 
+  getApiUrl as getUnifiedApiUrl,
+  getAuthUrl as getUnifiedAuthUrl,
+  getAuthBaseUrl as getUnifiedAuthBaseUrl,
+  isOAuthSafe,
+  getDatabaseUrl,
+  logEnvironment as logUnifiedEnvironment
+} from './unified-env';
+
 export const env = {
   getEnvironment,
   getApiUrl,
@@ -107,6 +117,13 @@ export const env = {
   isDebugMode,
   getCurrentEnvironment,
   isEASBuild,
+  // Unified functions
+  getUnifiedApiUrl,
+  getUnifiedAuthUrl,
+  getUnifiedAuthBaseUrl,
+  isOAuthSafe,
+  getDatabaseUrl,
+  logUnifiedEnvironment,
 };
 
 export default env;

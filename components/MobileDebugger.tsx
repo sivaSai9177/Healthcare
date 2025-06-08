@@ -41,7 +41,7 @@ export function MobileDebugger() {
 
     // Intercept console methods
     const originalConsole = {
-      log: console.log,
+// TODO: Replace with structured logging - log: console.log,
       error: console.error,
       warn: console.warn,
       info: console.info,
@@ -77,7 +77,7 @@ export function MobileDebugger() {
       }, 0);
     };
 
-    console.log = (...args) => {
+// TODO: Replace with structured logging - console.log = (...args) => {
       originalConsole.log(...args);
       addLog('info', args);
     };
@@ -104,7 +104,7 @@ export function MobileDebugger() {
 
     // Cleanup
     return () => {
-      console.log = originalConsole.log;
+// TODO: Replace with structured logging - console.log = originalConsole.log;
       console.error = originalConsole.error;
       console.warn = originalConsole.warn;
       console.info = originalConsole.info;
@@ -139,7 +139,7 @@ export function MobileDebugger() {
       'Copy the logs from the console output',
       [{ text: 'OK' }]
     );
-    console.log('=== EXPORTED LOGS ===\n' + logText + '\n=== END LOGS ===');
+// TODO: Replace with structured logging - console.log('=== EXPORTED LOGS ===\n' + logText + '\n=== END LOGS ===');
   };
 
   return (
@@ -276,10 +276,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#6366f1',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.25)',
     elevation: 5,
     zIndex: 9999,
   },
@@ -371,10 +368,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
     elevation: 1,
   },
   logHeader: {

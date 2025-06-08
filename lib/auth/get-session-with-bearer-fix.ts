@@ -1,4 +1,4 @@
-import { auth } from './auth';
+import { auth } from './auth-server';
 import { db } from '@/src/db';
 import { session as sessionTable, user as userTable } from '@/src/db/schema';
 import { eq } from 'drizzle-orm';
@@ -13,24 +13,24 @@ export async function getSessionWithBearerFix(headers: Headers): Promise<{
   user: User;
 } | null> {
   try {
-    console.log('[SESSION FIX] getSessionWithBearerFix called');
+// TODO: Replace with structured logging - console.log('[SESSION FIX] getSessionWithBearerFix called');
     
     // First try standard Better Auth approach
     const cookieSession = await auth.api.getSession({ headers });
     if (cookieSession) {
-      console.log('[SESSION FIX] Found session via cookie');
+// TODO: Replace with structured logging - console.log('[SESSION FIX] Found session via cookie');
       return cookieSession;
     }
 
     // Check for Bearer token
     const authHeader = headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('[SESSION FIX] No Bearer token found');
+// TODO: Replace with structured logging - console.log('[SESSION FIX] No Bearer token found');
       return null;
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    console.log('[SESSION FIX] Trying Bearer token:', token.substring(0, 20) + '...');
+// TODO: Replace with structured logging - console.log('[SESSION FIX] Trying Bearer token:', token.substring(0, 20) + '...');
     
     // Try Better Auth with cookie format first
     const modifiedHeaders = new Headers(headers);
@@ -41,12 +41,12 @@ export async function getSessionWithBearerFix(headers: Headers): Promise<{
     });
     
     if (bearerSession) {
-      console.log('[SESSION FIX] Found session via Bearer token with Better Auth');
+// TODO: Replace with structured logging - console.log('[SESSION FIX] Found session via Bearer token with Better Auth');
       return bearerSession;
     }
 
     // If Better Auth fails, query the database directly
-    console.log('[SESSION FIX] Better Auth failed, querying database directly');
+// TODO: Replace with structured logging - console.log('[SESSION FIX] Better Auth failed, querying database directly');
     
     const sessionData = await db
       .select({
@@ -59,7 +59,7 @@ export async function getSessionWithBearerFix(headers: Headers): Promise<{
       .limit(1);
 
     if (sessionData.length === 0) {
-      console.log('[SESSION FIX] No session found in database');
+// TODO: Replace with structured logging - console.log('[SESSION FIX] No session found in database');
       return null;
     }
 
@@ -67,11 +67,11 @@ export async function getSessionWithBearerFix(headers: Headers): Promise<{
     
     // Check if session is expired
     if (new Date(session.expiresAt) < new Date()) {
-      console.log('[SESSION FIX] Session expired');
+// TODO: Replace with structured logging - console.log('[SESSION FIX] Session expired');
       return null;
     }
 
-    console.log('[SESSION FIX] Found valid session in database');
+// TODO: Replace with structured logging - console.log('[SESSION FIX] Found valid session in database');
     
     // Return in Better Auth format
     return {
