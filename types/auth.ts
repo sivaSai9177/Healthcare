@@ -18,7 +18,7 @@ declare module "better-auth/types" {
   }
 }
 
-export type UserRole = "admin" | "manager" | "user" | "guest";
+export type UserRole = "admin" | "manager" | "user" | "guest" | "operator" | "nurse" | "doctor" | "head_doctor";
 
 // Re-export the Zod schema and type from validations for consistency
 export { UserRole as UserRoleSchema, type UserRole as UserRoleType } from "../lib/validations/auth";

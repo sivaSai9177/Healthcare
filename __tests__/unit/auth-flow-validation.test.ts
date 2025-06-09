@@ -214,8 +214,8 @@ describe('Auth Flow Validation Logic Tests', () => {
 
         const result = signUpSchema.safeParse(userData);
         if (!result.success) {
-          console.log(`Password validation failed for: ${password}`);
-          console.log('Errors:', result.error.issues);
+// TODO: Replace with structured logging - console.log(`Password validation failed for: ${password}`);
+// TODO: Replace with structured logging - console.log('Errors:', result.error.issues);
         }
         expect(result.success).toBe(true);
       });
@@ -278,8 +278,8 @@ describe('Auth Flow Validation Logic Tests', () => {
 
       const result = signUpSchema.safeParse(userData);
       if (!result.success) {
-        console.log('Empty org fields validation failed');
-        console.log('Errors:', result.error.issues);
+// TODO: Replace with structured logging - console.log('Empty org fields validation failed');
+// TODO: Replace with structured logging - console.log('Errors:', result.error.issues);
       }
       expect(result.success).toBe(true);
     });

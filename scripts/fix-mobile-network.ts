@@ -34,7 +34,7 @@ async function getCurrentExpoHost(): Promise<string | null> {
     // Try to get Expo's reported host
     const { stdout: expoInfo } = await execAsync('curl -s http://localhost:8081/');
     if (expoInfo.includes('Expo')) {
-      console.log('✅ Expo is running on port 8081');
+// TODO: Replace with structured logging - console.log('✅ Expo is running on port 8081');
     }
     
     return null;
@@ -62,9 +62,9 @@ async function updateEnvFile(ip: string) {
           `EXPO_PUBLIC_API_URL=${newUrl}`
         );
         writeFileSync(envPath, envContent);
-        console.log(`✅ Updated .env: ${oldUrl} → ${newUrl}`);
+// TODO: Replace with structured logging - console.log(`✅ Updated .env: ${oldUrl} → ${newUrl}`);
       } else {
-        console.log(`✅ .env already has correct IP: ${newUrl}`);
+// TODO: Replace with structured logging - console.log(`✅ .env already has correct IP: ${newUrl}`);
       }
     }
   } catch (error) {
@@ -87,7 +87,7 @@ async function updateEnvFile(ip: string) {
             `EXPO_PUBLIC_API_URL=${newUrl}`
           );
           writeFileSync(envLocalPath, envContent);
-          console.log(`✅ Updated .env.local: ${oldUrl} → ${newUrl}`);
+// TODO: Replace with structured logging - console.log(`✅ Updated .env.local: ${oldUrl} → ${newUrl}`);
         }
       }
     }
@@ -97,7 +97,7 @@ async function updateEnvFile(ip: string) {
 }
 
 async function testAPIConnection(ip: string) {
-  console.log(`\n🧪 Testing API connection to http://${ip}:8081...`);
+// TODO: Replace with structured logging - console.log(`\n🧪 Testing API connection to http://${ip}:8081...`);
   
   try {
     const { stdout, stderr } = await execAsync(
@@ -105,7 +105,7 @@ async function testAPIConnection(ip: string) {
     );
     
     if (stdout === '200') {
-      console.log('✅ API is accessible!');
+// TODO: Replace with structured logging - console.log('✅ API is accessible!');
       return true;
     } else {
       console.error(`❌ API returned status: ${stdout}`);
@@ -118,11 +118,11 @@ async function testAPIConnection(ip: string) {
 }
 
 async function main() {
-  console.log('🔧 iOS Simulator Network Fix\n');
+// TODO: Replace with structured logging - console.log('🔧 iOS Simulator Network Fix\n');
   
   // Get local IP
   const localIP = await getLocalIP();
-  console.log(`📍 Your local IP: ${localIP}`);
+// TODO: Replace with structured logging - console.log(`📍 Your local IP: ${localIP}`);
   
   // Check if Expo is running
   await getCurrentExpoHost();
@@ -134,26 +134,26 @@ async function main() {
   const isWorking = await testAPIConnection(localIP);
   
   if (isWorking) {
-    console.log('\n✅ Everything looks good!');
-    console.log('\n🚀 Next steps:');
-    console.log('1. Restart your Expo development server: bun run ios');
-    console.log('2. If using iOS Simulator, you may need to:');
-    console.log('   - Reset the simulator: Device → Erase All Content and Settings');
-    console.log('   - Or just reload the app: Cmd+R in the simulator');
+// TODO: Replace with structured logging - console.log('\n✅ Everything looks good!');
+// TODO: Replace with structured logging - console.log('\n🚀 Next steps:');
+// TODO: Replace with structured logging - console.log('1. Restart your Expo development server: bun run ios');
+// TODO: Replace with structured logging - console.log('2. If using iOS Simulator, you may need to:');
+// TODO: Replace with structured logging - console.log('   - Reset the simulator: Device → Erase All Content and Settings');
+// TODO: Replace with structured logging - console.log('   - Or just reload the app: Cmd+R in the simulator');
   } else {
-    console.log('\n⚠️  API connection failed. Please check:');
-    console.log('1. Is Expo running? (bun run ios)');
-    console.log('2. Is your firewall blocking port 8081?');
-    console.log('3. Are you on the same network?');
-    console.log('\n💡 Try running: bun run ios --clear');
+// TODO: Replace with structured logging - console.log('\n⚠️  API connection failed. Please check:');
+// TODO: Replace with structured logging - console.log('1. Is Expo running? (bun run ios)');
+// TODO: Replace with structured logging - console.log('2. Is your firewall blocking port 8081?');
+// TODO: Replace with structured logging - console.log('3. Are you on the same network?');
+// TODO: Replace with structured logging - console.log('\n💡 Try running: bun run ios --clear');
   }
   
   // Show dynamic configuration info
-  console.log('\n📝 Note: The app tries to detect the API URL in this order:');
-  console.log('1. EXPO_PUBLIC_API_URL environment variable');
-  console.log('2. Dynamic detection from Expo\'s hostUri');
-  console.log('3. Fallback to localhost:8081');
-  console.log('\nThe dynamic detection should work, but setting EXPO_PUBLIC_API_URL is more reliable.');
+// TODO: Replace with structured logging - console.log('\n📝 Note: The app tries to detect the API URL in this order:');
+// TODO: Replace with structured logging - console.log('1. EXPO_PUBLIC_API_URL environment variable');
+// TODO: Replace with structured logging - console.log('2. Dynamic detection from Expo\'s hostUri');
+// TODO: Replace with structured logging - console.log('3. Fallback to localhost:8081');
+// TODO: Replace with structured logging - console.log('\nThe dynamic detection should work, but setting EXPO_PUBLIC_API_URL is more reliable.');
 }
 
 main().catch(console.error);

@@ -1,14 +1,15 @@
-import { auth } from "@/lib/auth";
+import { auth } from "@/lib/auth/auth";
+import { log } from "@/lib/core/logger";
 
 // Simple Better Auth handler with proper CORS
 async function handler(request: Request) {
-  const origin = request.headers.get('origin');
+  const origin = request.headers.get('origin') || '*';
   
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': origin || '*',
+    'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie, X-Requested-With',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie, X-Requested-With, x-trpc-source',
     'Access-Control-Allow-Credentials': 'true',
   };
 
@@ -21,17 +22,51 @@ async function handler(request: Request) {
   }
 
   try {
-    // Log incoming request
-    console.log('[AUTH API] Request:', request.method, request.url);
-    console.log('[AUTH API] Origin:', origin);
+    // Debug logging
+    log.debug('[AUTH API] Request received', 'AUTH_API', {
+      url: request.url,
+      method: request.method,
+      headers: Object.fromEntries(request.headers.entries()),
+    });
+    
+    // Log request body if POST
+    if (request.method === 'POST' && request.headers.get('content-type')?.includes('application/json')) {
+      try {
+        const clonedRequest = request.clone();
+        const bodyText = await clonedRequest.text();
+        log.debug('[AUTH API] Raw request body', 'AUTH_API', { bodyText });
+        
+        try {
+          const bodyJson = JSON.parse(bodyText);
+          log.debug('[AUTH API] Parsed request body', 'AUTH_API', bodyJson);
+        } catch (parseError) {
+          log.debug('[AUTH API] Could not parse body as JSON', 'AUTH_API', { error: (parseError as Error).message });
+        }
+      } catch (e) {
+        log.debug('[AUTH API] Could not read request body', 'AUTH_API', e);
+      }
+    }
+    
+    // Check if auth handler exists
+    if (!auth || typeof auth.handler !== 'function') {
+      log.error('[AUTH API ERROR]: auth.handler is not a function', 'AUTH_API', {
+        authExists: !!auth,
+        handlerType: typeof auth?.handler
+      });
+      return new Response(
+        JSON.stringify({ error: 'Auth handler not properly initialized' }), 
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
     
     // Parse URL to check the path
     const url = new URL(request.url);
-    console.log('[AUTH API] Path:', url.pathname);
-    console.log('[AUTH API] Search params:', url.searchParams.toString());
-    
-    // Log auth configuration
-    console.log('[AUTH API] Social providers configured:', Object.keys(auth.options?.socialProviders || {}));
     
     // Check if this is a mobile OAuth callback for Google
     const userAgent = request.headers.get('user-agent') || '';
@@ -42,14 +77,13 @@ async function handler(request: Request) {
                            referer.includes('auth.expo.io'));
     
     if (isMobileOAuth && request.method === 'GET') {
-      console.log('[AUTH API] Detected mobile OAuth callback, handling specially');
+      // Handle mobile OAuth callback specially
       
       // Call Better Auth handler first to process the OAuth
       const authResponse = await auth.handler(request);
       
       if (authResponse.status >= 200 && authResponse.status < 400) {
         // OAuth was successful, return mobile-friendly response
-        console.log('[AUTH API] OAuth successful, redirecting to app');
         
         return new Response(`
           <!DOCTYPE html>
@@ -155,22 +189,11 @@ async function handler(request: Request) {
     }
     
     // Call Better Auth handler for normal requests
+    log.debug('[AUTH API] Calling auth.handler...', 'AUTH_API');
     const response = await auth.handler(request);
+    log.debug('[AUTH API] Response from auth.handler', 'AUTH_API', { status: response.status });
     
-    // Log response details
-    console.log('[AUTH API] Response status:', response.status);
-    console.log('[AUTH API] Response headers:', Object.fromEntries(response.headers.entries()));
-    
-    // If it's an error response, log the body
-    if (response.status >= 400) {
-      const responseClone = response.clone();
-      try {
-        const errorBody = await responseClone.text();
-        console.log('[AUTH API] Error response body:', errorBody);
-      } catch (e) {
-        console.log('[AUTH API] Could not read error body');
-      }
-    }
+    // Response handled by Better Auth
     
     // Add CORS headers to response
     Object.entries(corsHeaders).forEach(([key, value]) => {
@@ -179,20 +202,22 @@ async function handler(request: Request) {
 
     return response;
   } catch (error) {
-    console.error('[AUTH API] Error:', error);
-    console.error('[AUTH API] Error stack:', error.stack);
-    console.error('[AUTH API] Request URL:', request.url);
-    console.error('[AUTH API] Request method:', request.method);
+    log.error('[AUTH API ERROR]', 'AUTH_API', error);
+    log.error('[AUTH API ERROR] Full error', 'AUTH_API', {
+      message: (error as Error).message,
+      stack: (error as Error).stack,
+      name: (error as Error).name,
+    });
     
     // Return more detailed error in development
     const errorMessage = process.env.NODE_ENV === 'development' 
-      ? error.message || 'Internal Server Error'
+      ? (error as Error).message || 'Internal Server Error'
       : 'Internal Server Error';
     
     return new Response(
       JSON.stringify({ 
         error: errorMessage,
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        details: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
       }), 
       {
         status: 500,

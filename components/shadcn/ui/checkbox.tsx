@@ -66,10 +66,7 @@ if (Platform.OS === 'web') {
             justifyContent: 'center',
             opacity: disabled ? 0.5 : 1,
             // Add shadow for depth like shadcn
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.05,
-            shadowRadius: 1,
+            boxShadow: '0px 1px 1px rgba(0, 0, 0, 0.05)',
             elevation: 1,
           }}
           activeOpacity={0.7}

@@ -30,15 +30,16 @@ export const Card = React.forwardRef<View, CardProps>(({
     cursor: pressable ? 'pointer' : 'default',
     ...(isHovered && {
       transform: 'translateY(-2px)',
-      shadowColor: theme.foreground,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 8,
+      boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.1)',
     }),
   } : {};
   
-  const cardStyle = [webHoverStyles, style];
+  // Mobile hover effect using elevation
+  const mobileHoverStyles = Platform.OS !== 'web' && isHovered ? {
+    elevation: 8,
+  } : {};
+  
+  const cardStyle = [webHoverStyles, mobileHoverStyles, style];
 
   const webHandlers = Platform.OS === 'web' && (hoverable || pressable) ? {
     onMouseEnter: () => setIsHovered(true),

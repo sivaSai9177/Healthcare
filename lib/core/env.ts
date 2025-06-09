@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 import { resolveApiUrl, getCurrentApiUrl } from './api-resolver';
 import { getCurrentEnvironment, isDebugEnabled as isDebug, isEASBuild } from './env-config';
 import { log } from './logger';
+import { isInTunnelMode, getApiUrlForTunnel } from './tunnel-config';
 
 // Cache for API URL to avoid repeated resolution
 let cachedApiUrl: string | null = null;
@@ -63,6 +64,14 @@ export function getApiUrlSync(): string {
     return currentEndpoint;
   }
 
+  // Check if we're in tunnel mode first
+  if (isInTunnelMode()) {
+    const baseUrl = Platform.OS === "web" && typeof window !== 'undefined' 
+      ? window.location.origin 
+      : (process.env.EXPO_PUBLIC_API_URL || "http://localhost:8081");
+    return getApiUrlForTunnel(baseUrl);
+  }
+
   // For web, use the same origin to avoid CORS cookie issues
   if (Platform.OS === "web") {
     if (typeof window !== 'undefined') {
@@ -89,6 +98,16 @@ export const isDevelopment = getCurrentEnvironment() !== 'production' && getCurr
 export const isProduction = getCurrentEnvironment() === 'production';
 export const isDebugMode = isDebug();
 
+// Import unified functions
+import { 
+  getApiUrl as getUnifiedApiUrl,
+  getAuthUrl as getUnifiedAuthUrl,
+  getAuthBaseUrl as getUnifiedAuthBaseUrl,
+  isOAuthSafe,
+  getDatabaseUrl,
+  logEnvironment as logUnifiedEnvironment
+} from './unified-env';
+
 export const env = {
   getEnvironment,
   getApiUrl,
@@ -98,6 +117,13 @@ export const env = {
   isDebugMode,
   getCurrentEnvironment,
   isEASBuild,
+  // Unified functions
+  getUnifiedApiUrl,
+  getUnifiedAuthUrl,
+  getUnifiedAuthBaseUrl,
+  isOAuthSafe,
+  getDatabaseUrl,
+  logUnifiedEnvironment,
 };
 
 export default env;

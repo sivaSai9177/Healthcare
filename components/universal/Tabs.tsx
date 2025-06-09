@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Pressable, ViewStyle, Platform } from 'react-native';
+import { View, Pressable, ViewStyle, Platform, ScrollView } from 'react-native';
 import { Box } from './Box';
 import { Text } from './Text';
 import { useTheme } from '@/lib/theme/theme-provider';
@@ -45,11 +45,37 @@ const useTabsContext = () => {
 interface TabsListProps {
   children: React.ReactNode;
   style?: ViewStyle;
+  scrollable?: boolean;
 }
 
-const TabsList: React.FC<TabsListProps> = ({ children, style }) => {
+const TabsList: React.FC<TabsListProps> = ({ children, style, scrollable = false }) => {
   const theme = useTheme();
   const { spacing, componentSpacing } = useSpacing();
+  
+  if (scrollable) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: spacing[1],
+        }}
+        style={[{
+          backgroundColor: theme.muted,
+          borderRadius: componentSpacing.borderRadius,
+        }, style]}
+      >
+        <Box
+          p={1}
+          flexDirection="row"
+          alignItems="center"
+          gap={1}
+        >
+          {children}
+        </Box>
+      </ScrollView>
+    );
+  }
   
   return (
     <Box
@@ -118,10 +144,7 @@ const TabsTrigger: React.FC<TabsTriggerProps> = ({ value, children, icon, disabl
     } as any),
     // Active shadow
     ...(isActive && {
-      shadowColor: theme.foreground,
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 2,
+      boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
       elevation: 2,
     }),
   };

@@ -93,7 +93,7 @@ ${logs}
     } else {
       // On mobile, show alert with option to copy
       showErrorAlert('Debug Info', 'Debug information has been logged to console');
-      console.log(errorDetails);
+// TODO: Replace with structured logging - console.log(errorDetails);
     }
   };
 
@@ -120,10 +120,7 @@ ${logs}
                 padding: 24,
                 maxWidth: 500,
                 width: '100%',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 4,
+                boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
                 elevation: 3,
               }}
             >

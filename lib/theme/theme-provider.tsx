@@ -1,5 +1,15 @@
-import React, { createContext, useContext, useMemo } from 'react';
-import { useColorScheme } from '@/contexts/ColorSchemeContext';
+// Re-export everything from the enhanced theme provider
+export {
+  useTheme,
+  useThemeContext,
+  EnhancedThemeProvider,
+  EnhancedThemeProvider as ShadcnThemeProvider,
+  type Theme,
+  getContrastColor,
+  generatePalette
+} from './enhanced-theme-provider';
+
+// Legacy theme definitions for backward compatibility
 
 // Convert CSS HSL values to RGB hex colors
 function hslToHex(hsl: string): string {
@@ -84,24 +94,3 @@ export const darkTheme = {
   success: hslToHex('142.1 70% 45.3%'),
   successForeground: hslToHex('142.1 85% 95%'),
 };
-
-export type Theme = typeof lightTheme;
-
-const ThemeContext = createContext<Theme>(lightTheme);
-
-export function useTheme() {
-  return useContext(ThemeContext);
-}
-
-export function ShadcnThemeProvider({ children }: { children: React.ReactNode }) {
-  const colorScheme = useColorScheme();
-  const theme = useMemo(() => {
-    return colorScheme === 'dark' ? darkTheme : lightTheme;
-  }, [colorScheme]);
-
-  return (
-    <ThemeContext.Provider value={theme}>
-      {children}
-    </ThemeContext.Provider>
-  );
-}

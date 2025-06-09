@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 
 async function deleteUser(email: string) {
   try {
-    console.log(`🗑️  Deleting user and all related data for: ${email}`);
+// TODO: Replace with structured logging - console.log(`🗑️  Deleting user and all related data for: ${email}`);
     
     // Find user first
     const [userToDelete] = await db
@@ -15,11 +15,11 @@ async function deleteUser(email: string) {
       .limit(1);
     
     if (!userToDelete) {
-      console.log('❌ User not found with email:', email);
+// TODO: Replace with structured logging - console.log('❌ User not found with email:', email);
       process.exit(1);
     }
     
-    console.log(`👤 Found user: ${userToDelete.id}`);
+// TODO: Replace with structured logging - console.log(`👤 Found user: ${userToDelete.id}`);
     
     // Delete in order: sessions, accounts, then user
     const deletedSessions = await db
@@ -37,9 +37,9 @@ async function deleteUser(email: string) {
       .where(eq(user.id, userToDelete.id))
       .returning();
     
-    console.log('✅ User deletion successful!');
-    console.log(`🗂️  Deleted: ${deletedSessions.length} sessions, ${deletedAccounts.length} accounts, ${deletedUsers.length} user`);
-    console.log('🔄 User can now be recreated via OAuth as a new user');
+// TODO: Replace with structured logging - console.log('✅ User deletion successful!');
+// TODO: Replace with structured logging - console.log(`🗂️  Deleted: ${deletedSessions.length} sessions, ${deletedAccounts.length} accounts, ${deletedUsers.length} user`);
+// TODO: Replace with structured logging - console.log('🔄 User can now be recreated via OAuth as a new user');
     
     process.exit(0);
   } catch (error) {
@@ -52,8 +52,8 @@ async function deleteUser(email: string) {
 const email = process.argv[2];
 
 if (!email) {
-  console.log('📖 Usage: bun run delete-user <email>');
-  console.log('📖 Example: bun run delete-user sirigirisiva1@gmail.com');
+// TODO: Replace with structured logging - console.log('📖 Usage: bun run delete-user <email>');
+// TODO: Replace with structured logging - console.log('📖 Example: bun run delete-user sirigirisiva1@gmail.com');
   process.exit(1);
 }
 

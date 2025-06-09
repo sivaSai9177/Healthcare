@@ -1,7 +1,8 @@
 import * as React from "react";
 import { TouchableOpacity, View, Text } from "react-native";
-import { Check } from "lucide-react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { cn } from "@/lib/core/utils";
+import { useTheme } from "@/lib/theme/theme-provider";
 
 export interface CheckboxProps {
   checked?: boolean;
@@ -13,6 +14,7 @@ export interface CheckboxProps {
 
 const Checkbox = React.forwardRef<View, CheckboxProps>(
   ({ className, checked = false, onCheckedChange, disabled = false, size = "md", ...props }, ref) => {
+    const theme = useTheme();
     const sizeClasses = {
       sm: "h-3 w-3",
       md: "h-4 w-4", 
@@ -40,16 +42,16 @@ const Checkbox = React.forwardRef<View, CheckboxProps>(
           className
         )}
         style={{
-          backgroundColor: checked ? undefined : 'transparent',
-          borderColor: checked ? undefined : '#e5e7eb',
+          backgroundColor: checked ? theme.primary : 'transparent',
+          borderColor: checked ? theme.primary : theme.border,
         }}
         {...props}
       >
         {checked && (
-          <Check 
+          <Ionicons 
+            name="checkmark" 
             size={iconSizes[size]} 
-            color={checked ? "white" : "transparent"}
-            strokeWidth={3}
+            color={theme.primaryForeground}
           />
         )}
       </TouchableOpacity>

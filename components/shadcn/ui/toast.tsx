@@ -1,8 +1,9 @@
 import * as React from "react";
 import { View, Text, Pressable, Platform } from "react-native";
 import { cva, type VariantProps } from "class-variance-authority";
-import { X } from "lucide-react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { cn } from "@/lib/core/utils";
+import { useTheme } from "@/lib/theme/theme-provider";
 
 const toastVariants = cva(
   "flex-row items-start justify-between p-4 rounded-lg shadow-lg mb-2 mx-4 max-w-sm w-full border",
@@ -62,6 +63,7 @@ export interface ToastProps extends VariantProps<typeof toastVariants> {
 
 const Toast = React.forwardRef<View, ToastProps>(
   ({ id, title, description, variant = "default", onClose, className, ...props }, ref) => {
+    const theme = useTheme();
     return (
       <View
         ref={ref}
@@ -87,9 +89,10 @@ const Toast = React.forwardRef<View, ToastProps>(
           accessibilityRole="button"
         >
           {({ pressed }) => (
-            <X 
+            <Ionicons 
+              name="close" 
               size={16} 
-              color="#6b7280" 
+              color={theme.mutedForeground} 
               style={{ opacity: pressed ? 0.7 : 1 }}
             />
           )}

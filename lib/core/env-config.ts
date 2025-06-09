@@ -8,6 +8,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Network from 'expo-network';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { log } from './logger';
 
 export type Environment = 'local' | 'preview' | 'development' | 'staging' | 'production';
 export type ApiUrlType = 'localhost' | 'lan' | 'ngrok' | 'production' | 'custom';
@@ -391,18 +392,24 @@ export async function logEnvironment() {
   const isEAS = isEASBuild();
   const localIP = await getLocalIPAddress();
   
-  console.log(`
-🌍 Environment: ${env}
-📱 Platform: ${Platform.OS}
-🏗️  EAS Build: ${isEAS ? 'Yes' : 'No'}
-📊 Database: ${config.database.type} (${config.database.type === 'neon' ? 'Neon Cloud' : 'Local Docker'})
-🌐 API Endpoints (${config.api.endpoints.length}):
-${config.api.endpoints.map(e => `   - ${e.type}: ${e.url} (priority: ${e.priority})`).join('\n')}
-📶 Local IP: ${localIP || 'Not detected'}
-🔄 Fallback: ${config.api.fallbackEnabled ? 'Enabled' : 'Disabled'}
-🐛 Debug: ${config.features.debug ? 'Enabled' : 'Disabled'}
-📱 Dev Tools: ${config.features.devTools ? 'Enabled' : 'Disabled'}
-  `);
+  log.info('Environment configuration', 'ENV_CONFIG', {
+    environment: env,
+    platform: Platform.OS,
+    easBuild: isEAS,
+    database: {
+      type: config.database.type,
+      description: config.database.type === 'neon' ? 'Neon Cloud' : 'Local Docker'
+    },
+    apiEndpoints: config.api.endpoints.map(e => ({
+      type: e.type,
+      url: e.url,
+      priority: e.priority
+    })),
+    localIP: localIP || 'Not detected',
+    fallback: config.api.fallbackEnabled,
+    debug: config.features.debug,
+    devTools: config.features.devTools
+  });
 }
 
 // Export convenience functions

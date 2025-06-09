@@ -8,7 +8,7 @@ import { user as userTable } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
 
 async function checkUserStatus() {
-  console.log('🔍 Checking user status in database...\n');
+// TODO: Replace with structured logging - console.log('🔍 Checking user status in database...\n');
 
   try {
     // Get all users
@@ -25,33 +25,33 @@ async function checkUserStatus() {
       })
       .from(userTable);
 
-    console.log(`📋 Found ${users.length} users:\n`);
+// TODO: Replace with structured logging - console.log(`📋 Found ${users.length} users:\n`);
     
     users.forEach((user, index) => {
-      console.log(`👤 User ${index + 1}:`);
-      console.log(`   Email: ${user.email}`);
-      console.log(`   Name: ${user.name}`);
-      console.log(`   Role: ${user.role || 'null'}`);
-      console.log(`   Needs Profile Completion: ${user.needsProfileCompletion}`);
-      console.log(`   Email Verified: ${user.emailVerified}`);
-      console.log(`   Created: ${user.createdAt}`);
-      console.log(`   Updated: ${user.updatedAt}`);
+// TODO: Replace with structured logging - console.log(`👤 User ${index + 1}:`);
+// TODO: Replace with structured logging - console.log(`   Email: ${user.email}`);
+// TODO: Replace with structured logging - console.log(`   Name: ${user.name}`);
+// TODO: Replace with structured logging - console.log(`   Role: ${user.role || 'null'}`);
+// TODO: Replace with structured logging - console.log(`   Needs Profile Completion: ${user.needsProfileCompletion}`);
+// TODO: Replace with structured logging - console.log(`   Email Verified: ${user.emailVerified}`);
+// TODO: Replace with structured logging - console.log(`   Created: ${user.createdAt}`);
+// TODO: Replace with structured logging - console.log(`   Updated: ${user.updatedAt}`);
       
       // Status assessment
       if (user.needsProfileCompletion) {
-        console.log(`   ✅ Status: Will be prompted for profile completion`);
+// TODO: Replace with structured logging - console.log(`   ✅ Status: Will be prompted for profile completion`);
       } else if (user.role && user.role !== 'guest') {
-        console.log(`   ✅ Status: Profile complete, has role "${user.role}"`);
+// TODO: Replace with structured logging - console.log(`   ✅ Status: Profile complete, has role "${user.role}"`);
       } else {
-        console.log(`   ⚠️  Status: Unclear - might need manual fix`);
+// TODO: Replace with structured logging - console.log(`   ⚠️  Status: Unclear - might need manual fix`);
       }
-      console.log('');
+// TODO: Replace with structured logging - console.log('');
     });
 
     // Check specific user if provided
     const targetEmail = process.argv[2];
     if (targetEmail) {
-      console.log(`\n🔍 Detailed check for ${targetEmail}:`);
+// TODO: Replace with structured logging - console.log(`\n🔍 Detailed check for ${targetEmail}:`);
       
       const [specificUser] = await db
         .select()
@@ -60,9 +60,9 @@ async function checkUserStatus() {
         .limit(1);
 
       if (specificUser) {
-        console.log('📊 Full user data:', JSON.stringify(specificUser, null, 2));
+// TODO: Replace with structured logging - console.log('📊 Full user data:', JSON.stringify(specificUser, null, 2));
       } else {
-        console.log('❌ User not found');
+// TODO: Replace with structured logging - console.log('❌ User not found');
       }
     }
 
@@ -75,8 +75,8 @@ async function checkUserStatus() {
 // Run the check
 checkUserStatus()
   .then(() => {
-    console.log('\n✅ User status check completed!');
-    console.log('\n💡 To check a specific user: bun run scripts/check-user-status.ts user@example.com');
+// TODO: Replace with structured logging - console.log('\n✅ User status check completed!');
+// TODO: Replace with structured logging - console.log('\n💡 To check a specific user: bun run scripts/check-user-status.ts user@example.com');
     process.exit(0);
   })
   .catch((error) => {

@@ -1,153 +1,196 @@
-# 📚 Documentation Index
+# 🏥 Hospital Alert System - Documentation Hub
 
-*Last Updated: June 6, 2025 - Added ngrok OAuth testing workflow*
+**Last Updated**: January 9, 2025  
+**Version**: 1.0.0 (MVP)  
+**Status**: 90% Complete - Final Sprint
 
-## 🆕 Multi-Agent Development System
+## 🚀 Quick Links
 
-### 🤖 Production-Ready AI Development System
-1. **[Production Ready System](./multi-agent/PRODUCTION_READY_SYSTEM.md)** ⭐ - Start here!
-2. **[Enhanced Workflow V2](./multi-agent/ENHANCED_MULTI_AGENT_WORKFLOW_V2.md)** - Latest workflow improvements
-3. **[Enhanced Agent Prompts V2](./multi-agent/ENHANCED_AGENT_PROMPTS_V2.md)** - Optimized agent behaviors
-4. **[Integration Guide](./multi-agent/MULTI_AGENT_INTEGRATION_GUIDE.md)** - Complete integration blueprint
+### Current Priority
+- [Final Sprint Tasks](/FINAL_SPRINT_TASKS.md) - **TODAY'S FOCUS** 🎯
+- [MVP Final Status](/MVP_FINAL_STATUS_JAN_2025.md) - **90% COMPLETE**
+- [Manager Update](status/MANAGER_UPDATE_JAN_2025.md) - Latest Progress
 
-### 🚀 Quick Start for New Projects
-```bash
-# 1. Copy PRD template
-cp docs/projects/PRD_TEMPLATE.md docs/projects/my-app/PRD.md
+### Essential Docs
+- [Project Structure](/PROJECT_STRUCTURE.md) - Complete codebase overview
+- [CLAUDE.md](/CLAUDE.md) - AI Development Context
+- [Scripts Guide](/SCRIPTS_GUIDE.md) - All available commands
+- [Quick Reference](quick-reference.md) - Common patterns
 
-# 2. Edit PRD with your requirements
+## 📖 Documentation Structure
 
-# 3. Start development
-Manager, process PRD at docs/projects/my-app/PRD.md
+### 🎯 Getting Started
+Essential guides for setting up and running the project.
 
-# The system will automatically:
-# - Analyze your PRD
-# - Design architecture
-# - Generate tasks
-# - Coordinate agents
-# - Build your app with continuous testing
-# - Notify when modules are ready! 🎉
-```
+- [Installation Guide](starter-kit/getting-started/installation.md)
+- [Quick Start](starter-kit/getting-started/quick-start.md)
+- [Environment Setup Guide](getting-started/environment-setup-guide.md)
+- [Docker Environment Setup](getting-started/docker-environment-setup.md)
+- [Environment Strategy](getting-started/environment-strategy.md)
+- [Docker Integration Guide](getting-started/docker-integration-guide.md)
+- [Dynamic API URL Guide](getting-started/dynamic-api-url-guide.md)
+- [Running Your App Guide](getting-started/running-your-app-guide.md)
+- [Mobile Environment Solution](getting-started/mobile-environment-solution.md)
+- [iOS Simulator Network Fix](getting-started/ios-simulator-network-fix.md)
 
-### 📋 Multi-Agent Documentation
-- **[System Status](./multi-agent/SYSTEM_STATUS.md)** - Current status and overview
-- **[Command Reference](./multi-agent/AGENT_COMMAND_REFERENCE.md)** - 400+ agent commands
-- **[Quick Reference](./multi-agent/AGENT_QUICK_REFERENCE.md)** - Quick command cards
-- **[Enhanced Workflow](./multi-agent/ENHANCED_MULTI_AGENT_WORKFLOW_V2.md)** - Production workflows
-- **[Enhanced Prompts](./multi-agent/ENHANCED_AGENT_PROMPTS_V2.md)** - Agent prompts
-- **[Implementation](./multi-agent/AGENT_COMMAND_IMPLEMENTATION.md)** - Technical details
-- **[Workflow Triggers](./multi-agent/WORKFLOW_TRIGGERS_AND_FLOWS.md)** - Execution flows
-- **[Task Manager](./multi-agent/MASTER_TASK_MANAGER.md)** - Task tracking
-- **[Agent Context](./multi-agent/AGENT_CONTEXT.md)** - Codebase knowledge
+### 🏗️ Architecture & Reference
+Core architecture documentation and reference materials.
 
-## 📁 Documentation Structure
+- [Frontend Architecture](architecture/frontend-architecture.md)
+- [Project Structure](reference/project-structure.md)
+- [Code Structure](code-structure.md)
+- [Database Schema](api/database-schema.md)
+- **Navigation & Routing**
+  - [Navigation Architecture Root](guides/architecture/navigation-architecture-root.md)
+  - [Organization UUID Strategy](guides/architecture/organization-uuid-strategy.md)
 
-### [Starter Kit Documentation](./starter-kit/README.md)
-Generic documentation for the starter kit:
+### 🔐 Authentication & Security
+Everything related to authentication, authorization, and security.
 
-#### Getting Started
-- [Installation](./starter-kit/getting-started/installation.md)
-- [Quick Start](./starter-kit/getting-started/quick-start.md)
-- [Environment Setup](./guides/setup/environment-setup.md)
+- [Auth Session Management](guides/authentication/auth-session-management.md)
+- [Google OAuth Setup](guides/authentication/google-oauth-setup.md)
+- [Google OAuth Mobile Setup](guides/authentication/google-oauth-mobile-setup.md)
+- [Google OAuth Profile Completion](guides/authentication/google-oauth-profile-completion.md)
+- [Google OAuth EAS Build Guide](guides/authentication/google-oauth-eas-build-guide.md)
+- [Mobile Auth Complete Guide](guides/authentication/mobile-auth-complete-guide.md)
+- [Mobile OAuth Development Build](guides/authentication/mobile-oauth-development-build.md)
+- [Mobile OAuth Setup Guide](guides/authentication/mobile-oauth-setup-guide.md)
 
-#### Architecture
-- [Project Structure](./starter-kit/architecture/project-structure.md)
-- [Frontend Architecture](./guides/FRONTEND_ARCHITECTURE_PLAN.md)
-- [Backend Architecture](./guides/EXPO_TRPC_BEST_PRACTICES.md)
-- [Database Design](./api/DATABASE_SCHEMA.md)
+### 🎨 Design System
+Universal component library and design system documentation.
 
-#### Features
-- [Authentication System](./AUTH_FLOW_IMPROVEMENTS_SUMMARY.md)
-- [Authorization](./guides/AUTH_SESSION_MANAGEMENT.md)
-- [State Management](./planning/STATE_MANAGEMENT_TASKS.md)
-- [API Integration](./guides/TANSTACK_TRPC_INTEGRATION.md)
+- [Design System Overview](design-system/design-system.md)
+- [Universal Component Library](design-system/universal-component-library.md)
+- [Universal Design System Implementation](design-system/universal-design-system-implementation.md)
+- **Theming & Styling**
+  - [Dark Mode Implementation](design-system/dark-mode-implementation.md)
+  - [Dark Mode Style Guide](design-system/dark-mode-style-guide.md)
+  - [Spacing Theme System](design-system/spacing-theme-system.md)
+  - [Theming and Spacing Complete](design-system/theming-and-spacing-complete.md)
+- **Components**
+  - [Universal Components Audit 2025](design-system/universal-components-audit-2025.md)
+  - [Charts Implementation](design-system/charts-implementation.md)
+  - [Sidebar 07 Implementation](design-system/sidebar-07-implementation-complete.md)
+  - [Enhanced Login Page](design-system/enhanced-login-page.md)
+  - [Organization Switcher](design-system/organization-switcher-implementation.md)
+  - [Scroll Header Implementation](design-system/scroll-header-implementation.md)
+- **Performance**
+  - [React 19 Optimization Audit](design-system/performance/react-19-optimization-audit.md)
+  - [React 19 Implementation Tracker](design-system/performance/react-19-implementation-tracker.md)
+  - [React 19 Optimization Summary](design-system/performance/react-19-optimization-summary.md)
 
-#### Design System
-- [Overview](./design-system/DESIGN_SYSTEM.md)
-- [Components](./design-system/UNIVERSAL_DESIGN_SYSTEM_IMPLEMENTATION.md)
-- [Theming](./design-system/DARK_MODE_IMPLEMENTATION.md)
-- [Spacing System](./design-system/SPACING_THEME_SYSTEM.md)
+### 🛠️ Development
+Development guides, debugging, and best practices.
 
-### [Project Documentation](./projects/README.md)
-For specific projects built with the starter:
+- [Enhanced Debug Panel](development/enhanced-debug-panel.md)
+- [Enhanced Debug Panel Update](development/enhanced-debug-panel-update.md)
+- [Mobile Debugging Guide](development/mobile-debugging-guide.md)
+- [TanStack Debug Integration](development/tanstack-debug-integration.md)
+- **Best Practices**
+  - [Expo tRPC Best Practices](guides/expo-trpc-best-practices.md)
+  - [TanStack tRPC Integration](guides/tanstack-trpc-integration.md)
+  - [Frontend Architecture Plan](guides/architecture/frontend-architecture-plan.md)
+  - [Migrating to Design System](guides/architecture/migrating-to-design-system.md)
 
-- [PRD Template](./projects/PRD_TEMPLATE.md) - Starting point for new projects
-- Individual project folders with their PRDs and documentation
+### 📦 Deployment & Builds
+Everything related to building and deploying your app.
 
-### Development Guides
+- [Build Instructions](deployment/build-instructions.md)
+- [Quick Build Guide](deployment/quick-build-guide.md)
+- [Preview Build Guide](deployment/preview-build-guide.md)
+- [Preview Build Quickstart](deployment/preview-build-quickstart.md)
+- **Platform-Specific**
+  - [Android Build Instructions](deployment/android-build-instructions.md)
+  - [Android Build Command](deployment/android-build-command.md)
+  - [Android Device Testing](deployment/android-device-testing.md)
+  - [iOS Credentials Commands](deployment/ios-credentials-commands.md)
+- **EAS & Expo**
+  - [Expo Official Build Steps](deployment/expo-official-build-steps.md)
+  - [Expo Orbit Build Guide](deployment/expo-orbit-build-guide.md)
+  - [OAuth EAS Build Report](deployment/oauth-eas-build-report.md)
+- **Credentials & Setup**
+  - [Credential Sync Setup](deployment/credential-sync-setup.md)
+  - [Local Credentials Setup](deployment/local-credentials-setup.md)
+  - [Manual Commands to Run](deployment/manual-commands-to-run.md)
 
-#### Setup & Configuration
-- [Environment Setup](./guides/setup/ENVIRONMENT_SETUP_GUIDE.md)
-- [Running Your App](./guides/setup/RUNNING_YOUR_APP_GUIDE.md)
-- [Mobile Environment](./guides/setup/MOBILE_ENVIRONMENT_SOLUTION.md)
+### 🧪 Testing
+Testing guides and test documentation.
 
-#### Development
-- [Mobile Debugging](./guides/development/MOBILE_DEBUGGING_GUIDE.md)
-- [Debug Panel](./guides/development/ENHANCED_DEBUG_PANEL.md)
-- [TanStack Debug](./guides/development/TANSTACK_DEBUG_INTEGRATION.md)
+- [OAuth Android Preview Guide](testing/oauth-android-preview-guide.md)
+- [OAuth Test Instructions](testing/oauth-test-instructions.md)
+- [Auth Flow Test Checklist](testing/auth-flow-test-checklist.md)
+- [Google Auth Manual Test Scenarios](testing/google-auth-manual-test-scenarios.md)
+- [Google OAuth Test Checklist](testing/google-oauth-test-checklist.md)
 
-#### Deployment
-- [Build Instructions](./guides/deployment/BUILD_INSTRUCTIONS.md)
-- [Android Build](./guides/deployment/ANDROID_BUILD_INSTRUCTIONS.md)
-- [Preview Builds](./guides/deployment/PREVIEW_BUILD_GUIDE.md) ⚡ Updated
-- [EAS Setup](./guides/deployment/CREDENTIAL_SYNC_SETUP.md)
+### 💡 Examples & Templates
+Practical examples and templates.
 
-#### Testing
-- [OAuth Android Preview Guide](./guides/testing/OAUTH_ANDROID_PREVIEW_GUIDE.md) ⭐ NEW
-- [Mobile OAuth Development](./guides/MOBILE_OAUTH_DEVELOPMENT_BUILD.md) ⚡ Updated
-- [Manual Test Checklist](./guides/testing/auth-flow-test-checklist.md)
+- [Breadcrumb Usage](examples/breadcrumb-usage.md)
+- [Dialog Dropdown Usage](examples/dialog-dropdown-usage.md)
+- [Healthcare Project Example](examples/healthcare-project.md)
+- [PRD Template](projects/prd-template.md)
 
-### Planning & Tasks
-- [Master Task Plan](./planning/MASTER_TASK_PLAN.md)
-- [Authentication Tasks](./planning/AUTHENTICATION_TASKS.md)
-- [Database Tasks](./planning/DATABASE_API_TASKS.md)
-- [Security Tasks](./planning/SECURITY_COMPLIANCE_TASKS.md)
+### 🤖 Claude Code Development
+Documentation for single-agent development with Claude Code.
 
-### Reference
-- [API Documentation](./api/DATABASE_SCHEMA.md)
-- [Code Structure](./CODE_STRUCTURE.md)
-- [Navigation Architecture](./NAVIGATION_ARCHITECTURE.md)
+- [Claude Code Workflow](planning/claude-code-workflow.md)
+- [Project Status 2025](status/project-status-2025.md)
+- [Master Task Plan](planning/master-task-plan.md)
+- **Task Categories**
+  - [Authentication Tasks](planning/authentication-tasks.md)
+  - [Database API Tasks](planning/database-api-tasks.md)
+  - [Security Compliance Tasks](planning/security-compliance-tasks.md)
+  - [State Management Tasks](planning/state-management-tasks.md)
+  - [Project Structure Tasks](planning/project-structure-tasks.md)
+  - [Zod Validation Tasks](planning/zod-validation-tasks.md)
 
-### Status & Reports
-- [Final Health Status](./status/FINAL_HEALTH_STATUS.md)
-- [Health Check Report](./status/HEALTH_CHECK_REPORT.md)
-- [Codebase Update Summary](./status/CODEBASE_UPDATE_SUMMARY.md)
+### 📊 Status & Reports
+Current project status and health reports.
 
-## 🔍 Finding Information
+- [Project Status 2025](status/project-status-2025.md)
+- [Final Health Status](status/final-health-status.md)
+- [Health Check Report](status/health-check-report.md)
+- [Codebase Update Summary](status/codebase-update-summary.md)
+- [Documentation Reorganization Status](status/documentation-reorganization-status.md)
 
-### By Role
-- **Manager**: Start with [Multi-Agent Workflow](./MULTI_AGENT_WORKFLOW_SYSTEM.md)
-- **Backend Dev**: See [Agent Context](./AGENT_CONTEXT.md) → [tRPC Guide](./guides/EXPO_TRPC_BEST_PRACTICES.md)
-- **Frontend Dev**: See [Design System](./design-system/DESIGN_SYSTEM.md) → [Components](./starter-kit/README.md)
-- **Tester**: See [Test Summary](./final-test-summary.md) → [Manual Tests](./__tests__/manual/)
+### 🗂️ Archive
+Historical documentation and past implementations.
 
-### By Task
-- **Starting a project**: [PRD Template](./projects/PRD_TEMPLATE.md) → [Multi-Agent Workflow](./MULTI_AGENT_WORKFLOW_SYSTEM.md)
-- **Adding features**: [Master Task Manager](./MASTER_TASK_MANAGER.md) → [Agent Context](./AGENT_CONTEXT.md)
-- **Debugging**: [Mobile Debugging](./guides/development/MOBILE_DEBUGGING_GUIDE.md)
-- **Deploying**: [Build Instructions](./guides/deployment/BUILD_INSTRUCTIONS.md)
+- [Archive Index](archive/) - Past fixes, implementations, and historical docs
+- [Multi-Agent System Archive](archive/multi-agent-system/) - Previous multi-agent approach
 
-## 📝 Key Documents
-
-### Essential Reading
-1. **[CLAUDE.md](../CLAUDE.md)** - AI agent memory (in root)
-2. **[README.md](../README.md)** - Project overview (in root)
-3. **[Multi-Agent Workflow](./MULTI_AGENT_WORKFLOW_SYSTEM.md)** - Development system
-
-### Quick References
-- [Project Structure](./starter-kit/architecture/project-structure.md)
-- [Component Library](./design-system/UNIVERSAL_DESIGN_SYSTEM_IMPLEMENTATION.md)
-- [API Patterns](./guides/EXPO_TRPC_BEST_PRACTICES.md)
-- [Testing Guide](./final-test-summary.md)
-
-## 🔄 Keeping Docs Updated
-
-When making changes:
-1. Update relevant documentation
-2. Update this INDEX.md if adding files
-3. Update CLAUDE.md for significant changes
-4. Update task status in Master Task Manager
+### 📚 Additional Resources
+- [Docker Integration Summary](docker-integration-summary.md)
+- [Next Agent Testing Fixes](guides/next-agent-testing-fixes.md)
+- [Starter Kit README](starter-kit/readme.md)
 
 ---
 
-*This index is the central navigation hub for all documentation. Keep it updated!*
+## 🔍 Finding Documentation
+
+1. **By Topic**: Use the categories above to find docs by subject area
+2. **By Task**: Check the Planning section for task-specific docs
+3. **By Component**: Look in Design System for UI component docs
+4. **By Platform**: Check Deployment for platform-specific build guides
+
+## 📝 Documentation Standards
+
+- Use kebab-case for file names (e.g., `my-document.md`)
+- Include clear titles and descriptions
+- Provide practical examples
+- Keep documentation up-to-date
+- Archive outdated docs rather than deleting
+
+## 🤝 Contributing
+
+When adding new documentation:
+1. Place it in the appropriate category folder
+2. Use kebab-case naming convention
+3. Update this index.md file
+4. Include a clear title and purpose
+5. Follow existing patterns
+
+---
+
+*Last Updated: January 8, 2025*
+*Documentation reorganized with proper naming conventions*

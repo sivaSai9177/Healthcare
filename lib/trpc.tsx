@@ -3,11 +3,12 @@ import { httpBatchLink, TRPCClientError } from '@trpc/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // React Query Devtools not available for React Native
 // import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import React, { useState } from 'react';
-import { Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Platform, AppState, AppStateStatus } from 'react-native';
 import type { AppRouter } from '@/src/server/routers';
-import { getApiUrlSync } from './core/config';
+import { getApiUrl } from './core/unified-env';
 import { log } from '@/lib/core/logger';
+import { createSplitLink, closeWebSocketConnection } from './trpc/links';
 
 // Create tRPC React hooks
 export const api = createTRPCReact<AppRouter>();
@@ -64,62 +65,37 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => createQueryClient());
   const [error, setError] = useState<string | null>(null);
   
-  // Use static URL instead of dynamic updates to prevent re-renders
-  const trpcUrl = React.useMemo(() => {
-    try {
-      const apiUrl = getApiUrlSync();
-      const url = `${apiUrl}/api/trpc`;
-      log.api.request('TRPC URL configured', { url });
-      return url;
-    } catch (err) {
-      const errorMsg = 'Failed to configure tRPC URL';
-      log.api.error(errorMsg, err);
-      setError(errorMsg);
-      return 'http://localhost:3000/api/trpc'; // fallback
-    }
+  // Handle app state changes for WebSocket connection
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'background') {
+        // Close WebSocket when app goes to background
+        closeWebSocketConnection();
+      }
+      // WebSocket will reconnect automatically when needed
+    };
+    
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      subscription.remove();
+    };
   }, []);
-
+  
   // Create stable tRPC client with proper error handling
   const trpcClient = React.useMemo(() => {
     try {
+      // Clear any environment cache to ensure fresh URL
+      const { clearEnvCache } = require('./core/unified-env');
+      clearEnvCache();
+      
+      // Use split link for WebSocket support
+      const link = createSplitLink();
+      
       return api.createClient({
-        links: [
-          httpBatchLink({
-            url: trpcUrl,
-            headers() {
-              // Keep headers simple - credentials: 'include' handles cookies automatically
-              return {
-                'Content-Type': 'application/json',
-              };
-            },
-            // Simplified fetch with timeout and error handling
-            async fetch(url, options) {
-              const controller = new AbortController();
-              const timeoutId = setTimeout(() => {
-                controller.abort();
-                log.api.error('tRPC request timeout', { url: url.toString() });
-              }, 30000);
-              
-              try {
-                const response = await fetch(url, {
-                  ...options,
-                  credentials: 'include',
-                  signal: controller.signal,
-                });
-                clearTimeout(timeoutId);
-                return response;
-              } catch (error) {
-                clearTimeout(timeoutId);
-                if (error.name === 'AbortError') {
-                  log.api.error('tRPC request aborted', { url: url.toString() });
-                } else {
-                  log.api.error('tRPC request failed', error);
-                }
-                throw error;
-              }
-            },
-          }),
-        ],
+        links: [link],
       });
     } catch (err) {
       log.api.error('Failed to create tRPC client', err);
@@ -128,12 +104,12 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
       return api.createClient({
         links: [
           httpBatchLink({
-            url: trpcUrl,
+            url: `${getApiUrl()}/api/trpc`,
           }),
         ],
       });
     }
-  }, [trpcUrl]);
+  }, []);
 
   // Show error state if tRPC initialization failed
   if (error) {
@@ -242,23 +218,42 @@ export function usePrefetch() {
 export function withTRPCErrorBoundary<P extends object>(
   Component: React.ComponentType<P>
 ) {
-  return function TRPCErrorBoundaryWrapper(props: P) {
+  return (props: P) => {
     return (
-      <React.Suspense fallback={<div>Loading...</div>}>
+      <ErrorBoundary>
         <Component {...props} />
-      </React.Suspense>
+      </ErrorBoundary>
     );
   };
 }
 
-// Hook for handling loading states across multiple queries
-export function useMultipleQueries(queries: Array<{ enabled?: boolean }>) {
-  const isLoading = queries.some(q => q.enabled !== false);
-  const hasError = queries.some(q => 'error' in q && q.error);
-  
-  return {
-    isLoading,
-    hasError,
-    isReady: !isLoading && !hasError,
-  };
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    log.api.error('tRPC Error Boundary caught error', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 20, textAlign: 'center' }}>
+          <h2>Something went wrong</h2>
+          <p>Please try refreshing the page</p>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }

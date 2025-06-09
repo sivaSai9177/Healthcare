@@ -11,7 +11,7 @@ import { log } from '@/lib/core/logger';
 
 // Types
 export interface AppUser extends User {
-  role: 'admin' | 'manager' | 'user' | 'guest';
+  role: 'admin' | 'manager' | 'user' | 'guest' | 'operator' | 'nurse' | 'doctor' | 'head_doctor';
   organizationId?: string;
   organizationName?: string;
   department?: string;
@@ -20,7 +20,7 @@ export interface AppUser extends User {
 
 // Helper type to ensure user objects can be converted to AppUser
 export type UserToAppUser<T extends User> = T & {
-  role: 'admin' | 'manager' | 'user' | 'guest';
+  role: 'admin' | 'manager' | 'user' | 'guest' | 'operator' | 'nurse' | 'doctor' | 'head_doctor';
   organizationId?: string;
   organizationName?: string;
   department?: string;
@@ -28,7 +28,7 @@ export type UserToAppUser<T extends User> = T & {
 };
 
 // Helper function to safely convert any user object to AppUser
-export function toAppUser(user: any, fallbackRole: 'admin' | 'manager' | 'user' | 'guest' = 'user'): AppUser {
+export function toAppUser(user: any, fallbackRole: 'admin' | 'manager' | 'user' | 'guest' | 'operator' | 'nurse' | 'doctor' | 'head_doctor' = 'user'): AppUser {
   return {
     ...user,
     role: user.role || fallbackRole,
@@ -132,21 +132,33 @@ export const useAuthStore = create<AuthStore>()(
           set({ isAuthenticated: authenticated });
         },
 
-        clearAuth: () => {
-          console.log('[AuthStore] clearAuth called');
-          log.store.update('Clearing auth state');
+        clearAuth: async () => {
+          log.store.update('clearAuth called');
           const prevState = get();
-          console.log('[AuthStore] Previous state:', {
+          log.store.debug('Previous state', {
             hadUser: !!prevState.user,
             wasAuthenticated: prevState.isAuthenticated
           });
+          
+          // Clear session from session manager
+          if (Platform.OS !== 'web') {
+            try {
+              const { sessionManager } = await import('@/lib/auth/auth-session-manager');
+              await sessionManager.clearSession();
+              
+              log.store.update('Session cleared');
+            } catch (error) {
+              log.store.debug('Failed to clear session', error);
+            }
+          }
+          
           set({
             user: null,
             session: null,
             isAuthenticated: false,
             error: null,
           });
-          console.log('[AuthStore] State cleared');
+          log.info('[AuthStore] State cleared', 'COMPONENT');
         },
 
         logout: async (reason = 'user_initiated') => {
@@ -169,7 +181,7 @@ export const useAuthStore = create<AuthStore>()(
         },
 
         // Internal state management
-        updateAuth: (user, session) => {
+        updateAuth: async (user, session) => {
           const currentState = get();
           
           // More comprehensive comparison to prevent unnecessary updates
@@ -189,6 +201,18 @@ export const useAuthStore = create<AuthStore>()(
             userChanged,
             authChanged
           });
+          
+          // Better Auth's Expo plugin handles session storage automatically
+          // No need to manually store sessions
+          
+          // On mobile, ensure token is stored if session has token
+          if (Platform.OS !== 'web' && session && 'token' in session && session.token) {
+            import('@/lib/auth/session-manager').then(({ sessionManager }) => {
+              sessionManager.storeMobileToken(session.token).catch(err => {
+                log.auth.error('Failed to store mobile token during updateAuth', err);
+              });
+            });
+          }
           
           set({
             user,
@@ -281,6 +305,18 @@ export const useAuthStore = create<AuthStore>()(
           // Session validation will be handled by components via tRPC
           if (state?.user) {
             log.store.update('Rehydrated with user', { email: state.user.email });
+            
+            // On mobile, validate that we have a token
+            if (Platform.OS !== 'web') {
+              // Check if token exists asynchronously
+              import('@/lib/auth/session-manager').then(({ sessionManager }) => {
+                const token = sessionManager.getSessionToken();
+                if (!token) {
+                  log.auth.debug('User exists but no token found during rehydration, clearing auth state');
+                  state?.clearAuth();
+                }
+              });
+            }
           }
         },
         // Only persist non-sensitive data

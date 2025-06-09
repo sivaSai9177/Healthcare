@@ -12,9 +12,12 @@ import {
   CardTitle,
   Button,
   Heading1,
-  Heading2
+  Heading2,
+  SimpleBreadcrumb,
+  Separator,
+  Sidebar07Trigger
 } from "@/components/universal";
-import { ScrollView } from "react-native";
+import { ScrollView, Platform } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
 import { log } from "@/lib/core/logger";
 import { useTheme } from "@/lib/theme/theme-provider";
@@ -126,10 +129,29 @@ export default function ExploreScreen() {
   const availableFeatures = getAvailableFeatures();
 
   return (
-    <ScrollContainer safe headerTitle="Explore">
-      <VStack p={4}>
-        {/* Header */}
-        <VStack mb={6}>
+    <ScrollContainer safe>
+      <VStack p={0} spacing={0}>
+        {/* Header with Toggle and Breadcrumbs - Only on Web */}
+        {Platform.OS === 'web' && (
+          <Box px={4} py={3} borderBottomWidth={1} borderTheme="border">
+            <HStack alignItems="center" spacing={2} mb={2}>
+              <Sidebar07Trigger />
+              <Separator orientation="vertical" style={{ height: 24 }} />
+              <SimpleBreadcrumb
+                items={[
+                  { label: 'Explore', current: true }
+                ]}
+                showHome={true}
+                homeLabel="Dashboard"
+                homeHref="/(home)"
+              />
+            </HStack>
+          </Box>
+        )}
+
+        <VStack p={4}>
+          {/* Header */}
+          <VStack mb={6}>
           <Heading1>
             Explore
           </Heading1>
@@ -175,7 +197,7 @@ export default function ExploreScreen() {
         <Card>
           <CardHeader>
             <CardTitle>Need Something Else?</CardTitle>
-            <CardDescription>Can't find what you're looking for? Let us know!</CardDescription>
+            <CardDescription>Can&apos;t find what you&apos;re looking for? Let us know!</CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="solid" colorScheme="primary" fullWidth>
@@ -183,7 +205,8 @@ export default function ExploreScreen() {
             </Button>
           </CardContent>
         </Card>
-      </VStack>
+        </VStack>
+    </VStack>
     </ScrollContainer>
   );
 }

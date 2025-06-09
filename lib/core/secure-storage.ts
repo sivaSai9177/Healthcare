@@ -30,11 +30,20 @@ export const webStorage = {
 
 // Initialize storage by loading session data from SecureStore
 let storageInitialized = false;
-const initializeStorage = async () => {
+let storageInitPromise: Promise<void> | null = null;
+
+export const waitForStorageInit = async () => {
   if (storageInitialized) return;
+  if (storageInitPromise) return storageInitPromise;
+  
+  storageInitPromise = initializeSecureStorage();
+  await storageInitPromise;
+};
+
+export const initializeSecureStorage = async () => {
+  if (storageInitialized || Platform.OS === 'web') return;
   
   try {
-    console.log('[MOBILE STORAGE] Initializing storage...');
     
     // Initialize the persistent store
     if (!(global as any).__persistentStore) {
@@ -42,13 +51,23 @@ const initializeStorage = async () => {
     }
     
     // Load all better-auth related keys from SecureStore
-    const keys = ['better-auth_cookie', 'better-auth_session_data'];
+    // Note: Better Auth expo plugin uses underscore notation by default
+    const keys = [
+      'better-auth_cookie', 
+      'better-auth_session_data',
+      'better-auth_session-token',
+      'better-auth_user_data',
+      // Also check for dot notation keys
+      'better-auth.cookie', 
+      'better-auth.session_data',
+      'better-auth.session-token',
+      'better-auth.user_data'
+    ];
     const loadPromises = keys.map(async (key) => {
       try {
         const value = await SecureStore.getItemAsync(key);
         if (value) {
           (global as any).__persistentStore[key] = value;
-          console.log(`[MOBILE STORAGE] Loaded ${key} from SecureStore`);
         }
       } catch (error) {
         console.error(`[MOBILE STORAGE] Failed to load ${key}:`, error);
@@ -57,11 +76,13 @@ const initializeStorage = async () => {
     
     await Promise.all(loadPromises);
     storageInitialized = true;
-    console.log('[MOBILE STORAGE] Storage initialization complete');
   } catch (error) {
     console.error('[MOBILE STORAGE] Storage initialization failed:', error);
   }
 };
+
+// Keep internal reference for backward compatibility
+const initializeStorage = initializeSecureStorage;
 
 // Initialize storage immediately
 if (Platform.OS !== 'web') {
@@ -78,11 +99,15 @@ export const mobileStorage = {
       }
       
       const persistentStore = (global as any).__persistentStore || {};
-      const value = persistentStore[key] || '';
+      const value = persistentStore[key] || null;
+      
+      if (value) {
+      }
+      
       return value;
     } catch (error) {
       console.error('[MOBILE STORAGE] Error getting item:', error);
-      return '';
+      return null;
     }
   },
   setItem: (key: string, value: string) => {

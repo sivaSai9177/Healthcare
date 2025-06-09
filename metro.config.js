@@ -14,6 +14,9 @@ if (process.env.PLATFORM === 'web') {
   config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
 }
 
+// Override server settings for web
+// Removed host setting as it's not a valid option
+
 // Production optimizations
 if (process.env.NODE_ENV === 'production') {
   // Enable minification

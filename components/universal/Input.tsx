@@ -46,13 +46,13 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
   const [isFocused, setIsFocused] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   
-  // Get size configuration from spacing context
-  const inputSize = componentSizes.input[size];
+  // Get size configuration from spacing context with safe fallbacks
+  const inputSize = componentSizes?.input?.[size] || { height: 44 };
   const config = {
-    paddingX: componentSpacing.inputPadding.x as SpacingScale,
-    paddingY: componentSpacing.inputPadding.y as SpacingScale,
-    fontSize: typographyScale[size === 'sm' ? 'sm' : size === 'lg' ? 'lg' : 'base'],
-    height: inputSize.height,
+    paddingX: (componentSpacing?.inputPadding?.x || 4) as SpacingScale,
+    paddingY: (componentSpacing?.inputPadding?.y || 3) as SpacingScale,
+    fontSize: typographyScale?.[size === 'sm' ? 'sm' : size === 'lg' ? 'lg' : 'base'] || 16,
+    height: inputSize?.height || 44,
   };
   
   const handleFocus = (e: any) => {

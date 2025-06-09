@@ -4,7 +4,6 @@ import { user, session, account } from "@/src/db/schema";
 
 export async function POST(request: Request) {
   try {
-    console.log('[Mobile OAuth API] Handling mobile OAuth callback');
     
     const body = await request.json();
     const { code, redirectUri, idToken, type, codeVerifier } = body;
@@ -14,7 +13,6 @@ export async function POST(request: Request) {
 
     // Handle ID token flow (recommended for mobile)
     if (type === 'id_token' && idToken) {
-      console.log('[Mobile OAuth API] Processing ID token');
       
       // Verify and decode the ID token
       const idTokenParts = idToken.split('.');
@@ -27,7 +25,6 @@ export async function POST(request: Request) {
       
       // Decode the payload (middle part)
       const payload = JSON.parse(atob(idTokenParts[1]));
-      console.log('[Mobile OAuth API] ID token payload:', { 
         email: payload.email, 
         name: payload.name,
         aud: payload.aud,
@@ -63,7 +60,6 @@ export async function POST(request: Request) {
       };
     } else if (code && redirectUri) {
       // Handle authorization code flow (fallback)
-      console.log('[Mobile OAuth API] Exchanging code for tokens');
 
       // Exchange the authorization code for tokens
       const tokenParams: any = {
@@ -99,7 +95,6 @@ export async function POST(request: Request) {
       }
 
       tokens = await tokenResponse.json();
-      console.log('[Mobile OAuth API] Got tokens, fetching user info');
 
       // Fetch user information
       const userResponse = await fetch(
@@ -122,7 +117,6 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    console.log('[Mobile OAuth API] User info:', { email: googleUser.email, name: googleUser.name });
 
     // Check if user exists by email
     const existingUser = await db
@@ -137,7 +131,6 @@ export async function POST(request: Request) {
     if (existingUser.length > 0) {
       userRecord = existingUser[0];
       userId = userRecord.id;
-      console.log('[Mobile OAuth API] Found existing user:', userId);
     } else {
       // Create new user
       const newUserId = crypto.randomUUID();
@@ -156,7 +149,6 @@ export async function POST(request: Request) {
       await db.insert(user).values(newUser);
       userId = newUserId;
       userRecord = newUser;
-      console.log('[Mobile OAuth API] Created new user:', userId);
     }
 
     // Check if Google account is linked
@@ -181,7 +173,6 @@ export async function POST(request: Request) {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
-      console.log('[Mobile OAuth API] Linked Google account');
     }
 
     // Create session using Better Auth
@@ -197,7 +188,6 @@ export async function POST(request: Request) {
       updatedAt: new Date(),
     });
 
-    console.log('[Mobile OAuth API] Created session:', sessionId);
 
     // Create response with session cookie
     const response = Response.json({

@@ -161,7 +161,7 @@ function generateEnvContent(config) {
 function main() {
   if (!scenarios[scenario]) {
     console.error(`Unknown scenario: ${scenario}`);
-    console.log('Available scenarios: local, ngrok, staging, production');
+// TODO: Replace with structured logging - console.log('Available scenarios: local, ngrok, staging, production');
     process.exit(1);
   }
   
@@ -171,7 +171,7 @@ function main() {
   // Read existing .env.local if it exists to preserve custom values
   const envPath = path.join(__dirname, '..', '.env.local');
   if (fs.existsSync(envPath)) {
-    console.log('Reading existing .env.local to preserve custom values...');
+// TODO: Replace with structured logging - console.log('Reading existing .env.local to preserve custom values...');
     const existing = fs.readFileSync(envPath, 'utf8');
     const lines = existing.split('\n');
     
@@ -194,10 +194,10 @@ function main() {
   
   // Special handling for ngrok scenario
   if (scenario === 'ngrok') {
-    console.log(`\nLocal IP detected: ${getLocalIP()}`);
-    console.log('\nIMPORTANT: Update EXPO_PUBLIC_API_URL_NGROK with your actual ngrok URL');
-    console.log('Run: ngrok http 8081');
-    console.log('Then update the URL in .env.local\n');
+// TODO: Replace with structured logging - console.log(`\nLocal IP detected: ${getLocalIP()}`);
+// TODO: Replace with structured logging - console.log('\nIMPORTANT: Update EXPO_PUBLIC_API_URL_NGROK with your actual ngrok URL');
+// TODO: Replace with structured logging - console.log('Run: ngrok http 8081');
+// TODO: Replace with structured logging - console.log('Then update the URL in .env.local\n');
   }
   
   // Generate content
@@ -206,12 +206,12 @@ function main() {
   // Write to file
   const outputPath = path.join(__dirname, '..', `.env.${scenario}`);
   fs.writeFileSync(outputPath, content);
-  console.log(`Generated ${outputPath}`);
+// TODO: Replace with structured logging - console.log(`Generated ${outputPath}`);
   
   // Also update .env.local if requested
   if (process.argv.includes('--update-local')) {
     fs.writeFileSync(envPath, content);
-    console.log('Updated .env.local');
+// TODO: Replace with structured logging - console.log('Updated .env.local');
   }
 }
 

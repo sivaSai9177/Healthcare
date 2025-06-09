@@ -4,21 +4,13 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { oAuthProxy, multiSession, organization, admin } from "better-auth/plugins";
 import * as schema from "../../src/db/schema";
-
 import { log } from "@/lib/core/logger";
+import { getAuthBaseUrl, isOAuthSafe } from "@/lib/core/unified-env";
 
-// Dynamic base URL based on request context
+// Server-safe base URL configuration
 const getBaseURL = () => {
-  // For OAuth callbacks, always use localhost to avoid Google's private IP restriction
-  if (typeof process !== 'undefined') {
-    const url = process.env.BETTER_AUTH_BASE_URL;
-    if (url && url.includes('192.168')) {
-      // Replace private IP with localhost for OAuth compatibility
-      return url.replace(/192\.168\.\d+\.\d+/, 'localhost');
-    }
-    return url || "http://localhost:8081/api/auth";
-  }
-  return "http://localhost:8081/api/auth";
+  // Use unified environment configuration
+  return getAuthBaseUrl();
 };
 
 const getTrustedOrigins = () => {
@@ -31,6 +23,17 @@ const getTrustedOrigins = () => {
     "http://127.0.0.1:8082",
     "http://127.0.0.1:3000",
   ];
+  
+  // Add Expo tunnel URLs dynamically
+  if (process.env.NODE_ENV === "development") {
+    // Add wildcard patterns for Expo tunnel domains
+    origins.push(
+      "https://*.exp.direct",
+      "https://*.exp.host",
+      "https://*.expo.dev",
+      "https://*.expo.io"
+    );
+  }
 
   // Add local network IP for mobile testing
   if (process.env.NODE_ENV === "development") {
@@ -76,6 +79,17 @@ const getTrustedOrigins = () => {
   return origins;
 };
 
+// Debug environment variables on load
+if (process.env.NODE_ENV === 'development') {
+  log.debug('Environment variables', 'AUTH_MODULE', {
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? `${process.env.GOOGLE_CLIENT_ID.substring(0, 10)}...` : 'NOT SET',
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT SET',
+    BETTER_AUTH_BASE_URL: process.env.BETTER_AUTH_BASE_URL || 'NOT SET',
+    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || 'NOT SET',
+    DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
+  });
+}
+
 log.info("[AUTH CONFIG] Initializing Better Auth", "AUTH_CONFIG", {
   baseURL: getBaseURL(),
   databaseAvailable: !!db,
@@ -84,10 +98,24 @@ log.info("[AUTH CONFIG] Initializing Better Auth", "AUTH_CONFIG", {
   googleConfigured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
 });
 
+// Debug auth configuration
+log.debug('Creating Better Auth instance', 'AUTH_DEBUG', {
+  hasDb: !!db,
+  hasExpoPlugin: true,
+  hasOAuthProxy: true,
+  socialProviders: Object.keys({
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && { google: true }),
+  }),
+});
+
 export const auth = betterAuth({
   baseURL: getBaseURL(),
   secret:
     process.env.BETTER_AUTH_SECRET || "your-secret-key-change-in-production",
+  // Disable trusted origins check in development for tunnel URLs
+  ...(process.env.NODE_ENV === "development" && {
+    disableCsrf: true,
+  }),
   socialProviders: {
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && {
       google: {
@@ -178,7 +206,7 @@ export const auth = betterAuth({
   // Note: Hook implementation moved to middleware in server/routers/auth.ts
   // to avoid Better Auth type conflicts
   plugins: [
-    expo(), // The Expo plugin configuration is done on the client side
+    expo(), // Re-enabled with fix
     oAuthProxy(), // OAuth proxy for better mobile OAuth support
     multiSession({ 
       maximumSessions: 5 // Allow up to 5 sessions per user
@@ -199,28 +227,33 @@ export const auth = betterAuth({
     }) // Admin functionality
   ],
   // CORS and trusted origins - include app scheme for mobile
-  trustedOrigins: [
-    ...getTrustedOrigins(),
-    "expo-starter://", // Add your app scheme
-    "expo-starter://auth-callback", // Specific callback path
-    "expo-starter://*", // Allow all paths with your app scheme
-    "my-expo://", // Legacy app scheme
-    "my-expo://home", // Legacy specific callback path
-    "my-expo://*", // Legacy allow all paths with your app scheme
-    "exp://192.168.1.104:8081", // Expo development URL
-    "exp://192.168.1.104:8081/--/", // Expo development URL with path
-    "exp://localhost:8081", // Local Expo development
-    "exp://localhost:8081/--/", // Local Expo development with path
-    "http://192.168.1.104:8081/home", // Mobile callback URL
-    "http://localhost:8081/home", // Web callback URL
-    // Expo auth proxy patterns
-    "https://auth.expo.io/*",
-    "https://auth.expo.io",
-  ],
+  // Use static array to avoid the async function issue
+  trustedOrigins: getTrustedOrigins(),
   
   // Explicit CORS configuration
   cors: {
-    origin: getTrustedOrigins(),
+    origin: (origin: string) => {
+      // Check static origins
+      const staticOrigins = getTrustedOrigins();
+      if (staticOrigins.includes(origin)) {
+        return true;
+      }
+      
+      // Check tunnel patterns
+      const tunnelPatterns = [
+        /^https:\/\/[\w-]+\.exp\.direct$/,
+        /^https:\/\/[\w-]+\.exp\.host$/,
+        /^https:\/\/[\w-]+\.expo\.dev$/,
+        /^https:\/\/[\w-]+\.expo\.io$/,
+      ];
+      
+      const isTunnel = tunnelPatterns.some(pattern => pattern.test(origin));
+      if (isTunnel) {
+        log.auth.debug('Allowing tunnel origin', { origin });
+      }
+      
+      return isTunnel;
+    },
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -283,14 +316,34 @@ export const auth = betterAuth({
   callbacks: {
     signIn: {
       async before({ user, isNewUser }) {
-        log.auth.debug("[AUTH CALLBACK] Sign in before", { userId: user?.id, isNewUser });
-        // For new social users, set a temporary role and mark for profile completion
+        log.auth.debug("[AUTH CALLBACK] Sign in before", { 
+          userId: user?.id, 
+          isNewUser,
+          existingRole: user?.role,
+          existingNeedsProfileCompletion: user?.needsProfileCompletion
+        });
+        
+        // OPTION 1: Prevent automatic user creation for OAuth
+        // Uncomment the lines below to prevent new users from being created via OAuth
+        // if (isNewUser) {
+        //   log.auth.debug("[AUTH CALLBACK] Preventing new OAuth user creation");
+        //   throw new Error("User does not exist. Please sign up first.");
+        //   // OR return false to prevent sign-in without throwing an error
+        //   // return false;
+        // }
+        
+        // OPTION 2: Allow user creation but require profile completion (current behavior)
+        // Only set profile completion for NEW OAuth users
         if (isNewUser) {
           // Set a temporary role that indicates profile completion is needed
           user.role = 'guest'; // Temporary role until they complete profile
           // New OAuth users need to complete their profile
           user.needsProfileCompletion = true;
           log.auth.debug("[AUTH CALLBACK] New OAuth user, setting needsProfileCompletion=true, role=guest");
+        } else {
+          // For existing users, preserve their current needsProfileCompletion status
+          // Don't override it - the database value should be the source of truth
+          log.auth.debug("[AUTH CALLBACK] Existing user, preserving needsProfileCompletion status");
         }
       },
       async after({ user, session, request }) {

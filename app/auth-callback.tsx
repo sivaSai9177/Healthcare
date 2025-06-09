@@ -52,8 +52,19 @@ export default function AuthCallback() {
         log.info('Navigating to profile completion (from auth store)', 'AUTH_CALLBACK');
         router.replace('/(auth)/complete-profile');
       } else {
-        log.info('Navigating to home (from auth store)', 'AUTH_CALLBACK');
-        router.replace('/(home)');
+        log.info('Navigating after auth (from auth store)', 'AUTH_CALLBACK', { role: user.role });
+        
+        // Check for healthcare roles
+        const healthcareRoles = ['doctor', 'nurse', 'head_doctor'];
+        const operatorRole = ['operator'];
+        
+        if (user.role && operatorRole.includes(user.role)) {
+          router.replace('/(home)/operator-dashboard');
+        } else if (user.role && healthcareRoles.includes(user.role)) {
+          router.replace('/(home)/healthcare-dashboard');
+        } else {
+          router.replace('/(home)');
+        }
       }
       return;
     }
@@ -77,8 +88,19 @@ export default function AuthCallback() {
         log.info('Navigating to profile completion (from tRPC)', 'AUTH_CALLBACK');
         router.replace('/(auth)/complete-profile');
       } else {
-        log.info('Navigating to home (from tRPC)', 'AUTH_CALLBACK');
-        router.replace('/(home)');
+        log.info('Navigating after auth (from tRPC)', 'AUTH_CALLBACK', { role: sessionUser.role });
+        
+        // Check for healthcare roles
+        const healthcareRoles = ['doctor', 'nurse', 'head_doctor'];
+        const operatorRole = ['operator'];
+        
+        if (sessionUser.role && operatorRole.includes(sessionUser.role)) {
+          router.replace('/(home)/operator-dashboard');
+        } else if (sessionUser.role && healthcareRoles.includes(sessionUser.role)) {
+          router.replace('/(home)/healthcare-dashboard');
+        } else {
+          router.replace('/(home)');
+        }
       }
     } else if (!isLoading && (!sessionData || error)) {
       log.warn('No session found or error occurred', 'AUTH_CALLBACK', { 

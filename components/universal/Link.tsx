@@ -1,19 +1,18 @@
 import React from 'react';
 import { 
-  TouchableOpacity, 
-  TouchableOpacityProps,
   Pressable,
   PressableProps,
+  PressableStateCallbackType,
   Platform,
   StyleSheet,
   ViewStyle,
   TextStyle,
 } from 'react-native';
-import { Link as ExpoLink, LinkProps as ExpoLinkProps, Href } from 'expo-router';
+import { Link as ExpoLink, Href } from 'expo-router';
 import { useTheme } from '@/lib/theme/theme-provider';
 import { Text, TextProps } from './Text';
 
-export interface UniversalLinkProps extends Omit<TouchableOpacityProps, 'onPress'> {
+export interface UniversalLinkProps extends Omit<PressableProps, 'onPress' | 'style'> {
   href: Href;
   onPress?: () => void;
   onHoverIn?: () => void;
@@ -30,6 +29,7 @@ export interface UniversalLinkProps extends Omit<TouchableOpacityProps, 'onPress
   children?: React.ReactNode;
   textProps?: TextProps;
   variant?: 'default' | 'primary' | 'destructive' | 'ghost';
+  style?: ViewStyle | ((state: PressableStateCallbackType) => ViewStyle);
 }
 
 export const UniversalLink = React.forwardRef<any, UniversalLinkProps>(({
@@ -56,31 +56,27 @@ export const UniversalLink = React.forwardRef<any, UniversalLinkProps>(({
   const [isHovered, setIsHovered] = React.useState(false);
   const [isPressed, setIsPressed] = React.useState(false);
 
-  // Get variant colors with hover states
+  // Get variant colors with hover states using theme colors
   const variantColors = React.useMemo(() => {
-    // Define a nice blue color for links
-    const linkBlue = '#0066cc';
-    const linkBlueHover = '#0052a3';
-    
     return {
       default: {
         text: theme.foreground,
-        hoverText: theme.primary, // Use primary for hover (works in both themes)
+        hoverText: theme.primary,
         underline: 'none' as const,
       },
       primary: {
-        text: linkBlue, // Use blue for primary links
-        hoverText: linkBlueHover, // Darker blue on hover
+        text: theme.primary, // Use theme primary instead of hardcoded blue
+        hoverText: theme.primary + 'dd', // Slightly darker on hover (87% opacity)
         underline: 'underline' as const,
       },
       destructive: {
         text: theme.destructive,
-        hoverText: theme.destructive, // Keep same but with opacity
+        hoverText: theme.destructive + 'dd', // Slightly darker on hover
         underline: 'underline' as const,
       },
       ghost: {
         text: theme.mutedForeground,
-        hoverText: theme.foreground, // Full foreground on hover
+        hoverText: theme.foreground,
         underline: 'none' as const,
       },
     };
@@ -151,15 +147,17 @@ export const UniversalLink = React.forwardRef<any, UniversalLinkProps>(({
             {children}
           </Pressable>
         ) : (
-          <TouchableOpacity
+          <Pressable
             ref={ref}
-            activeOpacity={0.7}
             disabled={disabled}
-            style={combinedStyle}
+            style={({ pressed }) => [
+              combinedStyle,
+              { opacity: pressed ? 0.7 : 1 }
+            ] as ViewStyle}
             {...props}
           >
             {children}
-          </TouchableOpacity>
+          </Pressable>
         )}
       </ExpoLink>
     );
@@ -210,17 +208,19 @@ export const UniversalLink = React.forwardRef<any, UniversalLinkProps>(({
       disabled={disabled}
       onPress={onPress}
     >
-      <TouchableOpacity
+      <Pressable
         ref={ref}
-        activeOpacity={0.7}
         disabled={disabled}
-        style={combinedStyle}
+        style={({ pressed }) => [
+          combinedStyle,
+          { opacity: pressed ? 0.7 : 1 }
+        ] as ViewStyle}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         {...props}
       >
         {content}
-      </TouchableOpacity>
+      </Pressable>
     </ExpoLink>
   );
 });
