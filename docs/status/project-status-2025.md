@@ -2,9 +2,10 @@
 
 ## 🎯 Project Overview
 
-**Project**: Modern Full-Stack Expo Starter Kit
-**Approach**: Single-agent development with Claude Code
-**Goal**: Create the most comprehensive, production-ready starter kit for modern app development
+**Project**: Hospital Alert System MVP
+**Based On**: Modern Full-Stack Expo Starter Kit
+**Goal**: Real-time hospital alert management system with automatic escalation
+**Deadline**: Today Afternoon (January 9, 2025)
 
 ## ✅ Completed Features (98% Complete)
 
