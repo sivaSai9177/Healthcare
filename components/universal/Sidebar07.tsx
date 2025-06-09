@@ -7,8 +7,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
 import React, {
   createContext,
-  useCallback,
   useContext,
+  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -350,7 +350,16 @@ export const Sidebar07Trigger: React.FC<Sidebar07TriggerProps> = ({
   style,
 }) => {
   const theme = useTheme();
-  const { toggleSidebar } = useSidebar07();
+  
+  // Try to get sidebar context, but don't throw if not available
+  const context = useContext(SidebarContext07);
+  
+  // If no context (i.e., on mobile), don't render anything
+  if (!context) {
+    return null;
+  }
+  
+  const { toggleSidebar } = context;
 
   return (
     <Button
@@ -549,10 +558,20 @@ export const Sidebar07Menu: React.FC<{ children: React.ReactNode }> = ({
 };
 
 // Sidebar Menu Item
-export const Sidebar07MenuItem: React.FC<{ children: React.ReactNode }> = ({
+interface Sidebar07MenuItemProps {
+  children: React.ReactNode;
+  style?: ViewStyle;
+}
+
+export const Sidebar07MenuItem: React.FC<Sidebar07MenuItemProps> = ({
   children,
+  style,
 }) => {
-  return <>{children}</>;
+  return (
+    <View style={[{ position: "relative" }, style]}>
+      {children}
+    </View>
+  );
 };
 
 // Sidebar Menu Button
@@ -1491,5 +1510,266 @@ export const NavProjects07: React.FC<NavProjects07Props> = ({ projects }) => {
         </Sidebar07Menu>
       </Sidebar07GroupContent>
     </Sidebar07Group>
+  );
+};
+
+// Sidebar Input
+interface Sidebar07InputProps {
+  placeholder?: string;
+  value?: string;
+  onChangeText?: (text: string) => void;
+  style?: ViewStyle;
+}
+
+export const Sidebar07Input: React.FC<Sidebar07InputProps> = ({
+  placeholder,
+  value,
+  onChangeText,
+  style,
+}) => {
+  const theme = useTheme();
+  const { spacing } = useSpacing();
+  
+  return (
+    <Input
+      placeholder={placeholder}
+      value={value}
+      onChangeText={onChangeText}
+      style={[
+        {
+          height: 32,
+          backgroundColor: theme.background,
+          borderColor: theme.border,
+          paddingHorizontal: spacing[3],
+          fontSize: 14,
+        },
+        style,
+      ]}
+    />
+  );
+};
+
+// Sidebar Menu Action
+interface Sidebar07MenuActionProps extends Omit<PressableProps, 'style'> {
+  children: React.ReactNode;
+  showOnHover?: boolean;
+  style?: ViewStyle;
+}
+
+export const Sidebar07MenuAction: React.FC<Sidebar07MenuActionProps> = ({
+  children,
+  showOnHover = false,
+  style,
+  ...props
+}) => {
+  const theme = useTheme();
+  const { spacing } = useSpacing();
+  const { state } = useSidebar07();
+  const [isHovered, setIsHovered] = useState(false);
+  
+  if (state === "collapsed") return null;
+  
+  return (
+    <Pressable
+      onHoverIn={Platform.OS === 'web' ? () => setIsHovered(true) : undefined}
+      onHoverOut={Platform.OS === 'web' ? () => setIsHovered(false) : undefined}
+      style={[
+        {
+          position: "absolute",
+          right: spacing[1],
+          top: 6,
+          width: 20,
+          height: 20,
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: spacing[1],
+          backgroundColor: isHovered ? theme.accent : "transparent",
+          ...(Platform.OS === "web" && {
+            transition: "all 0.15s ease",
+            cursor: "pointer",
+          }),
+          ...(showOnHover && !isHovered && {
+            opacity: 0,
+          }),
+        },
+        style,
+      ]}
+      {...props}
+    >
+      {children}
+    </Pressable>
+  );
+};
+
+// Sidebar Menu Skeleton
+interface Sidebar07MenuSkeletonProps {
+  showIcon?: boolean;
+  style?: ViewStyle;
+}
+
+export const Sidebar07MenuSkeleton: React.FC<Sidebar07MenuSkeletonProps> = ({
+  showIcon = false,
+  style,
+}) => {
+  const { spacing } = useSpacing();
+  const width = useMemo(() => `${Math.floor(Math.random() * 40) + 50}%`, []);
+  
+  return (
+    <View
+      style={[
+        {
+          flexDirection: "row",
+          alignItems: "center",
+          height: 32,
+          paddingHorizontal: spacing[2],
+          gap: spacing[2],
+          borderRadius: spacing[1.5],
+        },
+        style,
+      ]}
+    >
+      {showIcon && <Skeleton width={16} height={16} borderRadius={4} />}
+      <Skeleton width={width} height={16} borderRadius={4} />
+    </View>
+  );
+};
+
+// Sidebar Menu Sub
+interface Sidebar07MenuSubProps {
+  children: React.ReactNode;
+  style?: ViewStyle;
+}
+
+export const Sidebar07MenuSub: React.FC<Sidebar07MenuSubProps> = ({
+  children,
+  style,
+}) => {
+  const { spacing } = useSpacing();
+  const theme = useTheme();
+  const { state } = useSidebar07();
+  
+  if (state === "collapsed") return null;
+  
+  return (
+    <View
+      style={[
+        {
+          marginLeft: spacing[3.5],
+          paddingLeft: spacing[2.5],
+          borderLeftWidth: StyleSheet.hairlineWidth,
+          borderLeftColor: theme.border,
+          gap: spacing[1],
+          marginTop: spacing[0.5],
+        },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
+};
+
+// Sidebar Menu Sub Item
+export const Sidebar07MenuSubItem: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return <>{children}</>;
+};
+
+// Sidebar Menu Sub Button
+interface Sidebar07MenuSubButtonProps extends Omit<PressableProps, 'style'> {
+  children: React.ReactNode;
+  isActive?: boolean;
+  size?: "sm" | "md";
+  style?: ViewStyle;
+}
+
+export const Sidebar07MenuSubButton: React.FC<Sidebar07MenuSubButtonProps> = ({
+  children,
+  isActive = false,
+  size = "md",
+  style,
+  ...props
+}) => {
+  const theme = useTheme();
+  const { spacing } = useSpacing();
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+  
+  return (
+    <Pressable
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
+      onHoverIn={Platform.OS === 'web' ? () => setIsHovered(true) : undefined}
+      onHoverOut={Platform.OS === 'web' ? () => setIsHovered(false) : undefined}
+      style={[
+        {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing[2],
+          height: 28,
+          paddingHorizontal: spacing[2],
+          borderRadius: spacing[1.5],
+          backgroundColor: isActive
+            ? theme.accent
+            : isPressed || isHovered
+            ? theme.accent
+            : "transparent",
+          ...(Platform.OS === "web" && {
+            transition: "all 0.15s ease",
+            cursor: "pointer",
+          }),
+        },
+        style,
+      ]}
+      {...props}
+    >
+      {children}
+    </Pressable>
+  );
+};
+
+// Sidebar Group Action
+interface Sidebar07GroupActionProps extends Omit<PressableProps, 'style'> {
+  children: React.ReactNode;
+  style?: ViewStyle;
+}
+
+export const Sidebar07GroupAction: React.FC<Sidebar07GroupActionProps> = ({
+  children,
+  style,
+  ...props
+}) => {
+  const theme = useTheme();
+  const { spacing } = useSpacing();
+  const { state } = useSidebar07();
+  const [isHovered, setIsHovered] = useState(false);
+  
+  if (state === "collapsed") return null;
+  
+  return (
+    <Pressable
+      onHoverIn={Platform.OS === 'web' ? () => setIsHovered(true) : undefined}
+      onHoverOut={Platform.OS === 'web' ? () => setIsHovered(false) : undefined}
+      style={[
+        {
+          position: "absolute",
+          right: spacing[3],
+          top: spacing[3.5],
+          width: 20,
+          height: 20,
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: spacing[1],
+          backgroundColor: isHovered ? theme.accent : "transparent",
+          ...(Platform.OS === "web" && {
+            transition: "all 0.15s ease",
+            cursor: "pointer",
+          }),
+        },
+        style,
+      ]}
+      {...props}
+    >
+      {children}
+    </Pressable>
   );
 };

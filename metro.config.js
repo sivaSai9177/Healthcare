@@ -15,11 +15,7 @@ if (process.env.PLATFORM === 'web') {
 }
 
 // Override server settings for web
-config.server = {
-  ...config.server,
-  // Force web to use localhost
-  host: 'localhost',
-};
+// Removed host setting as it's not a valid option
 
 // Production optimizations
 if (process.env.NODE_ENV === 'production') {

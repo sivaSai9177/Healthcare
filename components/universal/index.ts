@@ -79,5 +79,8 @@ export * from './ContextMenu';
 // Chart Components
 export * from './charts';
 
+// Dashboard Components
+export * from './Dashboard01';
+
 // Re-export design system tokens
 export { designSystem } from '@/lib/design-system';

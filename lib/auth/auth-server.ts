@@ -13,8 +13,14 @@ import * as schema from "@/src/db/schema";
 // Server-safe logger (no React Native dependencies)
 const log = {
   auth: {
-// TODO: Replace with structured logging - info: (message: string, data?: any) => console.log(`[AUTH] ${message}`, data),
-// TODO: Replace with structured logging - debug: (message: string, data?: any) => console.log(`[AUTH DEBUG] ${message}`, data),
+    info: (message: string, data?: any) => {
+      if (process.env.NODE_ENV === 'development') {
+      }
+    },
+    debug: (message: string, data?: any) => {
+      if (process.env.NODE_ENV === 'development') {
+      }
+    },
     error: (message: string, error?: any) => console.error(`[AUTH ERROR] ${message}`, error),
   },
 };
@@ -61,7 +67,7 @@ const getTrustedOrigins = () => {
 
 // Debug environment variables on load
 if (process.env.NODE_ENV === 'development') {
-// TODO: Replace with structured logging - console.log("[AUTH SERVER] Environment variables:", {
+  log.auth.debug("[AUTH SERVER] Environment variables", {
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? `${process.env.GOOGLE_CLIENT_ID.substring(0, 10)}...` : 'NOT SET',
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT SET',
     BETTER_AUTH_BASE_URL: process.env.BETTER_AUTH_BASE_URL || 'NOT SET',

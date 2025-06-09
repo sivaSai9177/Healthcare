@@ -2,7 +2,6 @@ import React, { Suspense, useTransition, useDeferredValue } from 'react';
 import { Platform, ScrollView, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { 
-  Container,
   VStack, 
   HStack,
   Text, 
@@ -13,8 +12,6 @@ import {
   Avatar,
   Badge,
   Separator,
-  SimpleBreadcrumb,
-  Sidebar07Trigger,
   Skeleton,
   Grid,
 } from '@/components/universal';
@@ -89,7 +86,7 @@ export default function HealthcareDashboard() {
                     <Button
                       onPress={() => setShowCreateAlert(true)}
                       variant="destructive"
-                      size="large"
+                      size="lg"
                       fullWidth
                     >
                       Create New Alert
@@ -117,7 +114,7 @@ export default function HealthcareDashboard() {
                   <Button
                     onPress={() => setShowCreateAlert(false)}
                     variant="ghost"
-                    size="small"
+                    size="sm"
                   >
                     ← Back
                   </Button>
@@ -332,7 +329,7 @@ export default function HealthcareDashboard() {
               user?.role === 'nurse' ? 'outline' :
               'outline'
             }
-            size="large"
+            size="lg"
           >
             <Text size="sm" weight="semibold">
               {(user?.role || 'user').replace('_', ' ').toUpperCase()}
@@ -376,31 +373,14 @@ export default function HealthcareDashboard() {
   
   // Web view
   return (
-    <Container>
-      <VStack p={0} spacing={0}>
-        {/* Header with Toggle and Breadcrumbs */}
-        <Box
-          px={goldenSpacing.lg}
-          py={goldenSpacing.md}
-          borderBottomWidth={1}
-          borderTheme="border"
-        >
-          <HStack alignItems="center" gap={goldenSpacing.sm} mb={goldenSpacing.sm}>
-            <Sidebar07Trigger />
-            <Separator orientation="vertical" style={{ height: 24 }} />
-            <SimpleBreadcrumb
-              items={[{ label: "Healthcare Dashboard", current: true }]}
-              showHome={false}
-            />
-          </HStack>
-        </Box>
-        
-        <ScrollView>
-          <VStack p={goldenSpacing.lg} gap={goldenSpacing.lg}>
-            {content}
-          </VStack>
-        </ScrollView>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: theme.background }}
+      contentContainerStyle={{ flexGrow: 1 }}
+      showsVerticalScrollIndicator={false}
+    >
+      <VStack p={goldenSpacing.xl} gap={goldenSpacing.xl}>
+        {content}
       </VStack>
-    </Container>
+    </ScrollView>
   );
 }

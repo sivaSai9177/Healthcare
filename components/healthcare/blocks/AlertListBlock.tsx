@@ -83,7 +83,7 @@ const AlertCardItem = memo(({
               <Text weight="bold" size="lg">Room {alert.roomNumber}</Text>
               <Badge
                 variant={alert.urgency >= 4 ? "destructive" : alert.urgency >= 3 ? "secondary" : "default"}
-                size="small"
+                size="sm"
               >
                 Urgency {alert.urgency}
               </Badge>
@@ -97,15 +97,15 @@ const AlertCardItem = memo(({
         {/* Status Badges */}
         <VStack gap={goldenSpacing.xs} alignItems="flex-end">
           {alert.resolved ? (
-            <Badge variant="outline" size="small">
+            <Badge variant="outline" size="sm">
               ✓ Resolved
             </Badge>
           ) : alert.acknowledged ? (
-            <Badge variant="secondary" size="small">
+            <Badge variant="secondary" size="sm">
               ✓ Acknowledged
             </Badge>
           ) : (
-            <Badge variant="destructive" size="small">
+            <Badge variant="destructive" size="sm">
               New Alert
             </Badge>
           )}
@@ -141,30 +141,30 @@ const AlertCardItem = memo(({
         <HStack gap={goldenSpacing.md} marginTop={goldenSpacing.sm}>
           {!alert.acknowledged && canAcknowledge && (
             <Button
-              variant="primary"
-              size="small"
+              variant="solid"
+              size="sm"
               style={{ flex: 1.618 }}
               onPress={() => {
                 startTransition(() => {
                   onAcknowledge(alert.id);
                 });
               }}
-              loading={isPending}
+              isLoading={isPending}
             >
               Acknowledge
             </Button>
           )}
           {alert.acknowledged && canResolve && (
             <Button
-              variant="success"
-              size="small"
+              variant="solid"
+              size="sm"
               style={{ flex: 1 }}
               onPress={() => {
                 startTransition(() => {
                   onResolve(alert.id);
                 });
               }}
-              loading={isPending}
+              isLoading={isPending}
             >
               Resolve
             </Button>
@@ -190,12 +190,14 @@ export const AlertListBlock = ({
   hospitalId, 
   role,
   showResolved = false,
-  maxHeight 
+  maxHeight,
+  scrollEnabled = true 
 }: { 
   hospitalId: string;
   role: HealthcareUserRole;
   showResolved?: boolean;
   maxHeight?: number;
+  scrollEnabled?: boolean;
 }) => {
   const theme = useTheme();
   const queryClient = api.useUtils();
@@ -290,17 +292,25 @@ export const AlertListBlock = ({
     },
   });
   
-  // Real-time subscription
-  api.healthcare.subscribeToAlerts.useSubscription(
-    undefined,
+  // Real-time subscription for WebSocket updates
+  const { data: subscriptionData } = api.healthcare.subscribeToAlerts.useSubscription(
+    { hospitalId },
     {
+      enabled: !!hospitalId && process.env.EXPO_PUBLIC_ENABLE_WS === 'true',
       onData: (event) => {
         log.info('Alert subscription event', 'ALERT_LIST', { event });
-        // Refetch to get latest data
-        refetch();
+        
+        // Update query cache with new data
+        queryClient.healthcare.getActiveAlerts.invalidate();
+        
+        // Show notification for new alerts
+        if (event.type === 'alert.created') {
+          showSuccessAlert('New Alert', `New alert in room ${event.data.alert.roomNumber}`);
+        }
       },
       onError: (error) => {
         log.error('Alert subscription error', 'ALERT_LIST', error);
+        // Subscription failed, polling will continue as fallback
       },
     }
   );
@@ -361,6 +371,25 @@ export const AlertListBlock = ({
   
   // Use FlatList for native, regular mapping for web
   if (Platform.OS !== 'web') {
+    // If scrolling is disabled, render items directly without FlatList
+    if (!scrollEnabled) {
+      return (
+        <VStack gap={goldenSpacing.md}>
+          {alerts.map((alert, index) => (
+            <AlertCardItem
+              key={alert.id}
+              alert={alert}
+              onAcknowledge={(id) => acknowledgeMutation.mutate({ alertId: id })}
+              onResolve={(id) => resolveMutation.mutate({ alertId: id })}
+              canAcknowledge={canAcknowledge}
+              canResolve={canResolve}
+              index={index}
+            />
+          ))}
+        </VStack>
+      );
+    }
+    
     return (
       <FlatList
         ref={listRef}

@@ -1,6 +1,17 @@
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
+// Server-safe logger for database module
+const log = {
+  info: (message: string, data?: any) => {
+    if (process.env.NODE_ENV === 'development') {
+    }
+  },
+  error: (message: string, error?: any) => {
+    console.error(`[DB ERROR] ${message}`, error || '');
+  },
+};
+
 if (!process.env.DATABASE_URL) {
   throw new Error("[DB] DATABASE_URL environment variable is not set");
 }
@@ -8,13 +19,13 @@ if (!process.env.DATABASE_URL) {
 const DATABASE_URL = process.env.DATABASE_URL;
 const isLocal = DATABASE_URL.includes('localhost') || DATABASE_URL.includes('127.0.0.1');
 
-// TODO: Replace with structured logging - console.log("[DB] Connecting to database...");
-// TODO: Replace with structured logging - console.log(`[DB] Database type: ${isLocal ? 'Local PostgreSQL' : 'PostgreSQL'}`);
+log.info("Connecting to database...");
+log.info(`Database type: ${isLocal ? 'Local PostgreSQL' : 'PostgreSQL'}`);
 
 let db: any;
 
 // Always use node-postgres for now to avoid Neon serverless issues
-// TODO: Replace with structured logging - console.log("[DB] Using PostgreSQL driver");
+log.info("Using PostgreSQL driver");
 const pool = new Pool({
   connectionString: DATABASE_URL,
   ssl: !isLocal && process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
@@ -22,5 +33,5 @@ const pool = new Pool({
 db = drizzlePg(pool);
 
 export { db };
-// TODO: Replace with structured logging - console.log("[DB] Database client initialized");
+log.info("Database client initialized");
 

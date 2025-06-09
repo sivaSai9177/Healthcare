@@ -31,6 +31,25 @@ if (__DEV__) {
     'Reanimated',
     'ProgressTransitionRegister',
     'LayoutAnimationRepository',
+    // Shadow props deprecation warning
+    'shadow-related style props',
+    'deprecated shadow',
+    '"shadow*" style props are deprecated',
+    'shadow*',
+    'boxShadow',
+    // Expo notifications on web
+    'expo-notifications',
+    'does not support',
+    'push token changes',
+    'Listening to push token',
+    // Animated warnings
+    'useNativeDriver',
+    'Animated:',
+    'native animated module is missing',
+    'RCTAnimation',
+    // VirtualizedList warning
+    'VirtualizedLists should never be nested',
+    'virtualizedlists should never be nested',
   ];
   
   console.warn = (...args) => {

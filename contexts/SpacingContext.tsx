@@ -71,19 +71,16 @@ export function SpacingProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Always provide a value, even while loading
+  const currentDensity = isLoaded ? density : 'medium';
   const value: SpacingContextType = {
-    density,
+    density: currentDensity,
     setDensity,
-    spacing: getSpacing(density),
-    componentSpacing: spacingTheme.componentSpacing[density],
-    typographyScale: spacingTheme.typographyScale[density],
-    componentSizes: spacingTheme.componentSizes[density],
+    spacing: getSpacing(currentDensity),
+    componentSpacing: spacingTheme.componentSpacing[currentDensity],
+    typographyScale: spacingTheme.typographyScale[currentDensity],
+    componentSizes: spacingTheme.componentSizes[currentDensity],
   };
-
-  // Don't render until preferences are loaded
-  if (!isLoaded) {
-    return null;
-  }
 
   return (
     <SpacingContext.Provider value={value}>

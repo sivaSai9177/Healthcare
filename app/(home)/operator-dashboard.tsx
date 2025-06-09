@@ -1,7 +1,6 @@
 import React, { Suspense } from 'react';
 import { Platform, ScrollView } from 'react-native';
 import { 
-  Container, 
   VStack, 
   HStack,
   Text, 
@@ -11,9 +10,6 @@ import {
   Heading1,
   Badge,
   Skeleton,
-  SimpleBreadcrumb,
-  Sidebar07Trigger,
-  Separator,
 } from '@/components/universal';
 import { 
   AlertCreationBlock, 
@@ -66,8 +62,8 @@ export default function OperatorDashboard() {
               Create and manage emergency alerts for medical staff
             </Text>
           </VStack>
-          <Badge variant="destructive" size="large">
-            <Text weight="semibold">OPERATOR MODE</Text>
+          <Badge variant="destructive" size="lg">
+            OPERATOR MODE
           </Badge>
         </HStack>
       </VStack>
@@ -108,7 +104,7 @@ export default function OperatorDashboard() {
           <Text size="xl" weight="bold">Active Alerts</Text>
           <Button
             variant="outline"
-            size="small"
+            size="sm"
             onPress={() => router.push('/(home)/healthcare-dashboard')}
           >
             View All Alerts
@@ -120,6 +116,7 @@ export default function OperatorDashboard() {
             role="operator"
             showResolved={false}
             maxHeight={goldenDimensions.heights.massive}
+            scrollEnabled={false}
           />
         </Suspense>
       </VStack>
@@ -147,34 +144,14 @@ export default function OperatorDashboard() {
   
   // Web view
   return (
-    <Container>
-      <VStack p={0} spacing={0}>
-        {/* Header with Toggle and Breadcrumbs */}
-        <Box
-          px={goldenSpacing.lg}
-          py={goldenSpacing.md}
-          borderBottomWidth={1}
-          borderTheme="border"
-        >
-          <HStack alignItems="center" spacing={goldenSpacing.sm} mb={goldenSpacing.sm}>
-            <Sidebar07Trigger />
-            <Separator orientation="vertical" style={{ height: 24 }} />
-            <SimpleBreadcrumb
-              items={[
-                { label: "Healthcare", href: "/(home)/healthcare-dashboard" },
-                { label: "Operator Dashboard", current: true }
-              ]}
-              showHome={false}
-            />
-          </HStack>
-        </Box>
-        
-        <ScrollView>
-          <VStack p={goldenSpacing.xl} gap={goldenSpacing.xl}>
-            {content}
-          </VStack>
-        </ScrollView>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: theme.background }}
+      contentContainerStyle={{ flexGrow: 1 }}
+      showsVerticalScrollIndicator={false}
+    >
+      <VStack p={goldenSpacing.xl} gap={goldenSpacing.xl}>
+        {content}
       </VStack>
-    </Container>
+    </ScrollView>
   );
 }

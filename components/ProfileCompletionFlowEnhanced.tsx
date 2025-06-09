@@ -92,19 +92,40 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
             
             logger.info('Updated session data', 'PROFILE_COMPLETION', updatedSession);
             
-            // Navigate to home if profile is complete
-            if (updatedSession && !(updatedSession as any).user?.needsProfileCompletion) {
-              logger.info('Navigating to home after profile completion', 'PROFILE_COMPLETION');
-              router.replace('/(home)');
+            // Navigate to appropriate dashboard based on role
+            const updatedUser = (updatedSession as any)?.user || data.user;
+            if (updatedUser) {
+              logger.info('Navigating after profile completion', 'PROFILE_COMPLETION', { role: updatedUser.role });
+              
+              // Check for healthcare roles
+              const healthcareRoles = ['doctor', 'nurse', 'head_doctor'];
+              const operatorRole = ['operator'];
+              
+              if (updatedUser.role && operatorRole.includes(updatedUser.role)) {
+                router.replace('/(home)/operator-dashboard');
+              } else if (updatedUser.role && healthcareRoles.includes(updatedUser.role)) {
+                router.replace('/(home)/healthcare-dashboard');
+              } else {
+                router.replace('/(home)');
+              }
             } else {
-              logger.warn('Profile still marked as incomplete after update', 'PROFILE_COMPLETION');
-              // Force navigation anyway since we know the update succeeded
+              // Fallback to home
               router.replace('/(home)');
             }
           } catch (error) {
             logger.error('Error refreshing session', 'PROFILE_COMPLETION', error);
             // Navigate anyway since the profile update was successful
-            router.replace('/(home)');
+            // Check for healthcare roles based on current form data
+            const healthcareRoles = ['doctor', 'nurse', 'head_doctor'];
+            const operatorRole = ['operator'];
+            
+            if (data.user?.role && operatorRole.includes(data.user.role)) {
+              router.replace('/(home)/operator-dashboard');
+            } else if (data.user?.role && healthcareRoles.includes(data.user.role)) {
+              router.replace('/(home)/healthcare-dashboard');
+            } else {
+              router.replace('/(home)');
+            }
           }
         }, 100);
       }
@@ -208,8 +229,17 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
           onPress: () => {
             logger.info('User skipped profile completion', 'PROFILE_COMPLETION');
             hasCompletedRef.current = true;
-            // Always go to home when skipping
-            router.replace('/(home)');
+            // Navigate to appropriate dashboard based on current role
+            const healthcareRoles = ['doctor', 'nurse', 'head_doctor'];
+            const operatorRole = ['operator'];
+            
+            if (user?.role && operatorRole.includes(user.role)) {
+              router.replace('/(home)/operator-dashboard');
+            } else if (user?.role && healthcareRoles.includes(user.role)) {
+              router.replace('/(home)/healthcare-dashboard');
+            } else {
+              router.replace('/(home)');
+            }
           },
         },
       ]

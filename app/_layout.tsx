@@ -5,17 +5,8 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Platform } from "react-native";
-
-// Only import reanimated on native platforms
-if (Platform.OS !== 'web') {
-  require("react-native-reanimated");
-}
-
-// Import crypto polyfill early for React Native
 import "@/lib/core/crypto";
-// Suppress common Expo Go warnings
 import "@/lib/core/suppress-warnings";
-
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EnhancedDebugPanel } from "@/components/EnhancedDebugPanel";
 import { SyncProvider } from "@/components/SyncProvider";
@@ -24,7 +15,32 @@ import { SpacingProvider } from "@/contexts/SpacingContext";
 import { EnhancedThemeProvider } from "@/lib/theme/enhanced-theme-provider";
 import { TRPCProvider } from "@/lib/trpc";
 import { initializeSecureStorage } from "@/lib/core/secure-storage";
+import { logEnvironment, clearEnvCache } from "@/lib/core/unified-env";
+import { initializeRuntimeConfig } from "@/lib/core/runtime-config";
+import { log } from "@/lib/core/logger";
 import "./global.css";
+
+// Only import reanimated on native platforms
+if (Platform.OS !== 'web') {
+  require("react-native-reanimated");
+}
+
+// Initialize runtime configuration early
+if (__DEV__) {
+  initializeRuntimeConfig().then(() => {
+    log.info('Runtime config initialized', 'ROOT_LAYOUT');
+  });
+}
+
+// Log environment configuration early
+if (__DEV__) {
+  // Clear cache and log environment
+  setTimeout(() => {
+    clearEnvCache(); // Clear any stale cache
+    log.info('App starting - logging environment', 'ROOT_LAYOUT');
+    logEnvironment();
+  }, 100);
+}
 
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync();
@@ -39,24 +55,40 @@ export default function RootLayout() {
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
   const [storageReady, setStorageReady] = useState(Platform.OS === 'web');
+  const [runtimeConfigReady, setRuntimeConfigReady] = useState(false);
 
   useEffect(() => {
-    // Initialize storage on mobile
-    if (Platform.OS !== 'web') {
-      initializeSecureStorage().then(() => {
+    // Initialize runtime config and storage on mobile
+    const initializeApp = async () => {
+      try {
+        // Initialize runtime config first
+        await initializeRuntimeConfig();
+        setRuntimeConfigReady(true);
+        
+        // Then initialize storage on mobile
+        if (Platform.OS !== 'web') {
+          await initializeSecureStorage();
+        }
         setStorageReady(true);
-      });
-    }
+      } catch (error) {
+        log.error('Failed to initialize app', 'ROOT_LAYOUT', error);
+        // Still set ready to prevent app from hanging
+        setRuntimeConfigReady(true);
+        setStorageReady(true);
+      }
+    };
+    
+    initializeApp();
   }, []);
 
   useEffect(() => {
-    if (loaded && storageReady) {
+    if (loaded && storageReady && runtimeConfigReady) {
       SplashScreen.hideAsync();
     }
-  }, [loaded, storageReady]);
+  }, [loaded, storageReady, runtimeConfigReady]);
 
-  // Wait for both fonts and storage to be ready
-  if (!loaded || !storageReady) {
+  // Wait for everything to be ready
+  if (!loaded || !storageReady || !runtimeConfigReady) {
     return null;
   }
 

@@ -6,6 +6,16 @@
 
 MODE=${1:-network}  # Default to network mode
 
+# Cleanup function for graceful exit
+cleanup() {
+    echo ""
+    echo "🧹 Cleaning up..."
+    exit 0
+}
+
+# Set up trap to call cleanup on script exit
+trap cleanup EXIT INT TERM
+
 echo "🚀 Starting in $MODE mode..."
 echo "================================"
 echo ""
@@ -65,7 +75,7 @@ case $MODE in
         export EXPO_PUBLIC_API_URL="http://localhost:8081"
         
         echo "🌐 Access at: http://localhost:8081"
-        exec npx expo start --host localhost --clear
+        EXPO_USE_DEV_CLIENT=false exec bunx expo start --host localhost --clear --go --go
         ;;
         
     "network")
@@ -83,8 +93,8 @@ case $MODE in
         export EXPO_PUBLIC_API_URL="http://$LOCAL_IP:8081"
         
         echo "🌐 Web access: http://localhost:8081"
-        echo "📱 Mobile access: http://$LOCAL_IP:8081"
-        exec npx expo start --host lan --clear
+        echo "📱 Mobile access: exp://$LOCAL_IP:8081"
+        EXPO_USE_DEV_CLIENT=false exec bunx expo start --host lan --clear --go --go
         ;;
         
     "tunnel")
@@ -94,7 +104,7 @@ case $MODE in
         export DATABASE_URL=$NEON_DATABASE_URL
         
         echo "☁️  Using cloud database"
-        exec npx expo start --tunnel --clear
+        EXPO_USE_DEV_CLIENT=false exec bunx expo start --tunnel --clear --go --go
         ;;
         
     "oauth")
@@ -110,7 +120,7 @@ case $MODE in
         
         echo "🔐 OAuth configured for localhost"
         echo "🌐 Access at: http://localhost:8081"
-        exec npx expo start --host localhost --clear
+        EXPO_USE_DEV_CLIENT=false exec bunx expo start --host localhost --clear --go --go
         ;;
         
     *)

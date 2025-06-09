@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth/auth-server';
 import { getSessionWithBearerFix } from '@/lib/auth/get-session-with-bearer-fix';
 import type { Session, User } from 'better-auth';
 import { log , trpcLogger } from '@/lib/core';
+import { HEALTHCARE_ROLE_PERMISSIONS } from './services/healthcare-access-control';
 
 // Base context type for tRPC procedures
 export interface Context {
@@ -215,6 +216,14 @@ const authMiddleware = t.middleware(async ({ ctx, next, path }) => {
       hasRole: (role: string) => (ctx.session.user as any).role === role,
       hasPermission: (permission: string) => {
         const userRole = (ctx.session.user as any).role || 'user';
+        
+        // Check if it's a healthcare role
+        if (HEALTHCARE_ROLE_PERMISSIONS[userRole as any]) {
+          const healthcarePermissions = HEALTHCARE_ROLE_PERMISSIONS[userRole as any];
+          return healthcarePermissions.includes('*') || healthcarePermissions.includes(permission);
+        }
+        
+        // Standard role permissions
         const rolePermissions: Record<string, string[]> = {
           admin: ['*'], // Admin can access everything
           manager: ['manage_users', 'view_analytics', 'manage_content'],

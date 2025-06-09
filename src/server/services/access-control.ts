@@ -520,7 +520,6 @@ export class AccessControlService {
       });
 
       // In production, store temporary permission in database with expiry
-// TODO: Replace with structured logging - console.log(`[ACCESS CONTROL] Temporary permission granted: ${permission} to user ${userId} for ${durationMinutes}m`);
       
       // Clear user permission cache
       this.clearUserCache(userId);
@@ -562,7 +561,6 @@ export class AccessControlService {
       });
 
       // In production, grant emergency access with automatic expiry
-// TODO: Replace with structured logging - console.log(`[ACCESS CONTROL] Emergency access granted to user ${userId} for ${resource}`);
       
       return true;
     } catch (error) {

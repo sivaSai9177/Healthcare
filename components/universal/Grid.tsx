@@ -69,9 +69,9 @@ export const Grid = React.forwardRef<View, GridProps>(
     };
 
     const currentColumns = getResponsiveValue(columns, containerWidth);
-    const gapValue = gap !== undefined ? spacing(gap) : 0;
-    const rowGapValue = rowGap !== undefined ? spacing(rowGap) : gapValue;
-    const columnGapValue = columnGap !== undefined ? spacing(columnGap) : gapValue;
+    const gapValue = gap !== undefined ? spacing[gap] : 0;
+    const rowGapValue = rowGap !== undefined ? spacing[rowGap] : gapValue;
+    const columnGapValue = columnGap !== undefined ? spacing[columnGap] : gapValue;
 
     // Calculate column width
     const totalGapWidth = columnGapValue * (currentColumns - 1);
@@ -174,7 +174,7 @@ export const Row = React.forwardRef<View, RowProps>(
 
     const rowStyle: ViewStyle = {
       flexDirection: 'row',
-      gap: spacing(gap),
+      gap: spacing[gap],
       alignItems,
       justifyContent,
       ...style,
@@ -218,7 +218,7 @@ export const Column = React.forwardRef<View, ColumnProps>(
 
     const columnStyle: ViewStyle = {
       flexDirection: 'column',
-      gap: spacing(gap),
+      gap: spacing[gap],
       alignItems,
       justifyContent,
       flex,

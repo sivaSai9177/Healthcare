@@ -44,7 +44,6 @@ export const initializeSecureStorage = async () => {
   if (storageInitialized || Platform.OS === 'web') return;
   
   try {
-// TODO: Replace with structured logging - console.log('[MOBILE STORAGE] Initializing storage...');
     
     // Initialize the persistent store
     if (!(global as any).__persistentStore) {
@@ -69,7 +68,6 @@ export const initializeSecureStorage = async () => {
         const value = await SecureStore.getItemAsync(key);
         if (value) {
           (global as any).__persistentStore[key] = value;
-// TODO: Replace with structured logging - console.log(`[MOBILE STORAGE] Loaded ${key} from SecureStore`);
         }
       } catch (error) {
         console.error(`[MOBILE STORAGE] Failed to load ${key}:`, error);
@@ -78,7 +76,6 @@ export const initializeSecureStorage = async () => {
     
     await Promise.all(loadPromises);
     storageInitialized = true;
-// TODO: Replace with structured logging - console.log('[MOBILE STORAGE] Storage initialization complete');
   } catch (error) {
     console.error('[MOBILE STORAGE] Storage initialization failed:', error);
   }
@@ -98,7 +95,6 @@ export const mobileStorage = {
     try {
       // Ensure storage is initialized
       if (!storageInitialized) {
-// TODO: Replace with structured logging - console.log('[MOBILE STORAGE] Storage not initialized, starting initialization...');
         initializeStorage(); // Start initialization if not done
       }
       
@@ -106,7 +102,6 @@ export const mobileStorage = {
       const value = persistentStore[key] || null;
       
       if (value) {
-// TODO: Replace with structured logging - console.log(`[MOBILE STORAGE] Retrieved ${key}:`, value.substring(0, 50) + '...');
       }
       
       return value;

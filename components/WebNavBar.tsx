@@ -83,7 +83,7 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
   if (user?.role === 'admin') {
     navItems.push({ 
       label: 'Admin', 
-      href: '/(home)/admin-dashboard', 
+      href: '/(home)/admin', 
       icon: 'shield-checkmark-outline',
       requiresRole: 'admin',
       badge: 'NEW' 
@@ -116,7 +116,7 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
         break;
       case 'admin':
         if (user?.role === 'admin') {
-          handleNavigation('/(home)/admin-dashboard');
+          handleNavigation('/(home)/admin');
         }
         break;
       case 'settings':
@@ -300,7 +300,7 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
                   {user?.role === 'admin' && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onPress={() => handleNavigation('/(home)/admin-dashboard')}>
+                      <DropdownMenuItem onPress={() => handleNavigation('/(home)/admin')}>
                         <HStack spacing={2} alignItems="center">
                           <Ionicons name="shield-checkmark-outline" size={16} />
                           <Text>Admin Dashboard</Text>

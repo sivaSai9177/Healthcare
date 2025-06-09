@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from '@/contexts/ColorSchemeContext';
-import { themes, getTheme, ThemeDefinition, ExtendedTheme } from './theme-registry';
+import { themes, getTheme, ThemeDefinition, ExtendedTheme, defaultTheme } from './theme-registry';
 
 export type Theme = ExtendedTheme;
 
@@ -84,8 +84,23 @@ export function EnhancedThemeProvider({ children }: { children: React.ReactNode 
   }), [theme, themeId, colorScheme]);
 
   // Show a loading state while theme is being loaded
+  // Provide a default theme context while loading to prevent errors
   if (isLoading) {
-    return null; // Or a loading component
+    const defaultValue = {
+      theme: colorScheme === 'dark' 
+        ? defaultTheme.colors.dark 
+        : defaultTheme.colors.light,
+      themeId: 'default',
+      setThemeId: () => {},
+      colorScheme: colorScheme || 'light',
+      availableThemes: themes,
+    };
+    
+    return (
+      <ThemeContext.Provider value={defaultValue}>
+        {children}
+      </ThemeContext.Provider>
+    );
   }
 
   return (

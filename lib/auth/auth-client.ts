@@ -5,26 +5,54 @@ import { expoClient } from "@better-auth/expo/client";
 import { createAuthClient } from "better-auth/react";
 import { inferAdditionalFields } from "better-auth/client/plugins";
 import { Platform } from "react-native";
+import Constants from 'expo-constants';
 import { webStorage, mobileStorage } from "../core/secure-storage";
 import { getAuthUrl } from "../core/unified-env";
 import { sessionManager } from "./auth-session-manager";
 import { log } from "../core/logger";
+import { createDynamicAuthClient } from './dynamic-auth-client';
 // Note: Removed auth-store import to prevent circular dependency
 
-const BASE_URL = getAuthUrl(); // Use OAuth-safe URL
+// Get URL dynamically to ensure proper environment detection
+const getBaseUrl = () => {
+  // Clear cache for iOS devices to ensure fresh URL
+  if (Platform.OS === 'ios') {
+    const { clearEnvCache } = require('../core/unified-env');
+    clearEnvCache();
+  }
+  return getAuthUrl();
+};
 
 // Log configuration once (only on client side)
 if (typeof window !== 'undefined' || __DEV__) {
-  log.info('Auth client initialized', 'AUTH_CLIENT', {
-    platform: Platform.OS,
-    baseURL: BASE_URL,
-    authEndpoint: `${BASE_URL}/api/auth`,
-    isExpoGo: !Platform.OS || Platform.OS === 'ios' || Platform.OS === 'android'
-  });
+  // Delay logging to ensure environment is properly detected
+  setTimeout(() => {
+    const baseUrl = getBaseUrl();
+    log.info('Auth client initialized', 'AUTH_CLIENT', {
+      platform: Platform.OS,
+      baseURL: baseUrl,
+      authEndpoint: `${baseUrl}/api/auth`,
+      isExpoGo: !Platform.OS || Platform.OS === 'ios' || Platform.OS === 'android',
+      isDevice: Constants.isDevice,
+    });
+  }, 500); // Increased delay to ensure environment is fully loaded
 }
 
-// Custom fetch implementation to fix body serialization
-const customFetch: typeof fetch = async (input, init) => {
+// Custom fetch implementation to fix body serialization and handle dynamic URLs
+const customFetch: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  // If input is a string and it's an auth URL, ensure we're using the current base URL
+  if (typeof input === 'string' && input.includes('/api/auth')) {
+    const currentBaseUrl = getBaseUrl();
+    // Replace any localhost URL with the current base URL for iOS devices
+    if (Platform.OS === 'ios' && input.includes('localhost')) {
+      input = input.replace(/http:\/\/localhost:\d+/, currentBaseUrl);
+      log.debug('Replaced localhost URL with device IP', 'AUTH_CLIENT', { 
+        newUrl: input,
+        baseUrl: currentBaseUrl 
+      });
+    }
+  }
+  
   // If there's a body and it's an object, ensure it's properly stringified
   if (init?.body && typeof init.body === 'object' && !(init.body instanceof FormData)) {
     init = {
@@ -36,8 +64,8 @@ const customFetch: typeof fetch = async (input, init) => {
   return fetch(input, init);
 };
 
-export const authClient = createAuthClient({
-  baseURL: `${BASE_URL}/api/auth`, // Full auth endpoint path
+const baseAuthClient = createAuthClient({
+  baseURL: `${getBaseUrl()}/api/auth`, // Get URL dynamically
   fetch: customFetch, // Use custom fetch to fix serialization
   plugins: [
     expoClient({
@@ -168,5 +196,51 @@ export const authClient = createAuthClient({
   },
 });
 
-// Export the properly typed auth client
+// Wrap the auth client for dynamic URL resolution
+export const authClient = createDynamicAuthClient(baseAuthClient);
 export type AuthClient = typeof authClient;
+
+// Helper function to get auth headers for tRPC
+export async function getAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    // For mobile, try to get the token from session manager first
+    if (Platform.OS !== 'web') {
+      const token = sessionManager.getSessionToken();
+      if (token) {
+        log.debug('Using cached token from session manager', 'AUTH_CLIENT');
+        return {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        };
+      }
+    }
+    
+    // Fall back to getting session from auth client
+    const sessionData = await authClient.getSession();
+    
+    // Better Auth returns { data: { session, user } } or { error }
+    if (sessionData && 'data' in sessionData && sessionData.data?.session) {
+      // Try to get token from various possible locations
+      const session = sessionData.data.session;
+      const token = (session as any).token || (session as any).sessionToken;
+      
+      if (token) {
+        return {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        };
+      }
+    }
+    
+    // For unauthenticated requests, just return content-type
+    return {
+      'Content-Type': 'application/json',
+    };
+  } catch (error) {
+    log.error('Failed to get auth headers', 'AUTH_CLIENT', error);
+    // Return basic headers on error
+    return {
+      'Content-Type': 'application/json',
+    };
+  }
+}

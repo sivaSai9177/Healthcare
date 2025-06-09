@@ -156,7 +156,7 @@ const AlertTypeButton = ({ type, icon, label, color, selected, onPress }: {
   return (
     <Button
       onPress={onPress}
-      variant={selected ? "default" : "outline"}
+      variant={selected ? "solid" : "outline"}
       style={{
         height: goldenDimensions.heights.medium,
         backgroundColor: selected ? color : 'transparent',
@@ -357,8 +357,8 @@ export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
               return (
                 <Button
                   key={level}
-                  variant={formData.urgencyLevel === level ? "default" : "outline"}
-                  size="small"
+                  variant={formData.urgencyLevel === level ? "solid" : "outline"}
+                  size="sm"
                   onPress={() => updateFormData({ urgencyLevel: level as 1 | 2 | 3 | 4 | 5 })}
                   style={{
                     backgroundColor: formData.urgencyLevel === level 
@@ -388,17 +388,18 @@ export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
       {/* Submit with Loading State */}
       <HStack gap={goldenSpacing.md} style={{ height: goldenDimensions.heights.medium }}>
         <Button
-          size="large"
-          variant="destructive"
+          size="lg"
+          variant="solid"
+          colorScheme="destructive"
           style={{ flex: PHI }}
           onPress={validateAndSubmit}
-          loading={isPending || createAlertMutation.isPending}
+          isLoading={isPending || createAlertMutation.isPending}
           disabled={!formData.roomNumber || !formData.alertType}
         >
           {isPending ? 'Creating Alert...' : 'Send Alert →'}
         </Button>
         <Button
-          size="large"
+          size="lg"
           variant="outline"
           style={{ flex: 1 }}
           onPress={() => {

@@ -1,4 +1,5 @@
-import { auth } from "@/lib/auth/auth-server";
+import { auth } from "@/lib/auth/auth";
+import { log } from "@/lib/core/logger";
 
 // Simple Better Auth handler with proper CORS
 async function handler(request: Request) {
@@ -8,7 +9,7 @@ async function handler(request: Request) {
   const corsHeaders = {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie, X-Requested-With',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie, X-Requested-With, x-trpc-source',
     'Access-Control-Allow-Credentials': 'true',
   };
 
@@ -22,7 +23,7 @@ async function handler(request: Request) {
 
   try {
     // Debug logging
-// TODO: Replace with structured logging - console.log('[AUTH API] Request received:', {
+    log.debug('[AUTH API] Request received', 'AUTH_API', {
       url: request.url,
       method: request.method,
       headers: Object.fromEntries(request.headers.entries()),
@@ -33,22 +34,22 @@ async function handler(request: Request) {
       try {
         const clonedRequest = request.clone();
         const bodyText = await clonedRequest.text();
-// TODO: Replace with structured logging - console.log('[AUTH API] Raw request body:', bodyText);
+        log.debug('[AUTH API] Raw request body', 'AUTH_API', { bodyText });
         
         try {
           const bodyJson = JSON.parse(bodyText);
-// TODO: Replace with structured logging - console.log('[AUTH API] Parsed request body:', bodyJson);
+          log.debug('[AUTH API] Parsed request body', 'AUTH_API', bodyJson);
         } catch (parseError) {
-// TODO: Replace with structured logging - console.log('[AUTH API] Could not parse body as JSON:', parseError.message);
+          log.debug('[AUTH API] Could not parse body as JSON', 'AUTH_API', { error: (parseError as Error).message });
         }
       } catch (e) {
-// TODO: Replace with structured logging - console.log('[AUTH API] Could not read request body:', e);
+        log.debug('[AUTH API] Could not read request body', 'AUTH_API', e);
       }
     }
     
     // Check if auth handler exists
     if (!auth || typeof auth.handler !== 'function') {
-      console.error('[AUTH API ERROR]: auth.handler is not a function', {
+      log.error('[AUTH API ERROR]: auth.handler is not a function', 'AUTH_API', {
         authExists: !!auth,
         handlerType: typeof auth?.handler
       });
@@ -188,9 +189,9 @@ async function handler(request: Request) {
     }
     
     // Call Better Auth handler for normal requests
-// TODO: Replace with structured logging - console.log('[AUTH API] Calling auth.handler...');
+    log.debug('[AUTH API] Calling auth.handler...', 'AUTH_API');
     const response = await auth.handler(request);
-// TODO: Replace with structured logging - console.log('[AUTH API] Response from auth.handler:', response.status);
+    log.debug('[AUTH API] Response from auth.handler', 'AUTH_API', { status: response.status });
     
     // Response handled by Better Auth
     
@@ -201,8 +202,8 @@ async function handler(request: Request) {
 
     return response;
   } catch (error) {
-    console.error('[AUTH API ERROR]:', error);
-    console.error('[AUTH API ERROR] Full error:', {
+    log.error('[AUTH API ERROR]', 'AUTH_API', error);
+    log.error('[AUTH API ERROR] Full error', 'AUTH_API', {
       message: (error as Error).message,
       stack: (error as Error).stack,
       name: (error as Error).name,

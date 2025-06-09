@@ -12,7 +12,6 @@ import {
   HStack,
   ScrollContainer,
   Separator,
-  Sidebar07Trigger,
   SimpleBreadcrumb,
   Text,
   VStack,
@@ -129,13 +128,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const theme = useTheme();
   
-  // Redirect healthcare users to healthcare dashboard
-  React.useEffect(() => {
-    const healthcareRoles = ['operator', 'doctor', 'nurse', 'head_doctor'];
-    if (user?.role && healthcareRoles.includes(user.role)) {
-      router.replace('/(home)/healthcare-dashboard');
-    }
-  }, [user?.role, router]);
+  // Healthcare users can access the main dashboard but might want to navigate to their specialized dashboard
   const [refreshing, setRefreshing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [refreshKey, setRefreshKey] = useState(0);
@@ -302,6 +295,32 @@ export default function HomeScreen() {
                 "Review requests will be available in the next update."
               );
             },
+          },
+          ...commonActions,
+        ];
+      case "doctor":
+      case "nurse":
+      case "head_doctor":
+        return [
+          {
+            label: "Healthcare Dashboard",
+            onPress: () => {
+              log.info("Healthcare dashboard clicked", "HOME");
+              router.push("/(home)/healthcare-dashboard");
+            },
+            variant: "solid" as const,
+          },
+          ...commonActions,
+        ];
+      case "operator":
+        return [
+          {
+            label: "Operator Dashboard",
+            onPress: () => {
+              log.info("Operator dashboard clicked", "HOME");
+              router.push("/(home)/operator-dashboard");
+            },
+            variant: "solid" as const,
           },
           ...commonActions,
         ];
@@ -534,21 +553,17 @@ export default function HomeScreen() {
   return (
     <ScrollContainer safe>
       <VStack p={0} spacing={0}>
-        {/* Header with Toggle and Breadcrumbs */}
+        {/* Header with Breadcrumbs */}
         <Box
           px={4 as SpacingScale}
           py={3 as SpacingScale}
           borderBottomWidth={1}
           borderTheme="border"
         >
-          <HStack alignItems="center" spacing={2} mb={2 as SpacingScale}>
-            <Sidebar07Trigger />
-            <Separator orientation="vertical" style={{ height: 24 }} />
-            <SimpleBreadcrumb
-              items={[{ label: "Dashboard", current: true }]}
-              showHome={false}
-            />
-          </HStack>
+          <SimpleBreadcrumb
+            items={[{ label: "Dashboard", current: true }]}
+            showHome={false}
+          />
         </Box>
 
         <VStack p={4 as SpacingScale} spacing={4}>

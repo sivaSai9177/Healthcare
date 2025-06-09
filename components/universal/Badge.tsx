@@ -6,7 +6,7 @@ import { Box } from './Box';
 import { useSpacing } from '@/contexts/SpacingContext';
 import { SpacingScale } from '@/lib/design-system';
 
-export type BadgeVariant = 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'outline';
+export type BadgeVariant = 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'destructive' | 'outline';
 export type BadgeSize = 'xs' | 'sm' | 'md' | 'lg';
 
 export interface BadgeProps {
@@ -21,26 +21,38 @@ export interface BadgeProps {
 
 // Theme-aware color mapping
 const getBadgeColors = (variant: BadgeVariant, theme: any) => {
+  // Default fallback colors
+  const defaultColors = {
+    background: '#e4e4e7',
+    text: '#71717a',
+    border: 'transparent',
+  };
+  
+  // Provide fallback colors if theme is not available
+  if (!theme) {
+    return defaultColors;
+  }
+  
   const colorMap = {
     default: {
-      background: theme.muted,
-      text: theme.mutedForeground,
+      background: theme.muted || '#f4f4f5',
+      text: theme.mutedForeground || '#71717a',
       border: 'transparent',
     },
     primary: {
-      background: theme.primary,
-      text: theme.primaryForeground,
+      background: theme.primary || '#3b82f6',
+      text: theme.primaryForeground || '#ffffff',
       border: 'transparent',
     },
     secondary: {
-      background: theme.secondary,
-      text: theme.secondaryForeground,
+      background: theme.secondary || '#e4e4e7',
+      text: theme.secondaryForeground || '#18181b',
       border: 'transparent',
     },
     success: {
-      background: theme.success + '1a', // 10% opacity
-      text: theme.success,
-      border: theme.success + '33', // 20% opacity
+      background: (theme.success || '#22c55e') + '1a', // 10% opacity
+      text: theme.success || '#22c55e',
+      border: (theme.success || '#22c55e') + '33', // 20% opacity
     },
     warning: {
       background: '#f59e0b' + '1a',
@@ -48,18 +60,24 @@ const getBadgeColors = (variant: BadgeVariant, theme: any) => {
       border: '#f59e0b' + '33',
     },
     error: {
-      background: theme.destructive + '1a',
-      text: theme.destructive,
-      border: theme.destructive + '33',
+      background: (theme.destructive || '#ef4444') + '1a',
+      text: theme.destructive || '#ef4444',
+      border: (theme.destructive || '#ef4444') + '33',
+    },
+    destructive: {
+      background: theme.destructive || '#ef4444',
+      text: theme.destructiveForeground || '#ffffff',
+      border: 'transparent',
     },
     outline: {
       background: 'transparent',
-      text: theme.foreground,
-      border: theme.border,
+      text: theme.foreground || '#18181b',
+      border: theme.border || '#e4e4e7',
     },
   };
   
-  return colorMap[variant];
+  // Return the variant colors or default if variant doesn't exist
+  return colorMap[variant] || defaultColors;
 };
 
 export const Badge = React.forwardRef<View, BadgeProps>(({
@@ -73,7 +91,11 @@ export const Badge = React.forwardRef<View, BadgeProps>(({
 }, ref) => {
   const theme = useTheme();
   const { spacing, componentSpacing } = useSpacing();
-  const colors = getBadgeColors(variant, theme);
+  const colors = getBadgeColors(variant, theme) || {
+    background: '#e4e4e7',
+    text: '#71717a',
+    border: 'transparent',
+  };
 
   // Dynamic sizing based on spacing density
   const sizeConfig = {
@@ -115,8 +137,8 @@ export const Badge = React.forwardRef<View, BadgeProps>(({
   const content = (
     <Box
       ref={ref}
-      ph={config.paddingH}
-      pv={config.paddingV}
+      px={config.paddingH}
+      py={config.paddingV}
       style={[
         {
           backgroundColor: colors.background,

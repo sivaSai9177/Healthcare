@@ -1,9 +1,15 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useOptimistic, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/trpc';
 import { log } from '@/lib/core/logger';
 import { showSuccessAlert } from '@/lib/core/alert';
-import type { AlertEvent } from '@/src/server/services/alert-subscriptions';
+import { useAlertSSESubscription } from './useSSESubscription';
+
+interface AlertEvent {
+  type: 'alert.created' | 'alert.acknowledged' | 'alert.resolved' | 'alert.escalated';
+  data: any;
+  timestamp: Date;
+  alertId?: string;
+}
 
 interface UseAlertSubscriptionOptions {
   hospitalId: string;
@@ -24,6 +30,7 @@ export function useAlertSubscription({
 }: UseAlertSubscriptionOptions) {
   const queryClient = useQueryClient();
   const subscriptionRef = useRef<any>(null);
+  const [useSSE, setUseSSE] = useState(true); // Try SSE first
 
   // Handle incoming events
   const handleEvent = useCallback((event: AlertEvent) => {
@@ -79,35 +86,60 @@ export function useAlertSubscription({
     showNotifications,
   ]);
 
+  // SSE subscription for real-time updates
+  const { isConnected: isSSEConnected } = useAlertSSESubscription(
+    useCallback((alertData: any) => {
+      // Convert SSE data to AlertEvent format
+      const event: AlertEvent = {
+        type: alertData.type || 'alert.created',
+        data: alertData,
+        timestamp: new Date(alertData.timestamp || Date.now()),
+        alertId: alertData.id,
+      };
+      handleEvent(event);
+    }, [handleEvent])
+  );
+
+  // Fallback to polling if SSE fails
   useEffect(() => {
     if (!hospitalId) return;
 
-    // TODO: Replace with real subscription when WebSocket support is added
-    // For now, we'll use polling to simulate real-time updates
-    // Only log once when the component mounts
-    if (!subscriptionRef.current) {
-      log.debug('Using polling for alert updates', 'ALERT_SUBSCRIPTION', { 
-        hospitalId,
-        reason: 'WebSocket subscriptions not yet implemented' 
-      });
-      subscriptionRef.current = true;
-    }
+    subscriptionRef.current = true;
     
-    // Poll for updates every 5 seconds
-    const pollInterval = setInterval(() => {
-      queryClient.invalidateQueries({
-        queryKey: [['healthcare', 'getActiveAlerts'], { input: { hospitalId } }],
-      });
+    // If SSE is not connected after 5 seconds, fall back to polling
+    const sseTimeout = setTimeout(() => {
+      if (!isSSEConnected) {
+        setUseSSE(false);
+        log.info('Falling back to polling for real-time updates', 'ALERT_SUBSCRIPTION');
+      }
     }, 5000);
 
-    // Cleanup on unmount
+    // Set up polling interval as fallback
+    let interval: NodeJS.Timeout | null = null;
+    if (!useSSE || !isSSEConnected) {
+      log.info('Starting real-time alert monitoring', 'ALERT_SUBSCRIPTION', {
+        hospitalId,
+        method: 'polling',
+      });
+      
+      interval = setInterval(() => {
+        queryClient.invalidateQueries({
+          queryKey: [['healthcare', 'getActiveAlerts'], { input: { hospitalId } }],
+        });
+      }, 3000); // Poll every 3 seconds for near real-time updates
+    }
+
     return () => {
-      clearInterval(pollInterval);
+      clearTimeout(sseTimeout);
+      if (interval) clearInterval(interval);
+      subscriptionRef.current = false;
     };
-  }, [hospitalId, queryClient]);
+  }, [hospitalId, queryClient, isSSEConnected, useSSE]);
 
   return {
     isSubscribed: !!subscriptionRef.current,
+    isSSEConnected,
+    connectionType: isSSEConnected ? 'sse' : 'polling',
   };
 }
 
@@ -118,36 +150,31 @@ export function useAlertDetailSubscription(alertId: string | null) {
   useEffect(() => {
     if (!alertId) return;
 
-    const subscription = api.healthcare.subscribeToAlert.subscribe(
-      { alertId },
-      {
-        onData: (event) => {
-          log.info('Alert detail event received', 'ALERT_DETAIL_SUBSCRIPTION', event);
+    log.debug('Starting alert detail monitoring', 'ALERT_DETAIL_SUBSCRIPTION', {
+      alertId,
+      method: 'polling',
+    });
 
-          // Invalidate alert-specific queries
-          queryClient.invalidateQueries({
-            queryKey: [['healthcare', 'getEscalationStatus'], { input: { alertId } }],
-          });
-          
-          queryClient.invalidateQueries({
-            queryKey: [['healthcare', 'getEscalationHistory'], { input: { alertId } }],
-          });
-        },
-        onError: (error) => {
-          log.error('Alert detail subscription error', 'ALERT_DETAIL_SUBSCRIPTION', error);
-        },
-      }
-    );
+    // Poll for updates every 3 seconds
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({
+        queryKey: [['healthcare', 'getEscalationStatus'], { input: { alertId } }],
+      });
+      
+      queryClient.invalidateQueries({
+        queryKey: [['healthcare', 'getEscalationHistory'], { input: { alertId } }],
+      });
+    }, 3000);
 
     return () => {
-      subscription.unsubscribe();
+      clearInterval(interval);
     };
   }, [alertId, queryClient]);
+
+  return { isConnected: true };
 }
 
 // Hook for optimistic updates with React 19's useOptimistic
-import { useOptimistic } from 'react';
-
 export function useOptimisticAlertUpdate() {
   const queryClient = useQueryClient();
 

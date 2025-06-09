@@ -85,7 +85,7 @@ const PrimaryMetricCard = ({
             <Text size="xs" colorTheme="mutedForeground">Capacity</Text>
             <Text size="xs" weight="medium">{Math.round((value / capacity) * 100)}%</Text>
           </HStack>
-          <Progress value={(value / capacity) * 100} colorTheme={color} />
+          <Progress value={(value / capacity) * 100} variant="primary" />
         </VStack>
       )}
       
@@ -220,15 +220,21 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
     }
   );
   
-  // Real-time subscription
-  api.healthcare.subscribeToMetrics.useSubscription(
-    undefined,
-    {
-      onData: (update) => {
-        log.info('Metrics update received', 'METRICS', update);
-      },
-    }
-  );
+  // Real-time subscription with fallback
+  if (Platform.OS === 'web' && process.env.NODE_ENV === 'development') {
+    // Use WebSocket subscription on web in development
+    api.healthcare.subscribeToMetrics.useSubscription(
+      { hospitalId },
+      {
+        onData: (update) => {
+          log.info('Metrics update received', 'METRICS', update);
+        },
+        onError: (error) => {
+          log.error('Metrics subscription error', 'METRICS', error);
+        },
+      }
+    );
+  }
   
   if (!metrics) {
     return <MetricsSkeleton />;
@@ -241,14 +247,14 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
         {(['1h', '6h', '24h', '7d'] as const).map((range) => (
           <Button
             key={range}
-            variant={timeRange === range ? "default" : "outline"}
-            size="small"
+            variant={timeRange === range ? "solid" : "outline"}
+            size="sm"
             onPress={() => {
               startTransition(() => {
                 setTimeRange(range);
               });
             }}
-            loading={isPending && timeRange === range}
+            isLoading={isPending && timeRange === range}
           >
             {range.toUpperCase()}
           </Button>
@@ -305,14 +311,14 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
             <VStack key={dept.id} gap={goldenSpacing.xs}>
               <HStack justifyContent="space-between">
                 <Text size="sm">{dept.name}</Text>
-                <Badge size="small" variant={dept.alerts > 0 ? "destructive" : "outline"}>
+                <Badge size="sm" variant={dept.alerts > 0 ? "destructive" : "outline"}>
                   {dept.alerts}
                 </Badge>
               </HStack>
               <Progress 
                 value={(dept.responseRate || 0) * 100} 
-                size="small"
-                colorTheme={dept.responseRate >= 0.8 ? "success" : "warning"}
+                size="sm"
+                variant={dept.responseRate >= 0.8 ? "success" : "warning"}
               />
               <Text size="xs" colorTheme="mutedForeground">
                 {Math.round((dept.responseRate || 0) * 100)}% response rate
@@ -331,7 +337,7 @@ export const MetricsOverviewBlock = ({ hospitalId }: { hospitalId: string }) => 
     <VStack gap={goldenSpacing.lg}>
       <HStack justifyContent="space-between" alignItems="center">
         <Text size="xl" weight="bold">System Metrics</Text>
-        <Badge variant="outline" size="small">
+        <Badge variant="outline" size="sm">
           Live
         </Badge>
       </HStack>

@@ -1,22 +1,10 @@
-import { Stack, Redirect } from "expo-router";
-import { useAuth } from "@/hooks/useAuth";
+import { Stack } from "expo-router";
 import { Box } from "@/components/universal";
 import { Platform } from "react-native";
 import { useTheme } from "@/lib/theme/theme-provider";
 
 export default function AuthLayout() {
-  const { isAuthenticated, user, hasHydrated } = useAuth();
   const theme = useTheme();
-  
-  // Wait for auth state to be ready
-  if (!hasHydrated) {
-    return null;
-  }
-  
-  // If authenticated and profile complete, redirect to home
-  if (isAuthenticated && user && !user.needsProfileCompletion && user.role !== 'guest') {
-    return <Redirect href="/(home)" />;
-  }
   
   return (
     <Box 
@@ -66,6 +54,19 @@ export default function AuthLayout() {
           options={{
             title: 'Complete Profile',
             headerBackVisible: false,
+          }}
+        />
+        <Stack.Screen 
+          name="complete-profile-universal" 
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="theme-test" 
+          options={{
+            title: 'Theme Test',
+            headerShown: false,
           }}
         />
       </Stack>

@@ -4,6 +4,8 @@ import { db } from '@/src/db';
 import { users } from '@/src/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { log } from '@/lib/core/logger';
+import { realtimeEvents, startMockDataGenerator } from '../services/realtime-events';
+import { observable } from '@trpc/server/observable';
 
 // Permission-based procedures
 const viewPatientsProcedure = createPermissionProcedure('view_patients');
@@ -179,21 +181,38 @@ export const patientRouter = router({
       }
     }),
     
-  // Subscribe to patient vitals (mock implementation)
+  // Subscribe to patient vitals using real-time events
   subscribeToVitals: viewPatientsProcedure
     .input(z.object({
       patientId: z.string(),
     }))
-    .subscription(async function* ({ input }) {
-      log.info('Vitals subscription started', 'PATIENT', {
-        patientId: input.patientId,
+    .subscription(({ input }) => {
+      return observable<any>((emit) => {
+        log.info('Vitals subscription started', 'PATIENT', {
+          patientId: input.patientId,
+        });
+        
+        // Subscribe to real-time vitals events
+        const unsubscribe = realtimeEvents.subscribeToPatientVitals(
+          input.patientId,
+          (event) => {
+            emit.next(event.data.vitals);
+          }
+        );
+        
+        // Start mock data generator in development
+        if (process.env.NODE_ENV === 'development') {
+          startMockDataGenerator();
+        }
+        
+        // Cleanup on unsubscribe
+        return () => {
+          log.info('Vitals subscription ended', 'PATIENT', {
+            patientId: input.patientId,
+          });
+          unsubscribe();
+        };
       });
-      
-      // Simulate real-time vitals updates
-      while (true) {
-        yield generateMockVitals();
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Update every 5 seconds
-      }
     }),
     
   // Get patients list (for doctors)

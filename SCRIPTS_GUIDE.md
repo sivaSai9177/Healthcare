@@ -23,6 +23,7 @@ bun start:tunnel        # Tunnel mode - remote access via Expo
 bun run local:healthcare    # Start local with healthcare setup
 bun run dev:healthcare      # Start dev (Neon) with healthcare
 bun run start:healthcare    # Auto-detect environment + healthcare
+bun run ios:healthcare      # iOS physical device with auto IP detection
 
 # Standard commands
 bun ios                  # Start iOS in Expo Go
@@ -141,6 +142,9 @@ bun run healthcare:setup:dev   # Force Neon database
 
 # Combined commands
 bun run healthcare:demo        # Alias for healthcare:setup
+
+# iOS Physical Device Healthcare Setup
+bun run ios:healthcare         # Auto-detects IP, sets up healthcare, starts WS
 ```
 
 ## 🏗️ EAS Build Commands
@@ -501,6 +505,73 @@ bun run local:healthcare
 bun db:local:up                    # Start database
 bun run healthcare:setup:local     # Setup healthcare
 bun run local                      # Start Expo
+```
+
+## 🔌 WebSocket Real-time Features (NEW)
+
+### WebSocket Configuration
+The healthcare demo includes WebSocket support for real-time updates:
+- Alert notifications
+- Patient vitals monitoring
+- System metrics updates
+
+### WebSocket Server Details
+When using healthcare scripts, the WebSocket server:
+- **Runs on port 3001** by default
+- **Starts automatically** with `bun run local:healthcare` or `./scripts/fix-oauth-local.sh`
+- **Can be started manually** if needed
+
+### Starting WebSocket Server
+```bash
+# The WebSocket server should start automatically with healthcare demo
+# If it doesn't, you can start it manually:
+
+# Option 1: Standalone WebSocket server (recommended for testing)
+node scripts/standalone-websocket.ts
+
+# Option 2: Check WebSocket status
+bun run scripts/test-websocket.ts
+
+# WebSocket runs on port 3001 by default
+```
+
+### Environment Variables
+```bash
+# Required WebSocket configuration (already set in .env.local):
+EXPO_PUBLIC_ENABLE_WS=true        # Enables WebSocket features
+EXPO_PUBLIC_WS_PORT=3001         # WebSocket server port
+
+# These variables control:
+# - Whether WebSocket connections are attempted
+# - Which port the WebSocket server listens on
+# - Real-time subscription features in healthcare blocks
+```
+
+### Testing Real-time Features
+1. Start healthcare environment: `bun run local:healthcare`
+2. Start WebSocket server (if not auto-started): `node scripts/standalone-websocket.ts`
+3. Login as operator: `johncena@gmail.com`
+4. Open multiple browser tabs/devices
+5. Create/update alerts and watch real-time updates
+
+### WebSocket Implementation Details
+- **Server**: `/src/server/websocket/server.ts` - tRPC WebSocket adapter
+- **Client**: `/lib/trpc/links.tsx` - Split link (HTTP + WebSocket)
+- **Store**: `/lib/stores/healthcare-store.ts` - Zustand real-time state
+- **Components**: AlertListBlock, PatientCardBlock, MetricsOverviewBlock
+
+### Troubleshooting WebSocket
+```bash
+# Check if WebSocket server is running
+lsof -i :3001
+
+# Test WebSocket connection
+bun run scripts/test-websocket.ts
+
+# View WebSocket logs
+# Check the terminal where you started the standalone server
+
+# If WebSocket fails, the app falls back to polling (30s intervals)
 ```
 
 ### Healthcare Demo Credentials

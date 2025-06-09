@@ -113,7 +113,7 @@ export const authRouter = router({
         }
 
         // Debug: Log the raw response from Better Auth
-        log.info('[AUTH] Raw Better Auth signin response:', 'COMPONENT');
+        log.info('[AUTH] Raw Better Auth signin response:', 'COMPONENT', { userId: response.user.id, hasToken: !!response.token });
 
         // Query the database directly to get the complete user data with custom fields
         const { db } = await import('@/src/db');
@@ -126,7 +126,7 @@ export const authRouter = router({
           .where(eq(userTable.id, response.user.id))
           .limit(1);
         
-        log.info('[AUTH] Database user data:', 'COMPONENT');
+        log.info('[AUTH] Database user data:', 'COMPONENT', { id: dbUser?.id, role: dbUser?.role, needsProfileCompletion: dbUser?.needsProfileCompletion });
 
         // Log successful login
         await auditService.logAuth(
@@ -149,7 +149,7 @@ export const authRouter = router({
           needsProfileCompletion: dbUser?.needsProfileCompletion ?? (response.user as any).needsProfileCompletion ?? false,
         };
 
-        log.info('[AUTH] Complete user object being returned:', 'COMPONENT');
+        log.info('[AUTH] Complete user object being returned:', 'COMPONENT', { id: completeUser.id, role: completeUser.role, needsProfileCompletion: completeUser.needsProfileCompletion });
 
         return {
           success: true,
@@ -200,7 +200,7 @@ export const authRouter = router({
       }
       
       try {
-        log.info('[AUTH] Processing signup with input:', 'COMPONENT');
+        log.info('[AUTH] Processing signup with input:', 'COMPONENT', {
           email: sanitizedEmail,
           role: input.role,
           hasOrgCode: !!input.organizationCode,
@@ -227,7 +227,7 @@ export const authRouter = router({
           });
         }
 
-        log.info('[AUTH] User created successfully:', 'COMPONENT');
+        log.info('[AUTH] User created successfully:', 'COMPONENT', { userId: signUpResponse.user.id, email: signUpResponse.user.email });
 
         // Immediately update user with role and other fields in database
         const { db } = await import('@/src/db');
@@ -349,7 +349,26 @@ export const authRouter = router({
         return null;
       }
       
-      // Fetch fresh user data from database to ensure we have latest data
+      // Check if we have cached user data in session that's fresh enough
+      const sessionUser = ctx.session.user as any;
+      const sessionData = ctx.session.session;
+      const sessionAge = sessionData.createdAt ? Date.now() - new Date(sessionData.createdAt).getTime() : Infinity;
+      const SESSION_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+      
+      // If session is fresh and has all required fields, use cached data
+      if (sessionAge < SESSION_CACHE_DURATION && sessionUser.role && sessionUser.email) {
+        log.auth.debug('Using cached session data', {
+          sessionAge: Math.floor(sessionAge / 1000) + 's',
+          cacheLimit: SESSION_CACHE_DURATION / 1000 + 's'
+        });
+        
+        return {
+          session: sessionData,
+          user: sessionUser
+        };
+      }
+      
+      // Otherwise fetch fresh user data from database
       let dbUser = null;
       try {
         const { db } = await import('@/src/db');
@@ -364,7 +383,7 @@ export const authRouter = router({
         
         dbUser = user;
         
-        log.auth.debug('getSession - DB user data', {
+        log.auth.debug('getSession - Fetched fresh DB user data', {
           id: dbUser?.id,
           email: dbUser?.email,
           role: dbUser?.role,
@@ -375,7 +394,7 @@ export const authRouter = router({
         // Check if this is a new OAuth user who needs profile completion
         // If user has no role or guest role, they need to complete their profile
         if (dbUser && (!dbUser.role || dbUser.role === 'guest')) {
-          log.info('[AUTH] Detected OAuth user with incomplete profile:', 'COMPONENT');
+          log.info('[AUTH] Detected OAuth user with incomplete profile:', 'COMPONENT', {
             id: dbUser.id,
             role: dbUser.role,
             needsProfileCompletion: dbUser.needsProfileCompletion,
@@ -398,7 +417,7 @@ export const authRouter = router({
               .returning();
             
             dbUser = updatedUser;
-            log.info('[AUTH] Updated OAuth user for profile completion:', 'COMPONENT');
+            log.info('[AUTH] Updated OAuth user for profile completion:', 'COMPONENT', {
               id: dbUser.id,
               role: dbUser.role,
               needsProfileCompletion: dbUser.needsProfileCompletion
@@ -504,7 +523,7 @@ export const authRouter = router({
       const context = auditHelpers.extractContext(ctx.req);
 
       try {
-        log.info('[AUTH] Social sign-in initiated', 'COMPONENT');
+        log.info('[AUTH] Social sign-in initiated', 'COMPONENT', {
           provider: input.provider,
           hasToken: !!input.token,
           hasUserInfo: !!input.userInfo,
@@ -528,7 +547,7 @@ export const authRouter = router({
 
         // If user exists, return their current state
         if (existingUser) {
-          log.info('[AUTH] Existing social user found:', 'COMPONENT');
+          log.info('[AUTH] Existing social user found:', 'COMPONENT', {
             id: existingUser.id,
             email: existingUser.email,
             role: existingUser.role,
@@ -577,7 +596,7 @@ export const authRouter = router({
           });
         }
 
-        log.info('[AUTH] Creating new social user:', 'COMPONENT');
+        log.info('[AUTH] Creating new social user:', 'COMPONENT', {
           email: input.userInfo.email,
           name: input.userInfo.name,
           provider: input.provider
@@ -603,7 +622,7 @@ export const authRouter = router({
             })
             .returning();
 
-          log.info('[AUTH] New social user created:', 'COMPONENT');
+          log.info('[AUTH] New social user created:', 'COMPONENT', {
             id: newUser.id,
             email: newUser.email,
             role: newUser.role,
@@ -685,7 +704,7 @@ export const authRouter = router({
     .output(z.object({ success: z.literal(true), user: UserResponseSchema, organizationId: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
       log.info('[AUTH] completeProfile called with input:', 'COMPONENT');
-      log.info('[AUTH] completeProfile user context:', 'COMPONENT');
+      log.info('[AUTH] completeProfile user context:', 'COMPONENT', {
         userId: ctx.user.id,
         userEmail: ctx.user.email,
         currentRole: (ctx.user as any).role,
@@ -763,7 +782,7 @@ export const authRouter = router({
         }
         
         const updatedUser = updatedUsers[0];
-        log.info('[AUTH] Profile completed for user:', 'COMPONENT');
+        log.info('[AUTH] Profile completed for user:', 'COMPONENT', {
           id: updatedUser.id,
           role: updatedUser.role,
           organizationId: updatedUser.organizationId,
@@ -880,7 +899,7 @@ export const authRouter = router({
         }
         
         const updatedUser = updatedUsers[0];
-        log.info('[AUTH] User updated in database:', 'COMPONENT');
+        log.info('[AUTH] User updated in database:', 'COMPONENT', {
           id: updatedUser.id,
           role: updatedUser.role,
           needsProfileCompletion: updatedUser.needsProfileCompletion
@@ -1054,7 +1073,7 @@ export const authRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       // Authorization is handled by adminProcedure middleware
-      log.info('[SECURITY] Password reset forced by:', 'COMPONENT');
+      log.info('[SECURITY] Password reset forced by:', 'COMPONENT', { adminId: ctx.user.id, targetUser: input.userId });
       
       // In production, implement actual password reset logic
       return { success: true };

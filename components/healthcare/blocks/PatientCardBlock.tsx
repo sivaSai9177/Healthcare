@@ -207,7 +207,7 @@ const AlertIndicator = ({ alert, onAcknowledge }: { alert: any; onAcknowledge: (
   
   if (optimisticAcknowledged) {
     return (
-      <Badge variant="secondary" size="small">
+      <Badge variant="secondary" size="sm">
         ✓
       </Badge>
     );
@@ -215,8 +215,9 @@ const AlertIndicator = ({ alert, onAcknowledge }: { alert: any; onAcknowledge: (
   
   return (
     <Button
-      variant="destructive"
-      size="small"
+      variant="solid"
+      colorScheme="destructive"
+      size="sm"
       onPress={handleAcknowledge}
       style={{
         animation: `pulse ${goldenAnimations.durations.slow}ms infinite`,
@@ -241,14 +242,14 @@ const ExpandedPatientContent = ({ patientId }: { patientId: string }) => {
         {(['all', 'critical', 'warning', 'normal'] as const).map((filter) => (
           <Button
             key={filter}
-            variant={vitalFilter === filter ? "default" : "outline"}
-            size="small"
+            variant={vitalFilter === filter ? "solid" : "outline"}
+            size="sm"
             onPress={() => {
               startTransition(() => {
                 setVitalFilter(filter);
               });
             }}
-            loading={isPending && vitalFilter === filter}
+            isLoading={isPending && vitalFilter === filter}
           >
             {filter.charAt(0).toUpperCase() + filter.slice(1)}
           </Button>
@@ -274,14 +275,14 @@ const QuickActionsBar = ({ patientId }: { patientId: string }) => {
   return (
     <HStack gap={goldenSpacing.md} marginTop={goldenSpacing.lg}>
       <Button
-        variant="primary"
+        variant="solid"
         style={{ flex: 1.618 }}
         onPress={() => {
           startTransition(() => {
             log.info('View full chart clicked', 'PATIENT_CARD', { patientId });
           });
         }}
-        loading={isPending}
+        isLoading={isPending}
       >
         View Full Chart
       </Button>
@@ -330,13 +331,8 @@ export const PatientCardBlock = ({ patientId, onViewDetails }: {
   const [isPending, startTransition] = useTransition();
   
   // Zustand store with React 19 optimization
-  const { expandedCards, toggleCardExpansion } = usePatientStore(
-    (state) => ({
-      expandedCards: state.expandedCards,
-      toggleCardExpansion: state.toggleCardExpansion,
-    }),
-    shallow
-  );
+  const expandedCards = usePatientStore((state) => state.expandedCards);
+  const toggleCardExpansion = usePatientStore((state) => state.toggleCardExpansion);
   
   const isExpanded = expandedCards.has(patientId);
   
@@ -355,24 +351,32 @@ export const PatientCardBlock = ({ patientId, onViewDetails }: {
     }
   );
   
-  // Real-time vital signs subscription
-  api.patient.subscribeToVitals.useSubscription(
+  // Real-time vital signs subscription for WebSocket updates
+  const { data: vitalsData } = api.patient.subscribeToVitals.useSubscription(
     { patientId },
     {
-      onData: (vitals) => {
-        queryClient.patient.getDetails.setData(
-          { patientId },
-          (old) => old ? { ...old, vitals, lastUpdated: new Date() } : old
-        );
+      enabled: !!patientId && process.env.EXPO_PUBLIC_ENABLE_WS === 'true',
+      onData: (event) => {
+        log.info('Vitals subscription event', 'PATIENT_CARD', { event });
         
-        // Check for critical values
-        const criticalVitals = ['heartRate', 'oxygen', 'bloodPressure'].some(
-          vital => vitals[vital]?.status === 'critical'
-        );
-        
-        if (criticalVitals) {
-          showUrgentNotification('Critical Vitals', `Patient ${patient?.name} has critical vitals`);
+        if (event.type === 'vitals.update') {
+          const vitals = event.data.vitals;
+          
+          // Update query cache with new vitals
+          queryClient.patient.getDetails.setData(
+            { patientId },
+            (old) => old ? { ...old, vitals, lastUpdated: new Date() } : old
+          );
+          
+          // Check for critical values
+          if (event.data.critical && patient?.name) {
+            showUrgentNotification('Critical Vitals', `Patient ${patient.name} has critical vitals`);
+          }
         }
+      },
+      onError: (error) => {
+        log.error('Vitals subscription error', 'PATIENT_CARD', error);
+        // Subscription failed, will rely on React Query cache
       },
     }
   );
@@ -479,16 +483,16 @@ export const PatientCardBlock = ({ patientId, onViewDetails }: {
           </HStack>
           
           <HStack gap={goldenSpacing.sm}>
-            <Badge variant="outline" size="small">
+            <Badge variant="outline" size="sm">
               {patient.department}
             </Badge>
             {patient.primaryCondition && (
-              <Badge variant="secondary" size="small">
+              <Badge variant="secondary" size="sm">
                 {patient.primaryCondition}
               </Badge>
             )}
             {patient.flags?.dnr && (
-              <Badge variant="destructive" size="small">
+              <Badge variant="destructive" size="sm">
                 DNR
               </Badge>
             )}
@@ -497,9 +501,9 @@ export const PatientCardBlock = ({ patientId, onViewDetails }: {
         
         <Button
           variant="ghost"
-          size="small"
+          size="sm"
           onPress={handleToggleExpansion}
-          loading={isPending}
+          isLoading={isPending}
         >
           {optimisticExpanded ? '⌃' : '⌄'}
         </Button>

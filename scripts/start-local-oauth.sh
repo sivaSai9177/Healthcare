@@ -76,5 +76,8 @@ echo ""
 echo "🔐 OAuth: Click 'Continue with Google' to test"
 echo ""
 
-# Start Expo with explicit localhost host
-exec npx expo start --host localhost --clear
+# Force Expo Go mode
+export EXPO_GO=1
+
+# Start Expo with explicit localhost host and --go flag
+exec npx expo start --host localhost --clear --go

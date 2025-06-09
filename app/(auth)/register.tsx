@@ -157,6 +157,11 @@ export default function SignupScreenV2() {
       refetchOnWindowFocus: false,
       refetchOnMount: false,
       refetchOnReconnect: false,
+      // Handle network errors gracefully
+      onError: (error) => {
+        log.debug('Email check failed - network issue', { error: error.message });
+        // Don't show network errors to user, just skip validation
+      }
     }
   );
   
@@ -384,36 +389,46 @@ export default function SignupScreenV2() {
                         form.formState.touchedFields.email && form.watch('email') ? (
                           isCheckingEmail ? (
                             <Text size="xs" colorTheme="mutedForeground">Checking...</Text>
-                          ) : emailCheckData ? (
-                            <ValidationIcon 
-                              status={
-                                form.formState.errors.email ? 'error' : 
-                                emailCheckData?.exists ? 'error' : 
-                                'success'
-                              } 
-                            />
+                          ) : form.formState.errors.email ? (
+                            <ValidationIcon status="error" />
+                          ) : isValidEmail && !checkEmailQuery.error ? (
+                            emailCheckData ? (
+                              <ValidationIcon 
+                                status={emailCheckData?.exists ? 'error' : 'success'} 
+                              />
+                            ) : null
+                          ) : isValidEmail ? (
+                            // Show success if email format is valid but network check failed
+                            <ValidationIcon status="success" />
                           ) : null
                         ) : null
                       }
                     />
                     {/* Email validation message with consistent height */}
                     <Box height={20}>
-                      {form.formState.touchedFields.email && !form.formState.errors.email && emailCheckData && (
-                        <Text size="sm" colorTheme={emailCheckData.exists ? "destructive" : "success"}>
-                          {emailCheckData.exists ? (
-                            <>
-                              Email already exists.{" "}
-                              <TextLink 
-                                href="/(auth)/login"
-                                size="sm"
-                                variant="primary"
-                                style={{ display: 'inline' as any }}
-                              >
-                                Login to your account
-                              </TextLink>
-                            </>
-                          ) : "Email is available"}
-                        </Text>
+                      {form.formState.touchedFields.email && !form.formState.errors.email && (
+                        checkEmailQuery.error ? (
+                          // Don't show network errors, but indicate validation passed
+                          isValidEmail ? (
+                            <Text size="sm" colorTheme="success">Email format is valid</Text>
+                          ) : null
+                        ) : emailCheckData ? (
+                          <Text size="sm" colorTheme={emailCheckData.exists ? "destructive" : "success"}>
+                            {emailCheckData.exists ? (
+                              <>
+                                Email already exists.{" "}
+                                <TextLink 
+                                  href="/(auth)/login"
+                                  size="sm"
+                                  variant="primary"
+                                  style={{ display: 'inline' as any }}
+                                >
+                                  Login to your account
+                                </TextLink>
+                              </>
+                            ) : "Email is available"}
+                          </Text>
+                        ) : null
                       )}
                     </Box>
                   </VStack>
@@ -929,35 +944,45 @@ export default function SignupScreenV2() {
                           form.formState.touchedFields.email && form.watch('email') ? (
                             isCheckingEmail ? (
                               <Text size="xs" colorTheme="mutedForeground">Checking...</Text>
-                            ) : emailCheckData ? (
-                              <ValidationIcon 
-                                status={
-                                  form.formState.errors.email ? 'error' : 
-                                  emailCheckData?.exists ? 'error' : 
-                                  'success'
-                                } 
-                              />
+                            ) : form.formState.errors.email ? (
+                              <ValidationIcon status="error" />
+                            ) : isValidEmail && !checkEmailQuery.error ? (
+                              emailCheckData ? (
+                                <ValidationIcon 
+                                  status={emailCheckData?.exists ? 'error' : 'success'} 
+                                />
+                              ) : null
+                            ) : isValidEmail ? (
+                              // Show success if email format is valid but network check failed
+                              <ValidationIcon status="success" />
                             ) : null
                           ) : null
                         }
                       />
                       {/* Email validation message */}
-                      {form.formState.touchedFields.email && !form.formState.errors.email && emailCheckData && (
-                        <Text size="sm" colorTheme={emailCheckData.exists ? "destructive" : "success"}>
-                          {emailCheckData.exists ? (
-                            <>
-                              Email already exists.{" "}
-                              <TextLink 
-                                href="/(auth)/login"
-                                size="sm"
-                                variant="primary"
-                                style={{ display: 'inline' as any }}
-                              >
-                                Login to your account
-                              </TextLink>
-                            </>
-                          ) : "Email is available"}
-                        </Text>
+                      {form.formState.touchedFields.email && !form.formState.errors.email && (
+                        checkEmailQuery.error ? (
+                          // Don't show network errors, but indicate validation passed
+                          isValidEmail ? (
+                            <Text size="sm" colorTheme="success">Email format is valid</Text>
+                          ) : null
+                        ) : emailCheckData ? (
+                          <Text size="sm" colorTheme={emailCheckData.exists ? "destructive" : "success"}>
+                            {emailCheckData.exists ? (
+                              <>
+                                Email already exists.{" "}
+                                <TextLink 
+                                  href="/(auth)/login"
+                                  size="sm"
+                                  variant="primary"
+                                  style={{ display: 'inline' as any }}
+                                >
+                                  Login to your account
+                                </TextLink>
+                              </>
+                            ) : "Email is available"}
+                          </Text>
+                        ) : null
                       )}
                     </VStack>
                   </VStack>

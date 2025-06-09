@@ -3,6 +3,8 @@
  * Mathematical foundation using φ (1.618) for harmonious proportions
  */
 
+import { Platform } from 'react-native';
+
 // Golden ratio constant
 export const PHI = 1.618;
 
@@ -66,30 +68,62 @@ export const goldenDimensions = {
 
 // Golden ratio shadows (offset and blur use Fibonacci)
 export const goldenShadows = {
-  sm: {
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-    shadowOpacity: 0.089, // 0.089 ≈ 1/11.2 (close to Fibonacci ratio)
-    elevation: 2,
-  },
-  md: {
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 5,
-    shadowOpacity: 0.13, // 0.13 ≈ 1/7.7 (between Fibonacci numbers)
-    elevation: 5,
-  },
-  lg: {
-    shadowOffset: { width: 0, height: 5 },
-    shadowRadius: 8,
-    shadowOpacity: 0.21, // 0.21 ≈ 1/4.8 (close to Fibonacci ratio)
-    elevation: 8,
-  },
-  xl: {
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 13,
-    shadowOpacity: 0.34, // 0.34 ≈ 1/2.9 (close to Fibonacci ratio)
-    elevation: 13,
-  },
+  sm: Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowRadius: 2,
+      shadowOpacity: 0.089, // 0.089 ≈ 1/11.2 (close to Fibonacci ratio)
+    },
+    android: {
+      elevation: 2,
+    },
+    web: {
+      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.089)',
+    } as any,
+  }),
+  md: Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 3 },
+      shadowRadius: 5,
+      shadowOpacity: 0.13, // 0.13 ≈ 1/7.7 (between Fibonacci numbers)
+    },
+    android: {
+      elevation: 5,
+    },
+    web: {
+      boxShadow: '0 3px 5px rgba(0, 0, 0, 0.13)',
+    } as any,
+  }),
+  lg: Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 5 },
+      shadowRadius: 8,
+      shadowOpacity: 0.21, // 0.21 ≈ 1/4.8 (close to Fibonacci ratio)
+    },
+    android: {
+      elevation: 8,
+    },
+    web: {
+      boxShadow: '0 5px 8px rgba(0, 0, 0, 0.21)',
+    } as any,
+  }),
+  xl: Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowRadius: 13,
+      shadowOpacity: 0.34, // 0.34 ≈ 1/2.9 (close to Fibonacci ratio)
+    },
+    android: {
+      elevation: 13,
+    },
+    web: {
+      boxShadow: '0 8px 13px rgba(0, 0, 0, 0.34)',
+    } as any,
+  }),
 } as const;
 
 // Golden ratio animations (duration in ms)

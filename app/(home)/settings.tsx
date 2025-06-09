@@ -238,6 +238,27 @@ export default function SettingsScreen() {
           </Card>
         )}
 
+        {/* Developer Tools - Only show in development */}
+        {__DEV__ && Platform.OS === 'ios' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Developer Tools</CardTitle>
+              <CardDescription>Configure development environment</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="outline"
+                fullWidth
+                onPress={() => {
+                  router.push('/dev-config');
+                }}
+              >
+                Configure iOS Device API URL
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* App Settings */}
         <Card>
           <CardHeader>

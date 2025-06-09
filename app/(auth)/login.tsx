@@ -18,6 +18,7 @@ import { api } from "@/lib/trpc";
 import { signInSchema, type SignInInput } from "@/lib/validations/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import debounce from 'lodash.debounce';
 import React, { useMemo, useCallback, useDeferredValue, useTransition } from "react";
 import { useForm } from "react-hook-form";
@@ -38,6 +39,7 @@ const getSocialIcons = () => ({
 
 export default function LoginScreenV2() {
   const { updateAuth, setLoading, setError } = useAuth();
+  const router = useRouter();
   const theme = useTheme();
   const [showPassword, setShowPassword] = React.useState(false);
   const [emailExists, setEmailExists] = React.useState<boolean | null>(null);
@@ -80,6 +82,23 @@ export default function LoginScreenV2() {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       };
       updateAuth(appUser, session);
+      
+      // Check if auth state updated and force navigation
+      setTimeout(() => {
+        const { getState } = require('@/lib/stores/auth-store').useAuthStore;
+        const authState = getState();
+        
+        // Force navigation if authenticated
+        if (authState.isAuthenticated && authState.user) {
+          // Navigation will be handled by the index page redirect
+          // but we can also try to push directly
+          if (authState.user.needsProfileCompletion) {
+            router.replace('/(auth)/complete-profile');
+          } else {
+            router.replace('/');
+          }
+        }
+      }, 100);
       
       // Fix mobile session storage
       if (Platform.OS !== 'web') {

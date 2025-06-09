@@ -305,16 +305,13 @@ export default function ThemeTestScreen() {
                 <DropdownMenuContent>
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-// TODO: Replace with structured logging - <DropdownMenuItem onSelect={() => console.log('Edit')}>
                     <Ionicons name="pencil" size={16} />
                     <Text>Edit</Text>
                   </DropdownMenuItem>
-// TODO: Replace with structured logging - <DropdownMenuItem onSelect={() => console.log('Duplicate')}>
                     <Ionicons name="copy" size={16} />
                     <Text>Duplicate</Text>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-// TODO: Replace with structured logging - <DropdownMenuItem onSelect={() => console.log('Delete')} destructive>
                     <Ionicons name="trash" size={16} />
                     <Text>Delete</Text>
                   </DropdownMenuItem>

@@ -42,6 +42,10 @@ export default function TabLayout() {
   // Check if user has admin/manager role
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
+  
+  // Check if user has healthcare roles
+  const isHealthcareUser = ["head_doctor", "doctor", "nurse", "operator"].includes(user?.role || "");
+  const isOperator = user?.role === "operator";
 
   // Define navigation items
   const navItems = [
@@ -121,6 +125,23 @@ export default function TabLayout() {
       icon: "people" as keyof typeof Ionicons.glyphMap,
     });
   }
+  
+  // Add healthcare items
+  if (isHealthcareUser && !isOperator) {
+    sidebarItems.push({
+      title: "Healthcare Dashboard",
+      url: "/(home)/healthcare-dashboard",
+      icon: "medkit" as keyof typeof Ionicons.glyphMap,
+    });
+  }
+  
+  if (isOperator) {
+    sidebarItems.push({
+      title: "Operator Dashboard",
+      url: "/(home)/operator-dashboard",
+      icon: "headset" as keyof typeof Ionicons.glyphMap,
+    });
+  }
 
   // Settings at the end
   sidebarItems.push({
@@ -137,52 +158,48 @@ export default function TabLayout() {
   if (Platform.OS === "web" && isDesktop) {
     return (
       <Sidebar07Provider defaultOpen={true}>
-        <View style={{ flex: 1, flexDirection: "row" }}>
-          <Sidebar07 collapsible="icon">
-            <Sidebar07Header>
-              <TeamSwitcher07
-                teams={[
-                  {
-                    name: "Acme Inc",
-                    plan: "Enterprise",
-                    logo: ({ size, color }) => (
-                      <Ionicons name="business" size={size} color={color} />
-                    ),
-                  },
-                  {
-                    name: "Acme Corp.",
-                    plan: "Startup",
-                    logo: ({ size, color }) => (
-                      <Ionicons name="rocket" size={size} color={color} />
-                    ),
-                  },
-                  {
-                    name: "My Organization",
-                    plan: "Free",
-                  },
-                ]}
-              />
-            </Sidebar07Header>
-            <Sidebar07Content>
-              <NavMain07 items={sidebarItems} />
-            </Sidebar07Content>
-            <Sidebar07Footer>
-              <NavUser07
-                user={{
-                  name: user?.name || "User",
-                  email: user?.email || "",
-                  avatar: user?.image,
-                }}
-              />
-            </Sidebar07Footer>
-            <Sidebar07Rail />
-          </Sidebar07>
-          <Sidebar07Inset>
-            <View style={{ flex: 1 }}>
-              <Slot />
-            </View>
-          </Sidebar07Inset>
-        </View>
+        <Sidebar07 collapsible="icon">
+          <Sidebar07Header>
+            <TeamSwitcher07
+              teams={[
+                {
+                  name: "Acme Inc",
+                  plan: "Enterprise",
+                  logo: ({ size, color }) => (
+                    <Ionicons name="business" size={size} color={color} />
+                  ),
+                },
+                {
+                  name: "Acme Corp.",
+                  plan: "Startup",
+                  logo: ({ size, color }) => (
+                    <Ionicons name="rocket" size={size} color={color} />
+                  ),
+                },
+                {
+                  name: "My Organization",
+                  plan: "Free",
+                },
+              ]}
+            />
+          </Sidebar07Header>
+          <Sidebar07Content>
+            <NavMain07 items={sidebarItems} />
+          </Sidebar07Content>
+          <Sidebar07Footer>
+            <NavUser07
+              user={{
+                name: user?.name || "User",
+                email: user?.email || "",
+                avatar: user?.image,
+              }}
+            />
+          </Sidebar07Footer>
+          <Sidebar07Rail />
+        </Sidebar07>
+        <Sidebar07Inset>
+          <Slot />
+        </Sidebar07Inset>
       </Sidebar07Provider>
     );
   }
@@ -232,13 +249,6 @@ export default function TabLayout() {
           href: isAdmin ? undefined : null,
         }}
       />
-      {/* Keep old route for compatibility */}
-      <Tabs.Screen
-        name="admin-dashboard"
-        options={{
-          href: null, // Always hidden
-        }}
-      />
       {/* Manager Dashboard - Only visible for manager or admin users */}
       <Tabs.Screen
         name="manager"
@@ -269,6 +279,18 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="sidebar-test"
+        options={{
+          href: null, // Always hidden from tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="healthcare-dashboard"
+        options={{
+          href: null, // Always hidden from tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="operator-dashboard"
         options={{
           href: null, // Always hidden from tab bar
         }}

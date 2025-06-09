@@ -27,11 +27,11 @@ import {
 import { log } from '@/lib/core/logger';
 import { escalationTimerService } from '../services/escalation-timer';
 import { 
-  subscribeToHospitalAlerts, 
-  subscribeToAlert, 
+  realtimeEvents,
   alertEventHelpers,
-  trackedHospitalAlerts
-} from '../services/alert-subscriptions';
+  startMockDataGenerator
+} from '../services/realtime-events';
+import { observable } from '@trpc/server/observable';
 
 // Create permission-based procedures for healthcare roles
 const operatorProcedure = createPermissionProcedure('create_alerts');
@@ -716,49 +716,84 @@ export const healthcareRouter = router({
       }
     }),
     
-  // Subscribe to alerts (mock implementation for now)
+  // Subscribe to alerts using real-time events
   subscribeToAlerts: viewAlertsProcedure
-    .subscription(async function* ({ ctx }) {
-      log.info('Alert subscription started', 'HEALTHCARE', {
-        userId: ctx.user.id,
-      });
-      
-      // Simulate real-time alert updates
-      while (true) {
-        yield {
-          type: 'alert.created' as const,
-          data: {
-            id: `alert-${Date.now()}`,
-            roomNumber: String(Math.floor(Math.random() * 400) + 100),
-            alertType: ['cardiac', 'fall', 'fire', 'medical-emergency'][Math.floor(Math.random() * 4)] as any,
-            urgency: Math.floor(Math.random() * 5) + 1,
-            createdAt: new Date(),
-          }
-        };
+    .input(z.object({
+      hospitalId: z.string().uuid(),
+    }).optional())
+    .subscription(({ input, ctx }) => {
+      return observable<any>((emit) => {
+        const hospitalId = input?.hospitalId || ctx.user.organizationId || 'hospital-1';
         
-        // Random interval between 10-60 seconds
-        await new Promise(resolve => setTimeout(resolve, (Math.random() * 50 + 10) * 1000));
-      }
+        log.info('Alert subscription started', 'HEALTHCARE', {
+          userId: ctx.user.id,
+          hospitalId,
+        });
+        
+        // Subscribe to real-time alert events
+        const unsubscribe = realtimeEvents.subscribeToHospitalAlerts(
+          hospitalId,
+          (event) => {
+            emit.next({
+              type: event.type,
+              data: event.data,
+              timestamp: event.timestamp,
+            });
+          }
+        );
+        
+        // Start mock data generator in development
+        if (process.env.NODE_ENV === 'development') {
+          startMockDataGenerator();
+        }
+        
+        // Cleanup on unsubscribe
+        return () => {
+          log.info('Alert subscription ended', 'HEALTHCARE', {
+            userId: ctx.user.id,
+            hospitalId,
+          });
+          unsubscribe();
+        };
+      });
     }),
     
-  // Subscribe to metrics (mock implementation)
+  // Subscribe to metrics using real-time events
   subscribeToMetrics: viewAlertsProcedure
-    .subscription(async function* ({ ctx }) {
-      log.info('Metrics subscription started', 'HEALTHCARE', {
-        userId: ctx.user.id,
-      });
-      
-      // Simulate real-time metrics updates
-      while (true) {
-        yield {
-          activeAlerts: Math.floor(Math.random() * 10) + 5,
-          staffOnline: Math.floor(Math.random() * 20) + 15,
-          responseRate: parseFloat((Math.random() * 0.2 + 0.8).toFixed(2)),
-        };
+    .input(z.object({
+      hospitalId: z.string().uuid(),
+    }).optional())
+    .subscription(({ input, ctx }) => {
+      return observable<any>((emit) => {
+        const hospitalId = input?.hospitalId || ctx.user.organizationId || 'hospital-1';
         
-        // Update every 5 seconds
-        await new Promise(resolve => setTimeout(resolve, 5000));
-      }
+        log.info('Metrics subscription started', 'HEALTHCARE', {
+          userId: ctx.user.id,
+          hospitalId,
+        });
+        
+        // Subscribe to real-time metrics events
+        const unsubscribe = realtimeEvents.subscribeToMetrics(
+          hospitalId,
+          (event) => {
+            emit.next(event.data);
+          }
+        );
+        
+        // Start mock data generator in development
+        if (process.env.NODE_ENV === 'development') {
+          startMockDataGenerator();
+        }
+        
+        // Cleanup on unsubscribe
+        return () => {
+          log.info('Metrics subscription ended', 'HEALTHCARE', {
+            userId: ctx.user.id,
+            hospitalId,
+          });
+          unsubscribe();
+        };
+      });
     }),
     
   // Acknowledge patient alert (for patient card)
