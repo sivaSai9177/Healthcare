@@ -1,0 +1,88 @@
+import React from 'react';
+import { View, Text, TextInput, Button, Platform, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
+import { useTheme } from '@/lib/theme/provider';
+
+export default function LoginTest() {
+  const theme = useTheme();
+// TODO: Replace with structured logging - console.log('[LoginTest] Rendering on platform:', Platform.OS);
+  
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Login Test Screen</Text>
+      <Text style={styles.subtitle}>Platform: {Platform.OS}</Text>
+      
+      <View style={styles.form}>
+        <Text style={styles.label}>Email</Text>
+        <TextInput 
+          style={styles.input}
+          placeholder="your@email.com"
+          placeholderTextColor="#999"
+        />
+        
+        <Text style={styles.label}>Password</Text>
+        <TextInput 
+          style={styles.input}
+          placeholder="Enter password"
+          placeholderTextColor="#999"
+          secureTextEntry
+        />
+        
+        <View style={styles.button}>
+// TODO: Replace with structured logging - {/* TODO: Replace with structured logging - <Button title="Login" onPress={() => console.log('Login pressed')} /> */}
+        </View>
+        
+        <View style={styles.button}>
+          <Button 
+            title="Go to Register" 
+            onPress={() => router.push('/(auth)/register')} 
+          />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: theme.foreground,
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: theme.mutedForeground,
+    marginBottom: 30,
+  },
+  form: {
+    width: '100%',
+    maxWidth: 400,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: theme.foreground,
+    marginBottom: 5,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 20,
+    backgroundColor: '#f9f9f9',
+    color: theme.foreground,
+  },
+  button: {
+    marginVertical: 10,
+  },
+});

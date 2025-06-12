@@ -1,0 +1,269 @@
+import React, { useState } from 'react';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  ScrollView, 
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert
+} from 'react-native';
+import { useAuth } from '@/hooks/useAuth';
+import { api } from '@/lib/api/trpc';
+import { router } from 'expo-router';
+import { useTheme } from '@/lib/theme/provider';
+
+export default function RegisterSimple() {
+  const theme = useTheme();
+// TODO: Replace with structured logging - console.log('[RegisterSimple] Component rendering');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'user' | 'admin' | 'manager'>('user');
+  const [loading, setLoading] = useState(false);
+  const { updateAuth } = useAuth();
+  
+  const signUpMutation = api.auth.signUp.useMutation({
+    onSuccess: async (data) => {
+// TODO: Replace with structured logging - console.log('[RegisterSimple] Registration successful', data);
+      if (data.user && data.token) {
+        const appUser = {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name || '',
+          role: data.user.role || role,
+          image: data.user.image,
+          organizationId: data.user.organizationId,
+          organizationName: data.user.organizationName,
+          needsProfileCompletion: data.user.needsProfileCompletion || false,
+          createdAt: data.user.createdAt,
+          updatedAt: data.user.updatedAt,
+        };
+        
+        const session = {
+          id: Date.now().toString(),
+          token: data.token,
+          userId: appUser.id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        };
+        
+        updateAuth(appUser, session);
+        Alert.alert('Success', 'Account created successfully!');
+        router.replace('/(home)');
+      }
+    },
+    onError: (error) => {
+      console.error('[RegisterSimple] Registration error', error);
+      Alert.alert('Registration Failed', error.message || 'Please try again');
+      setLoading(false);
+    }
+  });
+  
+  const handleRegister = async () => {
+    if (!name || !email || !password) {
+      Alert.alert('Error', 'Please fill all fields');
+      return;
+    }
+    
+// TODO: Replace with structured logging - console.log('[RegisterSimple] Attempting registration', { email, name, role });
+    setLoading(true);
+    
+    try {
+      await signUpMutation.mutateAsync({ 
+        email, 
+        password, 
+        name, 
+        role,
+        acceptTerms: true,
+        acceptPrivacy: true
+      });
+    } catch (error) {
+      // Error handled in onError
+    }
+  };
+  
+  return (
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.content}>
+          <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.subtitle}>Simple Registration</Text>
+          
+          <View style={styles.form}>
+            <Text style={styles.label}>Name</Text>
+            <TextInput
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="Enter your name"
+              autoComplete="name"
+            />
+            
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Enter email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+            />
+            
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Enter password"
+              secureTextEntry
+              autoComplete="password"
+            />
+            
+            <Text style={styles.label}>Role</Text>
+            <View style={styles.roleContainer}>
+              {(['user', 'manager', 'admin'] as const).map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.roleButton, role === r && styles.roleButtonActive]}
+                  onPress={() => setRole(r)}
+                >
+                  <Text style={[styles.roleText, role === r && styles.roleTextActive]}>
+                    {r.charAt(0).toUpperCase() + r.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleRegister}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Register</Text>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.linkButton}
+              onPress={() => router.push('/(auth)/login')}
+            >
+              <Text style={styles.linkText}>Already have an account? Login</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.muted,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  content: {
+    padding: 20,
+    maxWidth: 400,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: theme.foreground,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: theme.mutedForeground,
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  form: {
+    width: '100%',
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.foreground,
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: theme.background,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 16,
+  },
+  roleContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    gap: 10,
+  },
+  roleButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: theme.background,
+    alignItems: 'center',
+  },
+  roleButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  roleText: {
+    fontSize: 14,
+    color: theme.foreground,
+  },
+  roleTextActive: {
+    color: theme.background,
+  },
+  button: {
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: theme.background,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  linkButton: {
+    alignItems: 'center',
+    padding: 12,
+  },
+  linkText: {
+    color: '#007AFF',
+    fontSize: 16,
+  },
+});

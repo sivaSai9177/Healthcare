@@ -1,0 +1,242 @@
+import React, { useState } from 'react';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  ScrollView, 
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert
+} from 'react-native';
+import { useAuth } from '@/hooks/useAuth';
+import { api } from '@/lib/api/trpc';
+import { router } from 'expo-router';
+import { useTheme } from '@/lib/theme/provider';
+
+export default function LoginSimple() {
+  const theme = useTheme();
+// TODO: Replace with structured logging - console.log('[LoginSimple] Component rendering');
+  const [email, setEmail] = useState('johncena@gmail.com');
+  const [password, setPassword] = useState('password');
+  const [loading, setLoading] = useState(false);
+  const { updateAuth } = useAuth();
+  
+  const signInMutation = api.auth.signIn.useMutation({
+    onSuccess: async (data) => {
+// TODO: Replace with structured logging - console.log('[LoginSimple] Login successful', data);
+      if (data.user && data.token) {
+        const appUser = {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name || '',
+          role: data.user.role || 'user',
+          image: data.user.image,
+          organizationId: data.user.organizationId,
+          organizationName: data.user.organizationName,
+          needsProfileCompletion: data.user.needsProfileCompletion || false,
+          createdAt: data.user.createdAt,
+          updatedAt: data.user.updatedAt,
+        };
+        
+        const session = {
+          id: Date.now().toString(),
+          token: data.token,
+          userId: appUser.id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        };
+        
+// TODO: Replace with structured logging - console.log('[LoginSimple] Updating auth state and navigating to home');
+        updateAuth(appUser, session);
+        
+        // Small delay to ensure auth state is updated
+        setTimeout(() => {
+// TODO: Replace with structured logging - console.log('[LoginSimple] Navigating to home after auth update');
+          router.replace('/(home)');
+        }, 100);
+      }
+    },
+    onError: (error) => {
+      console.error('[LoginSimple] Login error', error);
+      Alert.alert('Login Failed', error.message || 'Please check your credentials');
+      setLoading(false);
+    }
+  });
+  
+  const handleLogin = async () => {
+    setLoading(true);
+    try {
+      await signInMutation.mutateAsync({ email, password });
+    } catch (error) {
+      // Error handled in onError
+    }
+  };
+  
+// TODO: Replace with structured logging
+  // console.log('[LoginSimple] Rendering component with state:', {
+  //   email,
+  //   password,
+  //   loading,
+  //   platform: Platform.OS
+  // });
+  
+  return (
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.content}>
+          <Text style={styles.title}>Hospital Alert System</Text>
+          <Text style={styles.subtitle}>Login to continue</Text>
+          
+          <View style={styles.demoBox}>
+            <Text style={styles.demoTitle}>Demo Credentials:</Text>
+            <Text style={styles.demoText}>Operator: johncena@gmail.com</Text>
+            <Text style={styles.demoText}>Password: any (e.g., &quot;password&quot;)</Text>
+          </View>
+          
+          <View style={styles.form}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Enter email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+            />
+            
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Enter password"
+              secureTextEntry
+              autoComplete="password"
+            />
+            
+            <TouchableOpacity 
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Login</Text>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.linkButton}
+              onPress={() => router.push('/(auth)/register')}
+            >
+              <Text style={styles.linkText}>Don&apos;t have an account? Register</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.muted,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  content: {
+    padding: 20,
+    maxWidth: 400,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: theme.foreground,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: theme.mutedForeground,
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  demoBox: {
+    backgroundColor: '#fffbdd',
+    borderWidth: 1,
+    borderColor: '#f0d000',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 30,
+  },
+  demoTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: theme.foreground,
+    marginBottom: 5,
+  },
+  demoText: {
+    fontSize: 13,
+    color: theme.foreground,
+    lineHeight: 20,
+  },
+  form: {
+    width: '100%',
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.foreground,
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+    marginBottom: 20,
+    color: theme.foreground,
+  },
+  button: {
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: theme.background,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  linkButton: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  linkText: {
+    color: '#007AFF',
+    fontSize: 16,
+  },
+});

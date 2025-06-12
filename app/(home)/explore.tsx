@@ -19,8 +19,7 @@ import {
 } from "@/components/universal";
 import { ScrollView, Platform } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
-import { log } from "@/lib/core/logger";
-import { useTheme } from "@/lib/theme/theme-provider";
+import { useTheme } from "@/lib/theme/provider";
 
 // Feature card component
 const FeatureCard = ({ 
@@ -73,35 +72,35 @@ export default function ExploreScreen() {
       description: "Track your performance with detailed analytics and insights",
       icon: "📊",
       color: "#3b82f6",
-      onPress: () => log.info("Analytics clicked", "EXPLORE"),
+      onPress: () => console.info("Analytics clicked", "EXPLORE"),
     },
     {
       title: "Team Collaboration",
       description: "Work together with your team in real-time",
       icon: "👥",
       color: "#10b981",
-      onPress: () => log.info("Team clicked", "EXPLORE"),
+      onPress: () => console.info("Team clicked", "EXPLORE"),
     },
     {
       title: "Project Management",
       description: "Organize and track your projects efficiently",
       icon: "📋",
       color: "#8b5cf6",
-      onPress: () => log.info("Projects clicked", "EXPLORE"),
+      onPress: () => console.info("Projects clicked", "EXPLORE"),
     },
     {
       title: "Resource Library",
       description: "Access helpful resources and documentation",
       icon: "📚",
       color: "#f59e0b",
-      onPress: () => log.info("Resources clicked", "EXPLORE"),
+      onPress: () => console.info("Resources clicked", "EXPLORE"),
     },
     {
       title: "Integrations",
       description: "Connect with your favorite tools and services",
       icon: "🔗",
       color: "#ef4444",
-      onPress: () => log.info("Integrations clicked", "EXPLORE"),
+      onPress: () => console.info("Integrations clicked", "EXPLORE"),
     },
     {
       title: "Settings & Preferences",

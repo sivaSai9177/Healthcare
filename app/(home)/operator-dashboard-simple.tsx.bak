@@ -1,0 +1,100 @@
+import React from 'react';
+import { View, Text, Button, StyleSheet, ScrollView, Platform } from 'react-native';
+import { router } from 'expo-router';
+import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/lib/theme/provider';
+
+export default function OperatorDashboardSimple() {
+  const theme = useTheme();
+  const { user, logout } = useAuth();
+  
+// TODO: Replace with structured logging - console.log('[OperatorDashboardSimple] Rendering');
+// TODO: Replace with structured logging - console.log('[OperatorDashboardSimple] User:', user?.email, 'Role:', user?.role);
+  
+  return (
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <Text style={styles.title}>Operator Dashboard</Text>
+        <Text style={styles.subtitle}>Simple Test Screen</Text>
+        
+        <View style={styles.infoCard}>
+          <Text style={styles.label}>Email:</Text>
+          <Text style={styles.value}>{user?.email || 'Not logged in'}</Text>
+          
+          <Text style={styles.label}>Role:</Text>
+          <Text style={styles.value}>{user?.role || 'No role'}</Text>
+          
+          <Text style={styles.label}>Platform:</Text>
+          <Text style={styles.value}>{Platform.OS}</Text>
+        </View>
+        
+        <View style={styles.buttonContainer}>
+          <Button 
+            title="Go to Settings" 
+            onPress={() => router.push('/(home)/settings')}
+          />
+          
+          <View style={{ height: 10 }} />
+          
+          <Button 
+            title="Go to Healthcare Dashboard" 
+            onPress={() => router.push('/(home)/healthcare-dashboard')}
+          />
+          
+          <View style={{ height: 10 }} />
+          
+          <Button 
+            title="Logout" 
+            onPress={() => logout()}
+            color="#ff3333"
+          />
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.background,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    padding: 20,
+    paddingTop: 60,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: theme.foreground,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 18,
+    color: theme.mutedForeground,
+    marginBottom: 30,
+    textAlign: 'center',
+  },
+  infoCard: {
+    backgroundColor: theme.muted,
+    padding: 20,
+    borderRadius: 10,
+    marginBottom: 30,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.foreground,
+    marginTop: 10,
+  },
+  value: {
+    fontSize: 16,
+    color: theme.mutedForeground,
+    marginTop: 5,
+  },
+  buttonContainer: {
+    marginTop: 20,
+  },
+});

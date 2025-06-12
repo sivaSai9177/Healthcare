@@ -17,7 +17,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/lib/theme/theme-provider';
+import { useTheme } from '@/lib/theme/provider';
 import { useSpacing } from '@/contexts/SpacingContext';
 
 // List Item Component

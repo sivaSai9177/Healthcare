@@ -1,0 +1,65 @@
+import { router } from "expo-router";
+import { useAuth } from "@/hooks/useAuth";
+import { View, ActivityIndicator, Text, Button, Platform } from "react-native";
+import React from "react";
+import { useTheme } from '@/lib/theme/provider';
+
+export default function IndexDebug() {
+  const theme = useTheme();
+// TODO: Replace with structured logging - console.log('[IndexDebug] Component rendering');
+  const { user, isAuthenticated, hasHydrated } = useAuth();
+// TODO: Replace with structured logging - console.log('[IndexDebug] Auth state:', { isAuthenticated, hasHydrated, user: !!user });
+  
+  // Manual navigation function
+  const navigateToLogin = () => {
+// TODO: Replace with structured logging - console.log('[IndexDebug] Manual navigation to login');
+    router.replace("/(auth)/login");
+  };
+  
+  const navigateToHome = () => {
+// TODO: Replace with structured logging - console.log('[IndexDebug] Manual navigation to home');
+    router.replace("/(home)");
+  };
+  
+  const navigateToProfile = () => {
+// TODO: Replace with structured logging - console.log('[IndexDebug] Manual navigation to profile');
+    router.replace("/(auth)/complete-profile");
+  };
+  
+  // Show loading while auth state is being hydrated
+  if (!hasHydrated) {
+// TODO: Replace with structured logging - console.log('[IndexDebug] Showing loading screen');
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.muted }}>
+        <ActivityIndicator size="large" color="#000" />
+        <Text style={{ marginTop: 20, fontSize: 16, color: theme.foreground }}>Loading auth state...</Text>
+      </View>
+    );
+  }
+  
+  // Show debug screen with manual navigation buttons
+  return (
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.background, padding: 20 }}>
+      <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: theme.foreground }}>Debug Navigation</Text>
+      
+      <View style={{ marginBottom: 20, padding: 20, backgroundColor: theme.muted, borderRadius: 10 }}>
+        <Text style={{ fontSize: 16, marginBottom: 10, color: theme.foreground }}>Auth State:</Text>
+        <Text style={{ color: theme.foreground }}>• Hydrated: {hasHydrated ? 'Yes' : 'No'}</Text>
+        <Text style={{ color: theme.foreground }}>• Authenticated: {isAuthenticated ? 'Yes' : 'No'}</Text>
+        <Text style={{ color: theme.foreground }}>• User: {user ? user.email : 'None'}</Text>
+        <Text style={{ color: theme.foreground }}>• Needs Profile: {user?.needsProfileCompletion ? 'Yes' : 'No'}</Text>
+        <Text style={{ color: theme.foreground }}>• Role: {user?.role || 'N/A'}</Text>
+      </View>
+      
+      <View style={{ width: '100%', gap: 10 }}>
+        <Button title="Go to Login" onPress={navigateToLogin} color="#007AFF" />
+        <Button title="Go to Home" onPress={navigateToHome} color="#34C759" />
+        <Button title="Go to Profile Completion" onPress={navigateToProfile} color="#FF9500" />
+      </View>
+      
+      <Text style={{ marginTop: 20, fontSize: 12, color: theme.mutedForeground, textAlign: 'center' }}>
+        Platform: {Platform.OS} | Expo Go Mode
+      </Text>
+    </View>
+  );
+}

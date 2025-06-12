@@ -1,6 +1,5 @@
 import { useSpacing } from "@/contexts/SpacingContext";
-import { designSystem } from "@/lib/design-system";
-import { useTheme } from "@/lib/theme/theme-provider";
+import { useTheme } from "@/lib/theme/provider";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -261,10 +260,14 @@ export function DropdownMenuContent({
               top,
               minWidth,
               backgroundColor: theme.popover,
-              borderRadius: designSystem.borderRadius.md,
+              borderRadius: 8,
               borderWidth: 1,
               borderColor: theme.border,
-              ...designSystem.shadows.md,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 3,
+              elevation: 3,
               padding: spacing[1],
               opacity: fadeAnim,
               transform: [{ scale: scaleAnim }],
@@ -315,7 +318,7 @@ export function DropdownMenuItem({
         alignItems: "center",
         paddingHorizontal: spacing[2],
         paddingVertical: spacing[1.5],
-        borderRadius: designSystem.borderRadius.sm,
+        borderRadius: 4,
         backgroundColor: pressed || isHovered ? theme.accent : 'transparent',
         opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
         ...(Platform.OS === 'web' && {

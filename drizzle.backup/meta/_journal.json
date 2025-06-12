@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1749018464522,
+      "tag": "0000_friendly_gravity",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1749018464523,
+      "tag": "0002_add_organization_tables_fixed",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1749018464524,
+      "tag": "0003_add_healthcare_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1749018464525,
+      "tag": "0004_add_patient_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1749018464526,
+      "tag": "0005_add_healthcare_indexes",
+      "breakpoints": true
+    }
+  ]
+}

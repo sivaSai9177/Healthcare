@@ -1,0 +1,360 @@
+{
+  "totalUnusedImports": 316,
+  "topImports": {
+    "getAnimationConfig": 33,
+    "interpolate": 17,
+    "Platform": 11,
+    "FadeIn": 11,
+    "View": 10,
+    "Users": 7,
+    "Box": 6,
+    "withTiming": 6,
+    "FadeOut": 6,
+    "useEffect": 5,
+    "ScrollView": 5,
+    "runOnJS": 5,
+    "error": 4,
+    "Badge": 4,
+    "Separator": 4,
+    "haptic": 4,
+    "useAnimationVariant": 4,
+    "ZoomIn": 4,
+    "SlideInDown": 4,
+    "useRef": 4
+  },
+  "categories": {
+    "animation": {
+      "total": 99,
+      "imports": {
+        "getAnimationConfig": 33,
+        "interpolate": 17,
+        "FadeIn": 11,
+        "withTiming": 6,
+        "FadeOut": 6,
+        "runOnJS": 5,
+        "ZoomIn": 4,
+        "SlideInDown": 4,
+        "SlideInRight": 3,
+        "withDelay": 3,
+        "SlideInUp": 2,
+        "withSpring": 2,
+        "SlideInLeft": 2,
+        "ZoomOut": 1
+      }
+    },
+    "platform": {
+      "total": 31,
+      "imports": {
+        "Platform": 11,
+        "View": 10,
+        "ScrollView": 5,
+        "Text": 3,
+        "Pressable": 2
+      }
+    },
+    "icons": {
+      "total": 14,
+      "imports": {
+        "Users": 7,
+        "Filter": 3,
+        "IconSymbol": 3,
+        "Settings": 1
+      }
+    },
+    "components": {
+      "total": 25,
+      "imports": {
+        "Box": 6,
+        "Badge": 4,
+        "Separator": 4,
+        "Container": 3,
+        "Progress": 3,
+        "Input": 2,
+        "Label": 1,
+        "Button": 1,
+        "Card": 1
+      }
+    },
+    "hooks": {
+      "total": 13,
+      "imports": {
+        "useEffect": 5,
+        "useRef": 4,
+        "useState": 2,
+        "useMemo": 1,
+        "useCallback": 1
+      }
+    },
+    "routing": {
+      "total": 5,
+      "imports": {
+        "router": 3,
+        "Link": 1,
+        "useRouter": 1
+      }
+    },
+    "utils": {
+      "total": 4,
+      "imports": {
+        "api": 2,
+        "showErrorAlert": 1,
+        "showSuccessAlert": 1
+      }
+    }
+  },
+  "filesWithMostUnusedImports": [
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/healthcare/blocks/PatientCardBlock.tsx",
+      "count": 11,
+      "imports": [
+        "useState",
+        "useMemo",
+        "use",
+        "withTiming",
+        "interpolate",
+        "Box",
+        "PLATFORM_TOKENS",
+        "getResponsiveValue",
+        "useAnimationVariant",
+        "useScaleAnimation",
+        "useEntranceAnimation"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/universal/Dialog.tsx",
+      "count": 11,
+      "imports": [
+        "useState",
+        "useRef",
+        "Text",
+        "Animated",
+        "interpolate",
+        "runOnJS",
+        "FadeIn",
+        "FadeOut",
+        "ZoomIn",
+        "SlideInDown",
+        "getAnimationConfig"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/universal/FilePicker.tsx",
+      "count": 11,
+      "imports": [
+        "useCallback",
+        "useRef",
+        "Platform",
+        "TextStyle",
+        "withSequence",
+        "FadeIn",
+        "FadeOut",
+        "Layout",
+        "ZoomIn",
+        "ZoomOut",
+        "getAnimationConfig"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/universal/Drawer.tsx",
+      "count": 8,
+      "imports": [
+        "runOnJS",
+        "useAnimatedGestureHandler",
+        "interpolate",
+        "Extrapolate",
+        "PanGestureHandler",
+        "PanGestureHandlerGestureEvent",
+        "GestureHandlerRootView",
+        "getAnimationConfig"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/universal/Grid.tsx",
+      "count": 8,
+      "imports": [
+        "useEffect",
+        "useSharedValue",
+        "useAnimatedStyle",
+        "withDelay",
+        "withSpring",
+        "withTiming",
+        "SlideInDown",
+        "getAnimationConfig"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/app/(auth)/complete-profile.tsx",
+      "count": 7,
+      "imports": [
+        "showErrorAlert",
+        "showSuccessAlert",
+        "FormSelect",
+        "Select",
+        "Label",
+        "Toggle",
+        "IconSymbol"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/universal/ContextMenu.tsx",
+      "count": 7,
+      "imports": [
+        "TextStyle",
+        "interpolate",
+        "FadeIn",
+        "FadeOut",
+        "ZoomIn",
+        "SlideInDown",
+        "getAnimationConfig"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/universal/Tooltip.tsx",
+      "count": 7,
+      "imports": [
+        "useEffect",
+        "RNText",
+        "withDelay",
+        "interpolate",
+        "runOnJS",
+        "designSystem",
+        "getAnimationConfig"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/healthcare/blocks/AlertCreationBlock.tsx",
+      "count": 6,
+      "imports": [
+        "Platform",
+        "ScrollContainer",
+        "Box",
+        "Badge",
+        "getResponsiveValue",
+        "log"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/universal/DatePicker.tsx",
+      "count": 6,
+      "imports": [
+        "ScrollView",
+        "FadeIn",
+        "FadeOut",
+        "SlideInDown",
+        "SlideInUp",
+        "getAnimationConfig"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/universal/Stack.tsx",
+      "count": 6,
+      "imports": [
+        "ViewProps",
+        "FadeInDown",
+        "FadeInUp",
+        "FadeInLeft",
+        "FadeInRight",
+        "EASINGS"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/app/(auth)/register.tsx",
+      "count": 5,
+      "imports": [
+        "Link",
+        "RoleSelector",
+        "Container",
+        "ScrollContainer",
+        "UniversalLink"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/app/(healthcare)/escalation-queue.tsx",
+      "count": 5,
+      "imports": [
+        "useEffect",
+        "api",
+        "Progress",
+        "Clock",
+        "TrendingUp"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/app/(healthcare)/shift-handover.tsx",
+      "count": 5,
+      "imports": [
+        "Pressable",
+        "Progress",
+        "Users",
+        "CheckCircle",
+        "Calendar"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/app/(organization)/email-settings.tsx",
+      "count": 5,
+      "imports": [
+        "View",
+        "router",
+        "Badge",
+        "Input",
+        "IconSymbol"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/universal/Form.tsx",
+      "count": 5,
+      "imports": [
+        "useForm",
+        "FadeIn",
+        "SlideInRight",
+        "getAnimationConfig",
+        "useSpacing"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/universal/List.tsx",
+      "count": 5,
+      "imports": [
+        "FadeIn",
+        "SlideInLeft",
+        "SlideInRight",
+        "Layout",
+        "getAnimationConfig"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/universal/NavMain.tsx",
+      "count": 5,
+      "imports": [
+        "haptic",
+        "Animated",
+        "useAnimatedStyle",
+        "withSpring",
+        "withTiming"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/universal/ScrollHeader.tsx",
+      "count": 5,
+      "imports": [
+        "useRef",
+        "RNText",
+        "Box",
+        "Text",
+        "getAnimationConfig"
+      ]
+    },
+    {
+      "file": "/Users/sirigiri/Documents/coding-projects/my-expo/components/universal/Table.tsx",
+      "count": 5,
+      "imports": [
+        "withDelay",
+        "interpolate",
+        "Layout",
+        "VStack",
+        "SpacingScale"
+      ]
+    }
+  ]
+}

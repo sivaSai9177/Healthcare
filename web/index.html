@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>Hospital Alert System</title>
+  
+  <!-- Load polyfills before anything else -->
+  <script>
+    // Polyfill for _interopRequireDefault
+    function _interopRequireDefault(obj) {
+      return obj && obj.__esModule ? obj : { default: obj };
+    }
+
+    // Polyfill for _interopRequireWildcard
+    function _interopRequireWildcard(obj) {
+      if (obj && obj.__esModule) {
+        return obj;
+      }
+      if (obj === null || (typeof obj !== 'object' && typeof obj !== 'function')) {
+        return { default: obj };
+      }
+      var cache = {};
+      if (obj != null) {
+        for (var key in obj) {
+          if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            cache[key] = obj[key];
+          }
+        }
+      }
+      cache.default = obj;
+      return cache;
+    }
+
+    // Make them available globally
+    window._interopRequireDefault = _interopRequireDefault;
+    window._interopRequireWildcard = _interopRequireWildcard;
+    if (typeof global !== 'undefined') {
+      global._interopRequireDefault = _interopRequireDefault;
+      global._interopRequireWildcard = _interopRequireWildcard;
+    }
+    if (typeof globalThis !== 'undefined') {
+      globalThis._interopRequireDefault = _interopRequireDefault;
+      globalThis._interopRequireWildcard = _interopRequireWildcard;
+    }
+  </script>
+</head>
+<body>
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <div id="root"></div>
+</body>
+</html>
