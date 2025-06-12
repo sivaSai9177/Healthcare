@@ -1,6 +1,5 @@
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
-import { IconSymbol } from "@/components/ui/IconSymbol";
-import { ValidationIcon } from "@/components/ui/ValidationIcon";
+import { Symbol as IconSymbol , ValidationIcon } from '@/components/universal';
 import { Box } from "@/components/universal/Box";
 import { Button } from "@/components/universal/Button";
 import { Card } from "@/components/universal/Card";
@@ -11,20 +10,20 @@ import { Caption, Heading1, Text } from "@/components/universal/Text";
 import { useAuth } from "@/hooks/useAuth";
 import { showErrorAlert } from "@/lib/core/alert";
 import { generateUUID } from "@/lib/core/crypto";
-import { log } from "@/lib/core/logger";
+import { log } from "@/lib/core/debug/logger";
 import { toAppUser } from "@/lib/stores/auth-store";
-import { useTheme } from "@/lib/theme/theme-provider";
-import { api } from "@/lib/trpc";
+import { useTheme } from "@/lib/theme/provider";
+import { api } from "@/lib/api/trpc";
 import { signInSchema, type SignInInput } from "@/lib/validations/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LinearGradient } from 'expo-linear-gradient';
 import debounce from 'lodash.debounce';
 import React, { useMemo, useCallback, useDeferredValue, useTransition } from "react";
 import { useForm } from "react-hook-form";
-import { Dimensions, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { z } from "zod";
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { SpacingScale } from "@/lib/design";
+import { useBreakpoint, useResponsive } from '@/hooks/responsive';
 
 // Memoize social icons to prevent re-creation
 const getSocialIcons = () => ({
@@ -37,31 +36,27 @@ const getSocialIcons = () => ({
 });
 
 export default function LoginScreenV2() {
+  log.debug('[LoginScreen] Component mounting', 'AUTH', { platform: Platform.OS });
+  
   const { updateAuth, setLoading, setError } = useAuth();
   const theme = useTheme();
   const [showPassword, setShowPassword] = React.useState(false);
-  const [emailExists, setEmailExists] = React.useState<boolean | null>(null);
-  const [checkingEmail, setCheckingEmail] = React.useState(false);
-  const [screenWidth, setScreenWidth] = React.useState(SCREEN_WIDTH);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  
+  React.useEffect(() => {
+    log.debug('[LoginScreen] Component mounted', 'AUTH', { theme: theme.primary });
+    return () => {
+      log.debug('[LoginScreen] Component unmounting', 'AUTH');
+    };
+  }, [theme]);
   
   // Get social icons
   const socialIcons = React.useMemo(() => getSocialIcons(), []);
   
-  // Update screen width on resize (web)
-  React.useEffect(() => {
-    if (Platform.OS === 'web') {
-      const handleResize = () => {
-        setScreenWidth(Dimensions.get('window').width);
-      };
-      
-      const subscription = Dimensions.addEventListener('change', handleResize);
-      return () => subscription?.remove();
-    }
-  }, []);
   
-  const isTabletOrDesktop = screenWidth >= 768;
-  const isLargeScreen = screenWidth >= 1024; // Only show image on larger screens
+  const breakpoint = useBreakpoint();
+  const isTabletOrDesktop = ['md', 'lg', 'xl', '2xl'].includes(breakpoint);
+  const isLargeScreen = ['lg', 'xl', '2xl'].includes(breakpoint); // Only show image on larger screens
   
   // Memoize mutation callbacks to prevent recreation on every render
   const onSuccess = useCallback(async (data: any) => {
@@ -134,7 +129,7 @@ export default function LoginScreenV2() {
   const deferredEmail = useDeferredValue(email);
   
   // Email validation using Zod
-  const emailSchema = z.string().email();
+  const emailSchema = useMemo(() => z.string().email(), []);
   const [shouldCheckEmail, setShouldCheckEmail] = React.useState(false);
   const [hasInteractedWithEmail, setHasInteractedWithEmail] = React.useState(false);
   
@@ -146,7 +141,7 @@ export default function LoginScreenV2() {
     } catch {
       return false;
     }
-  }, [deferredEmail]);
+  }, [deferredEmail, emailSchema]);
   
   // Only enable query when all conditions are met
   const enableQuery = shouldCheckEmail && isValidEmail && hasInteractedWithEmail;
@@ -161,7 +156,7 @@ export default function LoginScreenV2() {
       hasInteractedWithEmail,
       enableQuery,
     });
-  }, [email, isValidEmail, shouldCheckEmail, form.formState.touchedFields.email, hasInteractedWithEmail, enableQuery]);
+  }, [email, isValidEmail, shouldCheckEmail, form.formState.touchedFields.email, hasInteractedWithEmail, enableQuery, form]);
   
   // Use the query hook with strict conditions and deferred email
   const checkEmailQuery = api.auth.checkEmailExists.useQuery(
@@ -377,7 +372,7 @@ export default function LoginScreenV2() {
                 />
               }
               rightElement={
-                <Box flexDirection="row" alignItems="center" gap={2}>
+                <Box flexDirection="row" alignItems="center" gap={2 as SpacingScale}>
                   {form.formState.touchedFields.password && form.watch("password") && (
                     <ValidationIcon 
                       status={form.formState.errors.password ? 'error' : 'success'} 
@@ -401,7 +396,7 @@ export default function LoginScreenV2() {
               <TextLink 
                 href="/(auth)/forgot-password" 
                 size="sm"
-                variant="primary"
+                variant="default"
               >
                 Forgot your password?
               </TextLink>
@@ -431,7 +426,7 @@ export default function LoginScreenV2() {
             right={0} 
           />
           <Box alignItems="center">
-            <Box bgTheme="card" px={2}>
+            <Box bgTheme="card" px={2 as SpacingScale}>
               <Caption colorTheme="mutedForeground">Or continue with</Caption>
             </Box>
           </Box>
@@ -481,7 +476,7 @@ export default function LoginScreenV2() {
               href="/(auth)/register"
               size="sm"
               weight="medium"
-              variant="primary"
+              variant="default"
             >
               Register
             </TextLink>
@@ -493,7 +488,7 @@ export default function LoginScreenV2() {
 
   const imageColumn = (
     <LinearGradient
-      colors={['#e8e9eb', '#f2f3f5', '#fafbfc']}
+      colors={['#e8e9eb', '#f2f3f5', '#ffffff']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{
@@ -507,7 +502,7 @@ export default function LoginScreenV2() {
         flex={1}
         justifyContent="center"
         alignItems="center"
-        p={8}
+        p={8 as SpacingScale}
       >
         <VStack spacing={6} alignItems="center">
           {/* Rocket Emoji */}
@@ -578,7 +573,7 @@ export default function LoginScreenV2() {
   );
 
   const termsFooter = (
-    <Box p={4} maxWidth={isTabletOrDesktop ? 800 : 400} width="100%">
+    <Box p={4 as SpacingScale} maxWidth={isTabletOrDesktop ? 800 : 400} width="100%">
       <Text size="xs" colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
         By clicking continue, you agree to our{' '}
         <Text size="xs" colorTheme="foreground" style={{ textDecorationLine: 'underline' }}>
@@ -593,12 +588,21 @@ export default function LoginScreenV2() {
     </Box>
   );
 
-  const isMobile = screenWidth < 768;
+  const { isMobile } = useResponsive();
 
   // Mobile layout - no card, full screen with native feel
   if (isMobile) {
+// TODO: Replace with structured logging - console.log('[LoginScreen] Rendering mobile layout');
+// TODO: Replace with structured logging - console.log('[LoginScreen] Theme background:', theme.background);
     return (
-      <Box flex={1} bgTheme="background">
+      <View style={{ flex: 1, backgroundColor: theme.background }}>
+        {/* Debug info */}
+        <View style={{ position: 'absolute', top: 60, left: 20, right: 20, zIndex: 1000, backgroundColor: '#ffeb3b', padding: 10, borderRadius: 5 }}>
+          <Text style={{ fontSize: 16, color: '#000000', fontWeight: 'bold' }}>Login Screen Debug</Text>
+          <Text style={{ fontSize: 14, color: '#000000' }}>Email: johncena@gmail.com</Text>
+          <Text style={{ fontSize: 14, color: '#000000' }}>Password: any (e.g., &quot;password&quot;)</Text>
+        </View>
+        
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -619,25 +623,24 @@ export default function LoginScreenV2() {
             >
               <Box flex={1} justifyContent="center">
                 {/* Welcome Section with Logo */}
-                <Box px={6} pb={6} alignItems="center">
+                <Box px={6 as SpacingScale} pb={6} alignItems="center">
                   <Box style={{ marginBottom: 16, height: 60, justifyContent: 'center', alignItems: 'center' }}>
                     <Text style={{ fontSize: 56, lineHeight: 60 }}>⭐</Text>
                   </Box>
-                  <Heading1 style={{ fontSize: 32, textAlign: 'center' }}>Welcome back</Heading1>
+                  <Text style={{ fontSize: 32, textAlign: 'center', color: theme.foreground, fontWeight: 'bold' }}>Welcome back</Text>
                   <Text 
                     size="base" 
-                    colorTheme="mutedForeground" 
-                    style={{ textAlign: 'center', marginTop: 8 }}
+                    style={{ textAlign: 'center', marginTop: 8, color: theme.mutedForeground }}
                   >
                     Enter your credentials to access your account
                   </Text>
                 </Box>
 
                 {/* Form Section */}
-                <VStack px={6} spacing={6} pb={4}>
+                <VStack px={6 as SpacingScale} spacing={6} pb={4}>
                   {/* Email Field */}
                   <Box>
-                    <Text size="sm" weight="medium" colorTheme="foreground" mb={2}>
+                    <Text size="sm" weight="medium" style={{ color: theme.foreground, marginBottom: 8 }}>
                       Email
                     </Text>
                     <Input
@@ -693,7 +696,7 @@ export default function LoginScreenV2() {
 
                   {/* Password Field */}
                   <Box>
-                    <Text size="sm" weight="medium" colorTheme="foreground" mb={2}>
+                    <Text size="sm" weight="medium" style={{ color: theme.foreground, marginBottom: 8 }}>
                       Password
                     </Text>
                     <Input
@@ -722,7 +725,7 @@ export default function LoginScreenV2() {
                         />
                       }
                       rightElement={
-                        <Box flexDirection="row" alignItems="center" gap={2}>
+                        <Box flexDirection="row" alignItems="center" gap={2 as SpacingScale}>
                           {form.formState.touchedFields.password && form.watch("password") && (
                             <ValidationIcon 
                               status={form.formState.errors.password ? 'error' : 'success'} 
@@ -746,7 +749,7 @@ export default function LoginScreenV2() {
                       <TextLink 
                         href="/(auth)/forgot-password" 
                         size="sm"
-                        variant="primary"
+                        variant="default"
                       >
                         Forgot your password?
                       </TextLink>
@@ -775,7 +778,7 @@ export default function LoginScreenV2() {
                       right={0} 
                     />
                     <Box alignItems="center">
-                      <Box bgTheme="background" px={3}>
+                      <Box style={{ backgroundColor: theme.background }} px={3 as SpacingScale}>
                         <Caption colorTheme="mutedForeground">Or continue with</Caption>
                       </Box>
                     </Box>
@@ -826,7 +829,7 @@ export default function LoginScreenV2() {
                           href="/(auth)/register"
                           size="sm"
                           weight="semibold"
-                          variant="primary"
+                          variant="default"
                         >
                           Register
                         </TextLink>
@@ -839,11 +842,11 @@ export default function LoginScreenV2() {
             
             {/* Fixed Terms Footer */}
             <Box 
-              px={6} 
-              py={3} 
+              px={6 as SpacingScale} 
+              py={3 as SpacingScale} 
               borderTopWidth={1} 
               borderTheme="border"
-              bgTheme="background"
+              style={{ backgroundColor: theme.background }}
             >
               <Text size="xs" colorTheme="mutedForeground" style={{ textAlign: 'center', lineHeight: 18 }}>
                 By clicking continue, you agree to our{' '}
@@ -858,7 +861,7 @@ export default function LoginScreenV2() {
             </Box>
           </View>
         </KeyboardAvoidingView>
-      </Box>
+      </View>
     );
   }
 

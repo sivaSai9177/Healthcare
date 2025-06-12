@@ -41,6 +41,8 @@ export const AlertStatus = z.enum([
 ]);
 
 export type AlertStatus = z.infer<typeof AlertStatus>;
+export type UrgencyAssessment = z.infer<typeof UrgencyAssessment>;
+export type ResponseAction = z.infer<typeof ResponseAction>;
 
 // Notification Types
 export const NotificationType = z.enum([
@@ -147,9 +149,28 @@ export const CreateAlertSchema = z.object({
   hospitalId: z.string().uuid(),
 });
 
+// Urgency Assessment Options
+export const UrgencyAssessment = z.enum([
+  'maintain',
+  'increase', 
+  'decrease'
+]);
+
+// Response Action Options
+export const ResponseAction = z.enum([
+  'responding',      // Responding immediately
+  'delayed',         // Responding with delay
+  'delegating',      // Delegating to another staff member
+  'monitoring'       // Monitoring remotely
+]);
+
 export const AcknowledgeAlertSchema = z.object({
   alertId: z.string().uuid(),
-  notes: z.string().optional(),
+  urgencyAssessment: UrgencyAssessment,
+  responseAction: ResponseAction,
+  estimatedResponseTime: z.number().min(1).max(999).optional(), // in minutes, required for responding/delayed
+  delegateTo: z.string().uuid().optional(), // required when delegating
+  notes: z.string().min(1).max(500).optional(),
 });
 
 export const UpdateUserRoleSchema = z.object({

@@ -4,9 +4,9 @@
  */
 
 import { Platform } from 'react-native';
-import { mobileStorage, webStorage } from '../core/secure-storage';
+import { mobileStorage, webStorage } from '@/lib/core/platform/secure-storage';
 import { mobileTokenStore } from './mobile-token-store';
-import { log } from '../core/logger';
+import { log } from '@/lib/core/debug/logger';
 import type { Session, User } from 'better-auth/types';
 
 // Token storage keys

@@ -15,19 +15,19 @@ import {
   Input,
   ScrollContainer,
   Separator,
-  Sidebar07Trigger,
+  SidebarTrigger,
   SimpleBreadcrumb,
   Skeleton,
   Text,
   VStack,
 } from "@/components/universal";
 import { useAuth } from "@/hooks/useAuth";
-import { SpacingScale } from "@/lib/design-system";
-import { useTheme } from "@/lib/theme/theme-provider";
-import { api } from "@/lib/trpc";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { SpacingScale } from "@/lib/design";
+import { useTheme } from "@/lib/theme/provider";
+import { api } from "@/lib/api/trpc";
+// import { useRouter } from "expo-router";
 import React, { useState } from "react";
+import { Symbol } from '@/components/universal/Symbols';
 import {
   ActivityIndicator,
   Alert,
@@ -38,7 +38,7 @@ import {
 
 export default function AdminDashboard() {
   const theme = useTheme();
-  const router = useRouter();
+  // const router = useRouter();
   const { hasAccess, isLoading } = useRequireRole(["admin"], "/(home)");
   const { user, hasHydrated } = useAuth();
 
@@ -60,7 +60,7 @@ export default function AdminDashboard() {
   );
 
   // Fetch analytics data for error checking
-  const analyticsQuery = api.admin.getAnalytics.useQuery(
+  const { data: analyticsData } = api.admin.getAnalytics.useQuery(
     { timeRange: "month" },
     {
       enabled: !!user && user.role === "admin" && hasHydrated,
@@ -70,9 +70,7 @@ export default function AdminDashboard() {
   );
 
   // Safely access totalUsers with proper type checking
-  const totalUsers = userCountQuery.data && 'pagination' in userCountQuery.data 
-    ? userCountQuery.data.pagination.total 
-    : undefined;
+  const totalUsers = userCountQuery.data?.total;
 
 
 
@@ -81,28 +79,28 @@ export default function AdminDashboard() {
     {
       id: "overview",
       title: "Overview",
-      icon: "grid-outline" as keyof typeof Ionicons.glyphMap,
+      icon: "grid-outline",
     },
     {
       id: "users",
       title: "Users",
-      icon: "people-outline" as keyof typeof Ionicons.glyphMap,
+      icon: "people-outline",
       badge: totalUsers?.toString(),
     },
     {
       id: "analytics",
       title: "Analytics",
-      icon: "analytics-outline" as keyof typeof Ionicons.glyphMap,
+      icon: "analytics-outline",
     },
     {
       id: "audit",
       title: "Audit Logs",
-      icon: "document-text-outline" as keyof typeof Ionicons.glyphMap,
+      icon: "document-text-outline",
     },
     {
       id: "settings",
       title: "Settings",
-      icon: "settings-outline" as keyof typeof Ionicons.glyphMap,
+      icon: "settings-outline",
     },
   ];
 
@@ -215,8 +213,8 @@ export default function AdminDashboard() {
                     style={{ minWidth: 80 }}
                   >
                     <HStack spacing={2} alignItems="center">
-                      <Ionicons
-                        name={item.icon}
+                      <Symbol
+                        name={item.icon as any}
                         size={16}
                         color={
                           activeView === item.id
@@ -413,8 +411,8 @@ const OverviewContent: React.FC = () => {
               }
             >
               <HStack spacing={2} alignItems="center">
-                <Ionicons
-                  name="person-add-outline"
+                <Symbol
+                  name="person.badge.plus"
                   size={16}
                   color={theme.foreground}
                 />
@@ -431,8 +429,8 @@ const OverviewContent: React.FC = () => {
               }
             >
               <HStack spacing={2} alignItems="center">
-                <Ionicons
-                  name="download-outline"
+                <Symbol
+                  name="arrow.down.circle"
                   size={16}
                   color={theme.foreground}
                 />
@@ -471,9 +469,7 @@ const UsersContent: React.FC<{
   );
 
   // Safely access users data with proper type checking
-  const users = usersQuery.data && 'users' in usersQuery.data 
-    ? usersQuery.data.users 
-    : [];
+  const users = (usersQuery.data as any)?.users || [];
 
   return (
     <VStack spacing={4}>
@@ -499,7 +495,7 @@ const UsersContent: React.FC<{
       <Card>
         <CardHeader>
           <CardTitle>Users</CardTitle>
-          <CardDescription>{users.length} users found</CardDescription>
+          <CardDescription>{(users as any[]).length} users found</CardDescription>
         </CardHeader>
         <CardContent>
           {usersQuery.isLoading ? (
@@ -508,10 +504,10 @@ const UsersContent: React.FC<{
                 <Skeleton key={i} height={60} />
               ))}
             </VStack>
-          ) : users.length === 0 ? (
+          ) : (users as any[]).length === 0 ? (
             <Box py={8 as SpacingScale} alignItems="center">
-              <Ionicons
-                name="people-outline"
+              <Symbol
+                name="person.2"
                 size={48}
                 color={theme.mutedForeground}
               />
@@ -525,7 +521,7 @@ const UsersContent: React.FC<{
             </Box>
           ) : (
             <VStack spacing={3}>
-              {users.map((user: any) => (
+              {(users as any[]).map((user: any) => (
                 <Card key={user.id}>
                   <CardContent p={3 as SpacingScale}>
                     <HStack justifyContent="space-between" alignItems="center">
@@ -586,8 +582,8 @@ const AnalyticsContent: React.FC = () => {
       <Card>
         <CardContent p={8 as SpacingScale}>
           <Box alignItems="center">
-            <Ionicons
-              name="analytics-outline"
+            <Symbol
+              name="chart.bar" as any
               size={64}
               color={theme.mutedForeground}
             />
@@ -646,8 +642,8 @@ const AuditContent: React.FC = () => {
             </VStack>
           ) : auditLogs.length === 0 ? (
             <Box py={8 as SpacingScale} alignItems="center">
-              <Ionicons
-                name="document-text-outline"
+              <Symbol
+                name="doc.text" as any
                 size={48}
                 color={theme.mutedForeground}
               />
@@ -670,11 +666,11 @@ const AuditContent: React.FC = () => {
                     >
                       <VStack spacing={1} flex={1}>
                         <HStack spacing={2} alignItems="center">
-                          <Ionicons
+                          <Symbol
                             name={
                               log.outcome === "success"
-                                ? "checkmark-circle"
-                                : "close-circle"
+                                ? "checkmark.circle"
+                                : "xmark.circle"
                             }
                             size={20}
                             color={
@@ -730,8 +726,8 @@ const SettingsContent: React.FC = () => {
       <Card>
         <CardContent p={8 as SpacingScale}>
           <Box alignItems="center">
-            <Ionicons
-              name="settings-outline"
+            <Symbol
+              name="gearshape"
               size={64}
               color={theme.mutedForeground}
             />

@@ -7,13 +7,13 @@ import {
   Pressable,
   Dimensions,
 } from 'react-native';
-import { useTheme } from '@/lib/theme/theme-provider';
+import { useTheme } from '@/lib/theme/provider';
 import { Text } from './Text';
 import { Box } from './Box';
 import { HStack } from './Stack';
-import { Ionicons } from '@expo/vector-icons';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { SpacingScale } from '@/lib/design-system';
+import { Symbol } from './Symbols';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { SpacingScale } from '@/lib/design';
 
 export type ToastVariant = 'default' | 'success' | 'error' | 'warning' | 'info';
 export type ToastPosition = 'top' | 'bottom' | 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left';
@@ -62,11 +62,11 @@ const getToastColors = (variant: ToastVariant, theme: any) => {
       icon: theme.destructive,
     },
     warning: {
-      background: '#f59e0b' + '1a',
-      border: '#f59e0b',
+      background: 'theme.warning' + '1a',
+      border: 'theme.warning',
       text: theme.foreground,
       description: theme.mutedForeground,
-      icon: '#f59e0b',
+      icon: 'theme.warning',
     },
     info: {
       background: theme.primary + '1a',
@@ -80,12 +80,12 @@ const getToastColors = (variant: ToastVariant, theme: any) => {
   return colorMap[variant];
 };
 
-const variantIcons: Record<ToastVariant, keyof typeof Ionicons.glyphMap> = {
-  default: 'information-circle-outline',
-  success: 'checkmark-circle',
-  error: 'close-circle',
-  warning: 'warning',
-  info: 'information-circle',
+const variantIcons: Record<ToastVariant, string> = {
+  default: 'info.circle',
+  success: 'checkmark.circle.fill',
+  error: 'xmark.circle.fill',
+  warning: 'exclamationmark.triangle.fill',
+  info: 'info.circle.fill',
 };
 
 const Toast: React.FC<ToastProps> = ({
@@ -103,8 +103,26 @@ const Toast: React.FC<ToastProps> = ({
   const { spacing, componentSpacing } = useSpacing();
   const colors = getToastColors(variant, theme);
   
-  const translateY = React.useRef(new Animated.Value(100)).current;
+  const translateY = React.useRef(new Animated.Value(spacing[25])).current;
   const opacity = React.useRef(new Animated.Value(0)).current;
+
+  const handleClose = React.useCallback(() => {
+    Animated.parallel([
+      Animated.timing(translateY, {
+        toValue: position.includes('top') ? -spacing[25] : spacing[25],
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onHide();
+      onClose?.();
+    });
+  }, [onClose, onHide, opacity, position, spacing, translateY]);
 
   React.useEffect(() => {
     // Animate in
@@ -128,28 +146,10 @@ const Toast: React.FC<ToastProps> = ({
       }, duration);
       return () => clearTimeout(timer);
     }
-  }, []);
-
-  const handleClose = () => {
-    Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: position.includes('top') ? -100 : 100,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onHide();
-      onClose?.();
-    });
-  };
+  }, [duration, handleClose]);
 
   const iconElement = icon || (
-    <Ionicons
+    <Symbol
       name={variantIcons[variant]}
       size={componentSpacing.iconSize.lg}
       color={colors.icon}
@@ -171,10 +171,10 @@ const Toast: React.FC<ToastProps> = ({
           backgroundColor: colors.background,
           borderWidth: 1,
           borderColor: colors.border,
-          boxShadow: '0px 2px 3px rgba(0, 0, 0, 0.1)',
+          boxShadow: Platform.OS === 'web' ? `0px 2px 3px ${theme.border}40` : undefined,
           elevation: 3,
-          minWidth: 300,
-          maxWidth: 400,
+          minWidth: spacing[75], // ~300px
+          maxWidth: spacing[100], // ~400px
         }}
       >
         <HStack spacing={3 as SpacingScale} alignItems="flex-start">
@@ -230,8 +230,7 @@ const Toast: React.FC<ToastProps> = ({
               hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
             >
               {({ pressed }) => (
-                <Ionicons
-                  name="close"
+                <Symbol name="xmark"
                   size={componentSpacing.iconSize.md}
                   color={colors.icon}
                   style={{ opacity: pressed ? 0.7 : 1 }}
@@ -259,7 +258,22 @@ export const useToast = () => {
   if (!context) {
     throw new Error('useToast must be used within ToastProvider');
   }
-  return context;
+  
+  return {
+    ...context,
+    success: (title: string, description?: string, config?: Partial<ToastConfig>) => {
+      context.show({ ...config, title, description, variant: 'success' });
+    },
+    error: (title: string, description?: string, config?: Partial<ToastConfig>) => {
+      context.show({ ...config, title, description, variant: 'error' });
+    },
+    warning: (title: string, description?: string, config?: Partial<ToastConfig>) => {
+      context.show({ ...config, title, description, variant: 'warning' });
+    },
+    info: (title: string, description?: string, config?: Partial<ToastConfig>) => {
+      context.show({ ...config, title, description, variant: 'info' });
+    },
+  };
 };
 
 interface ToastProviderProps {
@@ -364,22 +378,3 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({
   );
 };
 
-// Convenience methods
-export const toast = {
-  success: (title: string, description?: string, config?: Partial<ToastConfig>) => {
-    const context = React.useContext(ToastContext);
-    context?.show({ ...config, title, description, variant: 'success' });
-  },
-  error: (title: string, description?: string, config?: Partial<ToastConfig>) => {
-    const context = React.useContext(ToastContext);
-    context?.show({ ...config, title, description, variant: 'error' });
-  },
-  warning: (title: string, description?: string, config?: Partial<ToastConfig>) => {
-    const context = React.useContext(ToastContext);
-    context?.show({ ...config, title, description, variant: 'warning' });
-  },
-  info: (title: string, description?: string, config?: Partial<ToastConfig>) => {
-    const context = React.useContext(ToastContext);
-    context?.show({ ...config, title, description, variant: 'info' });
-  },
-};

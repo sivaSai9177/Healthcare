@@ -1,10 +1,10 @@
-import { pgTable, uuid, varchar, integer, timestamp, text, check, boolean, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, integer, timestamp, text, check, boolean, jsonb, index } from 'drizzle-orm/pg-core';
 import { users } from './schema';
 import { sql } from 'drizzle-orm';
 
 // Healthcare-specific user fields (extends base users table)
 export const healthcareUsers = pgTable('healthcare_users', {
-  userId: uuid('user_id').primaryKey().references(() => users.id),
+  userId: text('user_id').primaryKey().references(() => users.id),
   hospitalId: varchar('hospital_id', { length: 255 }).notNull(),
   licenseNumber: varchar('license_number', { length: 100 }),
   department: varchar('department', { length: 100 }),
@@ -37,15 +37,19 @@ export const alerts = pgTable('alerts', {
   alertType: varchar('alert_type', { length: 50 }).notNull(),
   urgencyLevel: integer('urgency_level').notNull(),
   description: text('description'),
-  createdBy: uuid('created_by').references(() => users.id).notNull(),
+  createdBy: text('created_by').references(() => users.id).notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   status: varchar('status', { length: 20 }).default('active').notNull(),
-  acknowledgedBy: uuid('acknowledged_by').references(() => users.id),
+  acknowledgedBy: text('acknowledged_by').references(() => users.id),
   acknowledgedAt: timestamp('acknowledged_at'),
   escalationLevel: integer('escalation_level').default(1),
+  currentEscalationTier: integer('current_escalation_tier').default(1),
   nextEscalationAt: timestamp('next_escalation_at'),
   resolvedAt: timestamp('resolved_at'),
   hospitalId: uuid('hospital_id').references(() => hospitals.id).notNull(),
+  patientId: uuid('patient_id'),
+  handoverNotes: text('handover_notes'),
+  responseMetrics: jsonb('response_metrics'),
 }, (table) => ({
   alertTypeCheck: check('alert_type_check', sql`${table.alertType} IN ('cardiac_arrest', 'code_blue', 'fire', 'security', 'medical_emergency')`),
   urgencyLevelCheck: check('urgency_level_check', sql`${table.urgencyLevel} BETWEEN 1 AND 5`),
@@ -56,8 +60,8 @@ export const alerts = pgTable('alerts', {
 export const alertEscalations = pgTable('alert_escalations', {
   id: uuid('id').primaryKey().defaultRandom(),
   alertId: uuid('alert_id').references(() => alerts.id).notNull(),
-  fromRole: varchar('from_role', { length: 50 }).notNull(),
-  toRole: varchar('to_role', { length: 50 }).notNull(),
+  from_role: varchar('from_role', { length: 50 }).notNull(),
+  to_role: varchar('to_role', { length: 50 }).notNull(),
   escalatedAt: timestamp('escalated_at').defaultNow(),
   reason: varchar('reason', { length: 255 }),
 });
@@ -66,32 +70,25 @@ export const alertEscalations = pgTable('alert_escalations', {
 export const alertAcknowledgments = pgTable('alert_acknowledgments', {
   id: uuid('id').primaryKey().defaultRandom(),
   alertId: uuid('alert_id').references(() => alerts.id).notNull(),
-  userId: uuid('user_id').references(() => users.id).notNull(),
+  userId: text('user_id').references(() => users.id).notNull(),
   acknowledgedAt: timestamp('acknowledged_at').defaultNow(),
   responseTimeSeconds: integer('response_time_seconds'),
   notes: text('notes'),
-});
-
-// Notification logs
-export const notificationLogs = pgTable('notification_logs', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  alertId: uuid('alert_id').references(() => alerts.id).notNull(),
-  userId: uuid('user_id').references(() => users.id).notNull(),
-  notificationType: varchar('notification_type', { length: 20 }).notNull(),
-  sentAt: timestamp('sent_at').defaultNow(),
-  deliveredAt: timestamp('delivered_at'),
-  openedAt: timestamp('opened_at'),
-  status: varchar('status', { length: 20 }).notNull(),
-  errorMessage: text('error_message'),
+  // New fields for comprehensive acknowledgment
+  urgencyAssessment: varchar('urgency_assessment', { length: 20 }),
+  responseAction: varchar('response_action', { length: 20 }),
+  estimatedResponseTime: integer('estimated_response_time'), // in minutes
+  delegatedTo: text('delegated_to').references(() => users.id),
 }, (table) => ({
-  notificationTypeCheck: check('notification_type_check', sql`${table.notificationType} IN ('push', 'sms', 'email', 'in_app')`),
-  statusCheck: check('status_check', sql`${table.status} IN ('sent', 'delivered', 'failed', 'opened')`),
+  responseActionIdx: index('idx_alert_acknowledgments_response_action').on(table.responseAction),
+  delegatedToIdx: index('idx_alert_acknowledgments_delegated_to').on(table.delegatedTo),
 }));
+
 
 // Healthcare audit logs (extends base audit logging)
 export const healthcareAuditLogs = pgTable('healthcare_audit_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').references(() => users.id).notNull(),
+  userId: text('user_id').references(() => users.id).notNull(),
   action: varchar('action', { length: 100 }).notNull(),
   entityType: varchar('entity_type', { length: 50 }).notNull(),
   entityId: uuid('entity_id').notNull(),
@@ -103,8 +100,8 @@ export const healthcareAuditLogs = pgTable('healthcare_audit_logs', {
   userAgent: text('user_agent'),
   hospitalId: uuid('hospital_id').references(() => hospitals.id),
 }, (table) => ({
-  actionCheck: check('action_check', sql`${table.action} IN ('alert_created', 'alert_acknowledged', 'alert_escalated', 'alert_resolved', 'user_login', 'user_logout', 'permission_changed', 'role_changed')`),
-  entityTypeCheck: check('entity_type_check', sql`${table.entityType} IN ('alert', 'user', 'system', 'permission')`),
+  actionCheck: check('action_check', sql`${table.action} IN ('alert_created', 'alert_acknowledged', 'alert_escalated', 'alert_resolved', 'alert_transferred', 'bulk_alert_acknowledged', 'user_login', 'user_logout', 'permission_changed', 'role_changed', 'patient_created', 'patient_updated', 'patient_discharged', 'vitals_recorded', 'care_team_assigned')`),
+  entityTypeCheck: check('entity_type_check', sql`${table.entityType} IN ('alert', 'user', 'system', 'permission', 'patient')`),
 }));
 
 // Departments
@@ -113,7 +110,7 @@ export const departments = pgTable('departments', {
   hospitalId: uuid('hospital_id').references(() => hospitals.id).notNull(),
   name: varchar('name', { length: 100 }).notNull(),
   description: text('description'),
-  headDoctorId: uuid('head_doctor_id').references(() => users.id),
+  headDoctorId: text('head_doctor_id').references(() => users.id),
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
 });
@@ -121,7 +118,7 @@ export const departments = pgTable('departments', {
 // Shift schedules
 export const shiftSchedules = pgTable('shift_schedules', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').references(() => users.id).notNull(),
+  userId: text('user_id').references(() => users.id).notNull(),
   hospitalId: uuid('hospital_id').references(() => hospitals.id).notNull(),
   departmentId: uuid('department_id').references(() => departments.id),
   shiftDate: timestamp('shift_date').notNull(),
@@ -145,6 +142,28 @@ export const alertMetrics = pgTable('alert_metrics', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// Patient alerts junction table (moved here after alerts table)
+export const patientAlerts = pgTable('patient_alerts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  patientId: uuid('patient_id').notNull(),
+  alertId: uuid('alert_id').references(() => alerts.id).notNull(),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// Alert timeline events for full lifecycle tracking
+export const alertTimelineEvents = pgTable('alert_timeline_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  alertId: uuid('alert_id').references(() => alerts.id).notNull(),
+  eventType: varchar('event_type', { length: 50 }).notNull(),
+  eventTime: timestamp('event_time').defaultNow(),
+  userId: text('user_id').references(() => users.id),
+  description: text('description'),
+  metadata: jsonb('metadata'),
+}, (table) => ({
+  eventTypeCheck: check('event_type_check', sql`${table.eventType} IN ('created', 'viewed', 'acknowledged', 'escalated', 'transferred', 'resolved', 'reopened', 'commented')`),
+}));
+
 // Export all healthcare tables
 export const healthcareTables = {
   healthcareUsers,
@@ -152,11 +171,12 @@ export const healthcareTables = {
   alerts,
   alertEscalations,
   alertAcknowledgments,
-  notificationLogs,
   healthcareAuditLogs,
   departments,
   shiftSchedules,
   alertMetrics,
+  patientAlerts,
+  alertTimelineEvents,
 };
 
 // Type exports for TypeScript
@@ -170,8 +190,6 @@ export type AlertEscalation = typeof alertEscalations.$inferSelect;
 export type NewAlertEscalation = typeof alertEscalations.$inferInsert;
 export type AlertAcknowledgment = typeof alertAcknowledgments.$inferSelect;
 export type NewAlertAcknowledgment = typeof alertAcknowledgments.$inferInsert;
-export type NotificationLog = typeof notificationLogs.$inferSelect;
-export type NewNotificationLog = typeof notificationLogs.$inferInsert;
 export type HealthcareAuditLog = typeof healthcareAuditLogs.$inferSelect;
 export type NewHealthcareAuditLog = typeof healthcareAuditLogs.$inferInsert;
 export type Department = typeof departments.$inferSelect;
@@ -180,3 +198,7 @@ export type ShiftSchedule = typeof shiftSchedules.$inferSelect;
 export type NewShiftSchedule = typeof shiftSchedules.$inferInsert;
 export type AlertMetric = typeof alertMetrics.$inferSelect;
 export type NewAlertMetric = typeof alertMetrics.$inferInsert;
+export type PatientAlert = typeof patientAlerts.$inferSelect;
+export type NewPatientAlert = typeof patientAlerts.$inferInsert;
+export type AlertTimelineEvent = typeof alertTimelineEvents.$inferSelect;
+export type NewAlertTimelineEvent = typeof alertTimelineEvents.$inferInsert;

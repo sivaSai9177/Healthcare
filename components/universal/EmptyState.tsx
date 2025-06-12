@@ -1,16 +1,36 @@
-import React from 'react';
-import { View, ViewStyle } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, ViewStyle, Platform } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withDelay,
+  withSequence,
+  FadeIn,
+  ZoomIn,
+  SlideInUp,
+} from 'react-native-reanimated';
 import { Text, Heading3 } from './Text';
 import { Button } from './Button';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { Symbol } from './Symbols';
+import { 
+  AnimationVariant,
+  getAnimationConfig,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+
+
+export type EmptyStateAnimationType = 'fadeIn' | 'iconBounce' | 'stagger' | 'none';
 
 export interface EmptyStateProps {
   title?: string;
   description?: string;
   icon?: React.ReactNode;
-  iconName?: keyof typeof Ionicons.glyphMap;
+  iconName?: keyof typeof any;
   iconSize?: number;
   action?: {
     label: string;
@@ -23,6 +43,19 @@ export interface EmptyStateProps {
   variant?: 'default' | 'compact' | 'large';
   style?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: EmptyStateAnimationType;
+  animationDuration?: number;
+  animationDelay?: number;
+  iconBounceHeight?: number;
+  staggerDelay?: number;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const EmptyState = React.forwardRef<View, EmptyStateProps>(
@@ -38,11 +71,74 @@ export const EmptyState = React.forwardRef<View, EmptyStateProps>(
       variant = 'default',
       style,
       testID,
+      // Animation props
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'stagger',
+      animationDuration,
+      animationDelay = 0,
+      iconBounceHeight = 20,
+      staggerDelay = 100,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
     const { spacing } = useSpacing();
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
+    
+    const duration = animationDuration ?? config.duration.normal;
+    
+    // Animation values
+    const iconTranslateY = useSharedValue(0);
+    const iconScale = useSharedValue(1);
+    const opacity = useSharedValue(0);
+    
+    // Trigger animations on mount
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate()) {
+        if (animationType === 'iconBounce') {
+          // Icon bounce animation
+          iconTranslateY.value = withDelay(
+            animationDelay,
+            withSequence(
+              withSpring(-iconBounceHeight, { ...config.spring, damping: 8 }),
+              withSpring(0, config.spring)
+            )
+          );
+          iconScale.value = withDelay(
+            animationDelay,
+            withSequence(
+              withTiming(1.1, { duration: duration / 4 }),
+              withSpring(1, config.spring)
+            )
+          );
+        }
+        
+        if (animationType === 'fadeIn') {
+          opacity.value = withDelay(
+            animationDelay,
+            withTiming(1, { duration })
+          );
+        }
+      }
+    }, [animated, isAnimated, shouldAnimate, animationType, animationDelay, iconBounceHeight, duration, config.spring]);
+    
+    // Animated styles
+    const iconAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [
+        { translateY: iconTranslateY.value },
+        { scale: iconScale.value },
+      ],
+    }));
+    
+    const fadeAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: opacity.value,
+    }));
 
     const sizeConfig = {
       compact: {
@@ -87,11 +183,7 @@ export const EmptyState = React.forwardRef<View, EmptyStateProps>(
     };
 
     const renderIcon = () => {
-      if (icon) {
-        return icon;
-      }
-
-      return (
+      const iconContent = icon || (
         <View
           style={{
             width: sizeConfig.iconSize + spacing(4),
@@ -102,20 +194,85 @@ export const EmptyState = React.forwardRef<View, EmptyStateProps>(
             justifyContent: 'center',
           }}
         >
-          <Ionicons
-            name={iconName}
+          <Symbol
+            name="iconName"
             size={iconSize || sizeConfig.iconSize}
             color={theme.mutedForeground}
           />
         </View>
       );
+
+      if (animated && isAnimated && shouldAnimate() && (animationType === 'iconBounce' || animationType === 'stagger')) {
+        return (
+          <Animated.View 
+            style={[
+              animationType === 'iconBounce' ? iconAnimatedStyle : {},
+            ]}
+            entering={Platform.OS !== 'web' && animationType === 'stagger' 
+              ? ZoomIn.duration(duration).delay(animationDelay) 
+              : undefined
+            }
+          >
+            {iconContent}
+          </Animated.View>
+        );
+      }
+
+      return iconContent;
     };
 
-    return (
-      <View ref={ref} style={containerStyle} testID={testID}>
-        <View style={iconContainerStyle}>{renderIcon()}</View>
+    // Get stagger delays for each element
+    const getStaggerDelay = (index: number) => 
+      animationType === 'stagger' ? animationDelay + (index * staggerDelay) : animationDelay;
 
-        <View style={textContainerStyle}>
+    // Web CSS animations
+    const webAnimationStyle = Platform.OS === 'web' && animated && isAnimated && shouldAnimate() ? {
+      '@keyframes fadeIn': {
+        from: { opacity: 0 },
+        to: { opacity: 1 },
+      },
+      '@keyframes bounceIn': {
+        '0%': { transform: 'scale(0.3) translateY(20px)', opacity: 0 },
+        '50%': { transform: 'scale(1.05) translateY(-10px)' },
+        '70%': { transform: 'scale(0.9) translateY(5px)' },
+        '100%': { transform: 'scale(1) translateY(0px)', opacity: 1 },
+      },
+    } as any : {};
+
+    const AnimatedContainer = animated && isAnimated && shouldAnimate() && animationType === 'fadeIn' 
+      ? Animated.View 
+      : View;
+
+    return (
+      <AnimatedContainer 
+        ref={ref} 
+        style={[
+          containerStyle,
+          animated && isAnimated && shouldAnimate() && animationType === 'fadeIn' ? fadeAnimatedStyle : {},
+          Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && animationType === 'fadeIn' ? {
+            animation: `fadeIn ${duration}ms ease-out ${animationDelay}ms backwards`,
+          } as any : {},
+          webAnimationStyle,
+        ]} 
+        testID={testID}
+      >
+        <Animated.View 
+          style={iconContainerStyle}
+          entering={Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() && animationType === 'stagger' 
+            ? FadeIn.duration(duration).delay(getStaggerDelay(0)) 
+            : undefined
+          }
+        >
+          {renderIcon()}
+        </Animated.View>
+
+        <Animated.View 
+          style={textContainerStyle}
+          entering={Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() && animationType === 'stagger' 
+            ? SlideInUp.duration(duration).delay(getStaggerDelay(1)) 
+            : undefined
+          }
+        >
           <Heading3
             size={sizeConfig.titleSize}
             colorTheme="foreground"
@@ -132,15 +289,22 @@ export const EmptyState = React.forwardRef<View, EmptyStateProps>(
               {description}
             </Text>
           )}
-        </View>
+        </Animated.View>
 
         {(action || secondaryAction) && (
-          <View style={actionContainerStyle}>
+          <Animated.View 
+            style={actionContainerStyle}
+            entering={Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() && animationType === 'stagger' 
+              ? SlideInUp.duration(duration).delay(getStaggerDelay(2)) 
+              : undefined
+            }
+          >
             {secondaryAction && (
               <Button
                 variant="outline"
                 size={variant === 'compact' ? 'sm' : 'md'}
                 onPress={secondaryAction.onPress}
+                animated={animated}
               >
                 {secondaryAction.label}
               </Button>
@@ -150,13 +314,14 @@ export const EmptyState = React.forwardRef<View, EmptyStateProps>(
                 variant="solid"
                 size={variant === 'compact' ? 'sm' : 'md'}
                 onPress={action.onPress}
+                animated={animated}
               >
                 {action.label}
               </Button>
             )}
-          </View>
+          </Animated.View>
         )}
-      </View>
+      </AnimatedContainer>
     );
   }
 );
@@ -167,7 +332,7 @@ EmptyState.displayName = 'EmptyState';
 export const NoDataEmptyState: React.FC<Omit<EmptyStateProps, 'title' | 'iconName'>> = (props) => (
   <EmptyState
     title="No data found"
-    description="There's no data to display at the moment."
+    description="There&apos;s no data to display at the moment."
     iconName="folder-open-outline"
     {...props}
   />
@@ -176,7 +341,7 @@ export const NoDataEmptyState: React.FC<Omit<EmptyStateProps, 'title' | 'iconNam
 export const NoResultsEmptyState: React.FC<Omit<EmptyStateProps, 'title' | 'iconName'>> = (props) => (
   <EmptyState
     title="No results found"
-    description="Try adjusting your search or filters to find what you're looking for."
+    description="Try adjusting your search or filters to find what you&apos;re looking for."
     iconName="search-outline"
     {...props}
   />
@@ -185,7 +350,7 @@ export const NoResultsEmptyState: React.FC<Omit<EmptyStateProps, 'title' | 'icon
 export const ErrorEmptyState: React.FC<Omit<EmptyStateProps, 'title' | 'iconName'>> = (props) => (
   <EmptyState
     title="Something went wrong"
-    description="We couldn't load the data. Please try again."
+    description="We couldn&apos;t load the data. Please try again."
     iconName="alert-circle-outline"
     action={{ label: 'Retry', onPress: () => {} }}
     {...props}
@@ -205,7 +370,7 @@ export const OfflineEmptyState: React.FC<Omit<EmptyStateProps, 'title' | 'iconNa
 export const NoAccessEmptyState: React.FC<Omit<EmptyStateProps, 'title' | 'iconName'>> = (props) => (
   <EmptyState
     title="Access denied"
-    description="You don't have permission to view this content."
+    description="You don&apos;t have permission to view this content."
     iconName="lock-closed-outline"
     {...props}
   />

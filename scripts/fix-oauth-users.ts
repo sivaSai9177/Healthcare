@@ -58,15 +58,17 @@ async function fixOAuthUsers() {
         .where(eq(userTable.id, user.id))
         .returning();
 
-// TODO: Replace with structured logging - console.log(`✅ Updated ${updatedUser.email}:`, {
-        id: updatedUser.id,
-        role: updatedUser.role,
-        needsProfileCompletion: updatedUser.needsProfileCompletion,
-      });
+      // TODO: Replace with structured logging
+      // console.log(`✅ Updated ${updatedUser.email}:`, {
+      //   id: updatedUser.id,
+      //   role: updatedUser.role,
+      //   needsProfileCompletion: updatedUser.needsProfileCompletion,
+      // });
     }
 
-// TODO: Replace with structured logging - console.log(`\n🎉 Successfully updated ${usersToFix.length} users!`);
-// TODO: Replace with structured logging - console.log('These users will now be prompted to complete their profile on next login.');
+    // TODO: Replace with structured logging
+    // console.log(`\n🎉 Successfully updated ${usersToFix.length} users!`);
+    // console.log('These users will now be prompted to complete their profile on next login.');
 
   } catch (error) {
     console.error('❌ Error fixing OAuth users:', error);

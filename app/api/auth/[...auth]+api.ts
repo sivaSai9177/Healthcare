@@ -22,11 +22,12 @@ async function handler(request: Request) {
 
   try {
     // Debug logging
-// TODO: Replace with structured logging - console.log('[AUTH API] Request received:', {
-      url: request.url,
-      method: request.method,
-      headers: Object.fromEntries(request.headers.entries()),
-    });
+    // TODO: Replace with structured logging
+    // console.log('[AUTH API] Request received:', {
+    //   url: request.url,
+    //   method: request.method,
+    //   headers: Object.fromEntries(request.headers.entries()),
+    // });
     
     // Log request body if POST
     if (request.method === 'POST' && request.headers.get('content-type')?.includes('application/json')) {
@@ -102,7 +103,7 @@ async function handler(request: Request) {
                   background: white;
                   border-radius: 12px;
                   padding: 40px 20px;
-                  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                  box-shadow: 0 4px 20px theme.mutedForeground + "10";
                   max-width: 400px;
                   margin: 0 auto;
                 }
@@ -154,7 +155,7 @@ async function handler(request: Request) {
                   background: white;
                   border-radius: 12px;
                   padding: 40px 20px;
-                  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                  box-shadow: 0 4px 20px theme.mutedForeground + "10";
                   max-width: 400px;
                   margin: 0 auto;
                 }

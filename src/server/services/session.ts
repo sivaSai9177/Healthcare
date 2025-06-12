@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { db } from '@/src/db';
-import { session, user } from '@/src/db/schema';
-import { eq, and, lt, gte, count, desc } from 'drizzle-orm';
+import { session } from '@/src/db/schema';
+import { eq, and, lt, count, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import crypto from 'crypto';
-import { auditService, AuditAction, AuditOutcome } from './audit';
+import { auditService, AuditAction, AuditOutcome, AuditSeverity } from './audit';
 
 // Session configuration
 const SESSION_CONFIG = {
@@ -46,7 +46,7 @@ interface SessionValidationResult {
 
 export class SessionService {
   private static instance: SessionService;
-  private cleanupInterval: NodeJS.Timeout | null = null;
+  private cleanupInterval: NodeJS.Timeout | number | null = null;
 
   private constructor() {
     this.startCleanupProcess();
@@ -139,7 +139,7 @@ export class SessionService {
           isSuspicious,
           sessionType: context.sessionType,
         },
-        severity: isSuspicious ? 'WARNING' : 'INFO',
+        severity: isSuspicious ? AuditSeverity.WARNING : AuditSeverity.INFO,
         alertGenerated: isSuspicious,
       }, {
         userId,
@@ -264,7 +264,7 @@ export class SessionService {
           entityId: sessionId,
           description: `Session revoked: ${reason}`,
           metadata: { reason },
-          severity: reason.includes('security') ? 'WARNING' : 'INFO',
+          severity: reason.includes('security') ? AuditSeverity.WARNING : AuditSeverity.INFO,
         }, {
           userId: sessionRecord.userId,
           sessionId,
@@ -354,7 +354,7 @@ export class SessionService {
           entityId: userId,
           description: `All user sessions revoked (${revokedCount} sessions)`,
           metadata: { revokedCount, keepCurrent: !!currentSessionId },
-          severity: 'INFO',
+          severity: AuditSeverity.INFO,
         });
       }
 

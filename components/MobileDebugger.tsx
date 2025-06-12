@@ -77,10 +77,11 @@ export function MobileDebugger() {
       }, 0);
     };
 
-// TODO: Replace with structured logging - console.log = (...args) => {
-      originalConsole.log(...args);
-      addLog('info', args);
-    };
+    // TODO: Replace with structured logging
+    // console.log = (...args) => {
+    //   originalConsole.log(...args);
+    //   addLog('info', args);
+    // };
 
     console.error = (...args) => {
       originalConsole.error(...args);
@@ -104,7 +105,8 @@ export function MobileDebugger() {
 
     // Cleanup
     return () => {
-// TODO: Replace with structured logging - console.log = originalConsole.log;
+      // TODO: Replace with structured logging
+      // console.log = originalConsole.log;
       console.error = originalConsole.error;
       console.warn = originalConsole.warn;
       console.info = originalConsole.info;

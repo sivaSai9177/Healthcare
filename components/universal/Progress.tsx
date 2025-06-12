@@ -1,12 +1,30 @@
-import React from 'react';
-import { View, ViewStyle, Animated } from 'react-native';
-import { useTheme } from '@/lib/theme/theme-provider';
+import React, { useEffect } from 'react';
+import { View, ViewStyle, Platform } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withRepeat,
+  withSequence,
+  interpolate,
+  Easing,
+} from 'react-native-reanimated';
+import { useTheme } from '@/lib/theme/provider';
 import { Box } from './Box';
 import { Text } from './Text';
-import { useSpacing } from '@/contexts/SpacingContext';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { 
+  AnimationVariant,
+  getAnimationConfig,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
 
 export type ProgressSize = 'xs' | 'sm' | 'md' | 'lg';
 export type ProgressVariant = 'default' | 'primary' | 'success' | 'warning' | 'error';
+export type ProgressAnimationType = 'smooth' | 'spring' | 'pulse' | 'none';
 
 export interface ProgressProps {
   value: number; // 0-100
@@ -14,11 +32,23 @@ export interface ProgressProps {
   size?: ProgressSize;
   variant?: ProgressVariant;
   showValue?: boolean;
-  animated?: boolean;
   indeterminate?: boolean;
   style?: ViewStyle;
   trackStyle?: ViewStyle;
   fillStyle?: ViewStyle;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: ProgressAnimationType;
+  animationDuration?: number;
+  pulseIntensity?: number;
+  onComplete?: () => void;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 // Theme-aware color mapping
@@ -37,8 +67,8 @@ const getProgressColors = (variant: ProgressVariant, theme: any) => {
       fill: theme.success,
     },
     warning: {
-      track: '#f59e0b' + '33',
-      fill: '#f59e0b',
+      track: 'theme.warning' + '33',
+      fill: 'theme.warning',
     },
     error: {
       track: theme.destructive + '33',
@@ -55,88 +85,149 @@ export const Progress = React.forwardRef<View, ProgressProps>(({
   size = 'md',
   variant = 'primary',
   showValue = false,
-  animated = true,
   indeterminate = false,
   style,
   trackStyle,
   fillStyle,
+  // Animation props
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'smooth',
+  animationDuration,
+  pulseIntensity = 0.1,
+  onComplete,
+  useHaptics = true,
+  animationConfig,
 }, ref) => {
   const theme = useTheme();
   const { spacing, componentSpacing } = useSpacing();
   const colors = getProgressColors(variant, theme);
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
   
-  const animatedValue = React.useRef(new Animated.Value(0)).current;
-  const indeterminateAnimation = React.useRef(new Animated.Value(0)).current;
-  
+  const duration = animationDuration ?? config.duration.normal;
   const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
+  
+  // Animation values
+  const progress = useSharedValue(0);
+  const indeterminateProgress = useSharedValue(0);
+  const pulseOpacity = useSharedValue(1);
+  
+  // Track previous value for completion detection
+  const [prevPercentage, setPrevPercentage] = React.useState(percentage);
 
   // Size configuration
   const sizeConfig = {
-    xs: { height: 2, fontSize: 'xs' as const },
-    sm: { height: 4, fontSize: 'sm' as const },
-    md: { height: 8, fontSize: 'sm' as const },
-    lg: { height: 12, fontSize: 'md' as const },
+    xs: { height: spacing[0.5], fontSize: 'xs' as const },
+    sm: { height: spacing[1], fontSize: 'sm' as const },
+    md: { height: spacing[2], fontSize: 'sm' as const },
+    lg: { height: spacing[3], fontSize: 'md' as const },
   };
 
-  const config = sizeConfig[size];
+  const sizeConf = sizeConfig[size];
 
   // Animate progress value changes
-  React.useEffect(() => {
-    if (animated && !indeterminate) {
-      Animated.timing(animatedValue, {
-        toValue: percentage,
-        duration: 300,
-        useNativeDriver: false,
-      }).start();
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate() && !indeterminate) {
+      if (animationType === 'smooth') {
+        progress.value = withTiming(percentage, { 
+          duration,
+          easing: Easing.inOut(Easing.ease),
+        });
+      } else if (animationType === 'spring') {
+        progress.value = withSpring(percentage, config.spring);
+      }
+      
+      // Trigger pulse animation
+      if (animationType === 'pulse') {
+        pulseOpacity.value = withRepeat(
+          withSequence(
+            withTiming(1 - pulseIntensity, { duration: duration / 2 }),
+            withTiming(1, { duration: duration / 2 })
+          ),
+          -1,
+          true
+        );
+      }
+      
+      // Check for completion
+      if (percentage === 100 && prevPercentage < 100) {
+        if (useHaptics && Platform.OS !== 'web') {
+          haptic('success');
+        }
+        onComplete?.();
+      }
     } else if (!indeterminate) {
-      animatedValue.setValue(percentage);
+      progress.value = percentage;
     }
-  }, [percentage, animated, indeterminate]);
+    setPrevPercentage(percentage);
+  }, [percentage, animated, isAnimated, shouldAnimate, indeterminate, animationType, duration, pulseIntensity, config.spring, prevPercentage, onComplete, useHaptics]);
 
   // Indeterminate animation
-  React.useEffect(() => {
-    if (indeterminate) {
-      const animation = Animated.loop(
-        Animated.sequence([
-          Animated.timing(indeterminateAnimation, {
-            toValue: 1,
-            duration: 1500,
-            useNativeDriver: false,
-          }),
-          Animated.timing(indeterminateAnimation, {
-            toValue: 0,
-            duration: 0,
-            useNativeDriver: false,
-          }),
-        ])
+  useEffect(() => {
+    if (indeterminate && animated && isAnimated && shouldAnimate()) {
+      indeterminateProgress.value = withRepeat(
+        withTiming(1, {
+          duration: 1500,
+          easing: Easing.linear,
+        }),
+        -1,
+        false
       );
-      animation.start();
-      return () => animation.stop();
     }
-  }, [indeterminate]);
+  }, [indeterminate, animated, isAnimated, shouldAnimate]);
 
-  const widthInterpolation = animatedValue.interpolate({
-    inputRange: [0, 100],
-    outputRange: ['0%', '100%'],
-  });
+  // Animated styles
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progress.value}%`,
+  }));
 
-  const indeterminateTranslation = indeterminateAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['-100%', '100%'],
-  });
+  const indeterminateStyle = useAnimatedStyle(() => ({
+    transform: [{
+      translateX: interpolate(
+        indeterminateProgress.value,
+        [0, 1],
+        [-100, 300] // Move from -100% to 300% of container width
+      )
+    }],
+  }));
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    opacity: pulseOpacity.value,
+  }));
+
+  // Web CSS animations
+  const webAnimationStyle = Platform.OS === 'web' && animated && isAnimated && shouldAnimate() ? {
+    '@keyframes progress': {
+      from: { width: '0%' },
+      to: { width: `${percentage}%` },
+    },
+    '@keyframes indeterminate': {
+      '0%': { transform: 'translateX(-100%)' },
+      '100%': { transform: 'translateX(300%)' },
+    },
+    '@keyframes pulse': {
+      '0%, 100%': { opacity: 1 },
+      '50%': { opacity: 1 - pulseIntensity },
+    },
+  } as any : {};
 
   return (
     <View ref={ref} style={style}>
       <View
         style={[
           {
-            height: config.height,
+            height: sizeConf.height,
             backgroundColor: colors.track,
-            borderRadius: config.height / 2,
+            borderRadius: sizeConf.height / 2,
             overflow: 'hidden',
             width: '100%',
           },
           trackStyle,
+          webAnimationStyle,
         ]}
       >
         {indeterminate ? (
@@ -149,9 +240,13 @@ export const Progress = React.forwardRef<View, ProgressProps>(({
                 bottom: 0,
                 width: '30%',
                 backgroundColor: colors.fill,
-                borderRadius: config.height / 2,
-                transform: [{ translateX: indeterminateTranslation }],
+                borderRadius: sizeConf.height / 2,
               },
+              Platform.OS === 'web' && animated && isAnimated && shouldAnimate() 
+                ? {
+                    animation: 'indeterminate 1.5s linear infinite',
+                  } as any
+                : indeterminateStyle,
               fillStyle,
             ]}
           />
@@ -161,9 +256,22 @@ export const Progress = React.forwardRef<View, ProgressProps>(({
               {
                 height: '100%',
                 backgroundColor: colors.fill,
-                borderRadius: config.height / 2,
-                width: widthInterpolation,
+                borderRadius: sizeConf.height / 2,
               },
+              Platform.OS === 'web' && animated && isAnimated && shouldAnimate()
+                ? {
+                    width: `${percentage}%`,
+                    transition: animationType === 'smooth' 
+                      ? `width ${duration}ms ease-in-out`
+                      : animationType === 'spring'
+                      ? `width ${duration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)`
+                      : undefined,
+                    animation: animationType === 'pulse' 
+                      ? `pulse ${duration}ms ease-in-out infinite`
+                      : undefined,
+                  } as any
+                : progressStyle,
+              animationType === 'pulse' && Platform.OS !== 'web' ? pulseStyle : {},
               fillStyle,
             ]}
           />
@@ -172,7 +280,7 @@ export const Progress = React.forwardRef<View, ProgressProps>(({
       
       {showValue && !indeterminate && (
         <Box mt={1}>
-          <Text size={config.fontSize} colorTheme="mutedForeground">
+          <Text size={sizeConf.fontSize} colorTheme="mutedForeground">
             {Math.round(percentage)}%
           </Text>
         </Box>
@@ -190,8 +298,19 @@ export interface CircularProgressProps {
   strokeWidth?: number;
   variant?: ProgressVariant;
   showValue?: boolean;
-  animated?: boolean;
   style?: ViewStyle;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: 'smooth' | 'spring' | 'none';
+  animationDuration?: number;
+  onComplete?: () => void;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const CircularProgress = React.forwardRef<View, CircularProgressProps>(({

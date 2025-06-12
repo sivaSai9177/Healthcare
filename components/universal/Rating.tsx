@@ -1,9 +1,173 @@
-import React, { useState } from 'react';
-import { View, Pressable, ViewStyle } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Pressable, ViewStyle, Platform } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  withDelay,
+  withRepeat,
+  interpolate,
+  FadeIn,
+  ZoomIn,
+} from 'react-native-reanimated';
 import { Text } from './Text';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { Symbol } from './Symbols';
+import { 
+  AnimationVariant,
+  getAnimationConfig,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
+
+// AnimatedIcon is handled internally by Symbol component
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+export type RatingAnimationType = 'fill' | 'bounce' | 'glow' | 'none';
+
+// Star component to handle individual star animations
+interface StarProps {
+  index: number;
+  value: number;
+  hoverValue: number | null;
+  iconSize: number;
+  iconMap: any;
+  icon: string;
+  ratingColor: string;
+  emptyRatingColor: string;
+  spacing: number;
+  isInteractive: boolean;
+  allowHalf: boolean;
+  animated: boolean;
+  isAnimated: boolean;
+  shouldAnimate: () => boolean;
+  animationType: RatingAnimationType;
+  scale: Animated.SharedValue<number>;
+  opacity: Animated.SharedValue<number>;
+  rotation: Animated.SharedValue<number>;
+  onPress: (index: number, isHalf?: boolean) => void;
+  onHover: (index: number, isHalf?: boolean) => void;
+  onHoverEnd: () => void;
+}
+
+const RatingStar: React.FC<StarProps> = ({
+  index,
+  value,
+  hoverValue,
+  iconSize,
+  iconMap,
+  icon,
+  ratingColor,
+  emptyRatingColor,
+  spacing,
+  isInteractive,
+  allowHalf,
+  animated,
+  isAnimated,
+  shouldAnimate,
+  animationType,
+  scale,
+  opacity,
+  rotation,
+  onPress,
+  onHover,
+  onHoverEnd,
+}) => {
+  const getIconName = (isHalf: boolean = false): keyof typeof Ionicons.glyphMap => {
+    const displayValue = hoverValue !== null ? hoverValue : value;
+    
+    if (index < Math.floor(displayValue)) {
+      return iconMap[icon].filled as keyof typeof Ionicons.glyphMap;
+    } else if (isHalf && index === Math.floor(displayValue) && displayValue % 1 >= 0.5) {
+      return iconMap[icon].filled as keyof typeof Ionicons.glyphMap;
+    } else {
+      return iconMap[icon].empty as keyof typeof Ionicons.glyphMap;
+    }
+  };
+
+  const getIconColor = () => {
+    const displayValue = hoverValue !== null ? hoverValue : value;
+    return index < displayValue ? ratingColor : emptyRatingColor;
+  };
+  
+  // Create animated style for this star
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: scale.value },
+      { rotate: `${rotation.value}deg` },
+    ],
+    opacity: opacity.value,
+  }));
+  
+  if (allowHalf && isInteractive) {
+    return (
+      <View key={index} style={{ position: 'relative' }}>
+        {/* Left half */}
+        <Pressable
+          onPress={() => onPress(index, true)}
+          onPressIn={() => onHover(index, true)}
+          onPressOut={onHoverEnd}
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: iconSize / 2,
+            height: iconSize,
+            zIndex: 2,
+          }}
+        />
+        {/* Right half */}
+        <Pressable
+          onPress={() => onPress(index, false)}
+          onPressIn={() => onHover(index, false)}
+          onPressOut={onHoverEnd}
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            width: iconSize / 2,
+            height: iconSize,
+            zIndex: 2,
+          }}
+        />
+        {/* Icon */}
+        <Symbol
+          name={getIconName()}
+          size={iconSize}
+          color={getIconColor()}
+          style={[
+            { marginHorizontal: spacing },
+            animated && isAnimated && shouldAnimate() ? animatedStyle : {},
+          ]}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      key={index}
+      onPress={() => onPress(index)}
+      onPressIn={() => onHover(index)}
+      onPressOut={onHoverEnd}
+      disabled={!isInteractive}
+    >
+      <Symbol
+        name={getIconName()}
+        size={iconSize}
+        color={getIconColor()}
+        style={[
+          { marginHorizontal: spacing },
+          animated && isAnimated && shouldAnimate() ? animatedStyle : {},
+        ]}
+      />
+    </Pressable>
+  );
+};
 
 export interface RatingProps {
   value: number;
@@ -20,6 +184,19 @@ export interface RatingProps {
   labelFormat?: (value: number, max: number) => string;
   style?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: RatingAnimationType;
+  animationDuration?: number;
+  animationDelay?: number;
+  staggerDelay?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const Rating = React.forwardRef<View, RatingProps>(
@@ -39,12 +216,45 @@ export const Rating = React.forwardRef<View, RatingProps>(
       labelFormat = (val, max) => `${val}/${max}`,
       style,
       testID,
+      // Animation props
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'fill',
+      animationDuration,
+      animationDelay = 0,
+      staggerDelay = 50,
+      useHaptics = true,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
     const { spacing } = useSpacing();
     const [hoverValue, setHoverValue] = useState<number | null>(null);
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
+    
+    const duration = animationDuration ?? config.duration.normal;
+    
+    // Create individual animation values for each star
+    // Create a fixed number of animations to avoid dynamic hook calls
+    // Hooks must be called at top level, not in callbacks
+    const star1 = { scale: useSharedValue(1), opacity: useSharedValue(1), rotation: useSharedValue(0) };
+    const star2 = { scale: useSharedValue(1), opacity: useSharedValue(1), rotation: useSharedValue(0) };
+    const star3 = { scale: useSharedValue(1), opacity: useSharedValue(1), rotation: useSharedValue(0) };
+    const star4 = { scale: useSharedValue(1), opacity: useSharedValue(1), rotation: useSharedValue(0) };
+    const star5 = { scale: useSharedValue(1), opacity: useSharedValue(1), rotation: useSharedValue(0) };
+    const star6 = { scale: useSharedValue(1), opacity: useSharedValue(1), rotation: useSharedValue(0) };
+    const star7 = { scale: useSharedValue(1), opacity: useSharedValue(1), rotation: useSharedValue(0) };
+    const star8 = { scale: useSharedValue(1), opacity: useSharedValue(1), rotation: useSharedValue(0) };
+    const star9 = { scale: useSharedValue(1), opacity: useSharedValue(1), rotation: useSharedValue(0) };
+    const star10 = { scale: useSharedValue(1), opacity: useSharedValue(1), rotation: useSharedValue(0) };
+    
+    const allStars = [star1, star2, star3, star4, star5, star6, star7, star8, star9, star10];
+    const starAnimations = React.useMemo(() => allStars.slice(0, max), [max, allStars]);
 
     const sizeConfig = {
       xs: 16,
@@ -64,27 +274,27 @@ export const Rating = React.forwardRef<View, RatingProps>(
       'thumbs-up': { filled: 'thumbs-up', empty: 'thumbs-up-outline' },
     };
 
-    const getIconName = (index: number, isHalf: boolean = false): keyof typeof Ionicons.glyphMap => {
-      const displayValue = hoverValue !== null ? hoverValue : value;
-      
-      if (index < Math.floor(displayValue)) {
-        return iconMap[icon].filled as keyof typeof Ionicons.glyphMap;
-      } else if (isHalf && index === Math.floor(displayValue) && displayValue % 1 >= 0.5) {
-        return iconMap[icon].filled as keyof typeof Ionicons.glyphMap;
-      } else {
-        return iconMap[icon].empty as keyof typeof Ionicons.glyphMap;
-      }
-    };
-
-    const getIconColor = (index: number) => {
-      const displayValue = hoverValue !== null ? hoverValue : value;
-      return index < displayValue ? ratingColor : emptyRatingColor;
-    };
 
     const handlePress = (index: number, isHalf: boolean = false) => {
       if (readonly || disabled || !onValueChange) return;
 
       const newValue = isHalf && allowHalf ? index + 0.5 : index + 1;
+      
+      // Haptic feedback
+      if (useHaptics && Platform.OS !== 'web') {
+        haptic('selection');
+      }
+      
+      // Trigger animation for the clicked star
+      if (animated && isAnimated && shouldAnimate()) {
+        if (animationType === 'bounce') {
+          starAnimations[index].scale.value = withSequence(
+            withSpring(1.3, { damping: 8, stiffness: 200 }),
+            withSpring(1, config.spring)
+          );
+        }
+      }
+      
       onValueChange(newValue);
     };
 
@@ -106,72 +316,75 @@ export const Rating = React.forwardRef<View, RatingProps>(
       ...style,
     };
 
-    const renderStar = (index: number) => {
-      const isInteractive = !readonly && !disabled && onValueChange;
-
-      if (allowHalf && isInteractive) {
-        return (
-          <View key={index} style={{ position: 'relative' }}>
-            {/* Left half */}
-            <Pressable
-              onPress={() => handlePress(index, true)}
-              onPressIn={() => handleHover(index, true)}
-              onPressOut={handleHoverEnd}
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                width: iconSize / 2,
-                height: iconSize,
-                zIndex: 2,
-              }}
-            />
-            {/* Right half */}
-            <Pressable
-              onPress={() => handlePress(index, false)}
-              onPressIn={() => handleHover(index, false)}
-              onPressOut={handleHoverEnd}
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: 0,
-                width: iconSize / 2,
-                height: iconSize,
-                zIndex: 2,
-              }}
-            />
-            {/* Icon */}
-            <Ionicons
-              name={getIconName(index)}
-              size={iconSize}
-              color={getIconColor(index)}
-              style={{ marginHorizontal: spacing(0.5) }}
-            />
-          </View>
-        );
+    // Trigger fill animations when value changes
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate()) {
+        starAnimations.forEach((anim, idx) => {
+          const delay = animationDelay + (idx * staggerDelay);
+          const isFilled = idx < value;
+          
+          if (animationType === 'fill') {
+            anim.opacity.value = withDelay(
+              delay,
+              withTiming(isFilled ? 1 : 0.3, { duration })
+            );
+            
+            if (isFilled) {
+              anim.scale.value = withDelay(
+                delay,
+                withSequence(
+                  withSpring(1.2, { damping: 8, stiffness: 200 }),
+                  withSpring(1, config.spring)
+                )
+              );
+            }
+          } else if (animationType === 'glow' && isFilled) {
+            // Glow animation - continuous pulsing
+            anim.opacity.value = withDelay(
+              delay,
+              withRepeat(
+                withSequence(
+                  withTiming(0.6, { duration: duration / 2 }),
+                  withTiming(1, { duration: duration / 2 })
+                ),
+                -1,
+                true
+              )
+            );
+          }
+        });
       }
-
-      return (
-        <Pressable
-          key={index}
-          onPress={() => handlePress(index)}
-          onPressIn={() => handleHover(index)}
-          onPressOut={handleHoverEnd}
-          disabled={!isInteractive}
-        >
-          <Ionicons
-            name={getIconName(index)}
-            size={iconSize}
-            color={getIconColor(index)}
-            style={{ marginHorizontal: spacing(0.5) }}
-          />
-        </Pressable>
-      );
-    };
+    }, [value, animated, isAnimated, shouldAnimate, animationType, duration, staggerDelay, animationDelay, config.spring, starAnimations]);
+    
 
     return (
       <View ref={ref} style={containerStyle} testID={testID}>
-        {Array.from({ length: max }, (_, index) => renderStar(index))}
+        {Array.from({ length: max }, (_, index) => (
+          <RatingStar
+            key={index}
+            index={index}
+            value={value}
+            hoverValue={hoverValue}
+            iconSize={iconSize}
+            iconMap={iconMap}
+            icon={icon}
+            ratingColor={ratingColor}
+            emptyRatingColor={emptyRatingColor}
+            spacing={spacing(0.5)}
+            isInteractive={!readonly && !disabled && !!onValueChange}
+            allowHalf={allowHalf}
+            animated={animated}
+            isAnimated={isAnimated}
+            shouldAnimate={shouldAnimate}
+            animationType={animationType}
+            scale={starAnimations[index].scale}
+            opacity={starAnimations[index].opacity}
+            rotation={starAnimations[index].rotation}
+            onPress={handlePress}
+            onHover={handleHover}
+            onHoverEnd={handleHoverEnd}
+          />
+        ))}
         {showLabel && (
           <Text
             size={size === 'xs' ? 'xs' : size === 'sm' ? 'sm' : 'md'}
@@ -197,6 +410,10 @@ export interface RatingDisplayProps {
   showValue?: boolean;
   showCount?: boolean;
   style?: ViewStyle;
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: RatingAnimationType;
 }
 
 export const RatingDisplay: React.FC<RatingDisplayProps> = ({
@@ -207,12 +424,23 @@ export const RatingDisplay: React.FC<RatingDisplayProps> = ({
   showValue = true,
   showCount = true,
   style,
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'fill',
 }) => {
   const { spacing } = useSpacing();
 
   return (
     <View style={[{ flexDirection: 'row', alignItems: 'center' }, style]}>
-      <Rating value={value} max={max} size={size} readonly />
+      <Rating 
+        value={value} 
+        max={max} 
+        size={size} 
+        readonly 
+        animated={animated}
+        animationVariant={animationVariant}
+        animationType={animationType}
+      />
       {(showValue || showCount) && (
         <Text
           size={size === 'xs' ? 'xs' : 'sm'}
@@ -283,8 +511,7 @@ export const RatingStatistics: React.FC<RatingStatisticsProps> = ({
               <Text size="sm" style={{ width: 20 }}>
                 {item.rating}
               </Text>
-              <Ionicons
-                name="star"
+              <Symbol name="star"
                 size={16}
                 color={theme.warning || theme.primary}
                 style={{ marginHorizontal: spacing(1) }}
@@ -305,6 +532,9 @@ export const RatingStatistics: React.FC<RatingStatisticsProps> = ({
                     width: `${(item.count / maxCount) * 100}%`,
                     backgroundColor: theme.warning || theme.primary,
                     borderRadius: 4,
+                    ...(Platform.OS === 'web' ? {
+                      transition: 'width 0.3s ease-out',
+                    } : {}),
                   }}
                 />
               </View>

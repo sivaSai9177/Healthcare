@@ -1,14 +1,20 @@
 import React from 'react';
 import { Pressable, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import { Box, Text } from '@/components/universal';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import { Symbol as IconSymbol, Box, Text } from '@/components/universal';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
 import { useAuth } from '@/hooks/useAuth';
-import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
+import { haptic } from '@/lib/ui/haptics';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  interpolate,
+} from 'react-native-reanimated';
+import { SpacingScale } from '@/lib/design';
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 interface TabConfig {
   name: string;
   href: string;
@@ -27,18 +33,16 @@ const roleTabs: TabConfig[] = [
   { 
     name: 'admin', 
     href: '/(home)/admin', 
-    icon: 'shield-checkmark', 
+    icon: 'shield.lefthalf.filled', 
     label: 'Admin',
     requiresRole: 'admin',
-    IconComponent: Ionicons 
   },
   { 
-    name: '_manager', 
-    href: '/(home)/_manager', 
-    icon: 'people', 
+    name: 'manager', 
+    href: '/(home)/manager', 
+    icon: 'person.3.fill', 
     label: 'Team',
     requiresRole: 'manager',
-    IconComponent: Ionicons 
   },
 ];
 
@@ -58,6 +62,7 @@ export function WebTabBar() {
   const activeColor = theme.primary;
   const inactiveColor = theme.mutedForeground;
   const [hoveredTab, setHoveredTab] = React.useState<string | null>(null);
+  const [pressedTab, setPressedTab] = React.useState<string | null>(null);
 
   // Build tabs based on user role
   const tabs = React.useMemo(() => {
@@ -82,10 +87,8 @@ export function WebTabBar() {
       e.preventDefault();
     }
     
-    // Use haptic feedback on native
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    // Use haptic feedback
+    haptic('selection');
     
     // Use replace for tab navigation to avoid history buildup
     if (pathname !== href) {
@@ -107,63 +110,142 @@ export function WebTabBar() {
       borderTheme="border"
       pb={3}
       pt={2}
-      px={2}
+      px={2 as SpacingScale}
       style={{
         ...(Platform.OS === 'web' && {
-          boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
+          boxShadow: `0 -2px 10px ${theme.mutedForeground}10`,
         }),
       }}
     >
-      {tabs.map((tab) => {
+      {tabs.map((tab, index) => {
         const active = isActive(tab.href, tab.name);
         const isHovered = hoveredTab === tab.name;
-        const color = active ? activeColor : (isHovered ? activeColor + 'CC' : inactiveColor);
-
+        const isPressed = pressedTab === tab.name;
+        
         return (
-          <Pressable
+          <TabItem
             key={tab.name}
-            style={{ 
-              flex: 1, 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              paddingVertical: spacing[2],
-              paddingHorizontal: spacing[2],
-              marginHorizontal: spacing[1],
-              borderRadius: spacing[2],
-              backgroundColor: active ? theme.primary + '15' : (isHovered ? theme.muted : 'transparent'),
-              ...(Platform.OS === 'web' && {
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }),
-            }}
+            tab={tab}
+            active={active}
+            isHovered={isHovered}
+            isPressed={isPressed}
+            index={index}
             onPress={(e) => handleTabPress(e, tab.href)}
-            onPressIn={() => Platform.OS === 'web' && setHoveredTab(tab.name)}
-            onPressOut={() => Platform.OS === 'web' && setHoveredTab(null)}
-            {...(Platform.OS === 'web' && {
-              onMouseEnter: () => setHoveredTab(tab.name),
-              onMouseLeave: () => setHoveredTab(null),
-            })}
+            onHoverIn={() => setHoveredTab(tab.name)}
+            onHoverOut={() => setHoveredTab(null)}
+            onPressIn={() => setPressedTab(tab.name)}
+            onPressOut={() => setPressedTab(null)}
+            theme={theme}
+            spacing={spacing}
+          />
+        );
+      })}
+    </Box>
+  );
+}
+
+interface TabItemProps {
+  tab: TabConfig;
+  active: boolean;
+  isHovered: boolean;
+  isPressed: boolean;
+  index: number;
+  onPress: (e: any) => void;
+  onHoverIn: () => void;
+  onHoverOut: () => void;
+  onPressIn: () => void;
+  onPressOut: () => void;
+  theme: any;
+  spacing: any;
+}
+
+function TabItem({ 
+  tab, 
+  active, 
+  isHovered, 
+  isPressed,
+  index,
+  onPress, 
+  onHoverIn, 
+  onHoverOut,
+  onPressIn,
+  onPressOut,
+  theme,
+  spacing 
+}: TabItemProps) {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+  
+  React.useEffect(() => {
+    if (isPressed) {
+      scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+    } else if (isHovered) {
+      scale.value = withSpring(1.05, { damping: 15, stiffness: 400 });
+    } else {
+      scale.value = withSpring(1, { damping: 15, stiffness: 400 });
+    }
+  }, [isPressed, isHovered]);
+  
+  React.useEffect(() => {
+    opacity.value = withSpring(active ? 1 : 0.8, { damping: 15, stiffness: 400 });
+  }, [active]);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+  
+  const activeColor = theme.primary;
+  const inactiveColor = theme.mutedForeground;
+  const color = active ? activeColor : (isHovered ? theme.primary : inactiveColor);
+  
+  return (
+    <AnimatedPressable
+      style={[
+        {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: spacing[2],
+          paddingHorizontal: spacing[2],
+          marginHorizontal: spacing[1],
+          borderRadius: spacing[2],
+          backgroundColor: active ? theme.primary + '15' : (isHovered ? theme.muted : 'transparent'),
+        },
+        animatedStyle,
+      ]}
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      {...(Platform.OS === 'web' && {
+        onMouseEnter: onHoverIn,
+        onMouseLeave: onHoverOut,
+        style: [
+          {
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: spacing[2],
+            paddingHorizontal: spacing[2],
+            marginHorizontal: spacing[1],
+            borderRadius: spacing[2],
+            backgroundColor: active ? theme.primary + '15' : (isHovered ? theme.muted : 'transparent'),
+            cursor: 'pointer',
+            transition: 'background-color 0.2s ease',
+          },
+          animatedStyle,
+        ],
+      })}
           >
             <Box alignItems="center" position="relative">
-              {tab.IconComponent ? (
-                <tab.IconComponent
-                  size={24}
-                  name={tab.icon}
-                  color={color}
-                  style={Platform.OS === 'web' ? {
-                    transition: 'color 0.2s ease',
-                  } as any : undefined}
-                />
-              ) : (
-                <IconSymbol 
-                  size={28} 
-                  name={tab.icon as any} 
-                  color={color} 
-                  style={Platform.OS === 'web' ? {
-                    transition: 'color 0.2s ease',
-                  } as any : undefined}
-                />
-              )}
+              <IconSymbol 
+                size={28} 
+                name={tab.icon as any} 
+                color={color} 
+                style={Platform.OS === 'web' ? {
+                  transition: 'color 0.2s ease',
+                } as any : undefined}
+              />
               <Text 
                 size="xs" 
                 weight={active ? 'semibold' : 'normal'}
@@ -191,9 +273,6 @@ export function WebTabBar() {
                 />
               )}
             </Box>
-          </Pressable>
-        );
-      })}
-    </Box>
+          </AnimatedPressable>
   );
 }

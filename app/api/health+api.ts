@@ -1,5 +1,5 @@
 import { ExpoRequest, ExpoResponse } from 'expo-router/server';
-import { getCurrentEnvironment } from '@/lib/core/env-config';
+import { getCurrentEnvironment } from '@/lib/core/config/env-config';
 
 export async function GET(request: ExpoRequest): Promise<ExpoResponse> {
   try {

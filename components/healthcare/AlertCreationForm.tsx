@@ -13,7 +13,7 @@ import {
   HStack,
   Box,
 } from '@/components/universal';
-import { api } from '@/lib/trpc';
+import { api } from '@/lib/api/trpc';
 import { 
   AlertType, 
   UrgencyLevel, 
@@ -22,9 +22,10 @@ import {
   type CreateAlertInput,
 } from '@/types/healthcare';
 import { useAuthStore } from '@/lib/stores/auth-store';
-import { useTheme } from '@/lib/theme/theme-provider';
+import { useTheme } from '@/lib/theme/provider';
 import { showErrorAlert } from '@/lib/core/alert';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
+import { SpacingScale } from '@/lib/design';
 
 interface AlertCreationFormProps {
   hospitalId: string;
@@ -117,7 +118,7 @@ export function AlertCreationForm({ hospitalId }: AlertCreationFormProps) {
       style={{ flex: 1 }}
     >
       <ScrollView>
-        <VStack spacing={4} p={4}>
+        <VStack spacing={4} p={4 as SpacingScale}>
           {/* Alert Type Selection */}
           <Card>
             <VStack spacing={3}>
@@ -176,7 +177,7 @@ export function AlertCreationForm({ hospitalId }: AlertCreationFormProps) {
               
               {urgencyLevel && (
                 <Box
-                  p={2}
+                  p={2 as SpacingScale}
                   rounded="md"
                   style={{
                     backgroundColor: URGENCY_LEVEL_CONFIG[urgencyLevel].color + '20',
@@ -219,7 +220,7 @@ export function AlertCreationForm({ hospitalId }: AlertCreationFormProps) {
           
           {/* Alert Preview */}
           {roomNumber && alertType && urgencyLevel && (
-            <Alert variant="default">
+            <Alert>
               <VStack spacing={2}>
                 <Text weight="bold">Alert Preview:</Text>
                 <Text size="sm">
@@ -240,7 +241,8 @@ export function AlertCreationForm({ hospitalId }: AlertCreationFormProps) {
           {/* Submit Button */}
           <Button
             onPress={handleSubmit}
-            variant="destructive"
+            variant="solid"
+            colorScheme="destructive"
             size="lg"
             disabled={!roomNumber || !alertType || !urgencyLevel || isLoading}
             style={{
@@ -271,7 +273,7 @@ export function AlertCreationForm({ hospitalId }: AlertCreationFormProps) {
                     Confirm {alertType.replace('_', ' ').toUpperCase()}
                   </Text>
                   
-                  <Alert variant="destructive">
+                  <Alert variant="primary" colorScheme="destructive">
                     <Text weight="semibold">
                       You are about to create a {URGENCY_LEVEL_CONFIG[urgencyLevel as UrgencyLevel].label} priority alert.
                     </Text>
@@ -300,7 +302,8 @@ export function AlertCreationForm({ hospitalId }: AlertCreationFormProps) {
                         setShowConfirmation(false);
                         submitAlert();
                       }}
-                      variant="destructive"
+                      variant="solid"
+                      colorScheme="destructive"
                       style={{ flex: 1 }}
                       disabled={isLoading}
                     >

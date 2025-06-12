@@ -11,17 +11,41 @@ import {
   KeyboardAvoidingView,
   Keyboard,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  interpolate,
+  FadeIn,
+  FadeOut,
+} from 'react-native-reanimated';
+// eslint-disable-next-line import/no-unresolved
+import { Layout } from '@/lib/ui/animations/layout-animations';
 import { Text } from './Text';
-import { Input } from './Input';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { Ionicons } from '@expo/vector-icons';
+
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { Symbol } from './Symbols';
+import { 
+  AnimationVariant,
+  getAnimationConfig,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
+
+export type SearchAnimationType = 'expand' | 'focus' | 'clear' | 'none';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedView = Animated.createAnimatedComponent(View);
+
 
 export interface SearchSuggestion {
   id: string;
   label: string;
   value: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: keyof typeof any;
   category?: string;
 }
 
@@ -46,6 +70,17 @@ export interface SearchProps {
   inputStyle?: ViewStyle;
   suggestionStyle?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: SearchAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 // Memoized suggestion item component
@@ -72,8 +107,8 @@ const SuggestionItem = React.memo(({
     })}
   >
     {item.icon && (
-      <Ionicons
-        name={item.icon}
+      <Symbol
+        name="item.icon"
         size={iconSize}
         color={theme.mutedForeground}
         style={{ marginRight: spacing[2] }}
@@ -117,6 +152,13 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
       inputStyle,
       suggestionStyle,
       testID,
+      // Animation props
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'focus',
+      animationDuration,
+      useHaptics = true,
+      animationConfig,
     },
     ref
   ) => {
@@ -126,6 +168,20 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isPending, startTransition] = useTransition();
     const debounceTimeout = useRef<NodeJS.Timeout>();
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
+    
+    const duration = animationDuration ?? config.duration.fast;
+    
+    // Animation values
+    const searchIconScale = useSharedValue(1);
+    const clearButtonScale = useSharedValue(0);
+    const clearButtonOpacity = useSharedValue(0);
+    const containerWidth = useSharedValue(1);
+    const loadingRotation = useSharedValue(0);
     
     // Defer value for better search performance
     const deferredValue = useDeferredValue(value);
@@ -149,7 +205,7 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
         height: 52,
         fontSize: 18,
         iconSize: 24,
-        padding: 4,
+        padding: spacing[1],
       },
     }[size]), [size]);
 
@@ -198,6 +254,16 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
     };
 
     const handleClear = () => {
+      if (animated && isAnimated && shouldAnimate()) {
+        if (animationType === 'clear') {
+          clearButtonScale.value = withSpring(1.2, config.spring, () => {
+            clearButtonScale.value = withSpring(0, config.spring);
+          });
+        }
+        if (useHaptics) {
+          haptic('light');
+        }
+      }
       onValueChange('');
       setShowSuggestions(false);
     };
@@ -220,7 +286,7 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
         container: {
           borderBottomWidth: 1,
           borderColor: theme.input,
-          backgroundColor: 'transparent',
+          backgroundColor: transparent,
         },
       },
     }[variant];
@@ -255,7 +321,7 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
       borderRadius: 8,
       borderWidth: 1,
       borderColor: theme.border,
-      boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.1)',
+      boxShadow: '0px 2px 8px theme.mutedForeground + "10"',
       elevation: 5,
       zIndex: 1000,
       ...suggestionStyle,
@@ -295,15 +361,38 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
       deferredValue.length >= minSearchLength &&
       (filteredSuggestions.length > 0 || recentSearches.length > 0),
     [showSuggestions, isFocused, deferredValue, minSearchLength, filteredSuggestions.length, recentSearches.length]);
+    
+    // Animated styles
+    const searchIconStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: searchIconScale.value }],
+    }));
+    
+    const clearButtonStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: clearButtonScale.value }],
+      opacity: clearButtonOpacity.value,
+    }));
+    
+    const containerAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scaleX: containerWidth.value }],
+    }));
+    
+    const loadingIconStyle = useAnimatedStyle(() => ({
+      transform: [{ rotate: `${loadingRotation.value}deg` }],
+    }));
+    
+    const shouldUseAnimation = animated && isAnimated && shouldAnimate();
+    const ContainerView = shouldUseAnimation && animationType === 'expand' ? AnimatedView : View;
+    // Symbol component handles animation internally
 
     return (
       <View style={{ position: 'relative' }}>
-        <View style={containerStyle}>
-          <Ionicons
-            name="search"
+        <ContainerView style={[containerStyle, shouldUseAnimation && animationType === 'expand' ? containerAnimatedStyle : {}]}>
+          <Symbol
+            name="magnifyingglass"
             size={sizeConfig.iconSize}
             color={theme.mutedForeground}
-            style={{ marginRight: spacing[2] }}
+            style={[{ marginRight: spacing[2] }, shouldUseAnimation ? searchIconStyle : {}]}
+            animated={shouldUseAnimation}
           />
 
           <TextInput
@@ -324,30 +413,47 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
 
           {loading && (
             <View style={{ marginLeft: spacing[2] }}>
-              <Ionicons
-                name="reload"
+              <Symbol
+                name="arrow.clockwise"
                 size={sizeConfig.iconSize}
                 color={theme.mutedForeground}
+                style={shouldUseAnimation ? loadingIconStyle : {}}
+                animated={shouldUseAnimation}
               />
             </View>
           )}
 
-          {showClearButton && value.length > 0 && (
+          {showClearButton && shouldUseAnimation && (
+            <AnimatedPressable
+              onPress={handleClear}
+              style={[{ marginLeft: spacing[2] }, clearButtonStyle]}
+            >
+              <Symbol name="xmark.circle"
+                size={sizeConfig.iconSize}
+                color={theme.mutedForeground}
+              />
+            </AnimatedPressable>
+          )}
+          
+          {showClearButton && !shouldUseAnimation && value.length > 0 && (
             <Pressable
               onPress={handleClear}
               style={{ marginLeft: spacing[2] }}
             >
-              <Ionicons
-                name="close-circle"
+              <Symbol name="xmark.circle"
                 size={sizeConfig.iconSize}
                 color={theme.mutedForeground}
               />
             </Pressable>
           )}
-        </View>
+        </ContainerView>
 
         {showSuggestionsList && (
-          <View style={suggestionContainerStyle}>
+          <AnimatedView 
+            style={suggestionContainerStyle}
+            entering={shouldUseAnimation ? FadeIn.duration(duration) : undefined}
+            exiting={shouldUseAnimation ? FadeOut.duration(duration / 2) : undefined}
+            layout={shouldUseAnimation && Layout ? Layout.springify() : undefined}>
             {recentSearches.length > 0 && filteredSuggestions.length === 0 && (
               <>
                 <View
@@ -400,7 +506,7 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
                 )}
               />
             )}
-          </View>
+          </AnimatedView>
         )}
       </View>
     );
@@ -446,7 +552,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           }}
         >
           <Pressable onPress={onClose} style={{ marginRight: spacing[3] }}>
-            <Ionicons name="arrow-back" size={24} color={theme.foreground} />
+            <Symbol name="arrow.left" size={24} color={theme.foreground} />
           </Pressable>
           <Text size="lg" weight="semibold" style={{ flex: 1 }}>
             {headerTitle}

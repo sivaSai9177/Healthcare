@@ -6,15 +6,26 @@
 
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { oAuthProxy, multiSession, organization, admin } from "better-auth/plugins";
+import { oAuthProxy, multiSession, organization, admin, magicLink } from "better-auth/plugins";
 import { db } from "@/src/db";
 import * as schema from "@/src/db/schema";
+import { eq } from "drizzle-orm";
+import { emailService } from "@/src/server/services/email-index";
+import { notificationService, NotificationType, Priority } from "@/src/server/services/notifications";
 
 // Server-safe logger (no React Native dependencies)
 const log = {
   auth: {
-// TODO: Replace with structured logging - info: (message: string, data?: any) => console.log(`[AUTH] ${message}`, data),
-// TODO: Replace with structured logging - debug: (message: string, data?: any) => console.log(`[AUTH DEBUG] ${message}`, data),
+    info: (message: string, data?: any) => {
+      if (process.env.NODE_ENV === 'development') {
+// TODO: Replace with structured logging - console.log(`[AUTH] ${message}`, data);
+      }
+    },
+    debug: (message: string, data?: any) => {
+      if (process.env.NODE_ENV === 'development') {
+// TODO: Replace with structured logging - console.log(`[AUTH DEBUG] ${message}`, data);
+      }
+    },
     error: (message: string, error?: any) => console.error(`[AUTH ERROR] ${message}`, error),
   },
 };
@@ -61,12 +72,13 @@ const getTrustedOrigins = () => {
 
 // Debug environment variables on load
 if (process.env.NODE_ENV === 'development') {
-// TODO: Replace with structured logging - console.log("[AUTH SERVER] Environment variables:", {
-    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? `${process.env.GOOGLE_CLIENT_ID.substring(0, 10)}...` : 'NOT SET',
-    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT SET',
-    BETTER_AUTH_BASE_URL: process.env.BETTER_AUTH_BASE_URL || 'NOT SET',
-    DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
-  });
+  // TODO: Replace with structured logging
+  // console.log("[AUTH SERVER] Environment variables:", {
+  //   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? `${process.env.GOOGLE_CLIENT_ID.substring(0, 10)}...` : 'NOT SET',
+  //   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT SET',
+  //   BETTER_AUTH_BASE_URL: process.env.BETTER_AUTH_BASE_URL || 'NOT SET',
+  //   DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
+  // });
 }
 
 export const auth = betterAuth({
@@ -93,7 +105,7 @@ export const auth = betterAuth({
       role: {
         type: "string",
         required: false,
-        defaultValue: null,
+        defaultValue: "user", // Default to 'user' role instead of null
       },
       organizationId: {
         type: "string",
@@ -109,9 +121,44 @@ export const auth = betterAuth({
   
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false,
+    requireEmailVerification: process.env.EXPO_PUBLIC_REQUIRE_EMAIL_VERIFICATION === 'true',
     sendResetPassword: async ({ user, url }) => {
       log.auth.info(`Password reset link generated`, { email: user.email, url });
+      
+      // Send password reset email using our notification service
+      await notificationService.send({
+        type: NotificationType.AUTH_RESET_PASSWORD,
+        recipient: {
+          userId: user.id,
+          email: user.email,
+        },
+        priority: Priority.HIGH,
+        data: {
+          name: user.name || user.email,
+          resetUrl: url,
+          expirationTime: '1 hour',
+          ipAddress: 'System Generated',
+          userAgent: 'Hospital Alert System',
+        },
+      });
+    },
+    sendVerificationEmail: async ({ user, url }) => {
+      log.auth.info(`Email verification link generated`, { email: user.email, url });
+      
+      // Send verification email using our notification service
+      await notificationService.send({
+        type: NotificationType.AUTH_VERIFY_EMAIL,
+        recipient: {
+          userId: user.id,
+          email: user.email,
+        },
+        priority: Priority.HIGH,
+        data: {
+          name: user.name || user.email,
+          verificationUrl: url,
+          expirationTime: '24 hours',
+        },
+      });
     },
   },
   
@@ -162,6 +209,33 @@ export const auth = betterAuth({
     admin({
       defaultRole: 'user',
       adminUserIds: process.env.ADMIN_USER_IDS?.split(',') || []
+    }),
+    magicLink({
+      sendMagicLink: async ({ email, url }) => {
+        log.auth.info(`Magic link generated`, { email, url });
+        
+        // Find user by email to get userId
+        const [user] = await db
+          .select()
+          .from(schema.users)
+          .where(eq(schema.users.email, email))
+          .limit(1);
+        
+        // Send magic link email using our notification service
+        await notificationService.send({
+          type: NotificationType.AUTH_MAGIC_LINK,
+          recipient: {
+            userId: user?.id || 'anonymous',
+            email: email,
+          },
+          priority: Priority.HIGH,
+          data: {
+            name: user?.name || email,
+            magicLinkUrl: url,
+            expirationTime: '10 minutes',
+          },
+        });
+      },
     })
   ],
   

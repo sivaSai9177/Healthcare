@@ -1,12 +1,26 @@
-import React from 'react';
-import { View, Image, ImageSourcePropType, ViewStyle, ImageStyle, Pressable } from 'react-native';
-import { useTheme } from '@/lib/theme/theme-provider';
+import React, { useEffect } from 'react';
+import { View, Image, ImageSourcePropType, ViewStyle, ImageStyle, Pressable, Platform } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  interpolate,
+  FadeIn,
+  ZoomIn,
+} from 'react-native-reanimated';
+import { useTheme } from '@/lib/theme/provider';
 import { Text } from './Text';
-import { Box } from './Box';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { Ionicons } from '@expo/vector-icons';
+
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { Symbol } from './Symbols';
+import { AnimationVariant } from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
 
 export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+export type AvatarAnimationType = 'fade' | 'zoom' | 'scale' | 'none';
 
 export interface AvatarProps {
   source?: ImageSourcePropType;
@@ -14,11 +28,25 @@ export interface AvatarProps {
   size?: AvatarSize;
   rounded?: 'full' | 'md' | 'lg' | 'none';
   showFallback?: boolean;
-  fallbackIcon?: keyof typeof Ionicons.glyphMap;
+  fallbackIcon?: keyof typeof any;
   bgColorTheme?: 'primary' | 'secondary' | 'accent' | 'muted';
   style?: ViewStyle;
   imageStyle?: ImageStyle;
   onPress?: () => void;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: AvatarAnimationType;
+  animationDuration?: number;
+  animationDelay?: number;
+  hoverScale?: number;
+  pressScale?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 const getInitials = (name: string): string => {
@@ -27,6 +55,9 @@ const getInitials = (name: string): string => {
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 };
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedImage = Animated.createAnimatedComponent(Image);
 
 export const Avatar = React.forwardRef<View, AvatarProps>(({
   source,
@@ -39,10 +70,62 @@ export const Avatar = React.forwardRef<View, AvatarProps>(({
   style,
   imageStyle,
   onPress,
+  // Animation props
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'fade',
+  animationDuration,
+  animationDelay = 0,
+  hoverScale = 1.05,
+  pressScale = 0.95,
+  useHaptics = true,
+  animationConfig,
 }, ref) => {
   const theme = useTheme();
   const { componentSpacing } = useSpacing();
   const [imageError, setImageError] = React.useState(false);
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  const duration = animationDuration ?? config.duration.normal;
+  
+  // Animation values
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(animationType === 'zoom' ? 0.5 : 1);
+  const imageOpacity = useSharedValue(0);
+  const isPressed = useSharedValue(0);
+  
+  // Initialize animations
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      setTimeout(() => {
+        if (animationType === 'fade') {
+          opacity.value = withTiming(1, { duration });
+        } else if (animationType === 'zoom') {
+          opacity.value = withTiming(1, { duration: duration / 2 });
+          scale.value = withSpring(1, config.spring);
+        } else if (animationType === 'scale') {
+          opacity.value = withTiming(1, { duration: duration / 2 });
+          scale.value = withTiming(1, { duration });
+        }
+      }, animationDelay);
+    } else {
+      opacity.value = 1;
+      scale.value = 1;
+    }
+  }, [animated, isAnimated, shouldAnimate, animationType, animationDelay, duration, config.spring, opacity, scale]);
+  
+  // Image load animation
+  const handleImageLoad = () => {
+    if (animated && isAnimated && shouldAnimate()) {
+      imageOpacity.value = withTiming(1, { duration: config.duration.fast });
+    } else {
+      imageOpacity.value = 1;
+    }
+  };
 
   // Size mapping for avatars based on density
   const sizeMap = {
@@ -101,8 +184,47 @@ export const Avatar = React.forwardRef<View, AvatarProps>(({
   const showImageFallback = !source || imageError;
   const initials = getInitials(name);
 
+  // Animated styles
+  const containerAnimatedStyle = useAnimatedStyle(() => {
+    const currentScale = interpolate(
+      isPressed.value,
+      [0, 1],
+      [1, pressScale]
+    );
+    
+    return {
+      opacity: opacity.value,
+      transform: [
+        { scale: scale.value * currentScale },
+      ],
+    };
+  });
+  
+  const imageAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: imageOpacity.value,
+  }));
+  
+  const handlePressIn = () => {
+    if (animated && isAnimated && shouldAnimate()) {
+      isPressed.value = withSpring(1, { damping: 15, stiffness: 400 });
+    }
+  };
+  
+  const handlePressOut = () => {
+    if (animated && isAnimated && shouldAnimate()) {
+      isPressed.value = withSpring(0, { damping: 15, stiffness: 400 });
+    }
+  };
+  
+  const handlePress = () => {
+    if (useHaptics) {
+      haptic('impact');
+    }
+    onPress?.();
+  };
+  
   const content = (
-    <Box
+    <Animated.View
       ref={ref}
       style={[
         {
@@ -115,10 +237,17 @@ export const Avatar = React.forwardRef<View, AvatarProps>(({
           overflow: 'hidden',
         },
         style,
+        animated && isAnimated && shouldAnimate() ? containerAnimatedStyle : {},
       ]}
+      entering={Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() && animationType === 'zoom'
+        ? ZoomIn.duration(duration).delay(animationDelay)
+        : Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() && animationType === 'fade'
+        ? FadeIn.duration(duration).delay(animationDelay)
+        : undefined
+      }
     >
       {!showImageFallback && source ? (
-        <Image
+        <AnimatedImage
           source={source}
           style={[
             {
@@ -127,8 +256,10 @@ export const Avatar = React.forwardRef<View, AvatarProps>(({
               borderRadius,
             },
             imageStyle,
+            animated && isAnimated && shouldAnimate() ? imageAnimatedStyle : {},
           ]}
           onError={() => setImageError(true)}
+          onLoad={handleImageLoad}
         />
       ) : showFallback ? (
         initials ? (
@@ -142,25 +273,25 @@ export const Avatar = React.forwardRef<View, AvatarProps>(({
             {initials}
           </Text>
         ) : (
-          <Ionicons
-            name={fallbackIcon}
+          <Symbol
+            name="fallbackIcon"
             size={iconSize}
             color={textColor}
           />
         )
       ) : null}
-    </Box>
+    </Animated.View>
   );
 
   if (onPress) {
     return (
-      <Pressable onPress={onPress}>
-        {({ pressed }) => (
-          <View style={{ opacity: pressed ? 0.7 : 1 }}>
-            {content}
-          </View>
-        )}
-      </Pressable>
+      <AnimatedPressable
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        {content}
+      </AnimatedPressable>
     );
   }
 
@@ -224,4 +355,3 @@ export const AvatarGroup: React.FC<AvatarGroupProps> = ({
     </View>
   );
 };
-

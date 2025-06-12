@@ -12,14 +12,14 @@ import {
   CardTitle,
   Button,
   Heading1,
-  Heading2,
   SimpleBreadcrumb,
   Separator,
-  Sidebar07Trigger
+  SidebarTrigger
 } from "@/components/universal";
 import { ScrollView, Platform } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
-import { useTheme } from "@/lib/theme/provider";
+import { log } from "@/lib/core/debug/logger";
+import { SpacingScale } from '@/lib/design';
 
 // Feature card component
 const FeatureCard = ({ 
@@ -37,7 +37,7 @@ const FeatureCard = ({
 }) => (
   <Card mb={4}>
     <CardHeader>
-      <HStack gap={3} alignItems="center">
+      <HStack gap={3 as SpacingScale} alignItems="center">
         <Box 
           width={48}
           height={48}
@@ -64,43 +64,42 @@ const FeatureCard = ({
 
 export default function ExploreScreen() {
   const { user } = useAuth();
-  const theme = useTheme();
 
   const features = [
     {
       title: "Analytics Dashboard",
       description: "Track your performance with detailed analytics and insights",
       icon: "📊",
-      color: "#3b82f6",
-      onPress: () => console.info("Analytics clicked", "EXPLORE"),
+      color: "theme.primary",
+      onPress: () => log.info("Analytics clicked", "EXPLORE"),
     },
     {
       title: "Team Collaboration",
       description: "Work together with your team in real-time",
       icon: "👥",
-      color: "#10b981",
-      onPress: () => console.info("Team clicked", "EXPLORE"),
+      color: "theme.success",
+      onPress: () => log.info("Team clicked", "EXPLORE"),
     },
     {
       title: "Project Management",
       description: "Organize and track your projects efficiently",
       icon: "📋",
       color: "#8b5cf6",
-      onPress: () => console.info("Projects clicked", "EXPLORE"),
+      onPress: () => log.info("Projects clicked", "EXPLORE"),
     },
     {
       title: "Resource Library",
       description: "Access helpful resources and documentation",
       icon: "📚",
-      color: "#f59e0b",
-      onPress: () => console.info("Resources clicked", "EXPLORE"),
+      color: "theme.warning",
+      onPress: () => log.info("Resources clicked", "EXPLORE"),
     },
     {
       title: "Integrations",
       description: "Connect with your favorite tools and services",
       icon: "🔗",
-      color: "#ef4444",
-      onPress: () => console.info("Integrations clicked", "EXPLORE"),
+      color: "theme.destructive",
+      onPress: () => log.info("Integrations clicked", "EXPLORE"),
     },
     {
       title: "Settings & Preferences",
@@ -132,9 +131,9 @@ export default function ExploreScreen() {
       <VStack p={0} spacing={0}>
         {/* Header with Toggle and Breadcrumbs - Only on Web */}
         {Platform.OS === 'web' && (
-          <Box px={4} py={3} borderBottomWidth={1} borderTheme="border">
+          <Box px={4 as SpacingScale} py={3 as SpacingScale} borderBottomWidth={1} borderTheme="border">
             <HStack alignItems="center" spacing={2} mb={2}>
-              <Sidebar07Trigger />
+              <SidebarTrigger />
               <Separator orientation="vertical" style={{ height: 24 }} />
               <SimpleBreadcrumb
                 items={[
@@ -148,7 +147,7 @@ export default function ExploreScreen() {
           </Box>
         )}
 
-        <VStack p={4}>
+        <VStack p={4 as SpacingScale}>
           {/* Header */}
           <VStack mb={6}>
           <Heading1>
@@ -171,8 +170,8 @@ export default function ExploreScreen() {
               <Box 
                 key={category}
                 bgTheme={category === 'All' ? 'primary' : 'secondary'}
-                px={4}
-                py={2}
+                px={4 as SpacingScale}
+                py={2 as SpacingScale}
                 rounded="full"
                 mr={2}
               >

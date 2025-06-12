@@ -19,9 +19,9 @@ import {
 } from "@/components/universal";
 import { AreaChartInteractive } from "@/components/universal/charts";
 import { useAuth } from "@/hooks/useAuth";
-import { log } from "@/lib/core/logger";
-import { spacing, SpacingScale } from "@/lib/design-system";
-import { useTheme } from "@/lib/theme/theme-provider";
+import { log } from "@/lib/core/debug/logger";
+import { spacing, SpacingScale } from "@/lib/design";
+import { useTheme } from "@/lib/theme/provider";
 import { useRouter } from "expo-router";
 import React, { useState, useCallback, useTransition, useDeferredValue, useEffect, useMemo, lazy, Suspense } from "react";
 import { Alert, Platform, RefreshControl, ScrollView, Animated, View, Dimensions, Easing } from "react-native";
@@ -30,7 +30,7 @@ import { Alert, Platform, RefreshControl, ScrollView, Animated, View, Dimensions
 const LazyAreaChartInteractive = lazy(() => import("@/components/universal/charts/AreaChartInteractive").then(m => ({ default: m.AreaChartInteractive })));
 
 // Memoized Shimmer component
-const ShimmerPlaceholder = React.memo(({ width = "100%", height = 20, borderRadius = 4 }: any) => {
+const ShimmerPlaceholder = React.memo(function ShimmerPlaceholder({ width = "100%", height = 20, borderRadius = 4 }: any) {
   const theme = useTheme();
   const shimmerAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -75,7 +75,7 @@ const ShimmerPlaceholder = React.memo(({ width = "100%", height = 20, borderRadi
 });
 
 // Memoized Dashboard Metrics component
-const DashboardMetrics = React.memo(({ metrics }: { metrics: any[] }) => {
+const DashboardMetrics = React.memo(function DashboardMetrics({ metrics }: { metrics: any[] }) {
   return (
     <Box
       flexDirection="row"
@@ -109,7 +109,8 @@ const DashboardMetrics = React.memo(({ metrics }: { metrics: any[] }) => {
 });
 
 // Memoized Quick Actions component
-const QuickActions = React.memo(({ actions }: { actions: any[] }) => (
+const QuickActions = React.memo(function QuickActions({ actions }: { actions: any[] }) {
+  return (
   <Card mb={4 as SpacingScale}>
     <CardHeader>
       <CardTitle>Quick Actions</CardTitle>
@@ -130,10 +131,12 @@ const QuickActions = React.memo(({ actions }: { actions: any[] }) => (
       </VStack>
     </CardContent>
   </Card>
-));
+  );
+});
 
 // Activity item component
-const ActivityItem = React.memo(({ text, time, isLast }: { text: string; time: string; isLast?: boolean }) => (
+const ActivityItem = React.memo(function ActivityItem({ text, time, isLast }: { text: string; time: string; isLast?: boolean }) {
+  return (
   <HStack
     justifyContent="space-between"
     py={2 as SpacingScale}
@@ -147,7 +150,8 @@ const ActivityItem = React.memo(({ text, time, isLast }: { text: string; time: s
       {time}
     </Text>
   </HStack>
-));
+  );
+});
 
 export default function OptimizedHomeScreen() {
   const { user } = useAuth();
@@ -449,7 +453,7 @@ export default function OptimizedHomeScreen() {
               colors={[theme.primary, theme.secondary, theme.accent]}
               progressBackgroundColor={theme.card}
               progressViewOffset={Platform.OS === 'ios' ? -20 : 20}
-              size="large"
+              size="lg"
               title={refreshing ? "Refreshing..." : "Pull to refresh"}
               titleColor={theme.mutedForeground}
             />

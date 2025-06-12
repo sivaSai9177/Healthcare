@@ -27,12 +27,13 @@ export async function POST(request: Request) {
       
       // Decode the payload (middle part)
       const payload = JSON.parse(atob(idTokenParts[1]));
-// TODO: Replace with structured logging - console.log('[Mobile OAuth API] ID token payload:', {
-        email: payload.email, 
-        name: payload.name,
-        aud: payload.aud,
-        iss: payload.iss
-      });
+      // TODO: Replace with structured logging
+      // console.log('[Mobile OAuth API] ID token payload:', {
+      //   email: payload.email, 
+      //   name: payload.name,
+      //   aud: payload.aud,
+      //   iss: payload.iss
+      // });
       
       // Verify the token is from Google and for our app
       if (payload.iss !== 'https://accounts.google.com' && payload.iss !== 'accounts.google.com') {

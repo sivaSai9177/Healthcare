@@ -1,7 +1,27 @@
-import React from 'react';
-import { View, ViewStyle } from 'react-native';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { SpacingScale } from '@/lib/design-system';
+import React, { useEffect } from 'react';
+import { View, ViewStyle, Platform } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withSpring,
+  withTiming,
+  FadeIn,
+  SlideInDown,
+} from 'react-native-reanimated';
+// eslint-disable-next-line import/no-unresolved
+import { Layout } from '@/lib/ui/animations/layout-animations';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { 
+  SpacingScale,
+  AnimationVariant,
+  GridAnimationType,
+  getAnimationConfig,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+
+const AnimatedView = Animated.createAnimatedComponent(View);
 
 export interface GridProps {
   children: React.ReactNode;
@@ -13,6 +33,18 @@ export interface GridProps {
   justifyItems?: ViewStyle['justifyContent'];
   style?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: GridAnimationType;
+  animationDuration?: number;
+  animationDelay?: number;
+  staggerDelay?: number;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 interface GridItemProps {
@@ -20,6 +52,9 @@ interface GridItemProps {
   span?: number | { xs?: number; sm?: number; md?: number; lg?: number };
   style?: ViewStyle;
   testID?: string;
+  animated?: boolean;
+  entering?: any;
+  layout?: any;
 }
 
 // Helper to get responsive value
@@ -58,20 +93,36 @@ export const Grid = React.forwardRef<View, GridProps>(
       justifyItems = 'flex-start',
       style,
       testID,
+      // Animation props
+      animated = false,
+      animationVariant = 'moderate',
+      animationType = 'stagger',
+      animationDuration,
+      animationDelay = 0,
+      staggerDelay,
+      animationConfig,
     },
     ref
   ) => {
     const { spacing } = useSpacing();
     const [containerWidth, setContainerWidth] = React.useState(0);
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
+    
+    const duration = animationDuration ?? config.duration.normal;
+    const stagger = staggerDelay ?? config.stagger.base;
 
     const handleLayout = (event: any) => {
       setContainerWidth(event.nativeEvent.layout.width);
     };
 
     const currentColumns = getResponsiveValue(columns, containerWidth);
-    const gapValue = gap !== undefined ? spacing(gap) : 0;
-    const rowGapValue = rowGap !== undefined ? spacing(rowGap) : gapValue;
-    const columnGapValue = columnGap !== undefined ? spacing(columnGap) : gapValue;
+    const gapValue = gap !== undefined ? spacing[gap] : 0;
+    const rowGapValue = rowGap !== undefined ? spacing[rowGap] : gapValue;
+    const columnGapValue = columnGap !== undefined ? spacing[columnGap] : gapValue;
 
     // Calculate column width
     const totalGapWidth = columnGapValue * (currentColumns - 1);
@@ -89,6 +140,32 @@ export const Grid = React.forwardRef<View, GridProps>(
 
     // Process children to wrap in grid items
     const processedChildren = React.Children.map(children, (child, index) => {
+      const shouldApplyAnimation = animated && isAnimated && shouldAnimate();
+      
+      let itemDelay = animationDelay;
+      if (shouldApplyAnimation) {
+        if (animationType === 'stagger') {
+          itemDelay = animationDelay + (index * stagger);
+        } else if (animationType === 'cascade') {
+          // Cascade: diagonal animation from top-left
+          const row = Math.floor(index / currentColumns);
+          const col = index % currentColumns;
+          itemDelay = animationDelay + ((row + col) * stagger);
+        } else if (animationType === 'wave') {
+          // Wave: sinusoidal delay pattern
+          const row = Math.floor(index / currentColumns);
+          itemDelay = animationDelay + (Math.sin(index * 0.5) * stagger + row * stagger);
+        }
+      }
+      
+      const enteringAnimation = shouldApplyAnimation && animationType !== 'none' && Platform.OS !== 'web'
+        ? FadeIn.delay(itemDelay).duration(duration).springify()
+        : undefined;
+        
+      const layoutAnimation = animated && isAnimated && shouldAnimate() && Layout
+        ? Layout.springify()
+        : undefined;
+      
       if (React.isValidElement(child) && child.type === GridItem) {
         const span = getResponsiveValue(child.props.span || 1, containerWidth);
         const itemWidth = columnWidth * span + columnGapValue * (span - 1);
@@ -101,6 +178,9 @@ export const Grid = React.forwardRef<View, GridProps>(
             alignItems: justifyItems,
             ...child.props.style,
           },
+          animated: animated && isAnimated && shouldAnimate(),
+          entering: enteringAnimation,
+          layout: layoutAnimation,
         });
       }
 
@@ -114,6 +194,9 @@ export const Grid = React.forwardRef<View, GridProps>(
             paddingVertical: rowGapValue / 2,
             alignItems: justifyItems,
           }}
+          animated={animated && isAnimated && shouldAnimate()}
+          entering={enteringAnimation}
+          layout={layoutAnimation}
         >
           {child}
         </GridItem>
@@ -137,11 +220,19 @@ Grid.displayName = 'Grid';
 
 // Grid Item Component
 export const GridItem = React.forwardRef<View, GridItemProps>(
-  ({ children, span = 1, style, testID }, ref) => {
+  ({ children, span = 1, style, testID, animated, entering, layout }, ref) => {
+    const ViewComponent = animated ? AnimatedView : View;
+    
     return (
-      <View ref={ref} style={style} testID={testID}>
+      <ViewComponent 
+        ref={ref} 
+        style={style} 
+        testID={testID}
+        entering={animated ? entering : undefined}
+        layout={animated ? layout : undefined}
+      >
         {children}
-      </View>
+      </ViewComponent>
     );
   }
 );
@@ -174,7 +265,7 @@ export const Row = React.forwardRef<View, RowProps>(
 
     const rowStyle: ViewStyle = {
       flexDirection: 'row',
-      gap: spacing(gap),
+      gap: spacing[gap],
       alignItems,
       justifyContent,
       ...style,
@@ -218,7 +309,7 @@ export const Column = React.forwardRef<View, ColumnProps>(
 
     const columnStyle: ViewStyle = {
       flexDirection: 'column',
-      gap: spacing(gap),
+      gap: spacing[gap],
       alignItems,
       justifyContent,
       flex,

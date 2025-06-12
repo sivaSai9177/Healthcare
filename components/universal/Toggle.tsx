@@ -1,11 +1,27 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, View, ViewStyle, Text as RNText } from 'react-native';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { Symbol } from './Symbols';
+import { 
+  AnimationVariant,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
 
 export type ToggleSize = 'sm' | 'md' | 'lg';
 export type ToggleVariant = 'default' | 'outline';
+export type ToggleAnimationType = 'press' | 'scale' | 'fade' | 'none';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 
 export interface ToggleProps {
   pressed?: boolean;
@@ -14,9 +30,21 @@ export interface ToggleProps {
   size?: ToggleSize;
   variant?: ToggleVariant;
   children?: React.ReactNode;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: string;
   style?: ViewStyle;
   asChild?: boolean;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: ToggleAnimationType;
+  animationDuration?: number;
+  pressScale?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const Toggle = React.forwardRef<View, ToggleProps>(({
@@ -29,10 +57,30 @@ export const Toggle = React.forwardRef<View, ToggleProps>(({
   icon,
   style,
   asChild = false,
+  // Animation props
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'scale',
+  animationDuration,
+  pressScale = 0.95,
+  useHaptics = true,
+  animationConfig,
 }, ref) => {
   const theme = useTheme();
   const { spacing, componentSizes, componentSpacing } = useSpacing();
   const [isHovered, setIsHovered] = React.useState(false);
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  const duration = animationDuration ?? config.duration.fast;
+  
+  // Animation values
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+  const iconRotation = useSharedValue(0);
 
   // Size configuration
   const sizeConfig = {
@@ -56,7 +104,7 @@ export const Toggle = React.forwardRef<View, ToggleProps>(({
     },
   };
 
-  const config = sizeConfig[size];
+  const toggleSizeConfig = sizeConfig[size];
 
   // Theme-aware colors
   const getColors = () => {
@@ -88,27 +136,71 @@ export const Toggle = React.forwardRef<View, ToggleProps>(({
   };
 
   const colors = getColors();
+  
+  // Update animation values when pressed state changes
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      if (pressed) {
+        if (animationType === 'scale') {
+          scale.value = withSpring(1.05, config.spring);
+        }
+        iconRotation.value = withSpring(180, config.spring);
+      } else {
+        scale.value = withSpring(1, config.spring);
+        iconRotation.value = withSpring(0, config.spring);
+      }
+      
+      if (animationType === 'fade') {
+        opacity.value = withTiming(pressed ? 1 : 0.7, { duration });
+      }
+    }
+  }, [pressed, animated, isAnimated, shouldAnimate, animationType, duration, config.spring, scale, opacity, iconRotation]);
+
+  // Animated styles - Must be defined before any conditional returns
+  const containerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: animationType === 'fade' ? opacity.value : 1,
+  }));
+  
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${iconRotation.value}deg` }],
+  }));
 
   const handlePress = () => {
     if (!disabled && onPressedChange) {
+      if (animated && isAnimated && shouldAnimate()) {
+        if (useHaptics) {
+          haptic('light');
+        }
+        
+        if (animationType === 'press') {
+          scale.value = withSpring(pressScale, config.spring, () => {
+            scale.value = withSpring(1, config.spring);
+          });
+        }
+      }
       onPressedChange(!pressed);
     }
   };
-
+  
+  
+  
   const content = (
     <>
       {icon && (
-        <Ionicons
-          name={icon}
-          size={config.iconSize}
+        <Symbol name={icon}
+          size={toggleSizeConfig.iconSize}
           color={colors.icon}
-          style={children ? { marginRight: spacing[1] } : undefined}
+          style={[
+            children ? { marginRight: spacing[1] } : undefined,
+            animated && isAnimated && shouldAnimate() ? iconStyle : {},
+          ]}
         />
       )}
       {children && (
         <RNText
           style={{
-            fontSize: config.fontSize,
+            fontSize: toggleSizeConfig.fontSize,
             fontWeight: '500',
             color: colors.text,
           }}
@@ -132,8 +224,10 @@ export const Toggle = React.forwardRef<View, ToggleProps>(({
     });
   }
 
+  const PressableComponent = animated && isAnimated && shouldAnimate() ? AnimatedPressable : Pressable;
+  
   return (
-    <Pressable
+    <PressableComponent
       ref={ref}
       onPress={handlePress}
       disabled={disabled}
@@ -160,11 +254,12 @@ export const Toggle = React.forwardRef<View, ToggleProps>(({
               ? theme.muted 
               : theme.accent + '1a',
         },
+        animated && isAnimated && shouldAnimate() ? containerStyle : {},
         style,
       ]}
     >
       {content}
-    </Pressable>
+    </PressableComponent>
   );
 });
 

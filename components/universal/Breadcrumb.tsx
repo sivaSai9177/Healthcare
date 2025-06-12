@@ -1,32 +1,141 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Pressable, ViewStyle, ScrollView, Platform } from 'react-native';
-import { useTheme } from '@/lib/theme/enhanced-theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withDelay,
+  FadeIn,
+} from 'react-native-reanimated';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
 import { HStack } from './Stack';
 import { Text } from './Text';
 import { UniversalLink } from './Link';
-import { Ionicons } from '@expo/vector-icons';
-import { SpacingScale } from '@/lib/design-system';
+import { Symbol } from './Symbols';
+import { 
+  SpacingScale,
+  AnimationVariant,
+  getAnimationConfig,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedView = Animated.View;
+
+export type BreadcrumbAnimationType = 'stagger' | 'fade' | 'none';
 
 // Breadcrumb Props
 export interface BreadcrumbProps {
   children: React.ReactNode;
   separator?: React.ReactNode;
   style?: ViewStyle;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: BreadcrumbAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
+
+// Breadcrumb Item Wrapper for animations
+interface BreadcrumbItemWrapperProps {
+  children: React.ReactNode;
+  index: number;
+  animated: boolean;
+  animationVariant: AnimationVariant;
+  animationType: BreadcrumbAnimationType;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
+  useHaptics: boolean;
+}
+
+const BreadcrumbItemWrapper: React.FC<BreadcrumbItemWrapperProps> = ({
+  children,
+  index,
+  animated,
+  animationVariant,
+  animationType,
+  animationConfig,
+}) => {
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  const opacity = useSharedValue(0);
+  const translateX = useSharedValue(-10);
+  
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+      const delay = animationType === 'stagger' ? index * 50 : 0;
+      
+      opacity.value = withDelay(
+        delay,
+        withTiming(1, { duration: config.duration.normal })
+      );
+      
+      if (animationType === 'stagger') {
+        translateX.value = withDelay(
+          delay,
+          withSpring(0, config.spring)
+        );
+      }
+    } else {
+      opacity.value = 1;
+      translateX.value = 0;
+    }
+  }, [index, animated, isAnimated, shouldAnimate, animationType, config]);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: animationType === 'stagger' ? [{ translateX: translateX.value }] : [],
+  }));
+  
+  if (!animated || !isAnimated || !shouldAnimate() || animationType === 'none') {
+    return <>{children}</>;
+  }
+  
+  return (
+    <AnimatedView style={animatedStyle}>
+      {children}
+    </AnimatedView>
+  );
+};
 
 export const Breadcrumb: React.FC<BreadcrumbProps> = ({
   children,
   separator,
   style,
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'stagger',
+  animationDuration,
+  useHaptics = true,
+  animationConfig,
 }) => {
   const theme = useTheme();
   const { componentSpacing } = useSpacing();
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
   
   const items = React.Children.toArray(children);
   const defaultSeparator = (
-    <Ionicons
-      name="chevron-forward"
+    <Symbol name="chevron.right"
       size={16}
       color={theme.mutedForeground}
     />
@@ -40,12 +149,20 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
     >
       <HStack spacing={2} alignItems="center" style={style}>
         {items.map((item, index) => (
-          <React.Fragment key={index}>
+          <BreadcrumbItemWrapper
+            key={index}
+            index={index}
+            animated={animated}
+            animationVariant={animationVariant}
+            animationType={animationType}
+            animationConfig={animationConfig}
+            useHaptics={useHaptics}
+          >
             {item}
             {index < items.length - 1 && (
               <View>{separator || defaultSeparator}</View>
             )}
-          </React.Fragment>
+          </BreadcrumbItemWrapper>
         ))}
       </HStack>
     </ScrollView>
@@ -69,6 +186,34 @@ export const BreadcrumbItem: React.FC<BreadcrumbItemProps> = ({
   current = false,
 }) => {
   const theme = useTheme();
+  const scale = useSharedValue(1);
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: 'moderate',
+  });
+  
+  const handlePressIn = () => {
+    if (shouldAnimate() && isAnimated) {
+      scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+    }
+  };
+  
+  const handlePressOut = () => {
+    if (shouldAnimate() && isAnimated) {
+      scale.value = withSpring(1, config.spring);
+    }
+  };
+  
+  const handlePress = () => {
+    if (Platform.OS !== 'web') {
+      haptic('selection');
+    }
+    onPress?.();
+  };
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
   
   // If it's a link
   if (href && !disabled && !current) {
@@ -87,7 +232,12 @@ export const BreadcrumbItem: React.FC<BreadcrumbItemProps> = ({
   // If it has onPress
   if (onPress && !disabled && !current) {
     return (
-      <Pressable onPress={onPress}>
+      <AnimatedPressable 
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={animatedStyle}
+      >
         {({ pressed }) => (
           <Text
             size="sm"
@@ -99,7 +249,7 @@ export const BreadcrumbItem: React.FC<BreadcrumbItemProps> = ({
             {children}
           </Text>
         )}
-      </Pressable>
+      </AnimatedPressable>
     );
   }
   
@@ -125,8 +275,7 @@ export const BreadcrumbEllipsis: React.FC = () => {
   
   return (
     <View style={{ paddingHorizontal: 4 }}>
-      <Ionicons
-        name="ellipsis-horizontal"
+      <Symbol name="ellipsis"
         size={componentSpacing.iconSize.sm}
         color={theme.mutedForeground}
       />
@@ -136,12 +285,12 @@ export const BreadcrumbEllipsis: React.FC = () => {
 
 // Convenience component for common breadcrumb patterns
 export interface SimpleBreadcrumbProps {
-  items: Array<{
+  items: {
     label: string;
     href?: string;
     onPress?: () => void;
     current?: boolean;
-  }>;
+  }[];
   separator?: React.ReactNode;
   showHome?: boolean;
   homeLabel?: string;
@@ -149,6 +298,17 @@ export interface SimpleBreadcrumbProps {
   onHomePress?: () => void;
   maxItems?: number;
   style?: ViewStyle;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: BreadcrumbAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const SimpleBreadcrumb: React.FC<SimpleBreadcrumbProps> = ({
@@ -160,6 +320,12 @@ export const SimpleBreadcrumb: React.FC<SimpleBreadcrumbProps> = ({
   onHomePress,
   maxItems,
   style,
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'stagger',
+  animationDuration,
+  useHaptics = true,
+  animationConfig,
 }) => {
   const theme = useTheme();
   const { componentSpacing } = useSpacing();
@@ -181,7 +347,16 @@ export const SimpleBreadcrumb: React.FC<SimpleBreadcrumbProps> = ({
   }
   
   return (
-    <Breadcrumb separator={separator} style={style}>
+    <Breadcrumb 
+      separator={separator} 
+      style={style}
+      animated={animated}
+      animationVariant={animationVariant}
+      animationType={animationType}
+      animationDuration={animationDuration}
+      useHaptics={useHaptics}
+      animationConfig={animationConfig}
+    >
       {displayItems.map((item, index) => {
         if ('isEllipsis' in item && item.isEllipsis) {
           return <BreadcrumbEllipsis key={`ellipsis-${index}`} />;
@@ -220,8 +395,8 @@ export const IconBreadcrumbItem: React.FC<IconBreadcrumbItemProps> = ({
     <BreadcrumbItem {...props}>
       <HStack spacing={1} alignItems="center">
         {icon && (
-          <Ionicons
-            name={icon as any}
+          <Symbol
+            name="icon as any"
             size={componentSpacing.iconSize.sm}
             color={props.current ? theme.foreground : theme.mutedForeground}
           />

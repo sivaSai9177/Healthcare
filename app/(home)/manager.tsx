@@ -2,10 +2,9 @@ import React from "react";
 import { ScrollView, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
-import { useTheme } from "@/lib/theme/theme-provider";
-import { SpacingScale } from "@/lib/design-system";
+import { useTheme } from "@/lib/theme/provider";
+import { SpacingScale } from "@/lib/design";
 import { useRequireRole } from "@/components/ProtectedRoute";
-import { Ionicons } from "@expo/vector-icons";
 import {
   Container,
   Box,
@@ -24,7 +23,7 @@ import {
   Avatar,
   SimpleBreadcrumb,
   Separator,
-  Sidebar07Trigger,
+  SidebarTrigger,
   ScrollContainer,
 } from "@/components/universal";
 
@@ -45,7 +44,7 @@ export default function ManagerDashboard() {
         {Platform.OS === 'web' && (
           <Box px={4 as SpacingScale} py={3 as SpacingScale} borderBottomWidth={1} borderTheme="border">
             <HStack alignItems="center" spacing={2} mb={2 as SpacingScale}>
-              <Sidebar07Trigger />
+              <SidebarTrigger />
               <Separator orientation="vertical" style={{ height: 24 }} />
               <SimpleBreadcrumb
                 items={[

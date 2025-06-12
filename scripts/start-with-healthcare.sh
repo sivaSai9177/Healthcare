@@ -1,103 +1,201 @@
 #!/bin/bash
 
-# Start the app with healthcare setup based on environment
-# This script auto-detects the environment and database configuration
+# Start with healthcare setup
+# This script combines database setup, healthcare data, and Expo start
+# Updated with runtime fixes and pre-flight checks
 
-echo "🏥 Hospital Alert System - Starting with Healthcare Setup"
-echo "========================================================="
-echo ""
+echo "🏥 Starting Hospital Alert System with Healthcare Setup..."
+echo "📋 Running pre-flight checks..."
 
-# Load environment variables from .env.local or .env
-if [ -f .env.local ]; then
-    echo "📋 Loading environment from .env.local..."
-    set -a
-    source .env.local
-    set +a
-elif [ -f .env ]; then
-    echo "📋 Loading environment from .env..."
-    set -a
-    source .env
-    set +a
-fi
+# Ensure we're in the project root
+cd "$(dirname "$0")/.."
 
-# Determine environment
-if [ -n "$APP_ENV" ]; then
-    ENV=$APP_ENV
-elif [ -n "$EXPO_PUBLIC_ENVIRONMENT" ]; then
-    ENV=$EXPO_PUBLIC_ENVIRONMENT
-else
-    ENV="local"
-fi
-
-echo "📍 Environment: $ENV"
-
-# Set database URL based on environment
-case $ENV in
-    "local")
-        export DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev"
-        export APP_ENV="local"
-        
-        # Check if local database is running
-        if ! docker ps | grep -q "myexpo-postgres-local"; then
-            echo "⚠️  Local PostgreSQL is not running!"
-            echo "Starting local database services..."
-            docker-compose -f docker-compose.local.yml up -d postgres-local redis-local
-            sleep 3
-        fi
-        
-        echo "✅ Using local PostgreSQL"
-        ;;
-        
-    "development"|"staging"|"production")
-        if [ -z "$DATABASE_URL" ] && [ -n "$NEON_DATABASE_URL" ]; then
-            export DATABASE_URL=$NEON_DATABASE_URL
-        fi
-        echo "☁️  Using Neon Cloud Database"
-        ;;
-        
-    *)
-        echo "❌ Unknown environment: $ENV"
+# Pre-flight checks
+check_dependencies() {
+    local missing_deps=()
+    
+    # Check for required commands
+    command -v bun >/dev/null 2>&1 || missing_deps+=("bun")
+    command -v docker >/dev/null 2>&1 || missing_deps+=("docker")
+    command -v expo >/dev/null 2>&1 || missing_deps+=("expo-cli")
+    
+    if [ ${#missing_deps[@]} -ne 0 ]; then
+        echo "❌ Missing required dependencies: ${missing_deps[*]}"
+        echo "Please install them first."
         exit 1
-        ;;
-esac
+    fi
+    
+    # Check if @expo/server is installed
+    if ! [ -d "node_modules/@expo/server" ]; then
+        echo "📦 Installing @expo/server..."
+        bun add @expo/server
+    fi
+    
+    echo "✅ All dependencies checked"
+}
 
-# Display database info (hide password)
-DB_DISPLAY=$(echo $DATABASE_URL | sed 's/:[^:@]*@/:****@/')
-echo "🗄️  Database: $DB_DISPLAY"
-echo ""
+# Run dependency checks
+check_dependencies
 
-# Run healthcare setup
-echo "🔧 Setting up healthcare tables and data..."
-bun run scripts/setup-healthcare-local.ts
-
-if [ $? -eq 0 ]; then
-    echo "✅ Healthcare setup completed successfully!"
-else
-    echo "⚠️  Healthcare setup encountered issues, but continuing..."
+# Check if Docker is running
+if ! docker info > /dev/null 2>&1; then
+    echo "❌ Docker is not running. Please start Docker Desktop first."
+    exit 1
 fi
 
+# Kill any existing processes on required ports
+echo "🧹 Cleaning up existing processes..."
+lsof -ti:8081 | xargs kill -9 2>/dev/null || true
+lsof -ti:3002 | xargs kill -9 2>/dev/null || true
+lsof -ti:3001 | xargs kill -9 2>/dev/null || true
+
+# Start local database
+echo "🗄️  Starting local PostgreSQL..."
+docker-compose -f docker-compose.local.yml up -d postgres-local redis-local
+
+# Wait for database to be ready
+echo "⏳ Waiting for database to be ready..."
+sleep 5
+
+# Run migrations
+echo "📋 Running database migrations..."
+APP_ENV=local DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev" drizzle-kit push --config=drizzle.config.ts
+
+# Setup healthcare data
+echo "🏥 Setting up healthcare demo data..."
+APP_ENV=local DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev" bun scripts/setup-healthcare-local.ts
+
+echo "✅ Healthcare setup complete!"
 echo ""
+echo "📱 Demo Credentials:"
+echo "   Operator: johncena@gmail.com (any password)"
+echo "   Nurse: doremon@gmail.com (any password)"
+echo "   Doctor: johndoe@gmail.com (any password)"
+echo "   Head Doctor: saipramod273@gmail.com (any password)"
+echo ""
+
+# Determine environment mode
+ENV_MODE=${APP_ENV:-"local"}
+
+if [ "$ENV_MODE" = "development" ]; then
+    echo "☁️  Using Neon cloud database..."
+    export DATABASE_URL=$NEON_DATABASE_URL
+else
+    echo "💻 Using local database..."
+    export APP_ENV=local
+    export DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev"
+fi
+
+# Set OAuth-friendly URLs
+export EXPO_PUBLIC_API_URL="http://localhost:8081"
+export EXPO_PUBLIC_AUTH_URL="http://localhost:8081"
+export AUTH_URL="http://localhost:8081"
+export BETTER_AUTH_URL="http://localhost:8081"
+
+# Start email server in background if configured
+if [ -f ".env.email" ] || [ -n "$EMAIL_HOST" ]; then
+    echo "📧 Starting email notification server in background..."
+    bun scripts/start-email-server.ts > logs/email-server.log 2>&1 &
+    EMAIL_PID=$!
+    echo "   Email server PID: $EMAIL_PID"
+    echo "   Logs: logs/email-server.log"
+    
+    # Create logs directory if it doesn't exist
+    mkdir -p logs
+    
+    # Wait a moment for email server to start
+    sleep 2
+else
+    echo "⚠️  Email server not configured (no .env.email file)"
+    echo "   To enable email notifications, create .env.email with SMTP settings"
+fi
+
+# Start WebSocket server in background
+echo "🔌 Starting WebSocket server in background..."
+bun scripts/start-websocket-standalone.ts > logs/websocket-server.log 2>&1 &
+WS_PID=$!
+echo "   WebSocket server PID: $WS_PID"
+echo "   Logs: logs/websocket-server.log"
+
+# Function to check service health
+check_service_health() {
+    local service_name=$1
+    local port=$2
+    local max_attempts=10
+    local attempt=0
+    
+    while [ $attempt -lt $max_attempts ]; do
+        if nc -z localhost $port 2>/dev/null; then
+            echo "✅ $service_name is running on port $port"
+            return 0
+        fi
+        attempt=$((attempt + 1))
+        sleep 1
+    done
+    
+    echo "⚠️  $service_name failed to start on port $port"
+    return 1
+}
+
+# Function to cleanup background processes
+cleanup() {
+    echo -e "\n🛑 Shutting down services..."
+    if [ -n "$EMAIL_PID" ]; then
+        kill $EMAIL_PID 2>/dev/null
+        echo "   Email server stopped"
+    fi
+    if [ -n "$WS_PID" ]; then
+        kill $WS_PID 2>/dev/null
+        echo "   WebSocket server stopped"
+    fi
+    
+    # Cleanup any orphaned processes
+    lsof -ti:3001 | xargs kill -9 2>/dev/null || true
+    lsof -ti:3002 | xargs kill -9 2>/dev/null || true
+    
+    exit 0
+}
+
+# Set up trap to cleanup on exit
+trap cleanup EXIT INT TERM
+
+# Check service health
+echo ""
+echo "🔍 Verifying services..."
+check_service_health "PostgreSQL" 5432
+check_service_health "Redis" 6379
+if [ -n "$EMAIL_PID" ]; then
+    check_service_health "Email Server" 3001
+fi
+check_service_health "WebSocket Server" 3002
+
+echo ""
+echo "🏥 All services are running!"
+echo "   - PostgreSQL: localhost:5432"
+echo "   - Redis: localhost:6379"
+if [ -n "$EMAIL_PID" ]; then
+    echo "   - Email Server: http://localhost:3001"
+fi
+echo "   - WebSocket: ws://localhost:3002"
+echo "   - Expo Server: http://localhost:8081"
+echo "   - Web App: http://localhost:8081"
+echo ""
+
+# Start Expo (this will block and keep the script running)
 echo "🚀 Starting Expo..."
 echo ""
+echo "📱 Platform Options:"
+echo "   Press 'w' to open in web browser (http://localhost:8081)"
+echo "   Press 'i' for iOS simulator"
+echo "   Press 'a' for Android emulator"
+echo "   Press 'q' to quit"
+echo ""
 
-# Ensure OAuth credentials are available
-if [ -z "$GOOGLE_CLIENT_ID" ] || [ -z "$GOOGLE_CLIENT_SECRET" ]; then
-    echo "⚠️  Warning: Google OAuth credentials not found!"
-    echo "   OAuth sign-in will not work without proper credentials."
+# Check if we should auto-open web
+if [ "$1" = "--web" ] || [ "$AUTO_OPEN_WEB" = "true" ]; then
+    echo "🌐 Auto-opening web browser in 5 seconds..."
+    (sleep 5 && open http://localhost:8081) &
 fi
 
-# Start based on environment
-if [ "$ENV" = "local" ]; then
-    # Force Expo Go mode for local
-    export EXPO_USE_DEV_CLIENT=false
-    
-    # Ensure all OAuth-related vars are exported
-    export BETTER_AUTH_BASE_URL="http://localhost:8081/api/auth"
-    export BETTER_AUTH_URL="http://localhost:8081"
-    export EXPO_PUBLIC_API_URL="http://localhost:8081"
-    
-    exec npx expo start --host lan --clear --go
-else
-    # Regular start for other environments
-    exec bun run start
-fi
+# Start Expo with web support
+EXPO_GO=1 expo start --host lan --go

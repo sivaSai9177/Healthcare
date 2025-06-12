@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text as RNText,
@@ -9,10 +9,25 @@ import {
   ScaledSize,
   Dimensions,
 } from 'react-native';
-import { useTheme } from '@/lib/theme/enhanced-theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { designSystem } from '@/lib/design-system';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withDelay,
+  interpolate,
+  runOnJS,
+} from 'react-native-reanimated';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { AnimationVariant } from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
 import { Text } from './Text';
+import { useBreakpoint } from '@/hooks/responsive';
+
+export type TooltipAnimationType = 'fade' | 'scale' | 'slide' | 'none';
 
 export interface TooltipProps {
   // Content
@@ -34,6 +49,17 @@ export interface TooltipProps {
   // Styling
   sideOffset?: number;
   maxWidth?: number;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: TooltipAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 interface TooltipPosition {
@@ -54,9 +80,20 @@ export const Tooltip: React.FC<TooltipProps> = ({
   disabled = false,
   sideOffset = 0,
   maxWidth = 250,
+  animated = true,
+  animationVariant = 'subtle',
+  animationType = 'fade',
+  animationDuration,
+  useHaptics = false,
+  animationConfig,
 }) => {
   const theme = useTheme();
   const { spacing, componentSpacing } = useSpacing();
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
   const [visible, setVisible] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState<TooltipPosition>({ top: 0, left: 0 });
   const [tooltipSize, setTooltipSize] = useState({ width: 0, height: 0 });
@@ -64,8 +101,41 @@ export const Tooltip: React.FC<TooltipProps> = ({
   const timeoutRef = useRef<NodeJS.Timeout>();
   const skipDelayRef = useRef(false);
   
+  // Animation values
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(animationType === 'scale' ? 0.9 : 1);
+  const translateY = useSharedValue(animationType === 'slide' ? -10 : 0);
+  
   // Web-specific hover handling
   const isWeb = Platform.OS === 'web';
+  
+  const animatedStyle = useAnimatedStyle(() => {
+    const baseStyle: any = {
+      opacity: opacity.value,
+    };
+    
+    if (animationType === 'scale') {
+      baseStyle.transform = [{ scale: scale.value }];
+    } else if (animationType === 'slide') {
+      const placement = side || position;
+      switch (placement) {
+        case 'top':
+          baseStyle.transform = [{ translateY: translateY.value }];
+          break;
+        case 'bottom':
+          baseStyle.transform = [{ translateY: -translateY.value }];
+          break;
+        case 'left':
+          baseStyle.transform = [{ translateX: translateY.value }];
+          break;
+        case 'right':
+          baseStyle.transform = [{ translateX: -translateY.value }];
+          break;
+      }
+    }
+    
+    return baseStyle;
+  });
   
   const calculatePosition = useCallback(() => {
     if (!triggerRef.current) return;
@@ -128,12 +198,17 @@ export const Tooltip: React.FC<TooltipProps> = ({
       setVisible(true);
       skipDelayRef.current = true;
       
+      // Haptic feedback when tooltip appears
+      if (useHaptics && Platform.OS !== 'web') {
+        haptic('selection');
+      }
+      
       // Reset skip delay after a period of inactivity
       setTimeout(() => {
         skipDelayRef.current = false;
       }, 1500);
     }, delay);
-  }, [disabled, delayDuration, skipDelayDuration]);
+  }, [disabled, delayDuration, skipDelayDuration, useHaptics]);
   
   const hideTooltip = useCallback(() => {
     if (timeoutRef.current) {
@@ -154,6 +229,34 @@ export const Tooltip: React.FC<TooltipProps> = ({
     }
   }, [visible, tooltipSize, calculatePosition]);
   
+  // Animate tooltip visibility
+  React.useEffect(() => {
+    if (visible && animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+      if (animationType === 'fade') {
+        opacity.value = withTiming(1, { duration: config.duration.fast });
+      } else if (animationType === 'scale') {
+        opacity.value = withTiming(1, { duration: config.duration.fast });
+        scale.value = withSpring(1, config.spring);
+      } else if (animationType === 'slide') {
+        opacity.value = withTiming(1, { duration: config.duration.fast });
+        translateY.value = withSpring(0, config.spring);
+      }
+    } else if (!visible) {
+      opacity.value = withTiming(0, { duration: config.duration.fast });
+      if (animationType === 'scale') {
+        scale.value = withTiming(0.9, { duration: config.duration.fast });
+      }
+      if (animationType === 'slide') {
+        translateY.value = withTiming(-10, { duration: config.duration.fast });
+      }
+    } else {
+      // No animation
+      opacity.value = visible ? 1 : 0;
+      scale.value = 1;
+      translateY.value = 0;
+    }
+  }, [visible, animated, isAnimated, shouldAnimate, animationType, config]);
+  
   // Cleanup on unmount
   React.useEffect(() => {
     return () => {
@@ -162,6 +265,23 @@ export const Tooltip: React.FC<TooltipProps> = ({
       }
     };
   }, []);
+  
+  // Get transform origin for web animations
+  const getTransformOrigin = () => {
+    const placement = side || position;
+    switch (placement) {
+      case 'top':
+        return 'bottom center';
+      case 'bottom':
+        return 'top center';
+      case 'left':
+        return 'right center';
+      case 'right':
+        return 'left center';
+      default:
+        return 'center';
+    }
+  };
   
   const renderContent = () => {
     if (typeof content === 'string') {
@@ -194,29 +314,50 @@ export const Tooltip: React.FC<TooltipProps> = ({
         <Modal
           transparent
           visible={visible}
-          animationType="fade"
+          animationType="none"
           statusBarTranslucent
           pointerEvents="none"
         >
-          <View
-            style={{
-              position: 'absolute',
-              top: tooltipPosition.top,
-              left: tooltipPosition.left,
-              maxWidth,
-              backgroundColor: theme.popover,
-              borderColor: theme.border,
-              borderWidth: 1,
-              borderRadius: componentSpacing.borderRadius.md,
-              paddingHorizontal: spacing[3],
-              paddingVertical: spacing[2],
-              boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.25)',
-              elevation: 5,
-            }}
+          <Animated.View
+            style={[
+              {
+                position: 'absolute',
+                top: tooltipPosition.top,
+                left: tooltipPosition.left,
+                maxWidth,
+                backgroundColor: theme.popover,
+                borderColor: theme.border,
+                borderWidth: 1,
+                borderRadius: componentSpacing.borderRadius.md,
+                paddingHorizontal: spacing[3],
+                paddingVertical: spacing[2],
+                ...Platform.select({
+                  ios: {
+                    shadowColor: 'theme.foreground',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 4,
+                  },
+                  android: {
+                    elevation: 5,
+                  },
+                  default: {
+                    boxShadow: '0px 2px 4px theme.mutedForeground + "40"',
+                  },
+                }),
+              },
+              animated && isAnimated && shouldAnimate() && animationType !== 'none'
+                ? animatedStyle
+                : { opacity: 1 },
+              Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && {
+                transition: 'all 0.2s ease',
+                transformOrigin: getTransformOrigin(),
+              } as any,
+            ]}
             onLayout={onTooltipLayout}
           >
             {renderContent()}
-          </View>
+          </Animated.View>
         </Modal>
       )}
     </>

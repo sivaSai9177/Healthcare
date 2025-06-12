@@ -18,7 +18,12 @@ my-expo/
 │   │   ├── _layout.tsx          # Platform-specific tab navigation
 │   │   ├── index.tsx            # Home dashboard
 │   │   ├── explore.tsx          # Feature exploration
-│   │   └── settings.tsx         # User settings
+│   │   ├── settings.tsx         # User settings
+│   │   ├── admin.tsx            # Admin dashboard
+│   │   ├── manager.tsx          # Manager dashboard
+│   │   ├── organization-dashboard.tsx # Organization management
+│   │   ├── healthcare-dashboard.tsx   # Healthcare alerts
+│   │   └── operator-dashboard.tsx     # Operator controls
 │   ├── api/                     # API route handlers
 │   │   ├── auth/                # Better Auth endpoints
 │   │   ├── debug/               # Debug utilities
@@ -29,8 +34,26 @@ my-expo/
 │   └── +not-found.tsx           # 404 page
 │
 ├── components/                   # Reusable UI components
+│   ├── universal/               # 48+ Universal Design System components
+│   │   ├── charts/              # Chart components
+│   │   └── [components...]      # All universal components
+│   ├── organization/            # Organization management components
+│   │   ├── blocks/              # Golden ratio organization blocks
+│   │   │   ├── OrganizationOverviewBlock.tsx
+│   │   │   ├── MemberManagementBlock.tsx
+│   │   │   ├── OrganizationMetricsBlock.tsx
+│   │   │   ├── QuickActionsBlock.tsx
+│   │   │   ├── GeneralSettingsBlock.tsx
+│   │   │   ├── SecuritySettingsBlock.tsx
+│   │   │   ├── NotificationSettingsBlock.tsx
+│   │   │   ├── FeatureSettingsBlock.tsx
+│   │   │   └── index.ts
+│   │   └── OrganizationCreationWizard.tsx
+│   ├── healthcare/              # Healthcare-specific components
+│   │   └── blocks/              # Healthcare alert blocks
 │   ├── shadcn/ui/               # shadcn/ui components for RN
 │   ├── ui/                      # Core UI components
+│   ├── navigation/              # Navigation components
 │   ├── WebTabBar.tsx            # Custom tab bar for web
 │   ├── GoogleSignInButton.tsx   # OAuth button
 │   ├── ProtectedRoute.tsx       # Route protection
@@ -39,18 +62,49 @@ my-expo/
 ├── lib/                         # Core libraries and utilities
 │   ├── auth/                    # Authentication system
 │   ├── core/                    # Core utilities
-│   ├── stores/                  # Zustand stores
+│   ├── api/                     # API client
+│   │   └── trpc.tsx             # tRPC client setup
+│   ├── core/                    # Core utilities
+│   │   ├── config/              # Environment configuration
+│   │   ├── debug/               # Logging and debugging
+│   │   │   └── logger.ts        # Structured logging
+│   │   └── platform/            # Platform-specific utilities
+│   ├── design/                  # Design system
+│   │   ├── animation-variants.ts # Animation configurations
+│   │   ├── responsive.ts        # Responsive utilities
+│   │   └── spacing.ts           # Spacing scales
 │   ├── navigation/              # Navigation utilities
-│   ├── theme/                   # Theme provider
-│   ├── validations/             # Zod schemas
-│   └── trpc.tsx                 # tRPC client
+│   ├── stores/                  # Zustand stores (8 stores)
+│   ├── theme/                   # Theme system
+│   │   └── provider.tsx         # Theme provider
+│   ├── ui/                      # UI utilities
+│   │   ├── animations/          # Animation system
+│   │   └── haptics/             # Haptic feedback
+│   └── validations/             # Zod schemas
+│       ├── common.ts            # Common validation schemas
+│       ├── auth.ts              # Auth validation schemas
+│       ├── organization.ts      # Organization validation schemas
+│       └── index.ts             # Central exports
 │
 ├── src/                         # Backend source code
 │   ├── db/                      # Database layer
+│   │   ├── schema.ts            # User/auth tables
+│   │   ├── healthcare-schema.ts # Healthcare tables
+│   │   ├── organization-schema.ts # Organization tables
+│   │   └── index.ts             # DB exports
 │   └── server/                  # tRPC server
 │       ├── middleware/          # tRPC middleware
 │       ├── routers/             # API routes
+│       │   ├── auth.ts          # Auth procedures
+│       │   ├── admin.ts         # Admin procedures
+│       │   ├── healthcare.ts    # Healthcare procedures
+│       │   ├── organization.ts  # Organization procedures
+│       │   └── index.ts         # Router exports
 │       ├── services/            # Business logic
+│       │   ├── access-control.ts
+│       │   ├── organization-access-control.ts
+│       │   ├── audit.ts
+│       │   └── index.ts
 │       └── trpc.ts              # tRPC config
 │
 ├── types/                       # TypeScript definitions
@@ -95,9 +149,14 @@ my-expo/
 ## Component Organization
 
 ### UI Components (`/components`)
+- **universal/** - 48+ Universal Design System components
+- **organization/** - Organization management components
+  - blocks/ - Golden ratio UI blocks
+  - OrganizationCreationWizard - Multi-step wizard
+- **healthcare/** - Healthcare alert system
 - **shadcn/ui/** - Adapted shadcn/ui components
 - **ui/** - Core UI primitives
-- **Feature-specific** - Components for specific features
+- **navigation/** - Navigation components
 
 ### Authentication Components
 - `GoogleSignInButton.tsx` - OAuth integration
@@ -113,6 +172,13 @@ my-expo/
 
 ### Zustand Stores (`/lib/stores`)
 - `auth-store.ts` - Authentication state
+- `theme-store.ts` - Theme preferences
+- `spacing-store.ts` - Spacing density settings
+- `animation-store.ts` - Animation preferences
+- `sidebar-store.ts` - Sidebar state
+- `toast-store.ts` - Toast notifications
+- `dialog-store.ts` - Dialog states
+- `debug-store.ts` - Debug panel state
 - Pure Zustand implementation (no Context API)
 
 ### TanStack Query
@@ -137,6 +203,28 @@ my-expo/
 - `router.replace()` for tab switches
 
 ## API Structure
+
+### tRPC Routers
+- **auth** - Authentication and user management
+- **admin** - Admin dashboard and analytics
+- **healthcare** - Healthcare alert system
+- **organization** - Organization management
+  - CRUD operations
+  - Member management
+  - Settings and configuration
+  - Activity logging
+  - Invitation codes
+
+### Database Schema
+- **User Tables** - Users, sessions, accounts
+- **Organization Tables**
+  - organization - Core org data
+  - organization_member - User-org relationships
+  - organization_settings - Configuration
+  - organization_code - Join codes
+  - organization_activity_log - Audit trail
+  - organization_invitation - Pending invites
+- **Healthcare Tables** - Alerts, patients, escalations
 
 ### tRPC Routers (`/src/server/routers`)
 - `auth.ts` - Authentication endpoints

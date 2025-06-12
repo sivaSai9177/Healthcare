@@ -3,6 +3,7 @@ import React, { Component, ReactNode } from 'react';
 import { View, Text, ScrollView, Pressable, Platform } from 'react-native';
 import { createLogger, exportLogs } from '@/lib/core/debug';
 import { showErrorAlert } from '@/lib/core/alert';
+import { useTheme } from '@/lib/theme/provider';
 
 interface Props {
   children: ReactNode;
@@ -55,7 +56,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   reportError(error: Error, errorInfo: React.ErrorInfo) {
     // TODO: Send to crash reporting service
-    console.error('Production error:', {
+    logger.error('Production error:', {
       error: error.toString(),
       stack: error.stack,
       componentStack: errorInfo.componentStack,
@@ -93,7 +94,7 @@ ${logs}
     } else {
       // On mobile, show alert with option to copy
       showErrorAlert('Debug Info', 'Debug information has been logged to console');
-// TODO: Replace with structured logging - console.log(errorDetails);
+      logger.debug('Error details exported', errorDetails);
     }
   };
 
@@ -103,118 +104,7 @@ ${logs}
         return this.props.fallback(this.state.error!, this.resetError);
       }
 
-      return (
-        <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-          <ScrollView
-            contentContainerStyle={{
-              flexGrow: 1,
-              justifyContent: 'center',
-              alignItems: 'center',
-              padding: 20,
-            }}
-          >
-            <View
-              style={{
-                backgroundColor: 'white',
-                borderRadius: 12,
-                padding: 24,
-                maxWidth: 500,
-                width: '100%',
-                boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-                elevation: 3,
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 24,
-                  fontWeight: 'bold',
-                  color: '#dc2626',
-                  marginBottom: 16,
-                  textAlign: 'center',
-                }}
-              >
-                Oops! Something went wrong
-              </Text>
-
-              <Text
-                style={{
-                  fontSize: 16,
-                  color: '#4b5563',
-                  marginBottom: 24,
-                  textAlign: 'center',
-                }}
-              >
-                We apologize for the inconvenience. The app encountered an unexpected error.
-              </Text>
-
-              {__DEV__ && (
-                <View
-                  style={{
-                    backgroundColor: '#fee2e2',
-                    borderRadius: 8,
-                    padding: 16,
-                    marginBottom: 24,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: '600',
-                      color: '#991b1b',
-                      marginBottom: 8,
-                    }}
-                  >
-                    Error Details (Development Only):
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      color: '#7f1d1d',
-                      fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
-                    }}
-                  >
-                    {this.state.error?.toString()}
-                  </Text>
-                </View>
-              )}
-
-              <View style={{ gap: 12 }}>
-                <Pressable
-                  onPress={this.resetError}
-                  style={{
-                    backgroundColor: '#3b82f6',
-                    paddingVertical: 12,
-                    paddingHorizontal: 24,
-                    borderRadius: 8,
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-                    Try Again
-                  </Text>
-                </Pressable>
-
-                {__DEV__ && (
-                  <Pressable
-                    onPress={this.exportDebugInfo}
-                    style={{
-                      backgroundColor: '#6b7280',
-                      paddingVertical: 12,
-                      paddingHorizontal: 24,
-                      borderRadius: 8,
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
-                      Export Debug Info
-                    </Text>
-                  </Pressable>
-                )}
-              </View>
-            </View>
-          </ScrollView>
-        </View>
-      );
+      return <DefaultErrorUI error={this.state.error!} resetError={this.resetError} onExportDebug={this.exportDebugInfo} />;
     }
 
     return this.props.children;
@@ -232,4 +122,125 @@ export function useErrorHandler() {
   return (error: Error) => {
     setError(error);
   };
+}
+
+// Default error UI component
+function DefaultErrorUI({ error, resetError, onExportDebug }: { error: Error; resetError: () => void; onExportDebug?: () => void }) {
+  const theme = useTheme();
+  
+  return (
+    <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: theme.background,
+            borderRadius: 12,
+            padding: 24,
+            maxWidth: 500,
+            width: '100%',
+            shadowColor: theme.mutedForeground,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 24,
+              fontWeight: 'bold',
+              color: theme.destructive,
+              marginBottom: 16,
+              textAlign: 'center',
+            }}
+          >
+            Oops! Something went wrong
+          </Text>
+
+          <Text
+            style={{
+              fontSize: 16,
+              color: theme.mutedForeground,
+              marginBottom: 24,
+              textAlign: 'center',
+            }}
+          >
+            We apologize for the inconvenience. The app encountered an unexpected error.
+          </Text>
+
+          {__DEV__ && (
+            <View
+              style={{
+                backgroundColor: theme.destructive + '20',
+                borderRadius: 8,
+                padding: 16,
+                marginBottom: 24,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: theme.destructive,
+                  marginBottom: 8,
+                }}
+              >
+                Error Details (Development Only):
+              </Text>
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: theme.destructive,
+                  fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+                }}
+              >
+                {error?.toString()}
+              </Text>
+            </View>
+          )}
+
+          <View style={{ gap: 12 }}>
+            <Pressable
+              onPress={resetError}
+              style={{
+                backgroundColor: theme.primary,
+                paddingVertical: 12,
+                paddingHorizontal: 24,
+                borderRadius: 8,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: theme.primaryForeground, fontSize: 16, fontWeight: '600' }}>
+                Try Again
+              </Text>
+            </Pressable>
+
+            {__DEV__ && onExportDebug && (
+              <Pressable
+                onPress={onExportDebug}
+                style={{
+                  backgroundColor: theme.muted,
+                  paddingVertical: 12,
+                  paddingHorizontal: 24,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: theme.mutedForeground, fontSize: 16, fontWeight: '600' }}>
+                  Export Debug Info
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
 }

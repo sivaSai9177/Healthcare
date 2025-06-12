@@ -3,7 +3,10 @@ import { db } from '@/src/db';
 import { users } from '@/src/db/schema';
 import { healthcareUsers } from '@/src/db/healthcare-schema';
 import { auth } from '@/lib/auth/auth-server';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
+
+// Add missing import
+import { eq } from 'drizzle-orm';
 
 async function createHealthcareUsers() {
   try {
@@ -142,9 +145,6 @@ async function createHealthcareUsers() {
     process.exit(1);
   }
 }
-
-// Add missing import
-import { eq } from 'drizzle-orm';
 
 // Run the script
 createHealthcareUsers();

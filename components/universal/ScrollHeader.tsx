@@ -1,23 +1,62 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Animated, Platform, StyleSheet, View, Text as RNText } from 'react-native';
+import { Animated, Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { Box } from './Box';
+
 import { Text } from './Text';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { 
+  AnimationVariant,
+  ScrollHeaderAnimationType,
+  getAnimationConfig,
+  getSpacing,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
 
 interface ScrollHeaderProps {
   title: string;
   scrollY: Animated.Value;
   children?: React.ReactNode;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: ScrollHeaderAnimationType;
+  animationDuration?: number;
+  shrinkScale?: number;
+  blurIntensity?: number;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
-export function ScrollHeader({ title, scrollY, children }: ScrollHeaderProps) {
+export function ScrollHeader({ 
+  title, 
+  scrollY, 
+  children,
+  // Animation props
+  animated = false,
+  animationVariant = 'moderate',
+  animationType = 'shrink',
+  animationDuration,
+  shrinkScale = 0.85,
+  blurIntensity = 100,
+  animationConfig,
+}: ScrollHeaderProps) {
   const theme = useTheme();
   const { spacing } = useSpacing();
   const insets = useSafeAreaInsets();
   const [showBorder, setShowBorder] = useState(false);
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  const duration = animationDuration ?? config.duration.normal;
 
   // Threshold for when to show the header
   const HEADER_THRESHOLD = 50;
@@ -77,7 +116,11 @@ export function ScrollHeader({ title, scrollY, children }: ScrollHeaderProps) {
               styles.headerTitle,
               {
                 color: theme.foreground,
-                transform: [{ translateY: titleTranslateY }],
+                transform: [
+                  { translateY: titleTranslateY },
+                  { scale: titleScale },
+                ],
+                opacity: fadeOpacity,
               },
             ]}
           >
@@ -101,8 +144,8 @@ export function ScrollHeader({ title, scrollY, children }: ScrollHeaderProps) {
       ]}
     >
       <BlurView
-        intensity={100}
-        tint={theme.background === '#ffffff' ? 'light' : 'dark'}
+        intensity={animated && isAnimated && shouldAnimate() && animationType === 'blur' ? backgroundBlur : blurIntensity}
+        tint={theme.background === 'theme.background' ? 'light' : 'dark'}
         style={[
           StyleSheet.absoluteFillObject,
           {
@@ -111,13 +154,23 @@ export function ScrollHeader({ title, scrollY, children }: ScrollHeaderProps) {
           },
         ]}
       />
-      <View style={[styles.headerContent, { paddingTop: insets.top }]}>
+      <View style={[
+        styles.headerContent, 
+        { 
+          paddingTop: insets.top,
+          paddingHorizontal: spacing[4] || 16,
+        }
+      ]}>
         <Animated.Text
           style={[
             styles.headerTitle,
             {
               color: theme.foreground,
-              transform: [{ translateY: titleTranslateY }],
+              transform: [
+                { translateY: titleTranslateY },
+                { scale: titleScale },
+              ],
+              opacity: fadeOpacity,
             },
           ]}
         >
@@ -143,7 +196,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
   },
   headerTitle: {
     fontSize: 17,

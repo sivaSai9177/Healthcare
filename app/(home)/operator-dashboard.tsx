@@ -12,21 +12,17 @@ import {
   Badge,
   Skeleton,
   SimpleBreadcrumb,
-  Sidebar07Trigger,
+  SidebarTrigger,
   Separator,
 } from '@/components/universal';
 import { 
   AlertCreationBlock, 
-  AlertListBlock,
-  goldenSpacing,
-  goldenDimensions,
-  healthcareColors 
+  AlertListBlock
 } from '@/components/healthcare/blocks';
 import { useAuthStore } from '@/lib/stores/auth-store';
-import { useRouter } from 'expo-router';
-import { Redirect } from 'expo-router';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { log } from '@/lib/core/logger';
+import { useRouter , Redirect } from 'expo-router';
+import { useTheme } from '@/lib/theme/provider';
+import { log } from '@/lib/core/debug/logger';
 
 // Loading skeleton for suspense
 const DashboardSkeleton = () => {
@@ -66,7 +62,7 @@ export default function OperatorDashboard() {
               Create and manage emergency alerts for medical staff
             </Text>
           </VStack>
-          <Badge variant="destructive" size="large">
+          <Badge variant="error" size="large">
             <Text weight="semibold">OPERATOR MODE</Text>
           </Badge>
         </HStack>
@@ -157,7 +153,7 @@ export default function OperatorDashboard() {
           borderTheme="border"
         >
           <HStack alignItems="center" spacing={goldenSpacing.sm} mb={goldenSpacing.sm}>
-            <Sidebar07Trigger />
+            <SidebarTrigger />
             <Separator orientation="vertical" style={{ height: 24 }} />
             <SimpleBreadcrumb
               items={[

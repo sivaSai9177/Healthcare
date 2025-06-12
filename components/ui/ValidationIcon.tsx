@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import { useTheme } from '@/lib/theme/theme-provider';
+import { useTheme } from '@/lib/theme/provider';
 import { IconSymbol } from './IconSymbol';
 
 interface ValidationIconProps {

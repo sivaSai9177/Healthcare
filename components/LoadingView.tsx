@@ -1,8 +1,8 @@
 import React from 'react';
 import { ActivityIndicator } from 'react-native';
 import { Box, Text } from '@/components/universal';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { SpacingScale } from '@/lib/design-system';
+import { useTheme } from '@/lib/theme/provider';
+import { SpacingScale } from '@/lib/design';
 
 interface LoadingViewProps {
   message?: string;
@@ -26,7 +26,7 @@ export function LoadingView({
       alignItems="center"
       style={{ backgroundColor: bgColor }}
     >
-      <ActivityIndicator size="large" color={indicatorColor} />
+      <ActivityIndicator size="lg" color={indicatorColor} />
       {message && (
         <Text 
           size="base" 

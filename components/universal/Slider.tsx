@@ -2,16 +2,35 @@ import React, { useCallback, useState, useRef, useEffect } from 'react';
 import {
   View,
   PanResponder,
-  Animated,
   LayoutChangeEvent,
   Platform,
   AccessibilityInfo,
   ViewStyle,
   TextStyle,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  interpolate,
+  runOnJS,
+} from 'react-native-reanimated';
 import { Text } from './Text';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { 
+  AnimationVariant,
+  getAnimationConfig,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
+
+export type SliderAnimationType = 'drag' | 'track-fill' | 'thumb' | 'none';
+
+const AnimatedView = Animated.createAnimatedComponent(View);
 
 export interface SliderProps {
   value: number;
@@ -31,6 +50,17 @@ export interface SliderProps {
   thumbStyle?: ViewStyle;
   activeTrackStyle?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: SliderAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const Slider = React.forwardRef<View, SliderProps>(
@@ -53,14 +83,34 @@ export const Slider = React.forwardRef<View, SliderProps>(
       thumbStyle,
       activeTrackStyle,
       testID,
+      // Animation props
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'drag',
+      animationDuration,
+      useHaptics = true,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
     const { spacing } = useSpacing();
     const [sliderWidth, setSliderWidth] = useState(0);
-    const animatedValue = useRef(new Animated.Value(0)).current;
     const [isDragging, setIsDragging] = useState(false);
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
+    
+    const duration = animationDuration ?? config.duration.normal;
+    
+    // Animation values
+    const thumbPosition = useSharedValue(0);
+    const thumbScale = useSharedValue(1);
+    const trackFillScale = useSharedValue(1);
+    const trackFillOpacity = useSharedValue(1);
+    const valueOpacity = useSharedValue(0);
 
     // Calculate position from value
     const getPositionFromValue = useCallback(
@@ -91,9 +141,19 @@ export const Slider = React.forwardRef<View, SliderProps>(
     // Update animated value when value changes
     useEffect(() => {
       if (sliderWidth > 0) {
-        animatedValue.setValue(getPositionFromValue(value));
+        const newPosition = getPositionFromValue(value);
+        if (animated && isAnimated && shouldAnimate()) {
+          thumbPosition.value = withSpring(newPosition, config.spring);
+          if (animationType === 'track-fill') {
+            trackFillScale.value = withSpring(1.05, config.spring, () => {
+              trackFillScale.value = withSpring(1, config.spring);
+            });
+          }
+        } else {
+          thumbPosition.value = newPosition;
+        }
       }
-    }, [value, sliderWidth, getPositionFromValue, animatedValue]);
+    }, [value, sliderWidth, getPositionFromValue, animated, isAnimated, shouldAnimate, animationType, config.spring]);
 
     // Pan responder for touch handling
     const panResponder = useRef(
@@ -102,15 +162,29 @@ export const Slider = React.forwardRef<View, SliderProps>(
         onMoveShouldSetPanResponder: () => !disabled,
         onPanResponderGrant: () => {
           setIsDragging(true);
+          if (animated && isAnimated && shouldAnimate()) {
+            thumbScale.value = withSpring(1.2, config.spring);
+            valueOpacity.value = withTiming(1, { duration: duration / 3 });
+            if (useHaptics) {
+              runOnJS(haptics.light)();
+            }
+          }
         },
         onPanResponderMove: (_, gestureState) => {
           const position = Math.max(0, Math.min(sliderWidth, gestureState.moveX));
           const newValue = getValueFromPosition(position);
-          onValueChange(newValue);
-          animatedValue.setValue(position);
+          runOnJS(onValueChange)(newValue);
+          thumbPosition.value = position;
         },
         onPanResponderRelease: () => {
           setIsDragging(false);
+          if (animated && isAnimated && shouldAnimate()) {
+            thumbScale.value = withSpring(1, config.spring);
+            valueOpacity.value = withTiming(0, { duration: duration / 2 });
+            if (animationType === 'thumb' && useHaptics) {
+              runOnJS(haptics.light)();
+            }
+          }
         },
       })
     ).current;
@@ -126,11 +200,20 @@ export const Slider = React.forwardRef<View, SliderProps>(
       const newValue = getValueFromPosition(position);
       onValueChange(newValue);
       
-      Animated.timing(animatedValue, {
-        toValue: getPositionFromValue(newValue),
-        duration: 150,
-        useNativeDriver: false,
-      }).start();
+      if (animated && isAnimated && shouldAnimate()) {
+        thumbPosition.value = withSpring(getPositionFromValue(newValue), config.spring);
+        if (animationType === 'track-fill') {
+          trackFillOpacity.value = withSequence(
+            withTiming(0.7, { duration: duration / 4 }),
+            withTiming(1, { duration: duration / 4 })
+          );
+        }
+        if (useHaptics) {
+          haptic('light');
+        }
+      } else {
+        thumbPosition.value = getPositionFromValue(newValue);
+      }
     };
 
     // Generate mark positions
@@ -161,6 +244,28 @@ export const Slider = React.forwardRef<View, SliderProps>(
       
       return positions;
     };
+    
+    // Animated styles
+    const activeTrackAnimatedStyle = useAnimatedStyle(() => ({
+      width: thumbPosition.value,
+      transform: [{ scaleX: trackFillScale.value }],
+      opacity: trackFillOpacity.value,
+    }));
+    
+    const thumbAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [
+        { translateX: thumbPosition.value - thumbSize / 2 },
+        { scale: thumbScale.value },
+      ],
+    }));
+    
+    const valueAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: valueOpacity.value,
+      transform: [
+        { translateX: thumbPosition.value - 20 },
+        { scale: interpolate(valueOpacity.value, [0, 1], [0.8, 1]) },
+      ],
+    }));
 
     const containerStyle: ViewStyle = {
       paddingVertical: spacing(3),
@@ -193,9 +298,8 @@ export const Slider = React.forwardRef<View, SliderProps>(
       borderColor: theme.background,
       position: 'absolute',
       top: -((thumbSize - trackHeight) / 2),
-      boxShadow: '0px 2px 3px rgba(0, 0, 0, 0.1)',
+      boxShadow: '0px 2px 3px theme.mutedForeground + "10"',
       elevation: 3,
-      transform: isDragging ? [{ scale: 1.2 }] : [{ scale: 1 }],
       ...thumbStyle,
     };
 
@@ -227,28 +331,22 @@ export const Slider = React.forwardRef<View, SliderProps>(
       textAlign: 'center',
     };
 
+    const shouldUseAnimation = animated && isAnimated && shouldAnimate();
+    
     return (
       <View ref={ref} style={containerStyle} testID={testID}>
-        {showValue && isDragging && (
-          <Animated.View
+        {showValue && shouldUseAnimation && (
+          <AnimatedView
             style={[
               valueStyle,
-              {
-                transform: [
-                  {
-                    translateX: Animated.add(
-                      animatedValue,
-                      new Animated.Value(-20)
-                    ),
-                  },
-                ],
-              },
+              valueAnimatedStyle,
             ]}
+            pointerEvents="none"
           >
             <Text style={{ color: theme.background }}>
               {valueFormat(value)}
             </Text>
-          </Animated.View>
+          </AnimatedView>
         )}
         
         <View
@@ -257,12 +355,10 @@ export const Slider = React.forwardRef<View, SliderProps>(
           onTouchEnd={handleTrackPress}
           {...panResponder.panHandlers}
         >
-          <Animated.View
+          <AnimatedView
             style={[
               defaultActiveTrackStyle,
-              {
-                width: animatedValue,
-              },
+              shouldUseAnimation ? activeTrackAnimatedStyle : { width: thumbPosition.value },
             ]}
           />
           
@@ -292,21 +388,11 @@ export const Slider = React.forwardRef<View, SliderProps>(
             </React.Fragment>
           ))}
           
-          <Animated.View
+          <AnimatedView
             style={[
               defaultThumbStyle,
-              {
-                transform: [
-                  {
-                    translateX: Animated.add(
-                      animatedValue,
-                      new Animated.Value(-thumbSize / 2)
-                    ),
-                  },
-                  {
-                    scale: isDragging ? 1.2 : 1,
-                  },
-                ],
+              shouldUseAnimation ? thumbAnimatedStyle : {
+                transform: [{ translateX: thumbPosition.value - thumbSize / 2 }],
               },
             ]}
           />
@@ -336,6 +422,17 @@ export interface RangeSliderProps {
   thumbStyle?: ViewStyle;
   activeTrackStyle?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: SliderAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const RangeSlider = React.forwardRef<View, RangeSliderProps>(
@@ -357,15 +454,34 @@ export const RangeSlider = React.forwardRef<View, RangeSliderProps>(
       thumbStyle,
       activeTrackStyle,
       testID,
+      // Animation props
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'drag',
+      animationDuration,
+      useHaptics = true,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
     const { spacing } = useSpacing();
     const [sliderWidth, setSliderWidth] = useState(0);
-    const animatedLow = useRef(new Animated.Value(0)).current;
-    const animatedHigh = useRef(new Animated.Value(0)).current;
     const [activeDrag, setActiveDrag] = useState<'low' | 'high' | null>(null);
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
+    
+    const duration = animationDuration ?? config.duration.normal;
+    
+    // Animation values
+    const lowPosition = useSharedValue(0);
+    const highPosition = useSharedValue(0);
+    const lowScale = useSharedValue(1);
+    const highScale = useSharedValue(1);
+    const valueOpacity = useSharedValue(0);
 
     // Calculate position from value
     const getPositionFromValue = useCallback(
@@ -467,7 +583,7 @@ export const RangeSlider = React.forwardRef<View, RangeSliderProps>(
       borderColor: theme.background,
       position: 'absolute',
       top: -((thumbSize - trackHeight) / 2),
-      boxShadow: '0px 2px 3px rgba(0, 0, 0, 0.1)',
+      boxShadow: '0px 2px 3px theme.mutedForeground + "10"',
       elevation: 3,
       zIndex: 2,
       ...thumbStyle,

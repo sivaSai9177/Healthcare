@@ -12,20 +12,161 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import ReAnimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  interpolate,
+  runOnJS,
+  FadeIn,
+  FadeOut,
+  ZoomIn,
+  SlideInDown,
+} from 'react-native-reanimated';
+import { Symbol } from './Symbols';
 import { Box } from './Box';
 import { VStack } from './Stack';
 import { Text as UniversalText } from './Text';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { designSystem } from '@/lib/design-system';
-import { useSpacing } from '@/contexts/SpacingContext';
+import { useTheme } from '@/lib/theme/provider';
+import { designSystem, AnimationVariant , SpacingScale } from '@/lib/design';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+const AnimatedView = ReAnimated.View;
+const AnimatedPressable = ReAnimated.createAnimatedComponent(Pressable);
+
+// Animated Button Component
+const AnimatedButton = ({ onPress, variant, theme, spacing, shouldAnimate, isAnimated, config, children }: any) => {
+  const scale = useSharedValue(1);
+  
+  const handlePressIn = () => {
+    if (isAnimated && shouldAnimate()) {
+      scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+    }
+  };
+  
+  const handlePressOut = () => {
+    if (isAnimated && shouldAnimate()) {
+      scale.value = withSpring(1, config.spring);
+    }
+  };
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }] as any,
+  }));
+  
+  const getBackgroundColor = (pressed: boolean, hovered: boolean) => {
+    if (variant === 'ghost') {
+      return hovered || pressed ? theme.accent : 'transparent';
+    } else if (variant === 'destructive') {
+      return hovered ? theme.destructive + 'e6' : theme.destructive;
+    } else {
+      return hovered ? theme.primary + 'e6' : theme.primary;
+    }
+  };
+  
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[
+        ({ pressed, hovered }: any) => ({
+          borderRadius: spacing[2],
+          paddingHorizontal: spacing[4],
+          paddingVertical: spacing[2],
+          backgroundColor: getBackgroundColor(pressed, hovered),
+          opacity: pressed && !isAnimated ? 0.7 : 1,
+        }),
+        isAnimated && shouldAnimate() ? animatedStyle : {},
+        Platform.OS === 'web' && {
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+        } as any,
+      ]}
+    >
+      {children}
+    </AnimatedPressable>
+  );
+};
+
+// Animated Close Button Component
+const AnimatedCloseButton = ({ onPress, theme, spacing, animated, isAnimated, shouldAnimate, config }: any) => {
+  const scale = useSharedValue(1);
+  const rotation = useSharedValue(0);
+  
+  const handlePressIn = () => {
+    if (animated && isAnimated && shouldAnimate()) {
+      scale.value = withSpring(0.8, { damping: 15, stiffness: 400 });
+      rotation.value = withSpring(90, { damping: 15, stiffness: 400 });
+    }
+  };
+  
+  const handlePressOut = () => {
+    if (animated && isAnimated && shouldAnimate()) {
+      scale.value = withSpring(1, config.spring);
+      rotation.value = withSpring(0, config.spring);
+    }
+  };
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: scale.value },
+      { rotate: `${rotation.value}deg` },
+    ] as any,
+  }));
+  
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[
+        {
+          position: 'absolute',
+          right: spacing[4],
+          top: spacing[4],
+          zIndex: 1,
+          padding: spacing[2],
+          borderRadius: spacing[2],
+        },
+        animated && isAnimated && shouldAnimate() ? animatedStyle : {},
+        Platform.OS === 'web' && {
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+        } as any,
+      ]}
+    >
+      <Symbol name="xmark"
+        size={20}
+        color={theme.mutedForeground}
+      />
+    </AnimatedPressable>
+  );
+};
+
+export type DialogAnimationType = 'scale' | 'fade' | 'slide' | 'none';
 
 export interface DialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children?: React.ReactNode;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: DialogAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export interface DialogTriggerProps {
@@ -41,6 +182,17 @@ export interface DialogContentProps {
   maxHeight?: number;
   disableScroll?: boolean;
   isLoading?: boolean;
+  
+  // Animation props (can override parent Dialog props)
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: DialogAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export interface DialogHeaderProps {
@@ -63,6 +215,15 @@ export interface DialogDescriptionProps {
 const DialogContext = React.createContext<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: DialogAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 } | null>(null);
 
 const useDialogContext = () => {
@@ -74,9 +235,28 @@ const useDialogContext = () => {
 };
 
 // Main Dialog Component
-export function Dialog({ open, onOpenChange, children }: DialogProps) {
+export function Dialog({ 
+  open, 
+  onOpenChange, 
+  children,
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'scale',
+  animationDuration,
+  useHaptics = true,
+  animationConfig,
+}: DialogProps) {
   return (
-    <DialogContext.Provider value={{ open, onOpenChange }}>
+    <DialogContext.Provider value={{ 
+      open, 
+      onOpenChange,
+      animated,
+      animationVariant,
+      animationType,
+      animationDuration,
+      useHaptics,
+      animationConfig,
+    }}>
       {children}
     </DialogContext.Provider>
   );
@@ -84,9 +264,14 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
 
 // Dialog Trigger
 export function DialogTrigger({ asChild, children, onPress }: DialogTriggerProps) {
-  const { onOpenChange } = useDialogContext();
+  const { onOpenChange, useHaptics: contextUseHaptics } = useDialogContext();
   
   const handlePress = () => {
+    // Haptic feedback
+    if (contextUseHaptics && Platform.OS !== 'web') {
+      haptic('selection');
+    }
+    
     onPress?.();
     onOpenChange(true);
   };
@@ -110,34 +295,56 @@ export function DialogPortal({ children }: { children: React.ReactNode }) {
 }
 
 // Dialog Overlay
-function DialogOverlay({ onPress }: { onPress: () => void }) {
+function DialogOverlay({ 
+  onPress, 
+  animated,
+  animationVariant,
+  animationConfig 
+}: { 
+  onPress: () => void;
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationConfig?: any;
+}) {
   const theme = useTheme();
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  const opacity = useSharedValue(0);
   
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  }, []);
+    if (animated && isAnimated && shouldAnimate()) {
+      opacity.value = withTiming(1, { duration: config.duration.normal });
+    } else {
+      opacity.value = 1;
+    }
+  }, [animated, isAnimated, shouldAnimate, config]);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
   
   // Dynamic overlay color based on theme
-  const isDark = theme.background === '#000000' || theme.background === '#0a0a0a';
-  const overlayColor = isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)';
+  const isDark = theme.background === 'theme.foreground' || theme.background === '#0a0a0a';
+  const overlayColor = isDark ? 'theme.foreground + "80"' : 'theme.foreground + "80"';
   
   return (
     <TouchableWithoutFeedback onPress={onPress}>
-      <Animated.View
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: overlayColor,
-          opacity: fadeAnim,
-        }}
+      <AnimatedView
+        style={[
+          {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: overlayColor,
+          },
+          animated && isAnimated && shouldAnimate() ? animatedStyle : { opacity: 1 },
+        ]}
       />
     </TouchableWithoutFeedback>
   );
@@ -151,30 +358,62 @@ export function DialogContent({
   maxHeight = screenHeight * 0.8,
   disableScroll = false,
   isLoading = false,
+  animated: propsAnimated,
+  animationVariant: propsVariant,
+  animationType: propsAnimationType,
+  animationDuration: propsAnimationDuration,
+  useHaptics: propsUseHaptics,
+  animationConfig: propsAnimationConfig,
 }: DialogContentProps) {
-  const { open, onOpenChange } = useDialogContext();
+  const contextValues = useDialogContext();
+  const { open, onOpenChange } = contextValues;
+  
+  // Use props if provided, otherwise fall back to context
+  const animated = propsAnimated ?? contextValues.animated ?? true;
+  const animationVariant = propsVariant ?? contextValues.animationVariant ?? 'moderate';
+  const animationType = propsAnimationType ?? contextValues.animationType ?? 'scale';
+  const animationDuration = propsAnimationDuration ?? contextValues.animationDuration;
+  const useHaptics = propsUseHaptics ?? contextValues.useHaptics ?? true;
+  const animationConfig = propsAnimationConfig ?? contextValues.animationConfig;
+  
   const theme = useTheme();
   const { spacing } = useSpacing();
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  // Animation values
+  const scale = useSharedValue(animationType === 'scale' ? 0.9 : 1);
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(animationType === 'slide' ? 50 : 0);
   
   useEffect(() => {
-    if (open) {
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 65,
-          friction: 9,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
+    if (open && animated && isAnimated && shouldAnimate()) {
+      if (animationType === 'scale') {
+        scale.value = withSpring(1, config.spring);
+        opacity.value = withTiming(1, { duration: config.duration.fast });
+      } else if (animationType === 'fade') {
+        opacity.value = withTiming(1, { duration: config.duration.normal });
+      } else if (animationType === 'slide') {
+        translateY.value = withSpring(0, config.spring);
+        opacity.value = withTiming(1, { duration: config.duration.fast });
+      }
+    } else if (open) {
+      scale.value = 1;
+      opacity.value = 1;
+      translateY.value = 0;
     }
-  }, [open]);
+  }, [open, animated, isAnimated, shouldAnimate, animationType, config]);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [
+      { scale: scale.value },
+      { translateY: translateY.value },
+    ] as any,
+  }));
   
   const ContentWrapper = disableScroll ? View : ScrollView;
   
@@ -190,42 +429,45 @@ export function DialogContent({
         style={{ flex: 1 }}
       >
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <DialogOverlay onPress={() => onOpenChange(false)} />
+          <DialogOverlay 
+            onPress={() => onOpenChange(false)} 
+            animated={animated}
+            animationVariant={animationVariant}
+            animationConfig={animationConfig}
+          />
           
-          <Animated.View
-            style={{
-              opacity: opacityAnim,
-              transform: [{ scale: scaleAnim }],
-              width: Math.min(screenWidth - spacing[8], maxWidth),
-              maxHeight,
-              backgroundColor: theme.card,
-              borderRadius: designSystem.borderRadius.lg,
-              ...designSystem.shadows.lg,
-              padding: spacing[6],
-              margin: spacing[4],
-            }}
+          <AnimatedView
+            style={[
+              {
+                width: Math.min(screenWidth - spacing[8], maxWidth),
+                maxHeight,
+                backgroundColor: theme.card,
+                borderRadius: designSystem.borderRadius.lg,
+                ...designSystem.shadows.lg,
+                padding: spacing[6],
+                margin: spacing[4],
+              },
+              animated && isAnimated && shouldAnimate() && animationType !== 'none' ? animatedStyle : { opacity: 1 },
+              Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && {
+                transition: 'all 0.3s ease',
+              } as any,
+            ]}
           >
             {showCloseButton && (
-              <Pressable
-                onPress={() => onOpenChange(false)}
-                style={({ pressed }) => ({
-                  position: 'absolute',
-                  right: spacing[4],
-                  top: spacing[4],
-                  zIndex: 1,
-                  padding: spacing[2],
-                  opacity: pressed ? 0.7 : 1,
-                  ...(Platform.OS === 'web' && {
-                    cursor: 'pointer',
-                  }),
-                })}
-              >
-                <Ionicons
-                  name="close"
-                  size={20}
-                  color={theme.mutedForeground}
-                />
-              </Pressable>
+              <AnimatedCloseButton
+                onPress={() => {
+                  if (useHaptics && Platform.OS !== 'web') {
+                    haptic('selection');
+                  }
+                  onOpenChange(false);
+                }}
+                theme={theme}
+                spacing={spacing}
+                animated={animated}
+                isAnimated={isAnimated}
+                shouldAnimate={shouldAnimate}
+                config={config}
+              />
             )}
             
             <ContentWrapper
@@ -234,7 +476,7 @@ export function DialogContent({
             >
               {isLoading ? (
                 <View style={{ padding: spacing[8], alignItems: 'center' }}>
-                  <ActivityIndicator size="large" color={theme.primary} />
+                  <ActivityIndicator size="lg" color={theme.primary} />
                   <UniversalText
                     size="sm"
                     colorTheme="mutedForeground"
@@ -247,7 +489,7 @@ export function DialogContent({
                 children
               )}
             </ContentWrapper>
-          </Animated.View>
+          </AnimatedView>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -280,7 +522,7 @@ export function DialogFooter({ children }: DialogFooterProps) {
     <Box
       flexDirection="row"
       justifyContent="flex-end"
-      gap={2}
+      gap={2 as SpacingScale}
       mt={6}
       style={{
         flexWrap: 'wrap',
@@ -348,13 +590,25 @@ export function AlertDialog({
 }: AlertDialogProps) {
   const theme = useTheme();
   const { spacing } = useSpacing();
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({ variant: 'moderate' });
   
   const handleCancel = () => {
+    // Haptic feedback
+    if (Platform.OS !== 'web') {
+      haptic('selection');
+    }
+    
     onCancel?.();
     onOpenChange(false);
   };
   
   const handleConfirm = () => {
+    // Haptic feedback
+    if (Platform.OS !== 'web') {
+      haptic('impact');
+    }
+    
     onConfirm();
     onOpenChange(false);
   };
@@ -367,18 +621,14 @@ export function AlertDialog({
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
         <DialogFooter>
-          <Pressable
+          <AnimatedButton
             onPress={handleCancel}
-            style={({ pressed, hovered }: any) => ({
-              borderRadius: spacing[2],
-              paddingHorizontal: spacing[4],
-              paddingVertical: spacing[2],
-              backgroundColor: hovered || pressed ? theme.accent : 'transparent',
-              ...(Platform.OS === 'web' && {
-                cursor: 'pointer',
-                transition: 'background-color 0.2s ease',
-              }),
-            })}
+            variant="ghost"
+            theme={theme}
+            spacing={spacing}
+            shouldAnimate={shouldAnimate}
+            isAnimated={isAnimated}
+            config={config}
           >
             <UniversalText 
               size="sm" 
@@ -387,22 +637,15 @@ export function AlertDialog({
             >
               {cancelText}
             </UniversalText>
-          </Pressable>
-          <Pressable
+          </AnimatedButton>
+          <AnimatedButton
             onPress={handleConfirm}
-            style={({ pressed, hovered }: any) => ({
-              borderRadius: spacing[2],
-              paddingHorizontal: spacing[4],
-              paddingVertical: spacing[2],
-              backgroundColor: destructive 
-                ? (hovered ? theme.destructive + 'e6' : theme.destructive) // 90% opacity on hover
-                : (hovered ? theme.primary + 'e6' : theme.primary), // 90% opacity on hover
-              opacity: pressed ? 0.7 : 1,
-              ...(Platform.OS === 'web' && {
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }),
-            })}
+            variant={destructive ? 'destructive' : 'primary'}
+            theme={theme}
+            spacing={spacing}
+            shouldAnimate={shouldAnimate}
+            isAnimated={isAnimated}
+            config={config}
           >
             <UniversalText
               size="sm"
@@ -411,7 +654,7 @@ export function AlertDialog({
             >
               {confirmText}
             </UniversalText>
-          </Pressable>
+          </AnimatedButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

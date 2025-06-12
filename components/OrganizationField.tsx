@@ -4,7 +4,8 @@ import { Box, Text, Input } from "@/components/universal";
 import { UseFormReturn } from "react-hook-form";
 import { UserRole } from "./RoleSelector";
 import { IconSymbol } from "./ui/IconSymbol";
-import { useTheme } from "@/lib/theme/theme-provider";
+import { useTheme } from "@/lib/theme/provider";
+import { SpacingScale } from '@/lib/design';
 
 interface OrganizationFieldProps {
   form: UseFormReturn<any>;
@@ -43,7 +44,7 @@ export function OrganizationField({ form, role }: OrganizationFieldProps) {
         
         <Box 
           mt={2} 
-          p={2} 
+          p={2 as SpacingScale} 
           bgTheme="muted"
           rounded="sm"
           borderWidth={1}
@@ -81,7 +82,7 @@ export function OrganizationField({ form, role }: OrganizationFieldProps) {
         
         <Box 
           mt={3} 
-          p={3} 
+          p={3 as SpacingScale} 
           bgTheme="accent"
           rounded="md"
           borderWidth={1}

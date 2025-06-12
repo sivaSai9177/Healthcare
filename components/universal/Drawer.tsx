@@ -4,6 +4,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
   TouchableOpacity,
+  Pressable,
   Animated,
   PanResponder,
   Dimensions,
@@ -14,12 +15,37 @@ import {
   StyleSheet,
   Text,
 } from 'react-native';
+import ReAnimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+  useAnimatedGestureHandler,
+  interpolate,
+  Extrapolate,
+} from 'react-native-reanimated';
+import {
+  PanGestureHandler,
+  PanGestureHandlerGestureEvent,
+  GestureHandlerRootView,
+} from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import { Symbol } from './Symbols';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { AnimationVariant } from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const AnimatedView = ReAnimated.View;
+const AnimatedPressable = ReAnimated.createAnimatedComponent(Pressable);
+const AnimatedTouchableOpacity = ReAnimated.createAnimatedComponent(TouchableOpacity);
+
+export type DrawerAnimationType = 'slide' | 'fade' | 'scale' | 'none';
 
 export interface DrawerProps {
   visible: boolean;
@@ -35,6 +61,16 @@ export interface DrawerProps {
   style?: ViewStyle;
   overlayStyle?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: DrawerAnimationType;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 const DRAWER_SIZES = {
@@ -63,11 +99,21 @@ export const Drawer = React.forwardRef<View, DrawerProps>(
       style,
       overlayStyle,
       testID,
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'slide',
+      useHaptics = true,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
     const { spacing } = useSpacing();
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
     const insets = useSafeAreaInsets();
     
     const translateValue = useRef(new Animated.Value(0)).current;
@@ -159,6 +205,10 @@ export const Drawer = React.forwardRef<View, DrawerProps>(
     ).current;
     
     const handleClose = useCallback(() => {
+      // Haptic feedback for drawer close
+      if (useHaptics && Platform.OS !== 'web') {
+        haptics.impact('light');
+      }
       Animated.parallel([
         Animated.timing(translateValue, {
           toValue: getInitialTranslateValue(),
@@ -173,7 +223,7 @@ export const Drawer = React.forwardRef<View, DrawerProps>(
       ]).start(() => {
         onClose();
       });
-    }, [animationDuration, onClose, overlayOpacity, translateValue]);
+    }, [animationDuration, onClose, overlayOpacity, translateValue, useHaptics]);
     
     useEffect(() => {
       if (visible) {
@@ -213,7 +263,7 @@ export const Drawer = React.forwardRef<View, DrawerProps>(
         backgroundColor: theme.card,
         ...Platform.select({
           ios: {
-            boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.1)',
+            boxShadow: `0px 2px 8px ${Platform.OS === 'web' ? `${theme.border}40` : theme.border + '40'}`,
           },
           android: {
             elevation: 16,
@@ -280,19 +330,45 @@ export const Drawer = React.forwardRef<View, DrawerProps>(
       if (!showHandle) return null;
       
       const isHorizontal = position === 'left' || position === 'right';
-      const handleStyle: ViewStyle = {
-        backgroundColor: theme.mutedForeground,
-        opacity: 0.3,
-        borderRadius: 2,
-        alignSelf: 'center',
-        marginVertical: isHorizontal ? 0 : spacing[2],
-        marginHorizontal: isHorizontal ? spacing[2] : 0,
-        ...(isHorizontal
-          ? { width: 4, height: 40 }
-          : { width: 40, height: 4 }),
+      
+      const AnimatedHandle = () => {
+        const pulseValue = useSharedValue(0.3);
+        
+        useEffect(() => {
+          if (animated && isAnimated && shouldAnimate()) {
+            // Subtle pulse animation for the handle
+            pulseValue.value = withTiming(0.5, { duration: 1000 }, () => {
+              pulseValue.value = withTiming(0.3, { duration: 1000 });
+            });
+          }
+        }, []);
+        
+        const animatedHandleStyle = useAnimatedStyle(() => ({
+          opacity: pulseValue.value,
+        }));
+        
+        const handleStyle: ViewStyle = {
+          backgroundColor: theme.mutedForeground,
+          borderRadius: 2,
+          alignSelf: 'center',
+          marginVertical: isHorizontal ? 0 : spacing[2],
+          marginHorizontal: isHorizontal ? spacing[2] : 0,
+          ...(isHorizontal
+            ? { width: 4, height: 40 }
+            : { width: 40, height: 4 }),
+        };
+        
+        return (
+          <AnimatedView 
+            style={[
+              handleStyle,
+              animated && isAnimated && shouldAnimate() ? animatedHandleStyle : { opacity: 0.3 },
+            ]} 
+          />
+        );
       };
       
-      return <View style={handleStyle} />;
+      return <AnimatedHandle />;
     };
     
     if (!visible) return null;
@@ -315,7 +391,9 @@ export const Drawer = React.forwardRef<View, DrawerProps>(
               style={[
                 StyleSheet.absoluteFillObject,
                 {
-                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  backgroundColor: Platform.OS === 'web' 
+                    ? `${theme.background}80` 
+                    : theme.background + '80',
                   opacity: overlayOpacity,
                 },
                 overlayStyle,
@@ -360,6 +438,8 @@ export interface DrawerHeaderProps {
   onClose?: () => void;
   children?: React.ReactNode;
   style?: ViewStyle;
+  animated?: boolean;
+  useHaptics?: boolean;
 }
 
 export const DrawerHeader: React.FC<DrawerHeaderProps> = ({
@@ -367,9 +447,45 @@ export const DrawerHeader: React.FC<DrawerHeaderProps> = ({
   onClose,
   children,
   style,
+  animated = true,
+  useHaptics = true,
 }) => {
   const theme = useTheme();
   const { spacing } = useSpacing();
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({ variant: 'moderate' });
+  
+  // Animation values for close button
+  const closeButtonScale = useSharedValue(1);
+  const closeButtonRotation = useSharedValue(0);
+  
+  const handlePressIn = () => {
+    if (animated && isAnimated && shouldAnimate()) {
+      closeButtonScale.value = withSpring(0.8, { damping: 15, stiffness: 400 });
+      closeButtonRotation.value = withSpring(90, { damping: 15, stiffness: 400 });
+    }
+  };
+  
+  const handlePressOut = () => {
+    if (animated && isAnimated && shouldAnimate()) {
+      closeButtonScale.value = withSpring(1, config.spring);
+      closeButtonRotation.value = withSpring(0, config.spring);
+    }
+  };
+  
+  const handleClose = () => {
+    if (useHaptics && Platform.OS !== 'web') {
+      haptic('selection');
+    }
+    onClose?.();
+  };
+  
+  const animatedCloseButtonStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: closeButtonScale.value },
+      { rotate: `${closeButtonRotation.value}deg` },
+    ] as any,
+  }));
   
   return (
     <View
@@ -394,9 +510,24 @@ export const DrawerHeader: React.FC<DrawerHeaderProps> = ({
             </Text>
           )}
           {onClose && (
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color={theme.mutedForeground} />
-            </TouchableOpacity>
+            <AnimatedTouchableOpacity
+              onPress={handleClose}
+              onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
+              style={[
+                {
+                  padding: spacing[2],
+                  borderRadius: spacing[2],
+                },
+                animated && isAnimated && shouldAnimate() ? animatedCloseButtonStyle : {},
+                Platform.OS === 'web' && {
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                } as any,
+              ]}
+            >
+              <Symbol name="xmark" size={24} color={theme.mutedForeground} />
+            </AnimatedTouchableOpacity>
           )}
         </>
       )}

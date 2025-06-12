@@ -10,9 +10,9 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { designSystem } from '@/lib/design-system';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { designSystem } from '@/lib/design';
 
 export type PopoverPlacement =
   | 'top'
@@ -262,7 +262,7 @@ export const Popover = React.forwardRef<View, PopoverProps>(
               {showArrow && <View style={arrowStyles} />}
               {isLoading ? (
                 <View style={{ padding: spacing[4], alignItems: 'center' }}>
-                  <ActivityIndicator size="small" color={theme.primary} />
+                  <ActivityIndicator size="sm" color={theme.primary} />
                 </View>
               ) : (
                 content

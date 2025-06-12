@@ -1,14 +1,14 @@
 // Import crypto polyfill first for React Native
-import "../core/crypto";
+import "@/lib/core/crypto";
 
 import { expoClient } from "@better-auth/expo/client";
 import { createAuthClient } from "better-auth/react";
 import { inferAdditionalFields } from "better-auth/client/plugins";
 import { Platform } from "react-native";
-import { webStorage, mobileStorage } from "../core/secure-storage";
-import { getAuthUrl } from "../core/unified-env";
+import { webStorage, mobileStorage } from "@/lib/core/platform/secure-storage";
+import { getAuthUrl } from "@/lib/core/config/unified-env";
 import { sessionManager } from "./auth-session-manager";
-import { log } from "../core/logger";
+import { log } from "@/lib/core/debug/logger";
 // Note: Removed auth-store import to prevent circular dependency
 
 const BASE_URL = getAuthUrl(); // Use OAuth-safe URL

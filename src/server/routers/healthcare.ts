@@ -10,27 +10,25 @@ import {
   alerts, 
   alertEscalations, 
   alertAcknowledgments,
-  notificationLogs,
   healthcareAuditLogs,
-  healthcareUsers
+  healthcareUsers,
+  alertTimelineEvents
 } from '@/src/db/healthcare-schema';
 import { users } from '@/src/db/schema';
-import { eq, and, desc, or, gte, lte } from 'drizzle-orm';
+import { eq, and, desc, or, gte, lte, asc, sql } from 'drizzle-orm';
 import { 
   CreateAlertSchema, 
   AcknowledgeAlertSchema,
   UpdateUserRoleSchema,
   HealthcareProfileSchema,
-  HEALTHCARE_ESCALATION_TIERS,
-  AlertStatus
+  HEALTHCARE_ESCALATION_TIERS
 } from '@/types/healthcare';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
 import { escalationTimerService } from '../services/escalation-timer';
 import { 
-  subscribeToHospitalAlerts, 
-  subscribeToAlert, 
   alertEventHelpers,
-  trackedHospitalAlerts
+  trackedHospitalAlerts,
+  subscribeToHospitalAlerts
 } from '../services/alert-subscriptions';
 
 // Create permission-based procedures for healthcare roles
@@ -152,9 +150,25 @@ export const healthcareRouter = router({
   acknowledgeAlert: doctorProcedure
     .input(AcknowledgeAlertSchema)
     .mutation(async ({ input, ctx }) => {
-      const { alertId, notes } = input;
+      const { 
+        alertId, 
+        urgencyAssessment, 
+        responseAction, 
+        estimatedResponseTime, 
+        delegateTo,
+        notes 
+      } = input;
       
       try {
+        // Validate required fields based on response action
+        if ((responseAction === 'responding' || responseAction === 'delayed') && !estimatedResponseTime) {
+          throw new Error('Estimated response time is required for this action');
+        }
+        
+        if (responseAction === 'delegating' && !delegateTo) {
+          throw new Error('Delegate recipient is required for delegation');
+        }
+
         // Get the alert
         const [alert] = await db
           .select()
@@ -175,23 +189,69 @@ export const healthcareRouter = router({
           (Date.now() - alert.createdAt.getTime()) / 1000
         );
 
-        // Update alert status
+        // Determine new urgency level based on assessment
+        let newUrgencyLevel = alert.urgencyLevel;
+        if (urgencyAssessment === 'increase' && alert.urgencyLevel > 1) {
+          newUrgencyLevel = alert.urgencyLevel - 1; // Lower number = higher urgency
+        } else if (urgencyAssessment === 'decrease' && alert.urgencyLevel < 5) {
+          newUrgencyLevel = alert.urgencyLevel + 1; // Higher number = lower urgency
+        }
+
+        // Update alert status and urgency
         await db
           .update(alerts)
           .set({
             status: 'acknowledged',
             acknowledgedBy: ctx.user.id,
             acknowledgedAt: new Date(),
+            urgencyLevel: newUrgencyLevel,
           })
           .where(eq(alerts.id, alertId));
 
-        // Create acknowledgment record
-        await db.insert(alertAcknowledgments).values({
+        // Create acknowledgment record with extended data
+        const [acknowledgment] = await db.insert(alertAcknowledgments).values({
           alertId,
           userId: ctx.user.id,
           responseTimeSeconds,
           notes,
+          urgencyAssessment,
+          responseAction,
+          estimatedResponseTime: estimatedResponseTime || null,
+          delegatedTo: delegateTo || null,
+        }).returning();
+
+        // Create timeline event
+        await db.insert(alertTimelineEvents).values({
+          alertId,
+          eventType: 'acknowledged',
+          userId: ctx.user.id,
+          description: `Alert acknowledged by ${ctx.user.name || ctx.user.email}`,
+          metadata: {
+            responseAction,
+            urgencyAssessment,
+            estimatedResponseTime,
+            delegateTo,
+            responseTimeSeconds,
+          },
         });
+
+        // If urgency was changed, create another timeline event
+        if (newUrgencyLevel !== alert.urgencyLevel) {
+          await db.insert(alertTimelineEvents).values({
+            alertId,
+            eventType: 'urgency_changed',
+            userId: ctx.user.id,
+            description: `Urgency ${urgencyAssessment === 'increase' ? 'increased' : 'decreased'} from Level ${alert.urgencyLevel} to Level ${newUrgencyLevel}`,
+            metadata: {
+              previousUrgency: alert.urgencyLevel,
+              newUrgency: newUrgencyLevel,
+              reason: urgencyAssessment,
+            },
+          });
+        }
+
+        // Cancel escalation timer since alert is acknowledged
+        await escalationTimerService.cancelEscalation(alertId);
 
         // Log the acknowledgment
         await db.insert(healthcareAuditLogs).values({
@@ -473,6 +533,87 @@ export const healthcareRouter = router({
       }
     }),
 
+  // Get single alert details
+  getAlert: viewAlertsProcedure
+    .input(z.object({
+      alertId: z.string().uuid(),
+    }))
+    .query(async ({ input }) => {
+      try {
+        const [alert] = await db
+          .select({
+            id: alerts.id,
+            alertType: alerts.alertType,
+            urgencyLevel: alerts.urgencyLevel,
+            roomNumber: alerts.roomNumber,
+            patientName: alerts.patientName,
+            patientId: alerts.patientId,
+            description: alerts.description,
+            status: alerts.status,
+            hospitalId: alerts.hospitalId,
+            createdAt: alerts.createdAt,
+            createdBy: alerts.createdBy,
+            acknowledgedBy: alerts.acknowledgedBy,
+            acknowledgedAt: alerts.acknowledgedAt,
+            resolvedBy: alerts.resolvedBy,
+            resolvedAt: alerts.resolvedAt,
+            creatorName: users.name,
+          })
+          .from(alerts)
+          .leftJoin(users, eq(alerts.createdBy, users.id))
+          .where(eq(alerts.id, input.alertId))
+          .limit(1);
+
+        if (!alert) {
+          throw new Error('Alert not found');
+        }
+
+        return alert;
+      } catch (error) {
+        log.error('Failed to get alert', 'HEALTHCARE', error);
+        throw new Error('Failed to get alert details');
+      }
+    }),
+
+  // Get on-duty staff
+  getOnDutyStaff: viewAlertsProcedure
+    .input(z.object({
+      hospitalId: z.string().uuid(),
+      role: z.enum(['doctor', 'nurse', 'head_doctor']).optional(),
+    }))
+    .query(async ({ input }) => {
+      try {
+        let query = db
+          .select({
+            userId: healthcareUsers.userId,
+            name: users.name,
+            role: healthcareUsers.role,
+            departmentId: healthcareUsers.departmentId,
+            isOnDuty: healthcareUsers.isOnDuty,
+          })
+          .from(healthcareUsers)
+          .innerJoin(users, eq(healthcareUsers.userId, users.id))
+          .where(
+            and(
+              eq(healthcareUsers.hospitalId, input.hospitalId),
+              eq(healthcareUsers.isOnDuty, true)
+            )
+          );
+
+        const staff = await query;
+        
+        return {
+          staff: input.role 
+            ? staff.filter(s => s.role === input.role)
+            : staff,
+          total: staff.length,
+        };
+      } catch (error) {
+        log.error('Failed to get on-duty staff', 'HEALTHCARE', error);
+        throw new Error('Failed to get on-duty staff');
+      }
+    }),
+
   // Get escalation history for an alert
   getEscalationHistory: viewAlertsProcedure
     .input(z.object({
@@ -651,8 +792,450 @@ export const healthcareRouter = router({
       }
     }),
     
+  // Get alert timeline - full lifecycle events
+  getAlertTimeline: viewAlertsProcedure
+    .input(z.object({
+      alertId: z.string().uuid(),
+    }))
+    .query(async ({ input }) => {
+      try {
+        // Get the main alert details
+        const [alert] = await db
+          .select({
+            alert: alerts,
+            creator: {
+              id: users.id,
+              name: users.name,
+              email: users.email,
+            },
+            acknowledgedBy: {
+              id: users.id,
+              name: users.name,
+              email: users.email,
+            },
+          })
+          .from(alerts)
+          .leftJoin(users, eq(alerts.createdBy, users.id))
+          .leftJoin(users, eq(alerts.acknowledgedBy, users.id))
+          .where(eq(alerts.id, input.alertId))
+          .limit(1);
+
+        if (!alert) {
+          throw new Error('Alert not found');
+        }
+
+        // Get all timeline events
+        const timelineEvents = await db
+          .select({
+            event: alertTimelineEvents,
+            user: {
+              id: users.id,
+              name: users.name,
+              email: users.email,
+              role: users.role,
+            },
+          })
+          .from(alertTimelineEvents)
+          .leftJoin(users, eq(alertTimelineEvents.userId, users.id))
+          .where(eq(alertTimelineEvents.alertId, input.alertId))
+          .orderBy(asc(alertTimelineEvents.eventTime));
+
+        // Get all acknowledgments
+        const acknowledgments = await db
+          .select({
+            acknowledgment: alertAcknowledgments,
+            user: {
+              id: users.id,
+              name: users.name,
+              email: users.email,
+              role: users.role,
+            },
+          })
+          .from(alertAcknowledgments)
+          .leftJoin(users, eq(alertAcknowledgments.userId, users.id))
+          .where(eq(alertAcknowledgments.alertId, input.alertId))
+          .orderBy(asc(alertAcknowledgments.acknowledgedAt));
+
+        // Get all escalations
+        const escalations = await db
+          .select()
+          .from(alertEscalations)
+          .where(eq(alertEscalations.alertId, input.alertId))
+          .orderBy(asc(alertEscalations.escalatedAt));
+
+        // Combine into a unified timeline
+        const timeline = [
+          // Created event
+          {
+            type: 'created',
+            time: alert.alert.createdAt,
+            user: alert.creator,
+            data: {
+              roomNumber: alert.alert.roomNumber,
+              alertType: alert.alert.alertType,
+              urgencyLevel: alert.alert.urgencyLevel,
+              description: alert.alert.description,
+            },
+          },
+          // Timeline events
+          ...timelineEvents.map(e => ({
+            type: e.event.eventType,
+            time: e.event.eventTime,
+            user: e.user,
+            data: {
+              description: e.event.description,
+              metadata: e.event.metadata,
+            },
+          })),
+          // Acknowledgments
+          ...acknowledgments.map(a => ({
+            type: 'acknowledged',
+            time: a.acknowledgment.acknowledgedAt,
+            user: a.user,
+            data: {
+              responseTimeSeconds: a.acknowledgment.responseTimeSeconds,
+              notes: a.acknowledgment.notes,
+            },
+          })),
+          // Escalations
+          ...escalations.map(e => ({
+            type: 'escalated',
+            time: e.escalatedAt,
+            user: null,
+            data: {
+              fromRole: e.from_role,
+              toRole: e.to_role,
+              reason: e.reason,
+            },
+          })),
+          // Resolved event
+          ...(alert.alert.resolvedAt ? [{
+            type: 'resolved',
+            time: alert.alert.resolvedAt,
+            user: alert.acknowledgedBy,
+            data: {
+              description: alert.alert.description,
+            },
+          }] : []),
+        ].sort((a, b) => a.time.getTime() - b.time.getTime());
+
+        return {
+          alert: alert.alert,
+          timeline,
+          totalEvents: timeline.length,
+          responseTime: alert.alert.acknowledgedAt 
+            ? Math.floor((alert.alert.acknowledgedAt.getTime() - alert.alert.createdAt.getTime()) / 1000)
+            : null,
+          resolutionTime: alert.alert.resolvedAt
+            ? Math.floor((alert.alert.resolvedAt.getTime() - alert.alert.createdAt.getTime()) / 1000)
+            : null,
+        };
+      } catch (error) {
+        log.error('Failed to fetch alert timeline', 'HEALTHCARE', error);
+        throw error;
+      }
+    }),
+
+  // Bulk acknowledge alerts
+  bulkAcknowledgeAlerts: doctorProcedure
+    .input(z.object({
+      alertIds: z.array(z.string().uuid()),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const results = [];
+        
+        for (const alertId of input.alertIds) {
+          try {
+            // Get the alert
+            const [alert] = await db
+              .select()
+              .from(alerts)
+              .where(eq(alerts.id, alertId))
+              .limit(1);
+
+            if (!alert || alert.status !== 'active') {
+              results.push({
+                alertId,
+                success: false,
+                error: 'Alert not found or not active',
+              });
+              continue;
+            }
+
+            // Calculate response time
+            const responseTimeSeconds = Math.floor(
+              (Date.now() - alert.createdAt.getTime()) / 1000
+            );
+
+            // Update alert status
+            await db
+              .update(alerts)
+              .set({
+                status: 'acknowledged',
+                acknowledgedBy: ctx.user.id,
+                acknowledgedAt: new Date(),
+              })
+              .where(eq(alerts.id, alertId));
+
+            // Create acknowledgment record
+            await db.insert(alertAcknowledgments).values({
+              alertId,
+              userId: ctx.user.id,
+              responseTimeSeconds,
+              notes: input.notes,
+            });
+
+            // Create timeline event
+            await db.insert(alertTimelineEvents).values({
+              alertId,
+              eventType: 'acknowledged',
+              userId: ctx.user.id,
+              description: `Bulk acknowledged with ${input.alertIds.length - 1} other alerts`,
+              metadata: {
+                bulkOperation: true,
+                totalAlerts: input.alertIds.length,
+              },
+            });
+
+            results.push({
+              alertId,
+              success: true,
+              responseTimeSeconds,
+            });
+          } catch (error) {
+            results.push({
+              alertId,
+              success: false,
+              error: error.message,
+            });
+          }
+        }
+
+        // Log bulk operation
+        await db.insert(healthcareAuditLogs).values({
+          userId: ctx.user.id,
+          action: 'bulk_alert_acknowledged',
+          entityType: 'alert',
+          entityId: input.alertIds[0], // Use first alert ID as reference
+          hospitalId: ctx.user.organizationId || ctx.user.hospitalId,
+          metadata: {
+            alertIds: input.alertIds,
+            successCount: results.filter(r => r.success).length,
+            failureCount: results.filter(r => !r.success).length,
+          },
+          ipAddress: ctx.headers?.['x-forwarded-for'] || ctx.headers?.['x-real-ip'],
+          userAgent: ctx.headers?.['user-agent'],
+        });
+
+        return {
+          results,
+          summary: {
+            total: input.alertIds.length,
+            succeeded: results.filter(r => r.success).length,
+            failed: results.filter(r => !r.success).length,
+          },
+        };
+      } catch (error) {
+        log.error('Failed to bulk acknowledge alerts', 'HEALTHCARE', error);
+        throw error;
+      }
+    }),
+
+  // Transfer alert to another user
+  transferAlert: doctorProcedure
+    .input(z.object({
+      alertId: z.string().uuid(),
+      toUserId: z.string().uuid(),
+      reason: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      try {
+        // Get the alert
+        const [alert] = await db
+          .select()
+          .from(alerts)
+          .where(eq(alerts.id, input.alertId))
+          .limit(1);
+
+        if (!alert) {
+          throw new Error('Alert not found');
+        }
+
+        if (alert.acknowledgedBy !== ctx.user.id) {
+          throw new Error('You can only transfer alerts you have acknowledged');
+        }
+
+        // Update alert with new acknowledged user
+        await db
+          .update(alerts)
+          .set({
+            acknowledgedBy: input.toUserId,
+            handoverNotes: input.reason,
+          })
+          .where(eq(alerts.id, input.alertId));
+
+        // Create timeline event
+        await db.insert(alertTimelineEvents).values({
+          alertId: input.alertId,
+          eventType: 'transferred',
+          userId: ctx.user.id,
+          description: input.reason,
+          metadata: {
+            fromUserId: ctx.user.id,
+            toUserId: input.toUserId,
+          },
+        });
+
+        // Log the transfer
+        await db.insert(healthcareAuditLogs).values({
+          userId: ctx.user.id,
+          action: 'alert_transferred',
+          entityType: 'alert',
+          entityId: input.alertId,
+          hospitalId: alert.hospitalId,
+          metadata: {
+            fromUserId: ctx.user.id,
+            toUserId: input.toUserId,
+            reason: input.reason,
+          },
+          ipAddress: ctx.headers?.['x-forwarded-for'] || ctx.headers?.['x-real-ip'],
+          userAgent: ctx.headers?.['user-agent'],
+        });
+
+        // Emit transfer event
+        await alertEventHelpers.emitAlertUpdated(
+          input.alertId,
+          alert.hospitalId,
+          {
+            transferred: true,
+            fromUserId: ctx.user.id,
+            toUserId: input.toUserId,
+          }
+        );
+
+        return {
+          success: true,
+          transferredTo: input.toUserId,
+        };
+      } catch (error) {
+        log.error('Failed to transfer alert', 'HEALTHCARE', error);
+        throw error;
+      }
+    }),
+
+  // Get alert analytics
+  getAlertAnalytics: viewAlertsProcedure
+    .input(z.object({
+      hospitalId: z.string().uuid(),
+      startDate: z.date(),
+      endDate: z.date(),
+      groupBy: z.enum(['day', 'week', 'month']).default('day'),
+    }))
+    .query(async ({ input }) => {
+      try {
+        // Get alerts within date range
+        const alertsInRange = await db
+          .select()
+          .from(alerts)
+          .where(
+            and(
+              eq(alerts.hospitalId, input.hospitalId),
+              gte(alerts.createdAt, input.startDate),
+              lte(alerts.createdAt, input.endDate)
+            )
+          );
+
+        // Calculate metrics
+        const totalAlerts = alertsInRange.length;
+        const acknowledgedAlerts = alertsInRange.filter(a => a.acknowledgedAt).length;
+        const resolvedAlerts = alertsInRange.filter(a => a.resolvedAt).length;
+        const escalatedAlerts = alertsInRange.filter(a => a.escalationLevel > 1).length;
+
+        // Calculate average response times
+        const responseTimes = alertsInRange
+          .filter(a => a.acknowledgedAt)
+          .map(a => (a.acknowledgedAt!.getTime() - a.createdAt.getTime()) / 1000);
+        
+        const avgResponseTime = responseTimes.length > 0
+          ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+          : 0;
+
+        // Group by alert type
+        const byAlertType = alertsInRange.reduce((acc, alert) => {
+          if (!acc[alert.alertType]) {
+            acc[alert.alertType] = {
+              total: 0,
+              acknowledged: 0,
+              avgResponseTime: 0,
+              responseTimes: [],
+            };
+          }
+          acc[alert.alertType].total++;
+          if (alert.acknowledgedAt) {
+            acc[alert.alertType].acknowledged++;
+            const responseTime = (alert.acknowledgedAt.getTime() - alert.createdAt.getTime()) / 1000;
+            acc[alert.alertType].responseTimes.push(responseTime);
+          }
+          return acc;
+        }, {} as Record<string, any>);
+
+        // Calculate average response times by type
+        Object.keys(byAlertType).forEach(type => {
+          const times = byAlertType[type].responseTimes;
+          byAlertType[type].avgResponseTime = times.length > 0
+            ? times.reduce((a: number, b: number) => a + b, 0) / times.length
+            : 0;
+          delete byAlertType[type].responseTimes; // Clean up temporary array
+        });
+
+        // Group by urgency level
+        const byUrgency = alertsInRange.reduce((acc, alert) => {
+          if (!acc[alert.urgencyLevel]) {
+            acc[alert.urgencyLevel] = {
+              total: 0,
+              acknowledged: 0,
+              escalated: 0,
+            };
+          }
+          acc[alert.urgencyLevel].total++;
+          if (alert.acknowledgedAt) acc[alert.urgencyLevel].acknowledged++;
+          if (alert.escalationLevel > 1) acc[alert.urgencyLevel].escalated++;
+          return acc;
+        }, {} as Record<number, any>);
+
+        // Time series data
+        const timeSeries = await generateTimeSeries(
+          alertsInRange,
+          input.startDate,
+          input.endDate,
+          input.groupBy
+        );
+
+        return {
+          summary: {
+            totalAlerts,
+            acknowledgedAlerts,
+            resolvedAlerts,
+            escalatedAlerts,
+            acknowledgmentRate: totalAlerts > 0 ? (acknowledgedAlerts / totalAlerts) * 100 : 0,
+            resolutionRate: totalAlerts > 0 ? (resolvedAlerts / totalAlerts) * 100 : 0,
+            escalationRate: totalAlerts > 0 ? (escalatedAlerts / totalAlerts) * 100 : 0,
+            avgResponseTime: Math.round(avgResponseTime),
+          },
+          byAlertType,
+          byUrgency,
+          timeSeries,
+        };
+      } catch (error) {
+        log.error('Failed to fetch alert analytics', 'HEALTHCARE', error);
+        throw error;
+      }
+    }),
+
   // Get active alerts with more details
-  getActiveAlerts: viewAlertsProcedure
+  getActiveAlertsDetailed: viewAlertsProcedure
     .input(z.object({
       includeResolved: z.boolean().default(false),
     }))
@@ -715,49 +1298,148 @@ export const healthcareRouter = router({
         throw new Error('Failed to fetch active alerts');
       }
     }),
-    
-  // Subscribe to alerts (mock implementation for now)
+
+  // Subscribe to alerts (real-time implementation)
   subscribeToAlerts: viewAlertsProcedure
-    .subscription(async function* ({ ctx }) {
+    .input(z.object({
+      hospitalId: z.string().uuid(),
+      lastEventId: z.string().optional(), // For reconnection support
+    }).optional())
+    .subscription(async function* ({ input, ctx }) {
+      const hospitalId = input?.hospitalId || ctx.user.organizationId || ctx.user.hospitalId;
+      
+      if (!hospitalId) {
+        throw new Error('Hospital ID is required for alert subscription');
+      }
+      
       log.info('Alert subscription started', 'HEALTHCARE', {
         userId: ctx.user.id,
+        hospitalId,
       });
       
-      // Simulate real-time alert updates
-      while (true) {
-        yield {
-          type: 'alert.created' as const,
-          data: {
-            id: `alert-${Date.now()}`,
-            roomNumber: String(Math.floor(Math.random() * 400) + 100),
-            alertType: ['cardiac', 'fall', 'fire', 'medical-emergency'][Math.floor(Math.random() * 4)] as any,
-            urgency: Math.floor(Math.random() * 5) + 1,
-            createdAt: new Date(),
-          }
-        };
-        
-        // Random interval between 10-60 seconds
-        await new Promise(resolve => setTimeout(resolve, (Math.random() * 50 + 10) * 1000));
+      // Use the tracked subscription for reconnection support
+      const subscription = trackedHospitalAlerts(hospitalId, input?.lastEventId);
+      
+      try {
+        for await (const event of subscription) {
+          // Transform the event for the client
+          yield {
+            id: `event-${Date.now()}`,
+            type: event.type,
+            alertId: event.alertId,
+            hospitalId: event.hospitalId,
+            timestamp: event.timestamp,
+            data: event.data,
+          };
+        }
+      } catch (error) {
+        log.error('Alert subscription error', 'HEALTHCARE', error);
+        throw error;
+      } finally {
+        log.info('Alert subscription ended', 'HEALTHCARE', {
+          userId: ctx.user.id,
+          hospitalId,
+        });
       }
     }),
     
-  // Subscribe to metrics (mock implementation)
+  // Subscribe to metrics (real-time implementation) 
   subscribeToMetrics: viewAlertsProcedure
-    .subscription(async function* ({ ctx }) {
+    .input(z.object({
+      hospitalId: z.string().uuid(),
+      interval: z.number().min(1000).max(60000).default(5000), // Update interval in ms
+    }).optional())
+    .subscription(async function* ({ input, ctx }) {
+      const hospitalId = input?.hospitalId || ctx.user.organizationId || ctx.user.hospitalId;
+      const interval = input?.interval || 5000;
+      
+      if (!hospitalId) {
+        throw new Error('Hospital ID is required for metrics subscription');
+      }
+      
       log.info('Metrics subscription started', 'HEALTHCARE', {
         userId: ctx.user.id,
+        hospitalId,
+        interval,
       });
       
-      // Simulate real-time metrics updates
-      while (true) {
-        yield {
-          activeAlerts: Math.floor(Math.random() * 10) + 5,
-          staffOnline: Math.floor(Math.random() * 20) + 15,
-          responseRate: parseFloat((Math.random() * 0.2 + 0.8).toFixed(2)),
-        };
-        
-        // Update every 5 seconds
-        await new Promise(resolve => setTimeout(resolve, 5000));
+      try {
+        while (true) {
+          // Fetch real metrics from database
+          const [activeAlertsCount] = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(alerts)
+            .where(
+              and(
+                eq(alerts.hospitalId, hospitalId),
+                or(
+                  eq(alerts.status, 'active'),
+                  eq(alerts.status, 'acknowledged')
+                )
+              )
+            );
+          
+          const [staffOnlineCount] = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(healthcareUsers)
+            .where(
+              and(
+                eq(healthcareUsers.hospitalId, hospitalId),
+                eq(healthcareUsers.isOnDuty, true)
+              )
+            );
+          
+          // Calculate response rate (last hour)
+          const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+          const [recentAlerts] = await db
+            .select({
+              total: sql<number>`count(*)`,
+              acknowledged: sql<number>`count(case when acknowledged_at is not null then 1 end)`
+            })
+            .from(alerts)
+            .where(
+              and(
+                eq(alerts.hospitalId, hospitalId),
+                gte(alerts.createdAt, oneHourAgo)
+              )
+            );
+          
+          const responseRate = recentAlerts.total > 0 
+            ? (recentAlerts.acknowledged / recentAlerts.total) 
+            : 1;
+          
+          // Get critical alerts count
+          const [criticalCount] = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(alerts)
+            .where(
+              and(
+                eq(alerts.hospitalId, hospitalId),
+                eq(alerts.status, 'active'),
+                gte(alerts.urgencyLevel, 4)
+              )
+            );
+          
+          yield {
+            timestamp: new Date(),
+            activeAlerts: activeAlertsCount.count || 0,
+            criticalAlerts: criticalCount.count || 0,
+            staffOnline: staffOnlineCount.count || 0,
+            responseRate: parseFloat(responseRate.toFixed(2)),
+            avgResponseTime: await calculateAvgResponseTime(hospitalId, oneHourAgo),
+          };
+          
+          // Wait for next update
+          await new Promise(resolve => setTimeout(resolve, interval));
+        }
+      } catch (error) {
+        log.error('Metrics subscription error', 'HEALTHCARE', error);
+        throw error;
+      } finally {
+        log.info('Metrics subscription ended', 'HEALTHCARE', {
+          userId: ctx.user.id,
+          hospitalId,
+        });
       }
     }),
     
@@ -787,3 +1469,96 @@ export const healthcareRouter = router({
       }
     }),
 });
+
+// Helper function to generate time series data
+async function generateTimeSeries(
+  alerts: any[],
+  startDate: Date,
+  endDate: Date,
+  groupBy: 'day' | 'week' | 'month'
+) {
+  const timeSeries: Record<string, any> = {};
+  
+  // Initialize buckets based on groupBy
+  const current = new Date(startDate);
+  while (current <= endDate) {
+    const key = getTimeKey(current, groupBy);
+    timeSeries[key] = {
+      date: new Date(current),
+      total: 0,
+      acknowledged: 0,
+      resolved: 0,
+      escalated: 0,
+      avgResponseTime: 0,
+      responseTimes: [],
+    };
+    
+    // Increment based on groupBy
+    if (groupBy === 'day') {
+      current.setDate(current.getDate() + 1);
+    } else if (groupBy === 'week') {
+      current.setDate(current.getDate() + 7);
+    } else {
+      current.setMonth(current.getMonth() + 1);
+    }
+  }
+  
+  // Populate data
+  alerts.forEach(alert => {
+    const key = getTimeKey(alert.createdAt, groupBy);
+    if (timeSeries[key]) {
+      timeSeries[key].total++;
+      if (alert.acknowledgedAt) {
+        timeSeries[key].acknowledged++;
+        const responseTime = (alert.acknowledgedAt.getTime() - alert.createdAt.getTime()) / 1000;
+        timeSeries[key].responseTimes.push(responseTime);
+      }
+      if (alert.resolvedAt) timeSeries[key].resolved++;
+      if (alert.escalationLevel > 1) timeSeries[key].escalated++;
+    }
+  });
+  
+  // Calculate averages
+  Object.values(timeSeries).forEach((bucket: any) => {
+    if (bucket.responseTimes.length > 0) {
+      bucket.avgResponseTime = bucket.responseTimes.reduce((a: number, b: number) => a + b, 0) / bucket.responseTimes.length;
+    }
+    delete bucket.responseTimes; // Clean up
+  });
+  
+  return Object.values(timeSeries).sort((a: any, b: any) => a.date.getTime() - b.date.getTime());
+}
+
+function getTimeKey(date: Date, groupBy: 'day' | 'week' | 'month'): string {
+  if (groupBy === 'day') {
+    return date.toISOString().split('T')[0];
+  } else if (groupBy === 'week') {
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - date.getDay());
+    return weekStart.toISOString().split('T')[0];
+  } else {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  }
+}
+
+// Helper function to calculate average response time
+async function calculateAvgResponseTime(hospitalId: string, since: Date): Promise<number> {
+  const result = await db
+    .select({
+      avgSeconds: sql<number>`
+        avg(
+          extract(epoch from (acknowledged_at - created_at))
+        )
+      `
+    })
+    .from(alerts)
+    .where(
+      and(
+        eq(alerts.hospitalId, hospitalId),
+        gte(alerts.createdAt, since),
+        sql`acknowledged_at is not null`
+      )
+    );
+  
+  return Math.round(result[0]?.avgSeconds || 0);
+}

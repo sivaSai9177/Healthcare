@@ -1,4 +1,4 @@
-import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -8,8 +8,8 @@ export const user = pgTable("user", {
     .$defaultFn(() => false)
     .notNull(),
   image: text("image"),
-  role: text("role"), // admin, manager, user, guest - nullable for new OAuth users who need to complete profile
-  organizationId: text("organization_id"),
+  role: text("role").default("user"), // admin, manager, user, guest - defaults to 'user'
+  organizationId: uuid("organization_id"), // Changed to UUID to match organization table
   needsProfileCompletion: boolean("needs_profile_completion")
     .$defaultFn(() => true)
     .notNull(),
@@ -111,21 +111,7 @@ export const verification = pgTable("verification", {
 });
 
 // Enhanced tables for organizations
-
-export const organization = pgTable("organization", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  address: text("address"),
-  phone: text("phone"),
-  email: text("email"),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at")
-    .$defaultFn(() => new Date())
-    .notNull(),
-  updatedAt: timestamp("updated_at")
-    .$defaultFn(() => new Date())
-    .notNull(),
-});
+// NOTE: Organization tables moved to organization-schema.ts
 
 // Enhanced audit logging for compliance and security
 export const auditLog = pgTable("audit_log", {

@@ -1,16 +1,36 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
   ViewStyle,
   TextStyle,
   ScrollView,
+  Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { Box } from './Box';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withDelay,
+  FadeIn,
+  SlideInUp,
+  interpolate,
+  runOnJS,
+} from 'react-native-reanimated';
+import { Symbol } from './Symbols';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+
 import { Card } from './Card';
+import { 
+  AnimationVariant,
+  getAnimationConfig,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+
+export type StatsAnimationType = 'count' | 'barGrow' | 'slideIn' | 'none';
 
 export interface StatCardProps {
   label: string;
@@ -26,6 +46,18 @@ export interface StatCardProps {
   labelStyle?: TextStyle;
   valueStyle?: TextStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: StatsAnimationType;
+  animationDuration?: number;
+  animationDelay?: number;
+  countFrom?: number;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const StatCard = React.forwardRef<View, StatCardProps>(
@@ -44,11 +76,96 @@ export const StatCard = React.forwardRef<View, StatCardProps>(
       labelStyle,
       valueStyle,
       testID,
+      // Animation props
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'count',
+      animationDuration,
+      animationDelay = 0,
+      countFrom = 0,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
     const { spacing } = useSpacing();
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
+    
+    const duration = animationDuration ?? config.duration.normal;
+    
+    // Animation values
+    const countProgress = useSharedValue(0);
+    const barWidth = useSharedValue(0);
+    const scale = useSharedValue(0.9);
+    const [displayValue, setDisplayValue] = React.useState(
+      animated && isAnimated && shouldAnimate() && animationType === 'count' && typeof value === 'number' 
+        ? countFrom 
+        : value
+    );
+    
+    // Animate counting effect
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate() && animationType === 'count' && typeof value === 'number') {
+        countProgress.value = withDelay(
+          animationDelay,
+          withTiming(1, { duration }, (finished) => {
+            if (finished) {
+              runOnJS(setDisplayValue)(value);
+            }
+          })
+        );
+      }
+    }, [value, animated, isAnimated, shouldAnimate, animationType, duration, animationDelay]);
+    
+    // Update display value during count animation
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate() && animationType === 'count' && typeof value === 'number') {
+        const interval = setInterval(() => {
+          const progress = countProgress.value;
+          const currentValue = Math.round(countFrom + (value - countFrom) * progress);
+          setDisplayValue(currentValue);
+          
+          if (progress >= 1) {
+            clearInterval(interval);
+          }
+        }, 16); // ~60fps
+        
+        return () => clearInterval(interval);
+      }
+    }, [value, countFrom, animated, isAnimated, shouldAnimate, animationType]);
+    
+    // Bar grow animation
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate() && animationType === 'barGrow') {
+        barWidth.value = withDelay(
+          animationDelay,
+          withTiming(1, { duration })
+        );
+      }
+    }, [animated, isAnimated, shouldAnimate, animationType, duration, animationDelay]);
+    
+    // Scale animation
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate() && animationType === 'slideIn') {
+        scale.value = withDelay(
+          animationDelay,
+          withSpring(1, config.spring)
+        );
+      }
+    }, [animated, isAnimated, shouldAnimate, animationType, animationDelay, config.spring]);
+    
+    // Animated styles
+    const barAnimatedStyle = useAnimatedStyle(() => ({
+      width: `${barWidth.value * 100}%`,
+    }));
+    
+    const scaleAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scale.value }],
+    }));
 
     const sizeMap = {
       compact: {
@@ -95,7 +212,7 @@ export const StatCard = React.forwardRef<View, StatCardProps>(
       
       return (
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: spacing[2] }}>
-          <Ionicons name={trendIcon as any} size={16} color={trendColor} />
+          <Symbol name="trendIcon as any" size={16} color={trendColor} />
           {change !== undefined && (
             <Text
               style={{
@@ -123,12 +240,41 @@ export const StatCard = React.forwardRef<View, StatCardProps>(
       );
     };
 
+    // Web CSS animations
+    const webAnimationStyle = Platform.OS === 'web' && animated && isAnimated && shouldAnimate() ? {
+      '@keyframes slideIn': {
+        from: { transform: 'scale(0.9)', opacity: 0 },
+        to: { transform: 'scale(1)', opacity: 1 },
+      },
+      '@keyframes barGrow': {
+        from: { width: '0%' },
+        to: { width: '100%' },
+      },
+    } as any : {};
+
+    const AnimatedCard = animated && isAnimated && shouldAnimate() && animationType === 'slideIn'
+      ? Animated.createAnimatedComponent(Card)
+      : Card;
+
     return (
-      <Card
+      <AnimatedCard
         ref={ref}
         p={0}
-        style={[{ overflow: 'hidden' }, style]}
+        style={[
+          { overflow: 'hidden' },
+          animated && isAnimated && shouldAnimate() && animationType === 'slideIn' 
+            ? Platform.OS === 'web'
+              ? { animation: `slideIn ${duration}ms ease-out ${animationDelay}ms backwards` } as any
+              : scaleAnimatedStyle
+            : {},
+          webAnimationStyle,
+          style,
+        ]}
         testID={testID}
+        entering={Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() && animationType === 'slideIn'
+          ? SlideInUp.duration(duration).delay(animationDelay)
+          : undefined
+        }
       >
         <View style={{ padding: sizes.padding }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -155,41 +301,54 @@ export const StatCard = React.forwardRef<View, StatCardProps>(
                   valueStyle,
                 ]}
               >
-                {value}
+                {displayValue}
               </Text>
               {getTrendIcon()}
             </View>
             
             {icon && (
-              <View
-                style={{
-                  width: sizes.iconSize * 2,
-                  height: sizes.iconSize * 2,
-                  borderRadius: sizes.iconSize,
-                  backgroundColor: `${iconColor || accentColor}20`,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  marginLeft: spacing[3],
-                }}
+              <Animated.View
+                style={[
+                  {
+                    width: sizes.iconSize * 2,
+                    height: sizes.iconSize * 2,
+                    borderRadius: sizes.iconSize,
+                    backgroundColor: `${iconColor || accentColor}20`,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginLeft: spacing[3],
+                  },
+                ]}
+                entering={Platform.OS !== 'web' && animated && isAnimated && shouldAnimate()
+                  ? FadeIn.duration(duration).delay(animationDelay + 200)
+                  : undefined
+                }
               >
-                <Ionicons
-                  name={icon as any}
+                <Symbol
+                  name="icon as any"
                   size={sizes.iconSize}
                   color={iconColor || accentColor}
                 />
-              </View>
+              </Animated.View>
             )}
           </View>
         </View>
         
         {/* Accent bar at bottom */}
-        <View
-          style={{
-            height: 3,
-            backgroundColor: accentColor,
-          }}
+        <Animated.View
+          style={[
+            {
+              height: 3,
+              backgroundColor: accentColor,
+            },
+            animated && isAnimated && shouldAnimate() && animationType === 'barGrow'
+              ? Platform.OS === 'web'
+                ? { animation: `barGrow ${duration}ms ease-out ${animationDelay}ms backwards` } as any
+                : barAnimatedStyle
+              : {},
+          ]}
         />
-      </Card>
+      </AnimatedCard>
     );
   }
 );
@@ -251,12 +410,12 @@ export const StatsGrid: React.FC<StatsGridProps> = ({
 
 // Stat List Component
 export interface StatListProps {
-  stats: Array<{
+  stats: {
     label: string;
     value: string | number;
     icon?: string;
     color?: string;
-  }>;
+  }[];
   variant?: 'default' | 'compact';
   orientation?: 'horizontal' | 'vertical';
   style?: ViewStyle;
@@ -311,8 +470,8 @@ export const StatList: React.FC<StatListProps> = ({
                   marginRight: spacing[2],
                 }}
               >
-                <Ionicons
-                  name={stat.icon as any}
+                <Symbol
+                  name="stat.icon as any"
                   size={isCompact ? 18 : 24}
                   color={stat.color || theme.primary}
                 />
@@ -379,8 +538,8 @@ export const MiniStat: React.FC<MiniStatProps> = ({
       testID={testID}
     >
       {icon && (
-        <Ionicons
-          name={icon as any}
+        <Symbol
+          name="icon as any"
           size={16}
           color={color || theme.primary}
           style={{ marginRight: spacing[2] }}

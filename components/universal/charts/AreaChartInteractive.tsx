@@ -1,10 +1,14 @@
 import * as React from "react"
 import { View, Dimensions } from "react-native"
 // Removed card imports - using Box instead
-import { Button, HStack, Box, Text } from "../index"
-import { SpacingScale } from "@/lib/design-system"
+import { Button } from "../Button"
+import { HStack } from "../Stack"
+import { Box } from "../Box"
+import { Text } from "../Text"
+import { SpacingScale } from "@/lib/design"
 import { AreaChart as NativeAreaChart } from "./AreaChart"
-import { useTheme } from "@/lib/theme/theme-provider"
+import { useTheme } from "@/lib/theme/provider"
+import { useBreakpoint } from '@/hooks/responsive';
 
 export const description = "An interactive area chart"
 
@@ -32,6 +36,7 @@ const chartData = (() => {
 
 export function AreaChartInteractive() {
   const theme = useTheme()
+  const breakpoint = useBreakpoint()
   const [isMobile, setIsMobile] = React.useState(false)
   const [timeRange, setTimeRange] = React.useState("90d")
 
@@ -126,7 +131,7 @@ export function AreaChartInteractive() {
         </Box>
       </Box>
       <Box px={0 as SpacingScale} pb={4 as SpacingScale}>
-        <View style={{ height: 250, width: '100%', paddingHorizontal: 16, backgroundColor: 'transparent' }}>
+        <View style={{ height: 250, width: '100%', paddingHorizontal: 16, backgroundColor: transparent }}>
           <NativeAreaChart
             data={{
               labels: filteredData.map((d, index) => {

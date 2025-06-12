@@ -7,20 +7,19 @@ import { z } from "zod";
 import { LinearGradient } from 'expo-linear-gradient';
 import { forgotPasswordSchema, type ForgotPasswordInput } from "@/lib/validations/auth";
 import { showErrorAlert, showSuccessAlert } from "@/lib/core/alert";
-import { log } from "@/lib/core/logger";
-import { api } from "@/lib/trpc";
-import { useTheme } from "@/lib/theme/theme-provider";
-import { IconSymbol } from "@/components/ui/IconSymbol";
-import { ValidationIcon } from "@/components/ui/ValidationIcon";
+import { log } from "@/lib/core/debug/logger";
+import { api } from "@/lib/api/trpc";
+import { useTheme } from "@/lib/theme/provider";
+import { Symbol as IconSymbol , ValidationIcon } from '@/components/universal';
 import { Box } from "@/components/universal/Box";
 import { Text, Heading1, Caption } from "@/components/universal/Text";
 import { VStack, HStack } from "@/components/universal/Stack";
 import { Button } from "@/components/universal/Button";
 import { Input } from "@/components/universal/Input";
-import { Card, CardContent } from "@/components/universal/Card";
-import { UniversalLink, TextLink } from "@/components/universal/Link";
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { Card } from "@/components/universal/Card";
+import { TextLink } from "@/components/universal/Link";
+import { SpacingScale } from '@/lib/design';
+import { useBreakpoint } from '@/hooks/responsive';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -40,20 +39,13 @@ export default function ForgotPasswordScreen() {
     }
   }, []);
   
-  const isTabletOrDesktop = screenWidth >= 768;
-  const isLargeScreen = screenWidth >= 1024;
-  const isMobile = screenWidth < 768;
+  const breakpoint = useBreakpoint();
+  const isTabletOrDesktop = ['md', 'lg', 'xl', '2xl'].includes(breakpoint);
+  const isLargeScreen = ['lg', 'xl', '2xl'].includes(breakpoint);
+  const { isMobile } = useResponsive();
 
   // Use tRPC mutation for password reset
-  // TODO: Implement sendPasswordResetEmail mutation in auth router
-  const resetPasswordMutation = {
-    mutateAsync: async (data: { email: string }) => {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      return { success: true };
-    },
-    isPending: false,
-  } as any; // Temporary mock until backend is implemented
+  const resetPasswordMutation = api.auth.resetPassword.useMutation();
 
   const form = useForm<ForgotPasswordInput>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -64,7 +56,7 @@ export default function ForgotPasswordScreen() {
   });
 
   const email = form.watch('email');
-  const emailSchema = z.string().email();
+  const emailSchema = React.useMemo(() => z.string().email(), []);
   
   const isValidEmail = React.useMemo(() => {
     try {
@@ -73,7 +65,7 @@ export default function ForgotPasswordScreen() {
     } catch {
       return false;
     }
-  }, [email]);
+  }, [email, emailSchema]);
 
   const onSubmit = async (data: ForgotPasswordInput) => {
     log.auth.debug('Password reset requested', { email: data.email });
@@ -110,7 +102,7 @@ export default function ForgotPasswordScreen() {
           <VStack spacing={2} alignItems="center">
             <Heading1>Forgot password?</Heading1>
             <Text colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
-              Enter your email address and we'll send you a link to reset your password
+              Enter your email address and we&apos;ll send you a link to reset your password
             </Text>
           </VStack>
         ) : (
@@ -119,7 +111,7 @@ export default function ForgotPasswordScreen() {
               <Text style={{ fontSize: 56, lineHeight: 60 }}>🔐</Text>
             </Box>
             <Text colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
-              Enter your email address and we'll send you a link to reset your password
+              Enter your email address and we&apos;ll send you a link to reset your password
             </Text>
           </VStack>
         )}
@@ -161,9 +153,9 @@ export default function ForgotPasswordScreen() {
           <Button
             size="lg"
             fullWidth
-            isDisabled={!isValidEmail || isLoading}
+            isDisabled={!isValidEmail || isLoading || resetPasswordMutation.isPending}
             onPress={() => form.handleSubmit(onSubmit)()}
-            isLoading={isLoading}
+            isLoading={isLoading || resetPasswordMutation.isPending}
           >
             {isLoading ? "Sending..." : "Send reset email"}
           </Button>
@@ -177,7 +169,7 @@ export default function ForgotPasswordScreen() {
               href="/(auth)/login"
               size="sm"
               weight="medium"
-              variant="primary"
+              variant="solid"
             >
               Login
             </TextLink>
@@ -189,7 +181,7 @@ export default function ForgotPasswordScreen() {
 
   const imageColumn = (
     <LinearGradient
-      colors={['#e8e9eb', '#f2f3f5', '#fafbfc']}
+      colors={['#e8e9eb', '#f2f3f5', 'theme.background']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{
@@ -203,7 +195,7 @@ export default function ForgotPasswordScreen() {
         flex={1}
         justifyContent="center"
         alignItems="center"
-        p={8}
+        p={8 as SpacingScale}
       >
         <VStack spacing={6} alignItems="center">
           {/* Lock Emoji */}
@@ -228,7 +220,7 @@ export default function ForgotPasswordScreen() {
                 maxWidth: 300,
               }}
             >
-              We'll help you get back into your account securely
+              We&apos;ll help you get back into your account securely
             </Text>
           </VStack>
         </VStack>

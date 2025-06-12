@@ -1,5 +1,21 @@
 # Scripts Guide - Package.json Commands
 
+## 🆕 Latest Updates (Runtime Fixes Applied)
+
+### Pre-flight Checks Added
+- Automatic dependency verification (bun, docker, expo-cli)
+- Auto-install @expo/server if missing
+- Port cleanup before starting services
+- Service health checks after startup
+
+### Runtime Fixes Applied
+- Fixed email service imports for React Native
+- Fixed theme provider import paths
+- Fixed unified-env.ts syntax errors
+- Fixed missing spacing imports
+- WebSocket server now uses standalone script
+- Added proper error handling and logging
+
 ## 🚀 Quick Start Commands
 
 ### Unified Environment System (NEW - Recommended)
@@ -11,10 +27,23 @@ bun start:oauth         # OAuth mode - optimized for OAuth testing
 bun start:tunnel        # Tunnel mode - remote access via Expo
 
 # These commands automatically:
+# - Run pre-flight dependency checks
+# - Clean up existing processes on ports
 # - Detect environment mode
 # - Use OAuth-safe URLs when needed
 # - Handle mobile/web differences
 # - Start local services if needed
+# - Support web platform (press 'w' to open)
+# - Verify service health before starting Expo
+```
+
+### 🌐 Web Support
+```bash
+# All start commands support web - just press 'w' when Expo starts
+# Or use dedicated web commands:
+bun run web                  # Start web-only mode
+bun run web:local           # Web with local database
+bun run local:healthcare:web # Healthcare + auto-open web browser
 ```
 
 ### Legacy Primary Development
@@ -187,6 +216,25 @@ bun env:generate:production  # Generate production env
 bun env:update-ip           # Update local IP address
 ```
 
+### Environment Variables Debug
+```bash
+# Check current environment
+echo $APP_ENV
+echo $DATABASE_URL
+echo $EXPO_PUBLIC_API_URL
+echo $EXPO_PUBLIC_AUTH_URL
+
+# Email configuration
+echo $EMAIL_HOST
+echo $EMAIL_USER
+echo $EMAIL_FROM
+
+# OAuth configuration
+echo $GOOGLE_CLIENT_ID
+echo $GOOGLE_CLIENT_SECRET
+echo $BETTER_AUTH_SECRET
+```
+
 ## 🧪 Testing
 
 ```bash
@@ -204,6 +252,40 @@ bun debug:ios      # Debug iOS with Expo Go
 bun debug:android  # Debug Android with Expo Go
 bun logs:ios       # View iOS logs
 bun logs:android   # View Android logs
+```
+
+## 📧 Notification System
+
+### Email Server
+```bash
+bun email:server   # Start email notification server
+bun email:test     # Test email configuration
+
+# The email server:
+# - Runs on port 3001
+# - Provides health check endpoint
+# - Can send test notifications
+# - Uses nodemailer with SMTP
+```
+
+### Notification Testing
+```bash
+bun notification:test  # Test complete notification system
+bun ws:start          # Start WebSocket server for real-time alerts
+
+# Test endpoints:
+# GET http://localhost:3001/health - Check email server status
+# GET http://localhost:3001/send-test - Send test notification
+```
+
+### Email Configuration
+Create `.env.email` file:
+```env
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
+EMAIL_FROM=noreply@hospital-alert.com
 ```
 
 ## 🔧 Utilities & Maintenance
@@ -485,22 +567,71 @@ bun preview:run:ios                   # Install latest iOS
 bun preview:run:android               # Install latest Android
 ```
 
+## 🔧 Troubleshooting Common Issues
+
+### Runtime Errors Fixed
+```bash
+# Issue: "nodemailer.default.createTransporter is not a function"
+# Fix: Email service now uses conditional imports (email-index.ts)
+
+# Issue: "spacing is not defined"
+# Fix: Import spacing from '@/lib/design'
+
+# Issue: "Cannot find module '@expo/server/build/vendor/http'"
+# Fix: Run 'bun add @expo/server'
+
+# Issue: Port already in use
+# Fix: Scripts now auto-cleanup ports before starting
+```
+
+### Quick Fixes
+```bash
+# Kill all Expo/Metro processes
+pkill -f "expo start" || true
+pkill -f "metro" || true
+
+# Clean up all service ports
+lsof -ti:8081 | xargs kill -9 2>/dev/null || true
+lsof -ti:3001 | xargs kill -9 2>/dev/null || true
+lsof -ti:3002 | xargs kill -9 2>/dev/null || true
+
+# Reset and restart
+bun local:healthcare
+```
+
 ---
 
 ## 🏥 Healthcare Demo Workflows (NEW)
 
 ### Quick Start Healthcare Demo
 ```bash
-# Option 1: One command to rule them all
+# Option 1: One command to rule them all (includes email & WebSocket servers)
 bun run local:healthcare
 
-# Option 2: OAuth-friendly setup
+# This single command starts:
+# - Docker PostgreSQL & Redis
+# - Email notification server (if .env.email exists)
+# - WebSocket server for real-time alerts
+# - Healthcare demo data setup
+# - Expo development server with web support
+
+# Option 1a: Auto-open web browser
+bun run local:healthcare:web
+
+# Option 2: OAuth-friendly setup (also includes email & WebSocket)
+bun run start:oauth
+# or
 ./scripts/fix-oauth-local.sh
 
 # Option 3: Manual steps
 bun db:local:up                    # Start database
 bun run healthcare:setup:local     # Setup healthcare
+bun email:server &                 # Start email server (optional)
+bun ws:start &                     # Start WebSocket server (optional)
 bun run local                      # Start Expo
+
+# Option 4: Just the web app
+bun run web:local                  # Starts web-only with local database
 ```
 
 ### Healthcare Demo Credentials

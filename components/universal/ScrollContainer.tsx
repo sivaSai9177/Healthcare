@@ -1,10 +1,12 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Animated, ScrollViewProps, View, Platform } from 'react-native';
 import { SafeAreaView , useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box, BoxProps } from './Box';
 import { ScrollHeader } from './ScrollHeader';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { designSystem } from '@/lib/design-system';
+import { useTheme } from '@/lib/theme/provider';
+import { designSystem } from '@/lib/design';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
 
 interface ScrollContainerProps extends Omit<BoxProps, 'maxWidth'> {
   safe?: boolean;
@@ -25,11 +27,27 @@ export const ScrollContainer = React.forwardRef<any, ScrollContainerProps>(({
   headerChildren,
   children,
   style,
+  // Animation props
+  animated = false,
+  animationVariant = 'moderate',
+  animationType = 'scroll-fade',
+  animationDuration,
+  animationDelay = 0,
+  parallaxSpeed = 0.5,
+  fadeThreshold = 100,
+  animationConfig,
   ...props
 }, ref) => {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  const duration = animationDuration ?? config.duration.normal;
   
   const maxWidthValue = {
     sm: designSystem.breakpoints.sm,
@@ -48,16 +66,53 @@ export const ScrollContainer = React.forwardRef<any, ScrollContainerProps>(({
 
   const totalHeaderHeight = headerTitle ? headerHeight + insets.top : 0;
   
+  // Animation values
+  const opacity = useRef(new Animated.Value(1)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+  
+  // Apply scroll-based animations
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate() && animationType === 'scroll-fade') {
+      scrollY.addListener(({ value }) => {
+        // Fade content as it scrolls
+        const newOpacity = Math.max(0, Math.min(1, 1 - (value / fadeThreshold)));
+        opacity.setValue(newOpacity);
+      });
+      
+      return () => scrollY.removeAllListeners();
+    }
+  }, [animated, isAnimated, shouldAnimate, animationType, scrollY, fadeThreshold, opacity]);
+  
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate() && animationType === 'parallax') {
+      scrollY.addListener(({ value }) => {
+        // Parallax effect
+        translateY.setValue(value * parallaxSpeed);
+      });
+      
+      return () => scrollY.removeAllListeners();
+    }
+  }, [animated, isAnimated, shouldAnimate, animationType, scrollY, parallaxSpeed, translateY]);
+  
+  const animatedStyle = animated && isAnimated && shouldAnimate() 
+    ? {
+        opacity: animationType === 'scroll-fade' ? opacity : 1,
+        transform: animationType === 'parallax' ? [{ translateY }] : [],
+      }
+    : {};
+  
   const containerContent = (
-    <Box
-      flex={1}
-      width="100%"
-      maxWidth={maxWidthValue}
-      alignSelf={centered ? 'center' : undefined}
-      {...props}
-    >
-      {children}
-    </Box>
+    <Animated.View style={animatedStyle}>
+      <Box
+        flex={1}
+        width="100%"
+        maxWidth={maxWidthValue}
+        alignSelf={centered ? 'center' : undefined}
+        {...props}
+      >
+        {children}
+      </Box>
+    </Animated.View>
   );
   
   const scrollContent = (
@@ -66,8 +121,9 @@ export const ScrollContainer = React.forwardRef<any, ScrollContainerProps>(({
         <ScrollHeader 
           title={headerTitle} 
           scrollY={scrollY}
-          children={headerChildren}
-        />
+        >
+          {headerChildren}
+        </ScrollHeader>
       )}
       <Animated.ScrollView
         ref={ref}

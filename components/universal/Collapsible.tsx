@@ -9,15 +9,34 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Pressable,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import ReAnimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  interpolate,
+  runOnJS,
+  Extrapolate,
+} from 'react-native-reanimated';
+import { Symbol } from './Symbols';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { AnimationVariant } from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
+
+const AnimatedView = ReAnimated.View;
+const AnimatedPressable = ReAnimated.createAnimatedComponent(Pressable);
+
+export type CollapsibleAnimationType = 'height' | 'fade' | 'slide' | 'none';
 
 export interface CollapsibleProps {
   children: React.ReactNode;
@@ -36,6 +55,16 @@ export interface CollapsibleProps {
   contentStyle?: ViewStyle;
   titleStyle?: TextStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  collapsibleAnimationType?: CollapsibleAnimationType;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const Collapsible = React.forwardRef<View, CollapsibleProps>(
@@ -57,60 +86,113 @@ export const Collapsible = React.forwardRef<View, CollapsibleProps>(
       contentStyle,
       titleStyle,
       testID,
+      animated = true,
+      animationVariant = 'moderate',
+      collapsibleAnimationType = 'height',
+      useHaptics = true,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
     const { spacing } = useSpacing();
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
     
     const [isOpen, setIsOpen] = useState(controlledOpen ?? defaultOpen);
     const animatedHeight = useRef(new Animated.Value(isOpen ? 1 : 0)).current;
     const animatedRotation = useRef(new Animated.Value(isOpen ? 1 : 0)).current;
     const [contentHeight, setContentHeight] = useState(0);
     
+    // Reanimated values
+    const height = useSharedValue(isOpen ? 1 : 0);
+    const rotation = useSharedValue(isOpen ? 1 : 0);
+    const opacity = useSharedValue(isOpen ? 1 : 0);
+    const translateY = useSharedValue(isOpen ? 0 : -10);
+    const scale = useSharedValue(1);
+    
     const isControlled = controlledOpen !== undefined;
     const open = isControlled ? controlledOpen : isOpen;
 
     useEffect(() => {
-      const layoutAnimConfig = {
-        duration: animationDuration,
-        update: {
-          type: animationType === 'spring' 
-            ? LayoutAnimation.Types.spring 
-            : animationType === 'linear' 
-            ? LayoutAnimation.Types.linear 
-            : LayoutAnimation.Types.easeInEaseOut,
-          property: LayoutAnimation.Properties.scaleY,
-        },
-      };
+      if (animated && isAnimated && shouldAnimate() && collapsibleAnimationType !== 'none') {
+        if (open) {
+          height.value = withSpring(1, config.spring);
+          rotation.value = withSpring(1, config.spring);
+          opacity.value = withTiming(1, { duration: config.duration.fast });
+          if (collapsibleAnimationType === 'slide') {
+            translateY.value = withSpring(0, config.spring);
+          }
+        } else {
+          height.value = withTiming(0, { duration: config.duration.normal });
+          rotation.value = withSpring(0, config.spring);
+          opacity.value = withTiming(0, { duration: config.duration.fast });
+          if (collapsibleAnimationType === 'slide') {
+            translateY.value = withTiming(-10, { duration: config.duration.fast });
+          }
+        }
+      } else {
+        // Fallback to Animated API
+        const layoutAnimConfig = {
+          duration: animationDuration,
+          update: {
+            type: animationType === 'spring' 
+              ? LayoutAnimation.Types.spring 
+              : animationType === 'linear' 
+              ? LayoutAnimation.Types.linear 
+              : LayoutAnimation.Types.easeInEaseOut,
+            property: LayoutAnimation.Properties.scaleY,
+          },
+        };
 
-      if (Platform.OS === 'android') {
-        LayoutAnimation.configureNext(layoutAnimConfig);
+        if (Platform.OS === 'android') {
+          LayoutAnimation.configureNext(layoutAnimConfig);
+        }
+
+        Animated.parallel([
+          Animated.timing(animatedHeight, {
+            toValue: open ? 1 : 0,
+            duration: animationDuration,
+            useNativeDriver: false,
+          }),
+          Animated.timing(animatedRotation, {
+            toValue: open ? 1 : 0,
+            duration: animationDuration,
+            useNativeDriver: true,
+          }),
+        ]).start();
       }
-
-      Animated.parallel([
-        Animated.timing(animatedHeight, {
-          toValue: open ? 1 : 0,
-          duration: animationDuration,
-          useNativeDriver: false,
-        }),
-        Animated.timing(animatedRotation, {
-          toValue: open ? 1 : 0,
-          duration: animationDuration,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, [open, animationDuration, animatedHeight, animatedRotation]);
+    }, [open, animationDuration, animatedHeight, animatedRotation, animated, isAnimated, shouldAnimate, collapsibleAnimationType, config]);
 
     const handleToggle = useCallback(() => {
       if (disabled) return;
+      
+      // Haptic feedback
+      if (useHaptics && Platform.OS !== 'web') {
+        haptic('selection');
+      }
       
       const newValue = !open;
       if (!isControlled) {
         setIsOpen(newValue);
       }
       onOpenChange?.(newValue);
-    }, [disabled, open, isControlled, onOpenChange]);
+    }, [disabled, open, isControlled, onOpenChange, useHaptics]);
+    
+    const handlePressIn = () => {
+      if (animated && isAnimated && shouldAnimate()) {
+        scale.value = withSpring(0.98, { damping: 15, stiffness: 400 });
+      }
+    };
+    
+    const handlePressOut = () => {
+      if (animated && isAnimated && shouldAnimate()) {
+        scale.value = withSpring(1, config.spring);
+      }
+    };
 
     const getVariantStyles = (): ViewStyle => {
       switch (variant) {
@@ -132,7 +214,39 @@ export const Collapsible = React.forwardRef<View, CollapsibleProps>(
       }
     };
 
-    const rotation = animatedRotation.interpolate({
+    const animatedContentStyle = useAnimatedStyle(() => {
+      const baseStyle: any = {
+        opacity: collapsibleAnimationType === 'fade' || collapsibleAnimationType === 'slide' 
+          ? opacity.value 
+          : 1,
+      };
+      
+      if (collapsibleAnimationType === 'height' || collapsibleAnimationType === 'slide') {
+        baseStyle.height = interpolate(
+          height.value,
+          [0, 1],
+          [0, contentHeight],
+          Extrapolate.CLAMP
+        );
+      }
+      
+      if (collapsibleAnimationType === 'slide') {
+        baseStyle.transform = [{ translateY: translateY.value }];
+      }
+      
+      return baseStyle;
+    });
+    
+    const animatedArrowStyle = useAnimatedStyle(() => ({
+      transform: [{ rotate: `${interpolate(rotation.value, [0, 1], [0, 90])}deg` }],
+    }));
+    
+    const animatedTriggerStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scale.value }] as any,
+    }));
+    
+    // Fallback rotation for Animated API
+    const animatedRotationDeg = animatedRotation.interpolate({
       inputRange: [0, 1],
       outputRange: ['0deg', '90deg'],
     });
@@ -164,42 +278,98 @@ export const Collapsible = React.forwardRef<View, CollapsibleProps>(
           {title}
         </Text>
         {showArrow && (
-          <Animated.View
-            style={{
-              transform: [{ rotate: rotation }],
-              marginLeft: spacing[2],
-            }}
-          >
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={disabled ? theme.mutedForeground : theme.foreground}
-            />
-          </Animated.View>
+          animated && isAnimated && shouldAnimate() ? (
+            <AnimatedView
+              style={[
+                {
+                  marginLeft: spacing[2],
+                },
+                animatedArrowStyle,
+              ]}
+            >
+              <Symbol name="chevron.right"
+                size={20}
+                color={disabled ? theme.mutedForeground : theme.foreground}
+              />
+            </AnimatedView>
+          ) : (
+            <Animated.View
+              style={{
+                transform: [{ rotate: animatedRotationDeg }],
+                marginLeft: spacing[2],
+              }}
+            >
+              <Symbol name="chevron.right"
+                size={20}
+                color={disabled ? theme.mutedForeground : theme.foreground}
+              />
+            </Animated.View>
+          )
         )}
       </View>
     );
 
     return (
       <View ref={ref} style={[getVariantStyles(), style]} testID={testID}>
-        <TouchableOpacity
-          onPress={handleToggle}
-          disabled={disabled}
-          activeOpacity={0.7}
-        >
-          {trigger || renderDefaultTrigger()}
-        </TouchableOpacity>
+        {animated && isAnimated && shouldAnimate() ? (
+          <AnimatedPressable
+            onPress={handleToggle}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            disabled={disabled}
+            style={animatedTriggerStyle}
+          >
+            {trigger || renderDefaultTrigger()}
+          </AnimatedPressable>
+        ) : (
+          <Pressable
+            onPress={handleToggle}
+            disabled={disabled}
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            {trigger || renderDefaultTrigger()}
+          </Pressable>
+        )}
         
-        <Animated.View
-          style={{
-            height: animatedHeight.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, contentHeight || 0],
-            }),
-            opacity: animatedHeight,
-            overflow: 'hidden',
-          }}
-        >
+        {animated && isAnimated && shouldAnimate() && collapsibleAnimationType !== 'none' ? (
+          <AnimatedView
+            style={[
+              {
+                overflow: 'hidden',
+              },
+              animatedContentStyle,
+            ]}
+          >
+            <View
+              onLayout={(event) => {
+                const { height } = event.nativeEvent.layout;
+                setContentHeight(height);
+              }}
+              style={[
+                {
+                  position: contentHeight ? 'relative' : 'absolute',
+                  padding: variant === 'ghost' ? 0 : spacing[3],
+                  paddingTop: variant === 'ghost' ? spacing[2] : 0,
+                },
+                contentStyle,
+              ]}
+            >
+              {children}
+            </View>
+          </AnimatedView>
+        ) : (
+          <Animated.View
+            style={{
+              height: animatedHeight.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, contentHeight || 0],
+              }),
+              opacity: animatedHeight,
+              overflow: 'hidden',
+            }}
+          >
           <View
             onLayout={(event) => {
               const { height } = event.nativeEvent.layout;
@@ -216,7 +386,8 @@ export const Collapsible = React.forwardRef<View, CollapsibleProps>(
           >
             {children}
           </View>
-        </Animated.View>
+          </Animated.View>
+        )}
       </View>
     );
   }
@@ -315,8 +486,8 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
       }}
     >
       {icon && (
-        <Ionicons
-          name={icon as any}
+        <Symbol
+          name="icon as any"
           size={24}
           color={theme.primary}
           style={{ marginRight: spacing[3] }}
@@ -371,8 +542,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
       </View>
       
       {props.showArrow !== false && (
-        <Ionicons
-          name="chevron-forward"
+        <Symbol name="chevron.right"
           size={20}
           color={theme.foreground}
           style={{ marginLeft: spacing[2] }}

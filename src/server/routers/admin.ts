@@ -1,11 +1,10 @@
 import { z } from 'zod';
 import { 
   router, 
-  adminProcedure,
-  managerProcedure,
+  adminProcedure
 } from '../trpc';
 import { TRPCError } from '@trpc/server';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
 import { db } from '@/src/db';
 import { user as userTable, auditLog } from '@/src/db/schema';
 import { eq, desc, sql, and, or, like } from 'drizzle-orm';

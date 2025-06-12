@@ -48,17 +48,6 @@ CREATE TABLE "audit_log" (
 	"trace_id" text
 );
 --> statement-breakpoint
-CREATE TABLE "organization" (
-	"id" text PRIMARY KEY NOT NULL,
-	"name" text NOT NULL,
-	"address" text,
-	"phone" text,
-	"email" text,
-	"is_active" boolean DEFAULT true NOT NULL,
-	"created_at" timestamp NOT NULL,
-	"updated_at" timestamp NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "session" (
 	"id" text PRIMARY KEY NOT NULL,
 	"expires_at" timestamp NOT NULL,

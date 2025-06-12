@@ -1,7 +1,7 @@
 import React, { useTransition, useMemo, useCallback } from 'react';
 import { View, Pressable, ActivityIndicator } from 'react-native';
-import { useThemeContext } from '@/lib/theme/enhanced-theme-provider';
-import { getThemeOptions } from '@/lib/theme/theme-registry';
+import { useThemeContext } from '@/lib/theme/provider';
+import { getThemeOptions } from '@/lib/theme/registry';
 import {
   VStack,
   HStack,
@@ -10,7 +10,7 @@ import {
   Badge,
   Select,
 } from '@/components/universal';
-import { SpacingScale } from '@/lib/design-system';
+import { SpacingScale } from '@/lib/design';
 
 interface ColorSwatchProps {
   color: string;
@@ -87,7 +87,7 @@ export const ThemeSelector: React.FC = () => {
                           <Badge variant="primary" size="xs">
                             {isPending ? (
                               <HStack spacing={1 as SpacingScale} alignItems="center">
-                                <ActivityIndicator size="small" color="white" />
+                                <ActivityIndicator size="small" color={colors.background} />
                                 <Text size="xs">Applying...</Text>
                               </HStack>
                             ) : (

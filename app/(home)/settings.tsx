@@ -17,15 +17,16 @@ import {
   Avatar,
   SimpleBreadcrumb,
   Separator,
-  Sidebar07Trigger
+  SidebarTrigger
 } from '@/components/universal';
 import { DarkModeToggle } from '@/components/DarkModeToggle';
 import { SpacingDensitySelector } from '@/components/SpacingDensitySelector';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useAuth } from '@/hooks/useAuth';
-import { log } from '@/lib/core/logger';
-import { useTheme } from '@/lib/theme/enhanced-theme-provider';
-import { notificationService } from '@/lib/notifications/notification-service';
+import { log } from '@/lib/core/debug/logger';
+import { useTheme } from '@/lib/theme/provider';
+import { notificationService } from '@/lib/ui/notifications/service';
+import { SpacingScale } from '@/lib/design';
 
 export default function SettingsScreen() {
   const { user, logout } = useAuth();
@@ -115,9 +116,9 @@ export default function SettingsScreen() {
       <VStack p={0} spacing={0}>
         {/* Header with Toggle and Breadcrumbs - Only on Web */}
         {Platform.OS === 'web' && (
-          <Box px={4} py={3} borderBottomWidth={1} borderTheme="border">
+          <Box px={4 as SpacingScale} py={3 as SpacingScale} borderBottomWidth={1} borderTheme="border">
             <HStack alignItems="center" spacing={2} mb={2}>
-              <Sidebar07Trigger />
+              <SidebarTrigger />
               <Separator orientation="vertical" style={{ height: 24 }} />
               <SimpleBreadcrumb
                 items={[
@@ -131,7 +132,7 @@ export default function SettingsScreen() {
           </Box>
         )}
 
-        <VStack p={4} spacing={4}>
+        <VStack p={4 as SpacingScale} spacing={4}>
           <Heading1 mb={6}>
             Settings
           </Heading1>

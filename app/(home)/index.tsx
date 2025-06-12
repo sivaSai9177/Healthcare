@@ -12,65 +12,23 @@ import {
   HStack,
   ScrollContainer,
   Separator,
-  Sidebar07Trigger,
+  SidebarTrigger,
   SimpleBreadcrumb,
   Text,
   VStack,
 } from "@/components/universal";
 import { AreaChartInteractive } from "@/components/universal/charts";
 import { useAuth } from "@/hooks/useAuth";
-import { log } from "@/lib/core/logger";
-import { spacing, SpacingScale } from "@/lib/design-system";
-import { useTheme } from "@/lib/theme/theme-provider";
+import { log } from "@/lib/core/debug/logger";
+import { SpacingScale } from "@/lib/design";
+import { useTheme } from "@/lib/theme/provider";
 import { useRouter } from "expo-router";
-import React, { useState, useCallback, useTransition, useDeferredValue, useEffect, useMemo } from "react";
-import { Alert, Platform, RefreshControl, ScrollView, Animated, View, Dimensions, Easing } from "react-native";
-
-// Shimmer effect component for loading state
-const ShimmerPlaceholder = ({ width = "100%", height = 20, borderRadius = 4 }) => {
-  const theme = useTheme();
-  const shimmerAnim = React.useRef(new Animated.Value(0)).current;
-
-  React.useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerAnim, {
-          toValue: 1,
-          duration: 1000,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmerAnim, {
-          toValue: 0,
-          duration: 1000,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [shimmerAnim]);
-
-  const opacity = shimmerAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 0.7],
-  });
-
-  return (
-    <Animated.View
-      style={{
-        width,
-        height,
-        borderRadius,
-        backgroundColor: theme.muted,
-        opacity,
-      }}
-    />
-  );
-};
+import React, { useState, useCallback, useTransition, useDeferredValue, useMemo } from "react";
+import { Alert, Platform, RefreshControl, ScrollView, Animated, Easing } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // Generic dashboard metrics component
 const DashboardMetrics = ({ metrics }: { metrics: any[] }) => {
-  const theme = useTheme();
   return (
     <Box
       flexDirection="row"
@@ -133,11 +91,12 @@ export default function HomeScreen() {
   React.useEffect(() => {
     const healthcareRoles = ['operator', 'doctor', 'nurse', 'head_doctor'];
     if (user?.role && healthcareRoles.includes(user.role)) {
-      router.replace('/(home)/healthcare-dashboard');
+// TODO: Replace with structured logging - console.log('[HomeScreen] Redirecting to operator dashboard for role:', user.role);
+      router.replace('/(home)/operator-dashboard');
     }
   }, [user?.role, router]);
   const [refreshing, setRefreshing] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [refreshKey, setRefreshKey] = useState(0);
   const fadeAnim = React.useRef(new Animated.Value(1)).current;
   const translateY = React.useRef(new Animated.Value(0)).current;
@@ -419,18 +378,18 @@ export default function HomeScreen() {
               <VStack spacing={2}>
                 <Button
                   variant="secondary"
-                  onPress={() => router.push("/(home)/demo-universal")}
+                  onPress={() => router.push("/(home)/explore")}
                   fullWidth
                 >
-                  View Universal Components Demo
+                  Explore Features
                 </Button>
 
                 <Button
                   variant="outline"
-                  onPress={() => router.push("/(home)/sidebar-test")}
+                  onPress={() => router.push("/(home)/settings")}
                   fullWidth
                 >
-                  Test Sidebar Implementation
+                  View Settings
                 </Button>
               </VStack>
             </CardContent>
@@ -490,8 +449,6 @@ export default function HomeScreen() {
 
   // For mobile, use ScrollView with RefreshControl
   if (Platform.OS !== 'web') {
-    const SafeAreaView = require('react-native-safe-area-context').SafeAreaView;
-    
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
         <ScrollView
@@ -506,7 +463,7 @@ export default function HomeScreen() {
               colors={[theme.primary, theme.secondary, theme.accent]}
               progressBackgroundColor={theme.card}
               progressViewOffset={Platform.OS === 'ios' ? -20 : 20}
-              size="large"
+              size={1}
               title={refreshing ? "Refreshing..." : "Pull to refresh"}
               titleColor={theme.mutedForeground}
             />
@@ -542,7 +499,7 @@ export default function HomeScreen() {
           borderTheme="border"
         >
           <HStack alignItems="center" spacing={2} mb={2 as SpacingScale}>
-            <Sidebar07Trigger />
+            <SidebarTrigger />
             <Separator orientation="vertical" style={{ height: 24 }} />
             <SimpleBreadcrumb
               items={[{ label: "Dashboard", current: true }]}

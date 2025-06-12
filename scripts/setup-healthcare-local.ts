@@ -1,9 +1,8 @@
 #!/usr/bin/env bun
 import { db } from '@/src/db';
-import { sql } from 'drizzle-orm';
-import { log } from '@/lib/core/logger';
+import { sql , eq } from 'drizzle-orm';
+import { log } from '@/lib/core/debug/logger';
 import { user } from '@/src/db/schema';
-import { eq } from 'drizzle-orm';
 
 async function setupHealthcareLocal() {
   const DATABASE_URL = process.env.DATABASE_URL || process.env.LOCAL_DATABASE_URL || 'postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev';
@@ -237,7 +236,7 @@ async function setupHealthcareLocal() {
 }
 
 // Only run if called directly
-if (import.meta.main) {
+if (require.main === module) {
   setupHealthcareLocal()
     .then(() => process.exit(0))
     .catch((error) => {

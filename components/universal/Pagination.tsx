@@ -1,10 +1,30 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { View, ViewStyle, Pressable, Platform } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  interpolate,
+  FadeIn,
+} from 'react-native-reanimated';
 import { Text } from './Text';
 import { Button } from './Button';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { Symbol } from './Symbols';
+import { 
+  AnimationVariant,
+  getAnimationConfig,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedView = Animated.View;
+
+export type PaginationAnimationType = 'scale' | 'fade' | 'slide' | 'none';
 
 export interface PaginationProps {
   currentPage: number;
@@ -19,6 +39,17 @@ export interface PaginationProps {
   variant?: 'default' | 'compact' | 'dots';
   style?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: PaginationAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const Pagination = React.forwardRef<View, PaginationProps>(
@@ -36,11 +67,22 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
       variant = 'default',
       style,
       testID,
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'scale',
+      animationDuration,
+      useHaptics = true,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
     const { spacing } = useSpacing();
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
 
     // Calculate visible page numbers
     const visiblePages = useMemo(() => {
@@ -88,6 +130,10 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
 
     const handlePagePress = (page: number) => {
       if (!disabled && page >= 1 && page <= totalPages && page !== currentPage) {
+        // Haptic feedback
+        if (useHaptics && Platform.OS !== 'web') {
+          haptic('selection');
+        }
         onPageChange(page);
       }
     };
@@ -128,13 +174,114 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
       alignItems: 'center',
       borderRadius: 8,
       borderWidth: 1,
-      borderColor: 'transparent',
+      borderColor: transparent,
+    };
+
+    // Animated Navigation Button Component
+    const AnimatedNavigationButton = ({ 
+      onPress, 
+      disabled, 
+      iconName, 
+      iconSize,
+      animated: localAnimated,
+      animationVariant: localAnimationVariant,
+      animationType: localAnimationType,
+      animationConfig: localAnimationConfig,
+    }: { 
+      onPress: () => void;
+      disabled: boolean;
+      iconName: any;
+      iconSize: number;
+      animated: boolean;
+      animationVariant: AnimationVariant;
+      animationType: PaginationAnimationType;
+      animationConfig?: any;
+    }) => {
+      const scale = useSharedValue(1);
+      const { shouldAnimate: localShouldAnimate } = useAnimationStore();
+      const { config: localConfig, isAnimated: localIsAnimated } = useAnimationVariant({
+        variant: localAnimationVariant,
+        overrides: localAnimationConfig,
+      });
+      
+      const handlePressIn = () => {
+        if (localAnimated && localIsAnimated && localShouldAnimate()) {
+          scale.value = withSpring(0.8, { damping: 15, stiffness: 400 });
+        }
+      };
+      
+      const handlePressOut = () => {
+        if (localAnimated && localIsAnimated && localShouldAnimate()) {
+          scale.value = withSpring(1, localConfig.spring);
+        }
+      };
+      
+      const animatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+        opacity: disabled ? 0.5 : 1,
+      }));
+      
+      return (
+        <AnimatedPressable
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          disabled={disabled}
+          style={[
+            animatedStyle,
+            Platform.OS === 'web' && localAnimated && localIsAnimated && localShouldAnimate() && {
+              transition: 'all 0.2s ease',
+            } as any,
+          ]}
+        >
+          <Symbol
+            name="iconName"
+            size={iconSize}
+            color={disabled ? theme.mutedForeground : theme.foreground}
+          />
+        </AnimatedPressable>
+      );
     };
 
     const PageButton = ({ page, isActive }: { page: number | string; isActive: boolean }) => {
+      const scale = useSharedValue(1);
+      const opacity = useSharedValue(1);
+      
+      // Update animations when active state changes
+      useEffect(() => {
+        if (animated && isAnimated && shouldAnimate()) {
+          if (animationType === 'scale' && isActive) {
+            scale.value = withSpring(1.1, config.spring);
+          } else {
+            scale.value = withSpring(1, config.spring);
+          }
+          
+          if (animationType === 'fade') {
+            opacity.value = withTiming(isActive ? 1 : 0.6, { duration: config.duration.normal });
+          }
+        }
+      }, [isActive, animated, isAnimated, shouldAnimate, animationType, config]);
+      
+      const handlePressIn = () => {
+        if (animated && isAnimated && shouldAnimate() && animationType === 'scale') {
+          scale.value = withSpring(0.9, { damping: 15, stiffness: 400 });
+        }
+      };
+      
+      const handlePressOut = () => {
+        if (animated && isAnimated && shouldAnimate() && animationType === 'scale') {
+          scale.value = withSpring(isActive ? 1.1 : 1, config.spring);
+        }
+      };
+      
+      const animatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+        opacity: animationType === 'fade' ? opacity.value : 1,
+      }));
+      
       if (page === '...') {
         return (
-          <View style={[buttonStyle, { borderColor: 'transparent' }]}>
+          <View style={[buttonStyle, { borderColor: transparent }]}>
             <Text size={sizeConfig.fontSize as any} colorTheme="mutedForeground">
               •••
             </Text>
@@ -146,19 +293,30 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
       const isDisabled = disabled || isActive;
 
       return (
-        <Pressable
+        <AnimatedPressable
           onPress={() => handlePagePress(pageNumber)}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
           disabled={isDisabled}
-          style={({ pressed }) => [
-            buttonStyle,
-            {
-              backgroundColor: isActive
-                ? theme.primary
-                : pressed
-                ? theme.accent
-                : 'transparent',
-              borderColor: isActive ? theme.primary : theme.border,
-            },
+          entering={Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() 
+            ? FadeIn.duration(config.duration.fast).delay(50)
+            : undefined}
+          style={[
+            ({ pressed }) => [
+              buttonStyle,
+              {
+                backgroundColor: isActive
+                  ? theme.primary
+                  : pressed
+                  ? theme.accent
+                  : 'transparent',
+                borderColor: isActive ? theme.primary : theme.border,
+              },
+            ],
+            animated && isAnimated && shouldAnimate() ? animatedStyle : {},
+            Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && {
+              transition: 'all 0.2s ease',
+            } as any,
           ]}
         >
           <Text
@@ -168,7 +326,7 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
           >
             {pageNumber}
           </Text>
-        </Pressable>
+        </AnimatedPressable>
       );
     };
 
@@ -180,7 +338,7 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
             size={size}
             onPress={() => handlePagePress(currentPage - 1)}
             disabled={disabled || currentPage === 1}
-            leftIcon={<Ionicons name="chevron-back" size={sizeConfig.iconSize} />}
+            leftIcon={<Symbol name="chevron.left" size={sizeConfig.iconSize} />}
           >
             Previous
           </Button>
@@ -196,7 +354,7 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
             size={size}
             onPress={() => handlePagePress(currentPage + 1)}
             disabled={disabled || currentPage === totalPages}
-            rightIcon={<Ionicons name="chevron-forward" size={sizeConfig.iconSize} />}
+            rightIcon={<Symbol name="chevron.right" size={sizeConfig.iconSize} />}
           >
             Next
           </Button>
@@ -207,21 +365,59 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
     if (variant === 'dots') {
       return (
         <View ref={ref} style={containerStyle} testID={testID}>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-            <Pressable
-              key={page}
-              onPress={() => handlePagePress(page)}
-              disabled={disabled || page === currentPage}
-              style={{
-                width: page === currentPage ? 24 : 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor:
-                  page === currentPage ? theme.primary : theme.mutedForeground,
-                opacity: page === currentPage ? 1 : 0.3,
-              }}
-            />
-          ))}
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+            const DotButton = () => {
+              const width = useSharedValue(page === currentPage ? 24 : 8);
+              const scale = useSharedValue(1);
+              
+              useEffect(() => {
+                if (animated && isAnimated && shouldAnimate()) {
+                  width.value = withSpring(page === currentPage ? 24 : 8, config.spring);
+                }
+              }, [page === currentPage]);
+              
+              const handlePressIn = () => {
+                if (animated && isAnimated && shouldAnimate()) {
+                  scale.value = withSpring(0.8, { damping: 15, stiffness: 400 });
+                }
+              };
+              
+              const handlePressOut = () => {
+                if (animated && isAnimated && shouldAnimate()) {
+                  scale.value = withSpring(1, config.spring);
+                }
+              };
+              
+              const animatedStyle = useAnimatedStyle(() => ({
+                width: width.value,
+                transform: [{ scale: scale.value }],
+              }));
+              
+              return (
+                <AnimatedPressable
+                  onPress={() => handlePagePress(page)}
+                  onPressIn={handlePressIn}
+                  onPressOut={handlePressOut}
+                  disabled={disabled || page === currentPage}
+                  style={[
+                    {
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor:
+                        page === currentPage ? theme.primary : theme.mutedForeground,
+                      opacity: page === currentPage ? 1 : 0.3,
+                    },
+                    animated && isAnimated && shouldAnimate() ? animatedStyle : { width: page === currentPage ? 24 : 8 },
+                    Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && {
+                      transition: 'all 0.3s ease',
+                    } as any,
+                  ]}
+                />
+              );
+            };
+            
+            return <DotButton key={page} />;
+          })}
         </View>
       );
     }
@@ -230,37 +426,29 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
     return (
       <View ref={ref} style={containerStyle} testID={testID}>
         {showFirstLast && currentPage > 2 && (
-          <Pressable
+          <AnimatedNavigationButton
             onPress={() => handlePagePress(1)}
             disabled={disabled}
-            style={({ pressed }) => ({
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Ionicons
-              name="play-back"
-              size={sizeConfig.iconSize}
-              color={theme.mutedForeground}
-            />
-          </Pressable>
+            iconName="play-back"
+            iconSize={sizeConfig.iconSize}
+            animated={animated}
+            animationVariant={animationVariant}
+            animationType={animationType}
+            animationConfig={animationConfig}
+          />
         )}
 
         {showPrevNext && (
-          <Pressable
+          <AnimatedNavigationButton
             onPress={() => handlePagePress(currentPage - 1)}
             disabled={disabled || currentPage === 1}
-            style={({ pressed }) => ({
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={sizeConfig.iconSize}
-              color={
-                currentPage === 1 ? theme.mutedForeground : theme.foreground
-              }
-            />
-          </Pressable>
+            iconName="chevron-back"
+            iconSize={sizeConfig.iconSize}
+            animated={animated}
+            animationVariant={animationVariant}
+            animationType={animationType}
+            animationConfig={animationConfig}
+          />
         )}
 
         {visiblePages.map((page, index) => (
@@ -272,39 +460,29 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
         ))}
 
         {showPrevNext && (
-          <Pressable
+          <AnimatedNavigationButton
             onPress={() => handlePagePress(currentPage + 1)}
             disabled={disabled || currentPage === totalPages}
-            style={({ pressed }) => ({
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Ionicons
-              name="chevron-forward"
-              size={sizeConfig.iconSize}
-              color={
-                currentPage === totalPages
-                  ? theme.mutedForeground
-                  : theme.foreground
-              }
-            />
-          </Pressable>
+            iconName="chevron-forward"
+            iconSize={sizeConfig.iconSize}
+            animated={animated}
+            animationVariant={animationVariant}
+            animationType={animationType}
+            animationConfig={animationConfig}
+          />
         )}
 
         {showFirstLast && currentPage < totalPages - 1 && (
-          <Pressable
+          <AnimatedNavigationButton
             onPress={() => handlePagePress(totalPages)}
             disabled={disabled}
-            style={({ pressed }) => ({
-              opacity: pressed ? 0.7 : 1,
-            })}
-          >
-            <Ionicons
-              name="play-forward"
-              size={sizeConfig.iconSize}
-              color={theme.mutedForeground}
-            />
-          </Pressable>
+            iconName="play-forward"
+            iconSize={sizeConfig.iconSize}
+            animated={animated}
+            animationVariant={animationVariant}
+            animationType={animationType}
+            animationConfig={animationConfig}
+          />
         )}
 
         {showPageInfo && (

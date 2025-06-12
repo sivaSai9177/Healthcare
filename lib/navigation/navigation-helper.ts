@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
 import type { AppUser } from '@/lib/stores/auth-store';
 
 /**

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Modal,
@@ -8,18 +8,42 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
-import { useTheme } from '@/lib/theme/theme-provider';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+} from 'react-native-reanimated';
+import { useTheme } from '@/lib/theme/provider';
 import { Text } from './Text';
 import { Box } from './Box';
-import { Ionicons } from '@expo/vector-icons';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { SpacingScale } from '@/lib/design-system';
+import { Symbol } from './Symbols';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { 
+  SpacingScale,
+  AnimationVariant,
+  getAnimationConfig,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
+
+// Import Input for searchable select
+import { Input } from './Input';
 
 export interface SelectOption {
   label: string;
   value: string;
   disabled?: boolean;
 }
+
+export type SelectAnimationType = 'dropdown' | 'fade' | 'slide' | 'none';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 
 export interface SelectProps {
   value?: string;
@@ -35,6 +59,18 @@ export interface SelectProps {
   searchable?: boolean;
   maxHeight?: number;
   isLoading?: boolean;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: SelectAnimationType;
+  animationDuration?: number;
+  dropdownStagger?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const Select = React.forwardRef<View, SelectProps>(({
@@ -51,12 +87,32 @@ export const Select = React.forwardRef<View, SelectProps>(({
   searchable = false,
   maxHeight = 300,
   isLoading = false,
+  // Animation props
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'dropdown',
+  animationDuration,
+  dropdownStagger = 50,
+  useHaptics = true,
+  animationConfig,
 }, ref) => {
   const theme = useTheme();
   const { spacing, componentSizes, componentSpacing } = useSpacing();
   const [isOpen, setIsOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isHovered, setIsHovered] = React.useState(false);
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  const duration = animationDuration ?? config.duration.normal;
+  
+  // Animation values
+  const chevronRotation = useSharedValue(0);
+  const dropdownScale = useSharedValue(0.95);
+  const dropdownOpacity = useSharedValue(0);
 
   const selectedOption = options.find(opt => opt.value === value);
 
@@ -82,7 +138,7 @@ export const Select = React.forwardRef<View, SelectProps>(({
     },
   };
 
-  const config = sizeConfig[size];
+  const selectSizeConfig = sizeConfig[size];
 
   // Filter options based on search
   const filteredOptions = searchable && searchQuery
@@ -123,12 +179,39 @@ export const Select = React.forwardRef<View, SelectProps>(({
   };
 
   const colors = getColors();
+  
+  // Update animation values when dropdown state changes
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      chevronRotation.value = withSpring(isOpen ? 180 : 0, config.spring);
+      
+      if (isOpen) {
+        dropdownScale.value = withSpring(1, config.spring);
+        dropdownOpacity.value = withTiming(1, { duration: duration / 2 });
+      } else {
+        dropdownScale.value = withSpring(0.95, config.spring);
+        dropdownOpacity.value = withTiming(0, { duration: duration / 2 });
+      }
+    }
+  }, [isOpen, animated, isAnimated, shouldAnimate, config.spring, duration]);
 
   const handleSelect = (option: SelectOption) => {
     if (!option.disabled) {
+      if (animated && isAnimated && shouldAnimate() && useHaptics) {
+        haptic('light');
+      }
       onValueChange?.(option.value);
       setIsOpen(false);
       setSearchQuery('');
+    }
+  };
+  
+  const handleOpen = () => {
+    if (!disabled) {
+      if (animated && isAnimated && shouldAnimate() && useHaptics) {
+        haptic('light');
+      }
+      setIsOpen(true);
     }
   };
 
@@ -136,16 +219,28 @@ export const Select = React.forwardRef<View, SelectProps>(({
     onHoverIn: () => setIsHovered(true),
     onHoverOut: () => setIsHovered(false),
   } : {};
+  
+  // Animated styles
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${chevronRotation.value}deg` }],
+  }));
+  
+  const dropdownAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: dropdownScale.value }],
+    opacity: dropdownOpacity.value,
+  }));
+  
+  
 
   return (
     <View ref={ref} style={style}>
       <Pressable
-        onPress={() => !disabled && setIsOpen(true)}
+        onPress={handleOpen}
         disabled={disabled}
         {...webHandlers}
         style={({ pressed }) => ({
-          height: config.height,
-          paddingHorizontal: spacing[config.paddingH],
+          height: selectSizeConfig.height,
+          paddingHorizontal: spacing[selectSizeConfig.paddingH],
           backgroundColor: colors.background,
           borderWidth: 1,
           borderColor: colors.border,
@@ -161,7 +256,7 @@ export const Select = React.forwardRef<View, SelectProps>(({
         })}
       >
         <Text
-          size={config.fontSize}
+          size={selectSizeConfig.fontSize}
           style={{
             color: selectedOption ? colors.text : colors.placeholder,
             flex: 1,
@@ -169,10 +264,11 @@ export const Select = React.forwardRef<View, SelectProps>(({
         >
           {selectedOption ? selectedOption.label : placeholder}
         </Text>
-        <Ionicons
-          name="chevron-down"
-          size={config.iconSize}
+        <Symbol
+          name="chevron.down"
+          size={selectSizeConfig.iconSize}
           color={colors.icon}
+          style={animated && isAnimated && shouldAnimate() ? chevronStyle : undefined}
         />
       </Pressable>
 
@@ -188,9 +284,9 @@ export const Select = React.forwardRef<View, SelectProps>(({
         <Pressable
           style={{
             flex: 1,
-            backgroundColor: theme.background === '#000000' || theme.background === '#0a0a0a' 
-              ? 'rgba(0, 0, 0, 0.7)' 
-              : 'rgba(0, 0, 0, 0.5)',
+            backgroundColor: theme.background === 'theme.foreground' || theme.background === '#0a0a0a' 
+              ? 'theme.foreground + "80"' 
+              : 'theme.foreground + "80"',
             justifyContent: 'center',
             alignItems: 'center',
           }}
@@ -199,7 +295,7 @@ export const Select = React.forwardRef<View, SelectProps>(({
             setSearchQuery('');
           }}
         >
-          <Pressable
+          <AnimatedPressable
             style={[
               {
                 backgroundColor: theme.background,
@@ -209,16 +305,29 @@ export const Select = React.forwardRef<View, SelectProps>(({
                 width: '90%',
                 maxWidth: 400,
                 maxHeight,
-                boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.25)',
+                boxShadow: '0px 2px 4px theme.mutedForeground + "40"',
                 elevation: 5,
               },
+              animated && isAnimated && shouldAnimate() && animationType === 'dropdown' 
+                ? dropdownAnimatedStyle 
+                : {},
               dropdownStyle,
             ]}
+            entering={Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() && animationType === 'slide' 
+              ? SlideInDown.duration(duration).springify() 
+              : Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() && animationType === 'fade'
+              ? FadeIn.duration(duration)
+              : undefined
+            }
+            exiting={Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() 
+              ? FadeOut.duration(duration / 2) 
+              : undefined
+            }
             onPress={(e) => e.stopPropagation()}
           >
             {isLoading ? (
               <Box p={4 as SpacingScale} alignItems="center">
-                <ActivityIndicator size="small" color={theme.primary} />
+                <ActivityIndicator size="sm" color={theme.primary} />
                 <Text colorTheme="mutedForeground" size="sm" mt={2}>
                   Loading options...
                 </Text>
@@ -255,7 +364,7 @@ export const Select = React.forwardRef<View, SelectProps>(({
                   })}
                 >
                   <Text
-                    size={config.fontSize}
+                    size={selectSizeConfig.fontSize}
                     weight={item.value === value ? 'medium' : 'normal'}
                     style={{
                       color: item.value === value
@@ -276,7 +385,7 @@ export const Select = React.forwardRef<View, SelectProps>(({
               }
             />
             )}
-          </Pressable>
+          </AnimatedPressable>
         </Pressable>
       </Modal>
     </View>
@@ -284,6 +393,3 @@ export const Select = React.forwardRef<View, SelectProps>(({
 });
 
 Select.displayName = 'Select';
-
-// Import Input for searchable select
-import { Input } from './Input';

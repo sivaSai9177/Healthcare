@@ -2,8 +2,8 @@ import React, { useEffect } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
-import { api } from '@/lib/trpc';
-import { log } from '@/lib/core/logger';
+import { api } from '@/lib/api/trpc';
+import { log } from '@/lib/core/debug/logger';
 import { toAppUser } from '@/lib/stores/auth-store';
 
 export default function AuthCallback() {
@@ -91,7 +91,7 @@ export default function AuthCallback() {
       log.info('Redirecting to login - no valid session', 'AUTH_CALLBACK');
       router.replace('/(auth)/login');
     }
-  }, [sessionData, isLoading, error, updateAuth, router, isAuthenticated, user]);
+  }, [sessionData, isLoading, error, updateAuth, router, isAuthenticated, user, refetch]);
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

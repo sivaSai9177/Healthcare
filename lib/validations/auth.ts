@@ -198,7 +198,7 @@ export const deviceManagementSchema = z.object({
   action: z.enum(['trust', 'untrust', 'remove']),
 });
 
-// User management schemas (admin)
+// User management schemas (zadmin)
 export const createUserSchema = z.object({
   name: nameSchema,
   email: emailSchema,

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Box, HStack, Text, Switch } from '@/components/universal';
+import { Box, Text, Switch } from '@/components/universal';
 import { useColorScheme, useColorSchemeContext } from '@/contexts/ColorSchemeContext';
-import { SpacingScale } from '@/lib/design-system';
+import { SpacingScale } from '@/lib/design';
 
 export function DarkModeToggle() {
   const colorScheme = useColorScheme();

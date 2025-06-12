@@ -30,7 +30,7 @@ switch (APP_ENV) {
 
 export default defineConfig({
   out: "./drizzle",
-  schema: "./src/db/schema.ts",
+  schema: "./src/db/combined-schema.ts",
   dialect: "postgresql",
   dbCredentials: {
     url: DATABASE_URL,

@@ -12,15 +12,17 @@ import {
   Box,
   Badge,
 } from '@/components/universal';
-import { goldenSpacing, goldenShadows, goldenAnimations, goldenDimensions, healthcareColors } from '@/lib/design-system/golden-ratio';
-import { useTheme } from '@/lib/theme/theme-provider';
+import { useTheme } from '@/lib/theme/provider';
+import { useHealthcareSpacing } from '@/lib/stores/spacing-store';
+import { PLATFORM_TOKENS } from '@/lib/design/responsive';
+import { useResponsive , useResponsiveUtils } from '@/hooks/responsive';
 import { useAuthStore } from '@/lib/stores/auth-store';
-import { api } from '@/lib/trpc';
+import { api } from '@/lib/api/trpc';
 import { z } from 'zod';
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import { log } from '@/lib/core/logger';
+
 import { showErrorAlert, showSuccessAlert } from '@/lib/core/alert';
 
 // Import healthcare types
@@ -31,6 +33,15 @@ import {
   ALERT_TYPE_CONFIG,
   URGENCY_LEVEL_CONFIG 
 } from '@/types/healthcare';
+// Healthcare-specific colors
+const healthcareColors = {
+  critical: 'theme.destructive',
+  high: 'theme.warning',
+  medium: 'theme.warning',
+  low: 'theme.success',
+  background: 'theme.card',
+  cardBorder: '#e0f2fe',
+};
 
 // Alert template type
 interface AlertTemplate {
@@ -152,19 +163,20 @@ const AlertTypeButton = ({ type, icon, label, color, selected, onPress }: {
   onPress: () => void;
 }) => {
   const theme = useTheme();
+  const { spacing, componentSizes } = useHealthcareSpacing();
   
   return (
     <Button
       onPress={onPress}
-      variant={selected ? "default" : "outline"}
+      variant={selected ? "solid" : "outline"}
       style={{
-        height: goldenDimensions.heights.medium,
+        height: componentSizes.button.md.height,
         backgroundColor: selected ? color : 'transparent',
         borderColor: color,
         borderWidth: 2,
       }}
     >
-      <VStack spacing={goldenSpacing.xs} alignItems="center">
+      <VStack spacing={spacing[2]} alignItems="center">
         <Text size="2xl">{icon}</Text>
         <Text size="sm" weight="medium" colorTheme={selected ? "inverse" : "foreground"}>
           {label}
@@ -177,6 +189,9 @@ const AlertTypeButton = ({ type, icon, label, color, selected, onPress }: {
 // Main alert creation block
 export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
   const theme = useTheme();
+  const { spacing, componentSpacing, componentSizes } = useHealthcareSpacing();
+  const { isMobile, isTablet } = useResponsive();
+  const { getPlatformShadow } = useResponsiveUtils();
   const { user } = useAuthStore();
   const [isPending, startTransition] = useTransition();
   const queryClient = api.useUtils();
@@ -278,16 +293,16 @@ export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
   
   return (
     <Card
-      padding={goldenSpacing.xl}
-      gap={goldenSpacing.xxl}
-      shadow={goldenShadows.lg}
+      padding={spacing[6]}
+      gap={spacing[8]}
+      shadow={PLATFORM_TOKENS.shadow?.lg}
       style={{
-        minHeight: goldenDimensions.heights.huge,
+        minHeight: 400,
         backgroundColor: theme.card,
       }}
     >
       {/* Room Number with Autocomplete */}
-      <VStack gap={goldenSpacing.md}>
+      <VStack gap={spacing[4]}>
         <Input
           label="Room Number *"
           value={formData.roomNumber || ''}
@@ -298,7 +313,7 @@ export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
           placeholder="302"
           keyboardType="numeric"
           maxLength={3}
-          size="large"
+          size="lg"
           autoFocus
           error={formData.roomNumber && !CreateAlertSchema.shape.roomNumber.safeParse(formData.roomNumber).success}
         />
@@ -312,9 +327,9 @@ export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
       </VStack>
       
       {/* Alert Type Selection with Optimistic Updates */}
-      <VStack gap={goldenSpacing.md}>
+      <VStack gap={spacing[4]}>
         <Text weight="medium">Alert Type *</Text>
-        <Grid columns={Platform.OS === 'web' ? 3 : 2} gap={goldenSpacing.md}>
+        <Grid columns={isMobile ? 2 : isTablet ? 3 : 5} gap={spacing[4]}>
           {templates.map((template) => (
             <AlertTypeButton
               key={template.id}
@@ -335,7 +350,7 @@ export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
       </VStack>
       
       {/* Additional Details */}
-      <VStack gap={goldenSpacing.sm}>
+      <VStack gap={spacing[3]}>
         <Text weight="medium">Additional Details</Text>
         <Input
           placeholder="Type additional information..."
@@ -343,22 +358,22 @@ export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
           onChangeText={(value) => updateFormData({ description: value })}
           multiline
           numberOfLines={2}
-          style={{ minHeight: goldenDimensions.heights.medium }}
+          style={{ minHeight: componentSizes.input.lg.height * 2 }}
         />
       </VStack>
       
       {/* Urgency Level */}
       {formData.alertType && (
-        <VStack gap={goldenSpacing.sm}>
+        <VStack gap={spacing[3]}>
           <Text weight="medium">Urgency Level</Text>
-          <HStack gap={goldenSpacing.md}>
+          <HStack gap={spacing[4]}>
             {[1, 2, 3, 4, 5].map((level) => {
               const urgencyConfig = URGENCY_LEVEL_CONFIG[level as keyof typeof URGENCY_LEVEL_CONFIG];
               return (
                 <Button
                   key={level}
                   variant={formData.urgencyLevel === level ? "default" : "outline"}
-                  size="small"
+                  size="sm"
                   onPress={() => updateFormData({ urgencyLevel: level as 1 | 2 | 3 | 4 | 5 })}
                   style={{
                     backgroundColor: formData.urgencyLevel === level 
@@ -386,11 +401,12 @@ export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
       )}
       
       {/* Submit with Loading State */}
-      <HStack gap={goldenSpacing.md} style={{ height: goldenDimensions.heights.medium }}>
+      <HStack gap={spacing[4]} style={{ height: componentSizes.button.lg.height }}>
         <Button
-          size="large"
-          variant="destructive"
-          style={{ flex: PHI }}
+          size="lg"
+          variant="solid"
+          colorScheme="destructive"
+          style={{ flex: 1.618 }}
           onPress={validateAndSubmit}
           loading={isPending || createAlertMutation.isPending}
           disabled={!formData.roomNumber || !formData.alertType}
@@ -398,7 +414,7 @@ export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
           {isPending ? 'Creating Alert...' : 'Send Alert →'}
         </Button>
         <Button
-          size="large"
+          size="lg"
           variant="outline"
           style={{ flex: 1 }}
           onPress={() => {
@@ -413,6 +429,3 @@ export const AlertCreationBlock = ({ hospitalId }: { hospitalId: string }) => {
     </Card>
   );
 };
-
-// Re-export PHI constant
-const PHI = 1.618;

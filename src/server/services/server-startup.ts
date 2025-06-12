@@ -4,11 +4,14 @@
  */
 
 import { escalationTimerService } from './escalation-timer';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
 
 export function initializeBackgroundServices() {
   log.info('Initializing background services', 'SERVER');
 
+  // TEMPORARILY DISABLED: Escalation timer service until healthcare tables are created
+  // TODO: Re-enable after ensuring healthcare schema is migrated
+  /*
   // Start escalation timer service
   try {
     escalationTimerService.start();
@@ -16,6 +19,7 @@ export function initializeBackgroundServices() {
   } catch (error) {
     log.error('Failed to start escalation timer service', 'SERVER', error);
   }
+  */
 
   // Add other background services here as needed
   // e.g., notification service, cleanup service, etc.

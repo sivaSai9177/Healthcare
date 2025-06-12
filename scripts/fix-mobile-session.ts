@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 // Script to manually store session token for testing
-import { mobileStorage } from '@/lib/core/secure-storage';
+import { mobileStorage } from '@/lib/core/platform/secure-storage';
 import { authClient } from '@/lib/auth/auth-client';
 
 async function fixMobileSession() {
@@ -17,12 +17,13 @@ async function fixMobileSession() {
       return;
     }
     
-// TODO: Replace with structured logging - console.log('✅ Session found:', {
-      userId: session.user?.id,
-      userEmail: session.user?.email,
-      hasToken: !!session.session?.token,
-      tokenPreview: session.session?.token ? session.session.token.substring(0, 20) + '...' : null,
-    });
+    // TODO: Replace with structured logging
+    // console.log('✅ Session found:', {
+    //   userId: session.user?.id,
+    //   userEmail: session.user?.email,
+    //   hasToken: !!session.session?.token,
+    //   tokenPreview: session.session?.token ? session.session.token.substring(0, 20) + '...' : null,
+    // });
     
     if (session.session?.token) {
       // Store the token in various formats that might be expected

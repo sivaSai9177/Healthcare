@@ -1,9 +1,10 @@
 import React from 'react';
 import { Pressable, Platform, View } from 'react-native';
 import { Box, Text, VStack, HStack } from '@/components/universal';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { SpacingDensity } from '@/lib/design-system/spacing-theme';
-import { useTheme } from '@/lib/theme/theme-provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { SpacingDensity } from '@/lib/design/spacing';
+import { useTheme } from '@/lib/theme/provider';
+import { SpacingScale } from '@/lib/design';
 
 export function SpacingDensitySelector() {
   const { density, setDensity } = useSpacing();
@@ -44,7 +45,7 @@ export function SpacingDensitySelector() {
       {/* Native-friendly tab implementation */}
       <HStack 
         bgTheme="muted" 
-        p={1} 
+        p={1 as SpacingScale} 
         rounded="lg" 
         spacing={1}
         style={{ width: '100%' }}
@@ -59,7 +60,7 @@ export function SpacingDensitySelector() {
               style={{ flex: 1 }}
             >
               <Box
-                p={2}
+                p={2 as SpacingScale}
                 rounded="md"
                 bgTheme={isActive ? "background" : undefined}
                 style={{
@@ -68,7 +69,7 @@ export function SpacingDensitySelector() {
                   justifyContent: 'center',
                   minHeight: 44,
                   ...(isActive && {
-                    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
+                    boxShadow: '0px 1px 2px theme.mutedForeground + "10"',
                     elevation: 2,
                   }),
                   ...(Platform.OS === 'web' && {
@@ -109,7 +110,7 @@ export function SpacingDensitySelector() {
       {densityOptions.map((option) => {
         if (density === option.value) {
           return (
-            <Box key={option.value} p={3} bgTheme="muted" rounded="md">
+            <Box key={option.value} p={3 as SpacingScale} bgTheme="muted" rounded="md">
               <Text size="sm" colorTheme="foreground" weight="medium" mb={1}>
                 {option.label} View
               </Text>

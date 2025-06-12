@@ -5,10 +5,7 @@
 
 import { EventEmitter } from 'events';
 import { observable } from '@trpc/server/observable';
-import { db } from '@/src/db';
-import { alerts, alertEscalations, alertAcknowledgments } from '@/src/db/healthcare-schema';
-import { eq } from 'drizzle-orm';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
 
 // Event types for alerts
 export type AlertEventType = 

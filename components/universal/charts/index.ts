@@ -15,6 +15,3 @@ export * from './AreaChartWithControls';
 export * from './AreaChartInteractive';
 export * from './RadarChart';
 export * from './RadialChart';
-
-// Re-export common types
-export type { ChartConfig } from './ChartContainer';

@@ -10,14 +10,19 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { designSystem, AnimationVariant } from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
 
 // Only import Reanimated on native platforms
 let Animated: any = View;
 let useAnimatedStyle: any = () => ({ style: {} });
 let useSharedValue: any = () => ({ value: 0 });
 let withTiming: any = (value: number) => value;
+let withSpring: any = (value: number) => value;
 let interpolate: any = (value: number, inputRange: number[], outputRange: number[]) => outputRange[0];
 
 if (Platform.OS !== 'web') {
@@ -26,9 +31,9 @@ if (Platform.OS !== 'web') {
   useAnimatedStyle = ReanimatedModule.useAnimatedStyle;
   useSharedValue = ReanimatedModule.useSharedValue;
   withTiming = ReanimatedModule.withTiming;
+  withSpring = ReanimatedModule.withSpring;
   interpolate = ReanimatedModule.interpolate;
 }
-import { designSystem } from '@/lib/design-system';
 
 export type PopoverPlacement =
   | 'top'
@@ -44,6 +49,8 @@ export type PopoverPlacement =
   | 'right-start'
   | 'right-end';
 
+export type PopoverAnimationType = 'scale' | 'fade' | 'slide' | 'none';
+
 export interface PopoverProps {
   children: React.ReactNode;
   content: React.ReactNode;
@@ -57,6 +64,17 @@ export interface PopoverProps {
   arrowStyle?: ViewStyle;
   isLoading?: boolean;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: PopoverAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 interface Position {
@@ -84,11 +102,22 @@ export const Popover = React.forwardRef<View, PopoverProps>(
       arrowStyle,
       isLoading = false,
       testID,
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'scale',
+      animationDuration,
+      useHaptics = true,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
     const { spacing, componentSpacing } = useSpacing();
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
     const [internalOpen, setInternalOpen] = useState(false);
     const [triggerLayout, setTriggerLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
     const [contentSize, setContentSize] = useState({ width: 0, height: 0 });
@@ -102,6 +131,16 @@ export const Popover = React.forwardRef<View, PopoverProps>(
       if (!isControlled) {
         setInternalOpen(newOpen);
       }
+      
+      // Haptic feedback
+      if (useHaptics && Platform.OS !== 'web') {
+        if (newOpen) {
+          haptic('selection');
+        } else {
+          haptics.impact('light');
+        }
+      }
+      
       onOpenChange?.(newOpen);
     };
 
@@ -114,14 +153,42 @@ export const Popover = React.forwardRef<View, PopoverProps>(
       }
     };
 
+    // Animation values for different types
+    const scale = useSharedValue(animationType === 'scale' ? 0.9 : 1);
+    const translateY = useSharedValue(animationType === 'slide' ? 10 : 0);
+    
     useEffect(() => {
       if (isOpen) {
         measureTrigger();
-        animationProgress.value = withTiming(1, { duration: 200 });
+        
+        if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+          if (animationType === 'scale') {
+            animationProgress.value = withTiming(1, { duration: config.duration.fast });
+            scale.value = withSpring(1, config.spring);
+          } else if (animationType === 'fade') {
+            animationProgress.value = withTiming(1, { duration: config.duration.normal });
+          } else if (animationType === 'slide') {
+            animationProgress.value = withTiming(1, { duration: config.duration.fast });
+            translateY.value = withSpring(0, config.spring);
+          }
+        } else {
+          animationProgress.value = 1;
+          scale.value = 1;
+          translateY.value = 0;
+        }
       } else {
-        animationProgress.value = withTiming(0, { duration: 150 });
+        if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+          animationProgress.value = withTiming(0, { duration: config.duration.fast });
+          if (animationType === 'scale') {
+            scale.value = withTiming(0.9, { duration: config.duration.fast });
+          } else if (animationType === 'slide') {
+            translateY.value = withTiming(10, { duration: config.duration.fast });
+          }
+        } else {
+          animationProgress.value = 0;
+        }
       }
-    }, [isOpen]);
+    }, [isOpen, animated, isAnimated, shouldAnimate, animationType, config]);
 
     // Calculate popover position
     const calculatePosition = (): Position => {
@@ -212,15 +279,55 @@ export const Popover = React.forwardRef<View, PopoverProps>(
     };
 
     const position = calculatePosition();
+    
+    // Get transform origin based on placement for web animations
+    const getTransformOrigin = () => {
+      switch (placement) {
+        case 'top':
+        case 'top-start':
+        case 'top-end':
+          return 'bottom center';
+        case 'bottom':
+        case 'bottom-start':
+        case 'bottom-end':
+          return 'top center';
+        case 'left':
+        case 'left-start':
+        case 'left-end':
+          return 'right center';
+        case 'right':
+        case 'right-start':
+        case 'right-end':
+          return 'left center';
+        default:
+          return 'center';
+      }
+    };
 
     const animatedContentStyle = useAnimatedStyle(() => {
-      const scale = interpolate(animationProgress.value, [0, 1], [0.95, 1]);
-      const opacity = interpolate(animationProgress.value, [0, 1], [0, 1]);
-
-      return {
-        transform: [{ scale }],
-        opacity,
-      };
+      const opacity = animationProgress.value;
+      
+      if (animationType === 'scale') {
+        return {
+          transform: [
+            { scale: scale.value },
+            { translateY: translateY.value },
+          ] as any,
+          opacity,
+        };
+      } else if (animationType === 'slide') {
+        return {
+          transform: [
+            { translateY: translateY.value },
+          ] as any,
+          opacity,
+        };
+      } else {
+        // fade only
+        return {
+          opacity,
+        };
+      }
     });
 
     const arrowStyles: ViewStyle = {
@@ -284,7 +391,16 @@ export const Popover = React.forwardRef<View, PopoverProps>(
             onPress={() => dismissOnTouchOutside && handleOpenChange(false)}
           >
             <AnimatedPressable
-              style={[defaultContentStyle, animatedContentStyle]}
+              style={[
+                defaultContentStyle, 
+                animated && isAnimated && shouldAnimate() && animationType !== 'none' 
+                  ? animatedContentStyle 
+                  : { opacity: 1 },
+                Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && {
+                  transition: 'all 0.2s ease',
+                  transformOrigin: getTransformOrigin(),
+                } as any,
+              ]}
               onLayout={(event: LayoutChangeEvent) => {
                 const { width, height } = event.nativeEvent.layout;
                 setContentSize({ width, height });
@@ -294,7 +410,7 @@ export const Popover = React.forwardRef<View, PopoverProps>(
               {showArrow && <View style={arrowStyles} />}
               {isLoading ? (
                 <View style={{ padding: spacing[4], alignItems: 'center' }}>
-                  <ActivityIndicator size="small" color={theme.primary} />
+                  <ActivityIndicator size="sm" color={theme.primary} />
                 </View>
               ) : (
                 content

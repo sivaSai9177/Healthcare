@@ -1,17 +1,47 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { View, Pressable, ViewStyle, ScrollView, Platform } from 'react-native';
-import { useTheme } from '@/lib/theme/enhanced-theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideOutUp,
+} from 'react-native-reanimated';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
 import { HStack, VStack } from './Stack';
 import { Text } from './Text';
-import { Card } from './Card';
-import { Ionicons } from '@expo/vector-icons';
-import { SpacingScale } from '@/lib/design-system';
+
+import { Symbol } from './Symbols';
+import { 
+  SpacingScale,
+  AnimationVariant,
+  getAnimationConfig,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+export type NavigationMenuAnimationType = 'slide' | 'fade' | 'scale' | 'none';
 
 // Navigation Menu Context
 interface NavigationMenuContextValue {
   value: string;
   onValueChange: (value: string) => void;
+  animated: boolean;
+  animationVariant: AnimationVariant;
+  animationType: NavigationMenuAnimationType;
+  animationDuration?: number;
+  useHaptics: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 const NavigationMenuContext = createContext<NavigationMenuContextValue | null>(null);
@@ -32,6 +62,17 @@ export interface NavigationMenuProps {
   onValueChange?: (value: string) => void;
   orientation?: 'horizontal' | 'vertical';
   style?: ViewStyle;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: NavigationMenuAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const NavigationMenu: React.FC<NavigationMenuProps> = ({
@@ -41,6 +82,12 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
   onValueChange,
   orientation = 'horizontal',
   style,
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'scale',
+  animationDuration,
+  useHaptics = true,
+  animationConfig,
 }) => {
   const [internalValue, setInternalValue] = useState(defaultValue);
   
@@ -54,8 +101,17 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
   };
   
   const contextValue = React.useMemo(
-    () => ({ value, onValueChange: handleValueChange }),
-    [value]
+    () => ({ 
+      value, 
+      onValueChange: handleValueChange,
+      animated,
+      animationVariant,
+      animationType,
+      animationDuration,
+      useHaptics,
+      animationConfig,
+    }),
+    [value, animated, animationVariant, animationType, animationDuration, useHaptics, animationConfig]
   );
   
   const Container = orientation === 'horizontal' ? HStack : VStack;
@@ -95,32 +151,90 @@ export const NavigationMenuItem: React.FC<NavigationMenuItemProps> = ({
 }) => {
   const theme = useTheme();
   const { spacing, componentSpacing } = useSpacing();
-  const { value, onValueChange } = useNavigationMenu();
+  const { value, onValueChange, animated, animationVariant, animationType, useHaptics: contextUseHaptics, animationConfig } = useNavigationMenu();
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
   
   const isActive = controlledActive ?? value === itemValue;
   
+  // Animation values
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+  const backgroundColor = useSharedValue(0);
+  
+  // Update animations when active state changes
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      if (animationType === 'scale') {
+        scale.value = withSpring(isActive ? 1.05 : 1, config.spring);
+      }
+      if (animationType === 'fade') {
+        opacity.value = withTiming(isActive ? 1 : 0.7, { duration: config.duration.normal });
+      }
+      backgroundColor.value = withTiming(isActive ? 1 : 0, { duration: config.duration.fast });
+    }
+  }, [isActive, animated, isAnimated, shouldAnimate, animationType, config]);
+  
   const handlePress = () => {
     if (!disabled) {
+      // Haptic feedback
+      if (contextUseHaptics && Platform.OS !== 'web') {
+        haptic('selection');
+      }
+      
+      // Press animation
+      if (animated && isAnimated && shouldAnimate() && animationType === 'scale') {
+        scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+        setTimeout(() => {
+          scale.value = withSpring(isActive ? 1.05 : 1, config.spring);
+        }, 100);
+      }
+      
       onValueChange(itemValue);
       onPress?.();
     }
   };
   
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: animationType === 'fade' ? opacity.value : 1,
+  }));
+  
+  const backgroundStyle = useAnimatedStyle(() => {
+    const interpolatedColor = backgroundColor.value === 1 ? theme.accent : 'transparent';
+    return {
+      backgroundColor: interpolatedColor,
+    };
+  });
+  
   return (
-    <Pressable onPress={handlePress} disabled={disabled}>
+    <AnimatedPressable 
+      onPress={handlePress} 
+      disabled={disabled}
+      style={[
+        animatedStyle,
+        { opacity: disabled ? 0.5 : 1 }
+      ]}
+    >
       {({ pressed }) => (
-        <View
-          style={{
-            paddingHorizontal: spacing[3],
-            paddingVertical: spacing[2],
-            borderRadius: componentSpacing.borderRadius.md,
-            backgroundColor: isActive 
-              ? theme.accent 
-              : pressed 
-                ? theme.muted 
-                : 'transparent',
-            opacity: disabled ? 0.5 : 1,
-          }}
+        <Animated.View
+          style={[
+            {
+              paddingHorizontal: spacing[3],
+              paddingVertical: spacing[2],
+              borderRadius: componentSpacing.borderRadius.md,
+              backgroundColor: pressed && !isActive ? theme.muted : 'transparent',
+            },
+            animated && isAnimated && shouldAnimate() ? backgroundStyle : {
+              backgroundColor: isActive ? theme.accent : 'transparent'
+            },
+            Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && {
+              transition: 'all 0.2s ease',
+            } as any,
+          ]}
         >
           {typeof children === 'string' ? (
             <Text
@@ -133,9 +247,9 @@ export const NavigationMenuItem: React.FC<NavigationMenuItemProps> = ({
           ) : (
             children
           )}
-        </View>
+        </Animated.View>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 };
 
@@ -151,21 +265,75 @@ export const NavigationMenuContent: React.FC<NavigationMenuContentProps> = ({
   children,
   forceMount = false,
 }) => {
-  const { value } = useNavigationMenu();
+  const { value, animated, animationVariant, animationType, animationConfig } = useNavigationMenu();
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
   const isActive = value === contentValue;
   
   if (!isActive && !forceMount) {
     return null;
   }
   
+  const getEnteringAnimation = () => {
+    if (!animated || !isAnimated || !shouldAnimate() || animationType === 'none') {
+      return undefined;
+    }
+    
+    switch (animationType) {
+      case 'slide':
+        return SlideInDown.duration(config.duration.normal);
+      case 'fade':
+        return FadeIn.duration(config.duration.normal);
+      case 'scale':
+        return FadeIn.duration(config.duration.normal).springify();
+      default:
+        return undefined;
+    }
+  };
+  
+  const getExitingAnimation = () => {
+    if (!animated || !isAnimated || !shouldAnimate() || animationType === 'none') {
+      return undefined;
+    }
+    
+    switch (animationType) {
+      case 'slide':
+        return SlideOutUp.duration(config.duration.fast);
+      case 'fade':
+        return FadeOut.duration(config.duration.fast);
+      case 'scale':
+        return FadeOut.duration(config.duration.fast);
+      default:
+        return undefined;
+    }
+  };
+  
+  // Web CSS animations
+  const webAnimationStyle = Platform.OS === 'web' && animated && isAnimated && shouldAnimate() ? {
+    '@keyframes slideIn': {
+      from: { transform: 'translateY(20px)', opacity: 0 },
+      to: { transform: 'translateY(0)', opacity: 1 },
+    },
+    animation: `slideIn ${config.duration.normal}ms ease-out`,
+  } as any : {};
+  
   return (
-    <View
-      style={{
-        display: isActive ? 'flex' : 'none',
-      }}
+    <Animated.View
+      entering={Platform.OS !== 'web' ? getEnteringAnimation() : undefined}
+      exiting={Platform.OS !== 'web' ? getExitingAnimation() : undefined}
+      style={[
+        {
+          display: isActive ? 'flex' : 'none',
+        },
+        webAnimationStyle,
+      ]}
     >
       {children}
-    </View>
+    </Animated.View>
   );
 };
 
@@ -245,6 +413,17 @@ export interface SimpleNavigationMenuProps {
   style?: ViewStyle;
   contentStyle?: ViewStyle;
   onItemPress?: (value: string) => void;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: NavigationMenuAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const SimpleNavigationMenu: React.FC<SimpleNavigationMenuProps> = ({
@@ -255,6 +434,12 @@ export const SimpleNavigationMenu: React.FC<SimpleNavigationMenuProps> = ({
   style,
   contentStyle,
   onItemPress,
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'scale',
+  animationDuration,
+  useHaptics = true,
+  animationConfig,
 }) => {
   const theme = useTheme();
   const { spacing, componentSpacing } = useSpacing();
@@ -267,6 +452,12 @@ export const SimpleNavigationMenu: React.FC<SimpleNavigationMenuProps> = ({
         onValueChange={setActiveValue}
         orientation={orientation}
         style={style}
+        animated={animated}
+        animationVariant={animationVariant}
+        animationType={animationType}
+        animationDuration={animationDuration}
+        useHaptics={useHaptics}
+        animationConfig={animationConfig}
       >
         {items.map((item) => (
           <NavigationMenuItem
@@ -277,8 +468,8 @@ export const SimpleNavigationMenu: React.FC<SimpleNavigationMenuProps> = ({
           >
             <HStack spacing={2} alignItems="center">
               {item.icon && (
-                <Ionicons
-                  name={item.icon as any}
+                <Symbol
+                  name="item.icon as any"
                   size={componentSpacing.iconSize.sm}
                   color={
                     activeValue === item.value

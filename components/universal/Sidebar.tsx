@@ -7,20 +7,43 @@ import {
   Dimensions,
   LayoutAnimation,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withDelay,
+  FadeIn,
+  FadeOut,
+} from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
 import { Box } from './Box';
 import { VStack, HStack } from './Stack';
 import { Text } from './Text';
 import { Button } from './Button';
-import { Separator } from './Separator';
+
 import { ScrollContainer } from './ScrollContainer';
 import { Avatar } from './Avatar';
 import { Badge } from './Badge';
 import { Tooltip } from './Tooltip';
-import { Ionicons } from '@expo/vector-icons';
-import { SpacingScale } from '@/lib/design-system';
+import { Symbol } from './Symbols';
+import { 
+  SpacingScale,
+  AnimationVariant,
+  AnimationVariantConfig,
+  getAnimationConfig,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
+import { useBreakpoint } from '@/hooks/responsive';
+
+const AnimatedBox = Animated.createAnimatedComponent(Box);
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+export type SidebarAnimationType = 'slide' | 'fade' | 'none';
 
 // Sidebar Context
 interface SidebarContextValue {
@@ -29,6 +52,12 @@ interface SidebarContextValue {
   openGroups: string[];
   toggleGroup: (groupId: string) => void;
   isMobile: boolean;
+  animated: boolean;
+  animationVariant: AnimationVariant;
+  animationType: SidebarAnimationType;
+  animationDuration?: number;
+  useHaptics: boolean;
+  animationConfig?: Partial<AnimationVariantConfig>;
 }
 
 const SidebarContext = createContext<SidebarContextValue | undefined>(undefined);
@@ -45,7 +74,7 @@ export const useSidebar = () => {
 export interface SidebarNavItem {
   id: string;
   title: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: string;
   href?: string;
   badge?: string | number;
   items?: SidebarNavItem[];
@@ -64,6 +93,17 @@ export interface SidebarProviderProps {
   children: React.ReactNode;
   defaultOpen?: boolean;
   style?: ViewStyle;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: SidebarAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 // Sidebar Provider
@@ -71,6 +111,12 @@ export const SidebarProvider: React.FC<SidebarProviderProps> = ({
   children,
   defaultOpen = true,
   style,
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'slide',
+  animationDuration,
+  useHaptics = true,
+  animationConfig,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(!defaultOpen);
   const [openGroups, setOpenGroups] = useState<string[]>([]);
@@ -86,7 +132,15 @@ export const SidebarProvider: React.FC<SidebarProviderProps> = ({
   const isMobile = dimensions.width < 768;
 
   const toggleGroup = (groupId: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (animated && Platform.OS !== 'web') {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
+    
+    // Haptic feedback
+    if (useHaptics && Platform.OS !== 'web') {
+      haptic('selection');
+    }
+    
     setOpenGroups(prev =>
       prev.includes(groupId)
         ? prev.filter(id => id !== groupId)
@@ -102,6 +156,12 @@ export const SidebarProvider: React.FC<SidebarProviderProps> = ({
         openGroups,
         toggleGroup,
         isMobile,
+        animated,
+        animationVariant,
+        animationType,
+        animationDuration,
+        useHaptics,
+        animationConfig: animationConfig as Partial<AnimationVariantConfig>,
       }}
     >
       <View style={[{ flex: 1, flexDirection: 'row' }, style]}>
@@ -120,16 +180,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const theme = useTheme();
   const { spacing } = useSpacing();
-  const { isCollapsed, isMobile } = useSidebar();
-
+  const { isCollapsed, isMobile, animated, animationVariant, animationType, animationConfig } = useSidebar();
+  const { shouldAnimate } = useAnimationStore();
+  const baseConfig = getAnimationConfig(animationVariant);
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig ? {
+      ...baseConfig,
+      scale: animationConfig.scale ? { ...baseConfig.scale, ...animationConfig.scale } : baseConfig.scale,
+      duration: animationConfig.duration ? { ...baseConfig.duration, normal: animationConfig.duration } : baseConfig.duration,
+      spring: animationConfig.spring ? { ...baseConfig.spring, ...animationConfig.spring } : baseConfig.spring,
+    } as Partial<AnimationVariantConfig> : undefined,
+  });
+  
+  const duration = animationDuration ?? config.duration.normal;
   const sidebarWidth = isCollapsed ? 60 : 280;
+  
+  // Animation values
+  const width = useSharedValue(defaultCollapsed ? 60 : 280);
+  const contentOpacity = useSharedValue(defaultCollapsed ? 0 : 1);
+  
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      if (animationType === 'slide') {
+        width.value = withSpring(isCollapsed ? 60 : 280, config.spring);
+      }
+      if (animationType === 'fade') {
+        contentOpacity.value = withTiming(isCollapsed ? 0 : 1, { duration });
+      }
+    }
+  }, [isCollapsed, animated, isAnimated, shouldAnimate, animationType, config.spring, duration]);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    width: animationType === 'slide' ? width.value : sidebarWidth,
+  }));
+  
+  const contentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: animationType === 'fade' ? contentOpacity.value : 1,
+  }));
 
   if (isMobile) {
     return null; // Use drawer on mobile
   }
 
   return (
-    <Box
+    <AnimatedBox
       bgTheme="card"
       borderRightWidth={1}
       borderTheme="border"
@@ -137,15 +232,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {
           width: sidebarWidth,
           height: '100%',
+          overflow: 'hidden',
           ...(Platform.OS === 'web' && {
-            transition: 'width 0.2s ease',
+            transition: animated && isAnimated && shouldAnimate() 
+              ? animationType === 'slide' 
+                ? 'width 0.3s ease' 
+                : 'none'
+              : 'none',
           }),
         },
+        Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() && animationType === 'slide'
+          ? animatedStyle
+          : {},
         style,
       ]}
     >
-      {children}
-    </Box>
+      <Animated.View 
+        style={[
+          { flex: 1 },
+          animated && isAnimated && shouldAnimate() && animationType === 'fade'
+            ? contentAnimatedStyle
+            : {}
+        ]}
+      >
+        {children}
+      </Animated.View>
+    </AnimatedBox>
   );
 };
 
@@ -162,7 +274,7 @@ export const SidebarHeader: React.FC<{ children: React.ReactNode }> = ({ childre
 // Sidebar Content
 export const SidebarContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <ScrollContainer flex={1} showsVerticalScrollIndicator={false}>
+    <ScrollContainer flex={1}>
       <VStack spacing={2} p={2 as SpacingScale}>
         {children}
       </VStack>
@@ -183,7 +295,31 @@ export const SidebarFooter: React.FC<{ children: React.ReactNode }> = ({ childre
 // Sidebar Rail (collapse button)
 export const SidebarRail: React.FC = () => {
   const theme = useTheme();
-  const { isCollapsed, setIsCollapsed } = useSidebar();
+  const { isCollapsed, setIsCollapsed, animated, animationVariant, useHaptics, animationConfig } = useSidebar();
+  const { shouldAnimate } = useAnimationStore();
+  const baseConfig = getAnimationConfig(animationVariant);
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig ? {
+      ...baseConfig,
+      scale: animationConfig.scale ? { ...baseConfig.scale, ...animationConfig.scale } : baseConfig.scale,
+      duration: animationConfig.duration ? { ...baseConfig.duration, normal: animationConfig.duration } : baseConfig.duration,
+      spring: animationConfig.spring ? { ...baseConfig.spring, ...animationConfig.spring } : baseConfig.spring,
+    } as Partial<AnimationVariantConfig> : undefined,
+  });
+  
+  // Animation value for rotation
+  const rotation = useSharedValue(isCollapsed ? 0 : 180);
+  
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      rotation.value = withSpring(isCollapsed ? 0 : 180, config.spring);
+    }
+  }, [isCollapsed, animated, isAnimated, shouldAnimate, config.spring]);
+  
+  const animatedIconStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
 
   return (
     <Box
@@ -194,7 +330,15 @@ export const SidebarRail: React.FC = () => {
     >
       <Pressable
         onPress={() => {
-          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          if (animated && Platform.OS !== 'web') {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+          }
+          
+          // Haptic feedback
+          if (useHaptics && Platform.OS !== 'web') {
+            haptic('impact');
+          }
+          
           setIsCollapsed(!isCollapsed);
         }}
         style={{
@@ -211,23 +355,44 @@ export const SidebarRail: React.FC = () => {
           }),
         }}
       >
-        <Ionicons
-          name={isCollapsed ? 'chevron-forward' : 'chevron-back'}
-          size={16}
-          color={theme.foreground}
-        />
+        <Animated.View
+          style={[
+            Platform.OS !== 'web' && animated && isAnimated && shouldAnimate()
+              ? animatedIconStyle
+              : {},
+            Platform.OS === 'web' && animated && isAnimated && shouldAnimate()
+              ? { transform: [{ rotate: isCollapsed ? '0deg' : '180deg' }], transition: 'transform 0.3s ease' } as any
+              : {},
+          ]}
+        >
+          <Symbol name="chevron.right" size={16} color={theme.foreground} />
+        </Animated.View>
       </Pressable>
     </Box>
   );
 };
 
+
 // Sidebar Trigger (for mobile/header)
 export const SidebarTrigger: React.FC<{ onPress?: () => void }> = ({ onPress }) => {
   const theme = useTheme();
+  const { isCollapsed, setIsCollapsed, useHaptics } = useSidebar();
+  
+  const handlePress = () => {
+    if (useHaptics && Platform.OS !== 'web') {
+      haptic('impact');
+    }
+    
+    if (onPress) {
+      onPress();
+    } else {
+      setIsCollapsed(!isCollapsed);
+    }
+  };
   
   return (
-    <Button variant="ghost" size="sm" onPress={onPress}>
-      <Ionicons name="menu" size={20} color={theme.foreground} />
+    <Button variant="ghost" size="sm" onPress={handlePress}>
+      <Symbol name="line.3.horizontal" size={20} color={theme.foreground} />
     </Button>
   );
 };
@@ -241,6 +406,44 @@ export const SidebarInset: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
+// Animated Chevron Component
+const AnimatedChevron: React.FC<{ isOpen: boolean }> = ({ isOpen }) => {
+  const theme = useTheme();
+  const rotation = useSharedValue(isOpen ? 90 : 0);
+  const { animated, animationVariant } = useSidebar();
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+  });
+  
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      rotation.value = withSpring(isOpen ? 90 : 0, config.spring);
+    } else {
+      rotation.value = isOpen ? 90 : 0;
+    }
+  }, [isOpen, animated, isAnimated, shouldAnimate, config.spring]);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value}deg` }],
+  }));
+  
+  return (
+    <Animated.View
+      style={[
+        Platform.OS !== 'web' && animated && isAnimated && shouldAnimate()
+          ? animatedStyle
+          : {},
+        Platform.OS === 'web' && animated && isAnimated && shouldAnimate()
+          ? { transform: [{ rotate: isOpen ? '90deg' : '0deg' }], transition: 'transform 0.2s ease' } as any
+          : {},
+      ]}
+    >
+      <Symbol name="chevron.right" size={16} color={theme.mutedForeground} />
+    </Animated.View>
+  );
+};
+
 // Nav Main Component
 interface NavMainProps {
   items: SidebarNavItem[];
@@ -250,9 +453,14 @@ export const NavMain: React.FC<NavMainProps> = ({ items }) => {
   const router = useRouter();
   const theme = useTheme();
   const { spacing } = useSpacing();
-  const { isCollapsed, openGroups, toggleGroup } = useSidebar();
+  const { isCollapsed, openGroups, toggleGroup, useHaptics: useHapticsContext } = useSidebar();
 
   const handlePress = (item: SidebarNavItem) => {
+    // Haptic feedback for navigation
+    if (useHapticsContext && Platform.OS !== 'web') {
+      haptic('impact');
+    }
+    
     if (item.onPress) {
       item.onPress();
     } else if (item.href) {
@@ -262,34 +470,93 @@ export const NavMain: React.FC<NavMainProps> = ({ items }) => {
     }
   };
 
-  const renderNavItem = (item: SidebarNavItem, level = 0) => {
+  const NavItem: React.FC<{ item: SidebarNavItem; level?: number; index?: number }> = ({ item, level = 0, index = 0 }) => {
     const isOpen = openGroups.includes(item.id);
     const hasChildren = item.items && item.items.length > 0;
+    const { animated, animationVariant, animationType, useHaptics: contextUseHaptics, animationConfig } = useSidebar();
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
+    
+    // Animation values for item
+    const scale = useSharedValue(1);
+    const opacity = useSharedValue(0);
+    const translateX = useSharedValue(-20);
+    
+    // Stagger animation on mount
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+        const delay = index * 50; // 50ms stagger delay
+        
+        opacity.value = withDelay(
+          delay,
+          withTiming(1, { duration: config.duration.normal })
+        );
+        
+        translateX.value = withDelay(
+          delay,
+          withSpring(0, config.spring)
+        );
+      } else {
+        opacity.value = 1;
+        translateX.value = 0;
+      }
+    }, [index, animated, isAnimated, shouldAnimate, animationType, config]);
+    
+    // Hover/press animation
+    const handlePressIn = () => {
+      if (animated && isAnimated && shouldAnimate()) {
+        scale.value = withSpring(0.98, { damping: 15, stiffness: 400 });
+      }
+    };
+    
+    const handlePressOut = () => {
+      if (animated && isAnimated && shouldAnimate()) {
+        scale.value = withSpring(1, config.spring);
+      }
+    };
+    
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [
+        { scale: scale.value },
+        { translateX: translateX.value }
+      ] as const,
+      opacity: opacity.value,
+    }));
 
     const itemContent = (
-      <Pressable
+      <AnimatedPressable
         onPress={() => handlePress(item)}
-        style={({ pressed }) => ({
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: spacing[3],
-          paddingVertical: spacing[2],
-          marginLeft: level * spacing[4],
-          borderRadius: spacing[2],
-          backgroundColor: item.isActive
-            ? theme.accent
-            : pressed
-            ? theme.muted
-            : 'transparent',
-          ...(Platform.OS === 'web' && {
-            cursor: 'pointer',
-            transition: 'background-color 0.2s ease',
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={[
+          ({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: spacing[3],
+            paddingVertical: spacing[2],
+            marginLeft: level * spacing[4],
+            borderRadius: spacing[2],
+            backgroundColor: item.isActive
+              ? theme.accent
+              : pressed
+              ? theme.muted
+              : 'transparent',
+            ...(Platform.OS === 'web' && {
+              cursor: 'pointer',
+              transition: 'background-color 0.2s ease',
+            }),
           }),
-        })}
+          animated && isAnimated && shouldAnimate() && animationType !== 'none'
+            ? animatedStyle
+            : {},
+        ]}
       >
         {item.icon && (
-          <Ionicons
-            name={item.icon}
+          <Symbol
+            name={item.icon as any}
             size={20}
             color={item.isActive ? theme.accentForeground : theme.foreground}
             style={{ marginRight: isCollapsed ? 0 : spacing[3] }}
@@ -314,15 +581,11 @@ export const NavMain: React.FC<NavMainProps> = ({ items }) => {
               </Badge>
             )}
             {hasChildren && (
-              <Ionicons
-                name={isOpen ? 'chevron-down' : 'chevron-forward'}
-                size={16}
-                color={theme.mutedForeground}
-              />
+              <AnimatedChevron isOpen={isOpen} />
             )}
           </>
         )}
-      </Pressable>
+      </AnimatedPressable>
     );
 
     return (
@@ -335,9 +598,14 @@ export const NavMain: React.FC<NavMainProps> = ({ items }) => {
           itemContent
         )}
         {!isCollapsed && hasChildren && isOpen && (
-          <VStack spacing={1} mt={1 as SpacingScale}>
-            {item.items!.map(subItem => renderNavItem(subItem, level + 1))}
-          </VStack>
+          <Animated.View
+            entering={Platform.OS !== 'web' ? FadeIn.duration(200) : undefined}
+            exiting={Platform.OS !== 'web' ? FadeOut.duration(200) : undefined}
+          >
+            <VStack spacing={1} mt={1 as SpacingScale}>
+              {item.items!.map((subItem, subIndex) => <NavItem key={subItem.id} item={subItem} level={level + 1} index={subIndex} />)}
+            </VStack>
+          </Animated.View>
         )}
       </View>
     );
@@ -345,7 +613,7 @@ export const NavMain: React.FC<NavMainProps> = ({ items }) => {
 
   return (
     <VStack spacing={1}>
-      {items.map(item => renderNavItem(item))}
+      {items.map((item, index) => <NavItem key={item.id} item={item} level={0} index={index} />)}
     </VStack>
   );
 };

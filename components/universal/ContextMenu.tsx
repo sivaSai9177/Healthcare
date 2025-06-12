@@ -1,8 +1,7 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   Modal,
   Platform,
   ViewStyle,
@@ -11,10 +10,33 @@ import {
   Pressable,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withDelay,
+  interpolate,
+  FadeIn,
+  FadeOut,
+  ZoomIn,
+  SlideInDown,
+} from 'react-native-reanimated';
+import { Symbol } from './Symbols';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
 import { Card } from './Card';
+import { 
+  AnimationVariant,
+  getAnimationConfig,
+  SpacingScale,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
+
+const AnimatedView = Animated.View;
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export interface ContextMenuItem {
   key: string;
@@ -27,6 +49,8 @@ export interface ContextMenuItem {
   submenu?: ContextMenuItem[];
 }
 
+export type ContextMenuAnimationType = 'scale' | 'fade' | 'slide' | 'none';
+
 export interface ContextMenuProps {
   children: React.ReactNode;
   items: ContextMenuItem[];
@@ -36,6 +60,17 @@ export interface ContextMenuProps {
   style?: ViewStyle;
   menuStyle?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: ContextMenuAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -51,6 +86,12 @@ export const ContextMenu = React.forwardRef<View, ContextMenuProps>(
       style,
       menuStyle,
       testID,
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'scale',
+      animationDuration,
+      useHaptics = true,
+      animationConfig,
     },
     ref
   ) => {
@@ -60,9 +101,45 @@ export const ContextMenu = React.forwardRef<View, ContextMenuProps>(
     const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
     const [submenuOpen, setSubmenuOpen] = useState<string | null>(null);
     const triggerRef = useRef<View>(null);
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
+    
+    // Animation values
+    const scale = useSharedValue(0);
+    const opacity = useSharedValue(0);
+    const translateY = useSharedValue(10);
+
+    // Open menu animation
+    useEffect(() => {
+      if (isOpen && animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+        if (animationType === 'scale') {
+          scale.value = withSpring(1, config.spring);
+          opacity.value = withTiming(1, { duration: config.duration.fast });
+        } else if (animationType === 'fade') {
+          scale.value = 1;
+          opacity.value = withTiming(1, { duration: config.duration.normal });
+        } else if (animationType === 'slide') {
+          scale.value = 1;
+          opacity.value = withTiming(1, { duration: config.duration.fast });
+          translateY.value = withSpring(0, config.spring);
+        }
+      } else if (!isOpen) {
+        scale.value = 0;
+        opacity.value = 0;
+        translateY.value = 10;
+      }
+    }, [isOpen, animated, isAnimated, shouldAnimate, animationType, config]);
 
     const handleLongPress = useCallback(() => {
       if (disabled) return;
+
+      // Haptic feedback
+      if (useHaptics && Platform.OS !== 'web') {
+        haptics.impact('light');
+      }
 
       triggerRef.current?.measure((x, y, width, height, pageX, pageY) => {
         // Calculate menu position
@@ -85,7 +162,7 @@ export const ContextMenu = React.forwardRef<View, ContextMenuProps>(
         setIsOpen(true);
         onOpen?.();
       });
-    }, [disabled, items.length, spacing, onOpen]);
+    }, [disabled, items.length, spacing, onOpen, useHaptics]);
 
     const handleClose = useCallback(() => {
       setIsOpen(false);
@@ -96,13 +173,18 @@ export const ContextMenu = React.forwardRef<View, ContextMenuProps>(
     const handleItemSelect = useCallback((item: ContextMenuItem) => {
       if (item.disabled || item.separator) return;
       
+      // Haptic feedback
+      if (useHaptics && Platform.OS !== 'web') {
+        haptic('selection');
+      }
+      
       if (item.submenu) {
         setSubmenuOpen(item.key);
       } else {
         item.onSelect();
         handleClose();
       }
-    }, [handleClose]);
+    }, [handleClose, useHaptics]);
 
     const renderMenuItem = (item: ContextMenuItem, index: number) => {
       if (item.separator) {
@@ -121,84 +203,166 @@ export const ContextMenu = React.forwardRef<View, ContextMenuProps>(
       const isSubmenuOpen = submenuOpen === item.key;
       const hasSubmenu = item.submenu && item.submenu.length > 0;
 
-      return (
-        <TouchableOpacity
-          key={`${item.key}-${index}`}
-          onPress={() => handleItemSelect(item)}
-          disabled={item.disabled}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingVertical: spacing[3],
-            paddingHorizontal: spacing[4],
-            opacity: item.disabled ? 0.5 : 1,
-            backgroundColor: isSubmenuOpen ? theme.accent : 'transparent',
-          }}
-        >
-          {item.icon && (
-            <Ionicons
-              name={item.icon as any}
-              size={18}
-              color={
-                item.destructive
+      // Create animated menu item component
+      const AnimatedMenuItem = () => {
+        const itemOpacity = useSharedValue(0);
+        const itemTranslateX = useSharedValue(-20);
+        const itemScale = useSharedValue(1);
+        
+        // Stagger animation on mount
+        useEffect(() => {
+          if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+            const delay = index * 50; // 50ms stagger
+            itemOpacity.value = withDelay(delay, withTiming(1, { duration: config.duration.fast }));
+            itemTranslateX.value = withDelay(delay, withSpring(0, config.spring));
+          } else {
+            itemOpacity.value = 1;
+            itemTranslateX.value = 0;
+          }
+        }, []);
+        
+        const handlePressIn = () => {
+          if (animated && isAnimated && shouldAnimate()) {
+            itemScale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+          }
+        };
+        
+        const handlePressOut = () => {
+          if (animated && isAnimated && shouldAnimate()) {
+            itemScale.value = withSpring(1, config.spring);
+          }
+        };
+        
+        const animatedStyle = useAnimatedStyle(() => ({
+          opacity: itemOpacity.value,
+          transform: [
+            { translateX: itemTranslateX.value },
+            { scale: itemScale.value },
+          ] as any,
+        }));
+        
+        return (
+          <AnimatedPressable
+            onPress={() => handleItemSelect(item)}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            disabled={item.disabled}
+            style={[
+              {
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingVertical: spacing[3],
+                paddingHorizontal: spacing[4],
+                opacity: item.disabled ? 0.5 : 1,
+                backgroundColor: isSubmenuOpen ? theme.accent : 'transparent',
+              },
+              animated && isAnimated && shouldAnimate() && animationType !== 'none' ? animatedStyle : {},
+              Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && {
+                transition: 'all 0.2s ease',
+              } as any,
+            ]}
+          >
+            {item.icon && (
+              <Symbol
+                name="item.icon as any"
+                size={18}
+                color={
+                  item.destructive
+                    ? theme.destructive
+                    : item.disabled
+                    ? theme.mutedForeground
+                    : theme.foreground
+                }
+                style={{ marginRight: spacing[3] }}
+              />
+            )}
+            
+            <Text
+              style={{
+                flex: 1,
+                fontSize: 14,
+                color: item.destructive
                   ? theme.destructive
                   : item.disabled
                   ? theme.mutedForeground
-                  : theme.foreground
-              }
-              style={{ marginRight: spacing[3] }}
-            />
-          )}
-          
-          <Text
-            style={{
-              flex: 1,
-              fontSize: 14,
-              color: item.destructive
-                ? theme.destructive
-                : item.disabled
-                ? theme.mutedForeground
-                : theme.foreground,
-            }}
-          >
-            {item.label}
-          </Text>
-          
-          {hasSubmenu && (
-            <Ionicons
-              name="chevron-forward"
-              size={16}
-              color={theme.mutedForeground}
-              style={{ marginLeft: spacing[2] }}
-            />
-          )}
-        </TouchableOpacity>
-      );
+                  : theme.foreground,
+              }}
+            >
+              {item.label}
+            </Text>
+            
+            {hasSubmenu && (
+              <Symbol name="chevron.right"
+                size={16}
+                color={theme.mutedForeground}
+                style={{ marginLeft: spacing[2] }}
+              />
+            )}
+          </AnimatedPressable>
+        );
+      };
+      
+      return <AnimatedMenuItem key={`${item.key}-${index}`} />;
     };
 
     const renderSubmenu = () => {
       const parentItem = items.find(item => item.key === submenuOpen);
       if (!parentItem || !parentItem.submenu) return null;
 
-      return (
-        <Card
-          style={[
-            {
-              position: 'absolute',
-              left: 200 + spacing[2],
-              top: 0,
-              minWidth: 180,
-              maxHeight: SCREEN_HEIGHT * 0.8,
-            },
-            menuStyle,
-          ]}
-          p={1}
-        >
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {parentItem.submenu.map((item, index) => renderMenuItem(item, index))}
-          </ScrollView>
-        </Card>
-      );
+      const AnimatedSubmenu = () => {
+        const submenuOpacity = useSharedValue(0);
+        const submenuScale = useSharedValue(0.9);
+        const submenuTranslateX = useSharedValue(-10);
+        
+        useEffect(() => {
+          if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+            submenuOpacity.value = withTiming(1, { duration: config.duration.fast });
+            submenuScale.value = withSpring(1, config.spring);
+            submenuTranslateX.value = withSpring(0, config.spring);
+          } else {
+            submenuOpacity.value = 1;
+            submenuScale.value = 1;
+            submenuTranslateX.value = 0;
+          }
+        }, []);
+        
+        const animatedStyle = useAnimatedStyle(() => ({
+          opacity: submenuOpacity.value,
+          transform: [
+            { scale: submenuScale.value },
+            { translateX: submenuTranslateX.value },
+          ] as any,
+        }));
+        
+        return (
+          <AnimatedView
+            style={[
+              {
+                position: 'absolute',
+                left: 200 + spacing[2],
+                top: 0,
+                minWidth: 180,
+                maxHeight: SCREEN_HEIGHT * 0.8,
+              },
+              animated && isAnimated && shouldAnimate() && animationType !== 'none' ? animatedStyle : {},
+              Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && {
+                transition: 'all 0.2s ease',
+              } as any,
+            ]}
+          >
+            <Card
+              style={[menuStyle]}
+              p={1 as SpacingScale}
+            >
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {parentItem.submenu.map((item, index) => renderMenuItem(item, index))}
+              </ScrollView>
+            </Card>
+          </AnimatedView>
+        );
+      };
+      
+      return <AnimatedSubmenu />;
     };
 
     // Platform-specific trigger
@@ -246,19 +410,31 @@ export const ContextMenu = React.forwardRef<View, ContextMenuProps>(
           animationType="fade"
           onRequestClose={handleClose}
         >
-          <TouchableOpacity
+          <Pressable
             style={{
               flex: 1,
             }}
             onPress={handleClose}
-            activeOpacity={1}
           >
-            <View
-              style={{
-                position: 'absolute',
-                left: menuPosition.x,
-                top: menuPosition.y,
-              }}
+            <AnimatedView
+              style={[
+                {
+                  position: 'absolute',
+                  left: menuPosition.x,
+                  top: menuPosition.y,
+                },
+                useAnimatedStyle(() => ({
+                  opacity: opacity.value,
+                  transform: [
+                    { scale: scale.value },
+                    { translateY: translateY.value },
+                  ] as any,
+                })),
+                Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && {
+                  transition: 'all 0.2s ease',
+                  transformOrigin: 'top left',
+                } as any,
+              ]}
             >
               <Card
                 style={[
@@ -267,7 +443,7 @@ export const ContextMenu = React.forwardRef<View, ContextMenuProps>(
                     maxHeight: SCREEN_HEIGHT * 0.8,
                     ...Platform.select({
                       ios: {
-                        boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.15)',
+                        boxShadow: '0px 4px 8px theme.mutedForeground + "10"',
                       },
                       android: {
                         elevation: 8,
@@ -279,15 +455,15 @@ export const ContextMenu = React.forwardRef<View, ContextMenuProps>(
                   },
                   menuStyle,
                 ]}
-                p={1}
+                p={1 as SpacingScale}
               >
                 <ScrollView showsVerticalScrollIndicator={false}>
                   {items.map((item, index) => renderMenuItem(item, index))}
                 </ScrollView>
               </Card>
               {renderSubmenu()}
-            </View>
-          </TouchableOpacity>
+            </AnimatedView>
+          </Pressable>
         </Modal>
       </>
     );
@@ -398,7 +574,14 @@ export const QuickContextMenu: React.FC<QuickContextMenuProps> = ({
   }
 
   return (
-    <ContextMenu items={items} disabled={disabled} style={style}>
+    <ContextMenu 
+      items={items} 
+      disabled={disabled} 
+      style={style}
+      animated
+      animationType="scale"
+      useHaptics
+    >
       {children}
     </ContextMenu>
   );

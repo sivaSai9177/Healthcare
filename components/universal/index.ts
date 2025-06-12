@@ -31,6 +31,8 @@ export * from './Badge';
 export * from './Progress';
 export * from './Skeleton';
 export * from './Toast';
+export * from './ErrorDisplay';
+export * from './ValidationIcon';
 
 // Navigation
 export * from './Link';
@@ -39,9 +41,35 @@ export * from './Breadcrumb';
 export * from './NavigationMenu';
 export * from './Pagination';
 export * from './Stepper';
-export * from './Sidebar';
-export * from './Sidebar07';
+// Export Sidebar components except NavMain, NavUser, TeamSwitcher (exported separately)
+export { 
+  SidebarProvider,
+  Sidebar,
+  SidebarTrigger,
+  SidebarRail,
+  SidebarInset,
+  SidebarHeader,
+  SidebarFooter,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarMenuBadge,
+  SidebarSeparator,
+  useSidebar
+} from './Sidebar';
+// Sidebar07 component removed - use Sidebar components instead
 export * from './Navbar';
+
+// Application Components
+export * from './AppSidebar';
+export * from './NavMain';
+export * from './NavUser';
+export * from './NavProjects';
+export * from './TeamSwitcher';
 
 // Data Display
 export * from './Avatar';
@@ -58,6 +86,7 @@ export * from './DropdownMenu';
 export * from './Tooltip';
 export * from './Popover';
 export * from './Drawer';
+export * from './Sheet';
 
 // Layout Utilities
 export * from './Separator';
@@ -79,5 +108,8 @@ export * from './ContextMenu';
 // Chart Components
 export * from './charts';
 
-// Re-export design system tokens
-export { designSystem } from '@/lib/design-system';
+// Icons
+export * from './Symbols';
+
+// Design system tokens are available via @/lib/design
+// Removed re-export to avoid duplicate exports

@@ -1,8 +1,8 @@
-import React, { useRef, useCallback, useMemo } from 'react';
+import React, { useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   TouchableHighlight,
   FlatList,
   SectionList,
@@ -16,9 +16,26 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import ReAnimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withDelay,
+} from 'react-native-reanimated';
+import { Symbol } from './Symbols';
 import { useTheme } from '@/lib/theme/provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { 
+  AnimationVariant,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
+
+const AnimatedView = ReAnimated.View;
+
+export type ListAnimationType = 'slide' | 'fade' | 'stagger' | 'none';
 
 // List Item Component
 export interface ListItemProps {
@@ -37,6 +54,15 @@ export interface ListItemProps {
   titleStyle?: TextStyle;
   descriptionStyle?: TextStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: ListAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: any;
+  index?: number; // For stagger animations
 }
 
 export interface SwipeAction {
@@ -63,17 +89,18 @@ const SwipeActionButton = React.memo(({
   spacing: any;
   onPress: () => void;
 }) => (
-  <TouchableOpacity
+  <Pressable
     onPress={onPress}
-    style={{
+    style={({ pressed }) => ({
       width: 80,
       backgroundColor: action.backgroundColor || theme.destructive,
       justifyContent: 'center',
       alignItems: 'center',
-    }}
+      opacity: pressed ? 0.8 : 1,
+    })}
   >
     {action.icon && (
-      <Ionicons
+      <Symbol
         name={action.icon as any}
         size={24}
         color={action.color || theme.destructiveForeground}
@@ -88,7 +115,7 @@ const SwipeActionButton = React.memo(({
     >
       {action.label}
     </Text>
-  </TouchableOpacity>
+  </Pressable>
 ));
 
 SwipeActionButton.displayName = 'SwipeActionButton';
@@ -111,6 +138,13 @@ export const ListItem = React.memo(React.forwardRef<View, ListItemProps>(
       titleStyle,
       descriptionStyle,
       testID,
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'slide',
+      animationDuration,
+      useHaptics = true,
+      animationConfig,
+      index = 0,
     },
     ref
   ) => {
@@ -118,6 +152,16 @@ export const ListItem = React.memo(React.forwardRef<View, ListItemProps>(
     const { spacing } = useSpacing();
     const swipeAnim = useRef(new Animated.Value(0)).current;
     const [isSwipeOpen, setIsSwipeOpen] = React.useState(false);
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
+    
+    // Animation values
+    const opacity = useSharedValue(0);
+    const translateX = useSharedValue(-50);
+    const scale = useSharedValue(1);
 
     const paddingMap = useMemo(() => ({
       compact: spacing[2],
@@ -126,6 +170,24 @@ export const ListItem = React.memo(React.forwardRef<View, ListItemProps>(
     }), [spacing]);
 
     const itemPadding = paddingMap[variant];
+    
+    // Animate item entrance
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+        const delay = animationType === 'stagger' ? index * 50 : 0;
+        
+        opacity.value = withDelay(delay, withTiming(1, { duration: config.duration.normal }));
+        
+        if (animationType === 'slide') {
+          translateX.value = withDelay(delay, withSpring(0, config.spring));
+        } else {
+          translateX.value = 0;
+        }
+      } else {
+        opacity.value = 1;
+        translateX.value = 0;
+      }
+    }, [index, animated, isAnimated, shouldAnimate, animationType, config, opacity, translateX]);
 
     // Memoize closeSwipe callback
     const closeSwipe = useCallback(() => {
@@ -180,12 +242,34 @@ export const ListItem = React.memo(React.forwardRef<View, ListItemProps>(
     );
 
     const handlePress = () => {
+      // Haptic feedback
+      if (useHaptics && Platform.OS !== 'web') {
+        haptic('selection');
+      }
+      
+      // Press animation
+      if (animated && isAnimated && shouldAnimate()) {
+        scale.value = withSpring(0.98, { damping: 15, stiffness: 400 });
+        setTimeout(() => {
+          scale.value = withSpring(1, config.spring);
+        }, 150);
+      }
+      
       if (isSwipeOpen) {
         closeSwipe();
       } else if (onPress && !disabled) {
         onPress();
       }
     };
+    
+    // Animated styles
+    const animatedStyle = useAnimatedStyle(() => ({
+      opacity: opacity.value,
+      transform: [
+        { translateX: translateX.value },
+        { scale: scale.value },
+      ] as any,
+    }));
 
     const itemStyle: ViewStyle = {
       backgroundColor: selected ? theme.accent : theme.card,
@@ -227,7 +311,16 @@ export const ListItem = React.memo(React.forwardRef<View, ListItemProps>(
     }, [swipeActions, theme, spacing, closeSwipe]);
 
     return (
-      <View ref={ref} testID={testID}>
+      <AnimatedView 
+        ref={ref} 
+        testID={testID}
+        style={[
+          animated && isAnimated && shouldAnimate() && animationType !== 'none' ? animatedStyle : {},
+          Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && {
+            transition: 'all 0.2s ease',
+          } as any,
+        ]}
+      >
         {renderSwipeActions()}
         <Animated.View
           style={{
@@ -283,7 +376,7 @@ export const ListItem = React.memo(React.forwardRef<View, ListItemProps>(
             }}
           />
         )}
-      </View>
+      </AnimatedView>
     );
   }
 ), (prevProps, nextProps) => {
@@ -293,7 +386,8 @@ export const ListItem = React.memo(React.forwardRef<View, ListItemProps>(
          prevProps.selected === nextProps.selected &&
          prevProps.disabled === nextProps.disabled &&
          prevProps.variant === nextProps.variant &&
-         prevProps.swipeActions === nextProps.swipeActions;
+         prevProps.swipeActions === nextProps.swipeActions &&
+         prevProps.index === nextProps.index;
 });
 
 ListItem.displayName = 'ListItem';
@@ -316,6 +410,14 @@ export interface ListProps<T = any> {
   style?: ViewStyle;
   contentContainerStyle?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: ListAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: any;
 }
 
 export const List = React.forwardRef<FlatList, ListProps>(
@@ -337,16 +439,43 @@ export const List = React.forwardRef<FlatList, ListProps>(
       style,
       contentContainerStyle,
       testID,
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'stagger',
+      animationDuration,
+      useHaptics = true,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
+    
+    // Enhanced render item with animation props
+    const enhancedRenderItem = useCallback<ListRenderItem<any>>(
+      (info) => {
+        const item = renderItem(info);
+        if (React.isValidElement(item) && animated) {
+          const enhancedProps = {
+            index: info.index,
+            animated,
+            animationVariant,
+            animationType,
+            animationDuration,
+            useHaptics,
+            animationConfig,
+          };
+          return React.cloneElement(item as React.ReactElement<any>, enhancedProps);
+        }
+        return item;
+      },
+      [renderItem, animated, animationVariant, animationType, animationDuration, useHaptics, animationConfig]
+    );
 
     return (
       <FlatList
         ref={ref}
         data={data}
-        renderItem={renderItem}
+        renderItem={animated ? enhancedRenderItem : renderItem}
         keyExtractor={keyExtractor}
         ItemSeparatorComponent={ItemSeparatorComponent}
         ListHeaderComponent={ListHeaderComponent}
@@ -476,6 +605,14 @@ export interface SimpleListProps {
   showDividers?: boolean;
   style?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: ListAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: any;
 }
 
 export const SimpleList: React.FC<SimpleListProps> = ({
@@ -484,9 +621,14 @@ export const SimpleList: React.FC<SimpleListProps> = ({
   showDividers = true,
   style,
   testID,
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'stagger',
+  animationDuration,
+  useHaptics = true,
+  animationConfig,
 }) => {
   const theme = useTheme();
-  const { spacing } = useSpacing();
 
   return (
     <ScrollView
@@ -499,6 +641,13 @@ export const SimpleList: React.FC<SimpleListProps> = ({
           return React.cloneElement(child as React.ReactElement<any>, {
             variant,
             showDivider: showDividers && index < React.Children.count(children) - 1,
+            index,
+            animated,
+            animationVariant,
+            animationType,
+            animationDuration,
+            useHaptics,
+            animationConfig,
           });
         }
         return child;

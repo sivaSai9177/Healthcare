@@ -1,22 +1,40 @@
-import React, { useState } from 'react';
-import { View, Pressable, ViewStyle, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Pressable, ViewStyle, ScrollView, Platform } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withSequence,
+  interpolate,
+  FadeIn,
+  SlideInRight,
+} from 'react-native-reanimated';
 import { Text } from './Text';
 import { Button } from './Button';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { Symbol } from './Symbols';
+import { 
+  AnimationVariant,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
 
 export interface StepperStep {
   id: string;
   title: string;
   description?: string;
   content?: React.ReactNode;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: keyof typeof any;
   optional?: boolean;
   disabled?: boolean;
   error?: boolean;
   completed?: boolean;
 }
+
+export type StepperAnimationType = 'progress' | 'fade' | 'slide' | 'none';
 
 export interface StepperProps {
   steps: StepperStep[];
@@ -33,7 +51,189 @@ export interface StepperProps {
   contentStyle?: ViewStyle;
   navigationStyle?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: StepperAnimationType;
+  animationDuration?: number;
+  connectorAnimation?: boolean;
+  stepTransition?: 'slide' | 'fade' | 'scale';
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
+
+const AnimatedView = Animated.View;
+
+// Connector Component
+const StepConnector = ({ 
+  status, 
+  isLast, 
+  stepIndex, 
+  orientation, 
+  theme, 
+  spacing, 
+  animated, 
+  isAnimated, 
+  shouldAnimate, 
+  connectorAnimation,
+  progress,
+}: any) => {
+  const animatedConnectorStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolate(
+      progress.value,
+      [0, 1],
+      [theme.border, theme.success || theme.primary]
+    ),
+  }));
+  
+  if (isLast) return null;
+
+  const connectorStyle: ViewStyle = {
+    flex: 1,
+    height: 2,
+    backgroundColor: status === 'completed' ? (theme.success || theme.primary) : theme.border,
+    marginHorizontal: spacing[2],
+  };
+
+  if (orientation === 'vertical') {
+    connectorStyle.width = 2;
+    connectorStyle.height = 40;
+    connectorStyle.marginHorizontal = 0;
+    connectorStyle.marginVertical = spacing[1];
+  }
+
+  const ConnectorComponent = animated && isAnimated && shouldAnimate() && connectorAnimation 
+    ? AnimatedView 
+    : View;
+
+  return (
+    <ConnectorComponent 
+      style={[
+        connectorStyle,
+        animated && isAnimated && shouldAnimate() && connectorAnimation
+          ? animatedConnectorStyle
+          : {},
+      ]} 
+    />
+  );
+};
+
+// Step Icon Component
+const StepIcon = ({ 
+  step, 
+  stepIndex, 
+  status, 
+  variant, 
+  showStepNumbers, 
+  theme, 
+  animated, 
+  isAnimated, 
+  shouldAnimate, 
+  config 
+}: any) => {
+  const iconSize = variant === 'compact' ? 24 : 32;
+  const iconColor = status === 'completed' ? (theme.success || theme.primary) 
+    : status === 'active' ? theme.primary 
+    : status === 'error' ? theme.destructive 
+    : theme.mutedForeground;
+  
+  const iconScale = useSharedValue(status === 'active' ? 1 : 0.8);
+  
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      if (status === 'active') {
+        iconScale.value = withSpring(1, config.spring);
+      } else {
+        iconScale.value = withTiming(0.8, { duration: config.duration.fast });
+      }
+    }
+  }, [status, animated, isAnimated, shouldAnimate, iconScale, config]);
+  
+  const iconAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: iconScale.value }],
+  }));
+
+  const iconContainerStyle: ViewStyle = {
+    width: iconSize,
+    height: iconSize,
+    borderRadius: variant === 'dots' ? iconSize / 2 : 8,
+    backgroundColor: status === 'active' ? iconColor : theme.background,
+    borderWidth: 2,
+    borderColor: iconColor,
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
+
+  const IconContainer = animated && isAnimated && shouldAnimate() ? AnimatedView : View;
+
+  if (variant === 'dots') {
+    return (
+      <IconContainer
+        style={[
+          iconContainerStyle,
+          {
+            width: status === 'active' ? 12 : 8,
+            height: status === 'active' ? 12 : 8,
+            backgroundColor: iconColor,
+            borderWidth: 0,
+          },
+          animated && isAnimated && shouldAnimate() ? iconAnimatedStyle : {},
+        ]}
+      />
+    );
+  }
+
+  let iconContent: React.ReactNode;
+
+  if (status === 'completed') {
+    iconContent = (
+      <Symbol name="checkmark"
+        size={iconSize * 0.6}
+        color={theme.background}
+      />
+    );
+  } else if (status === 'error') {
+    iconContent = (
+      <Symbol name="xmark"
+        size={iconSize * 0.6}
+        color={theme.background}
+      />
+    );
+  } else if (step.icon) {
+    iconContent = (
+      <Symbol
+        name="step.icon"
+        size={iconSize * 0.6}
+        color={status === 'active' ? theme.background : iconColor}
+      />
+    );
+  } else if (showStepNumbers) {
+    iconContent = (
+      <Text
+        size="sm"
+        weight="semibold"
+        style={{ color: status === 'active' ? theme.background : iconColor }}
+      >
+        {stepIndex + 1}
+      </Text>
+    );
+  }
+
+  return (
+    <IconContainer 
+      style={[
+        iconContainerStyle,
+        animated && isAnimated && shouldAnimate() ? iconAnimatedStyle : {},
+      ]}
+    >
+      {iconContent}
+    </IconContainer>
+  );
+};
 
 export const Stepper = React.forwardRef<View, StepperProps>(
   (
@@ -52,11 +252,85 @@ export const Stepper = React.forwardRef<View, StepperProps>(
       contentStyle,
       navigationStyle,
       testID,
+      // Animation props
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'progress',
+      animationDuration,
+      connectorAnimation = true,
+      stepTransition = 'slide',
+      useHaptics = true,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
     const { spacing } = useSpacing();
+    const { shouldAnimate } = useAnimationStore();
+    
+    // Get animation config
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
+    
+    const duration = animationDuration ?? config.duration.normal;
+    
+    // Animation values for connectors
+    // Create individual shared values for up to 10 steps
+    const progress0 = useSharedValue(0);
+    const progress1 = useSharedValue(0);
+    const progress2 = useSharedValue(0);
+    const progress3 = useSharedValue(0);
+    const progress4 = useSharedValue(0);
+    const progress5 = useSharedValue(0);
+    const progress6 = useSharedValue(0);
+    const progress7 = useSharedValue(0);
+    const progress8 = useSharedValue(0);
+    const progress9 = useSharedValue(0);
+    
+    const connectorProgress = [
+      progress0, progress1, progress2, progress3, progress4,
+      progress5, progress6, progress7, progress8, progress9
+    ];
+    
+    // Content transition animation
+    const contentOpacity = useSharedValue(1);
+    const contentTranslateX = useSharedValue(0);
+    
+    // Update connector animations
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate() && connectorAnimation) {
+        connectorProgress.forEach((progress, index) => {
+          if (index < activeStep) {
+            progress.value = withTiming(1, { duration });
+          } else {
+            progress.value = withTiming(0, { duration });
+          }
+        });
+      }
+    }, [activeStep, animated, isAnimated, shouldAnimate, connectorAnimation, duration, connectorProgress]);
+    
+    // Content transition animation
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate() && stepTransition !== 'none') {
+        if (stepTransition === 'fade') {
+          contentOpacity.value = withSequence(
+            withTiming(0, { duration: config.duration.fast }),
+            withTiming(1, { duration: config.duration.fast })
+          );
+        } else if (stepTransition === 'slide') {
+          contentTranslateX.value = withSequence(
+            withTiming(50, { duration: config.duration.fast }),
+            withTiming(0, { duration: config.duration.fast })
+          );
+          contentOpacity.value = withSequence(
+            withTiming(0, { duration: config.duration.fast / 2 }),
+            withTiming(1, { duration: config.duration.fast })
+          );
+        }
+      }
+    }, [activeStep, animated, isAnimated, shouldAnimate, stepTransition, config.duration.fast, contentOpacity, contentTranslateX]);
 
     const canNavigateToStep = (stepIndex: number) => {
       if (!linear) return true;
@@ -77,6 +351,9 @@ export const Stepper = React.forwardRef<View, StepperProps>(
         !steps[stepIndex].disabled &&
         canNavigateToStep(stepIndex)
       ) {
+        if (useHaptics) {
+          haptic('impact');
+        }
         onStepChange(stepIndex);
       }
     };
@@ -100,109 +377,54 @@ export const Stepper = React.forwardRef<View, StepperProps>(
       return 'pending';
     };
 
-    const getStepColor = (status: string) => {
-      switch (status) {
-        case 'completed':
-          return theme.success || theme.primary;
-        case 'active':
-          return theme.primary;
-        case 'error':
-          return theme.destructive;
-        default:
-          return theme.mutedForeground;
-      }
-    };
+    // const getStepColor = (status: string) => {
+    //   switch (status) {
+    //     case 'completed':
+    //       return theme.success || theme.primary;
+    //     case 'active':
+    //       return theme.primary;
+    //     case 'error':
+    //       return theme.destructive;
+    //     default:
+    //       return theme.mutedForeground;
+    //   }
+    // };
 
     const renderStepIcon = (step: StepperStep, stepIndex: number, status: string) => {
-      const iconSize = variant === 'compact' ? 24 : 32;
-      const iconColor = getStepColor(status);
-
-      const iconContainerStyle: ViewStyle = {
-        width: iconSize,
-        height: iconSize,
-        borderRadius: variant === 'dots' ? iconSize / 2 : 8,
-        backgroundColor: status === 'active' ? iconColor : theme.background,
-        borderWidth: 2,
-        borderColor: iconColor,
-        alignItems: 'center',
-        justifyContent: 'center',
-      };
-
-      if (variant === 'dots') {
-        return (
-          <View
-            style={[
-              iconContainerStyle,
-              {
-                width: status === 'active' ? 12 : 8,
-                height: status === 'active' ? 12 : 8,
-                backgroundColor: iconColor,
-                borderWidth: 0,
-              },
-            ]}
-          />
-        );
-      }
-
-      let iconContent: React.ReactNode;
-
-      if (status === 'completed') {
-        iconContent = (
-          <Ionicons
-            name="checkmark"
-            size={iconSize * 0.6}
-            color={theme.background}
-          />
-        );
-      } else if (status === 'error') {
-        iconContent = (
-          <Ionicons
-            name="close"
-            size={iconSize * 0.6}
-            color={theme.background}
-          />
-        );
-      } else if (step.icon) {
-        iconContent = (
-          <Ionicons
-            name={step.icon}
-            size={iconSize * 0.6}
-            color={status === 'active' ? theme.background : iconColor}
-          />
-        );
-      } else if (showStepNumbers) {
-        iconContent = (
-          <Text
-            size="sm"
-            weight="semibold"
-            style={{ color: status === 'active' ? theme.background : iconColor }}
-          >
-            {stepIndex + 1}
-          </Text>
-        );
-      }
-
-      return <View style={iconContainerStyle}>{iconContent}</View>;
+      return (
+        <StepIcon
+          step={step}
+          stepIndex={stepIndex}
+          status={status}
+          variant={variant}
+          showStepNumbers={showStepNumbers}
+          theme={theme}
+          animated={animated}
+          isAnimated={isAnimated}
+          shouldAnimate={shouldAnimate}
+          config={config}
+        />
+      );
     };
 
-    const renderConnector = (status: string, isLast: boolean) => {
-      if (isLast) return null;
-
-      const connectorStyle: ViewStyle = {
-        flex: 1,
-        height: 2,
-        backgroundColor: status === 'completed' ? getStepColor(status) : theme.border,
-        marginHorizontal: spacing(2),
-      };
-
-      if (orientation === 'vertical') {
-        connectorStyle.width = 2;
-        connectorStyle.height = 40;
-        connectorStyle.marginHorizontal = 0;
-        connectorStyle.marginVertical = spacing(1);
-      }
-
-      return <View style={connectorStyle} />;
+    const renderConnector = (status: string, isLast: boolean, stepIndex: number) => {
+      const progress = connectorProgress[stepIndex];
+      
+      return (
+        <StepConnector
+          status={status}
+          isLast={isLast}
+          stepIndex={stepIndex}
+          orientation={orientation}
+          theme={theme}
+          spacing={spacing}
+          animated={animated}
+          isAnimated={isAnimated}
+          shouldAnimate={shouldAnimate}
+          connectorAnimation={connectorAnimation}
+          progress={progress}
+        />
+      );
     };
 
     const renderStep = (step: StepperStep, stepIndex: number) => {
@@ -218,8 +440,8 @@ export const Stepper = React.forwardRef<View, StepperProps>(
 
       const labelContainerStyle: ViewStyle = {
         alignItems: orientation === 'horizontal' ? 'center' : 'flex-start',
-        marginTop: orientation === 'horizontal' ? spacing(2) : 0,
-        marginLeft: orientation === 'vertical' ? spacing(3) : 0,
+        marginTop: orientation === 'horizontal' ? spacing[2] : 0,
+        marginLeft: orientation === 'vertical' ? spacing[3] : 0,
       };
 
       return (
@@ -251,7 +473,7 @@ export const Stepper = React.forwardRef<View, StepperProps>(
                     colorTheme="mutedForeground"
                     style={{
                       textAlign: orientation === 'horizontal' ? 'center' : 'left',
-                      marginTop: spacing(0.5),
+                      marginTop: spacing[0.5],
                     }}
                   >
                     {step.description}
@@ -273,7 +495,7 @@ export const Stepper = React.forwardRef<View, StepperProps>(
             )}
           </Pressable>
           
-          {orientation === 'horizontal' && renderConnector(status, isLast)}
+          {orientation === 'horizontal' && renderConnector(status, isLast, stepIndex)}
         </View>
       );
     };
@@ -289,7 +511,7 @@ export const Stepper = React.forwardRef<View, StepperProps>(
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: spacing(3),
+        paddingVertical: spacing[3],
         ...navigationStyle,
       };
 
@@ -300,7 +522,7 @@ export const Stepper = React.forwardRef<View, StepperProps>(
             size="sm"
             onPress={handlePrevious}
             disabled={isFirstStep}
-            leftIcon={<Ionicons name="arrow-back" size={16} />}
+            leftIcon={<Symbol name="arrow.left" size={16} />}
           >
             Previous
           </Button>
@@ -314,7 +536,7 @@ export const Stepper = React.forwardRef<View, StepperProps>(
             size="sm"
             onPress={handleNext}
             disabled={isLastStep || currentStep.disabled}
-            rightIcon={<Ionicons name="arrow-forward" size={16} />}
+            rightIcon={<Symbol name="arrow.right" size={16} />}
           >
             {isLastStep ? 'Finish' : 'Next'}
           </Button>
@@ -329,7 +551,7 @@ export const Stepper = React.forwardRef<View, StepperProps>(
     const stepperContainerStyle: ViewStyle = {
       flexDirection: orientation === 'horizontal' ? 'row' : 'column',
       alignItems: orientation === 'horizontal' ? 'flex-start' : 'stretch',
-      paddingVertical: spacing(2),
+      paddingVertical: spacing[2],
     };
 
     const currentStepContent = steps[activeStep]?.content;
@@ -347,9 +569,26 @@ export const Stepper = React.forwardRef<View, StepperProps>(
         </ScrollView>
 
         {currentStepContent && (
-          <View style={[{ marginTop: spacing(4) }, contentStyle]}>
+          <AnimatedView 
+            style={[
+              { marginTop: spacing[4] }, 
+              contentStyle,
+              animated && isAnimated && shouldAnimate() && stepTransition !== 'none' 
+                ? {
+                    opacity: contentOpacity.value,
+                    transform: [{ translateX: contentTranslateX.value }],
+                  }
+                : {},
+            ]}
+            entering={Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() && animationType === 'fade'
+              ? FadeIn.duration(duration)
+              : Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() && animationType === 'slide'
+              ? SlideInRight.duration(duration)
+              : undefined
+            }
+          >
             {currentStepContent}
-          </View>
+          </AnimatedView>
         )}
 
         {showNavigation && navigationPosition !== 'top' && renderNavigation()}

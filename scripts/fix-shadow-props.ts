@@ -156,22 +156,22 @@ async function fixShadowProps() {
       return acc;
     }, {} as Record<string, FileChange[]>);
     
-    console.log('\n📝 Changes made:');
+    log.info('\n📝 Changes made:', 'COMPONENT');
     for (const [file, fileChanges] of Object.entries(changesByFile)) {
-      console.log(`\n${file}:`);
+      log.info('\n${file}:', 'COMPONENT');
       for (const change of fileChanges) {
-        console.log(`  Line ${change.lineNumber}: Fixed shadow prop issue`);
+        log.info('  Line ${change.lineNumber}: Fixed shadow prop issue', 'COMPONENT');
       }
     }
   } else {
     log.info('No shadow prop issues found!', 'SHADOW_FIX');
   }
   
-  console.log('\n✅ Shadow prop fixes complete!');
-  console.log('\n📌 Next steps:');
-  console.log('1. Review the TODO comments added to files');
-  console.log('2. Replace direct shadow styles with Box component shadow prop');
-  console.log('3. Use Platform.select() for platform-specific shadows when needed');
+  log.info('\n✅ Shadow prop fixes complete!', 'COMPONENT');
+  log.info('\n📌 Next steps:', 'COMPONENT');
+  log.info('1. Review the TODO comments added to files', 'COMPONENT');
+  log.info('2. Replace direct shadow styles with Box component shadow prop', 'COMPONENT');
+  log.info('3. Use Platform.select() for platform-specific shadows when needed', 'COMPONENT');
 }
 
 // Run the fix

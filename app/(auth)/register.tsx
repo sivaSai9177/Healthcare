@@ -1,23 +1,22 @@
 import React from "react";
 import { TouchableOpacity, Pressable, Platform, KeyboardAvoidingView, Dimensions, ScrollView } from "react-native";
-import { Link } from "expo-router";
+import { useRouter } from "expo-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import debounce from 'lodash.debounce';
 import { useAuth } from "@/hooks/useAuth";
 import { toAppUser } from "@/lib/stores/auth-store";
-import { api } from "@/lib/trpc";
+import { api } from "@/lib/api/trpc";
 import { signUpSchema, type SignUpInput } from "@/lib/validations/auth";
 import { showErrorAlert, showSuccessAlert } from "@/lib/core/alert";
-import { log } from "@/lib/core/logger";
+import { log } from "@/lib/core/debug/logger";
 import { generateUUID } from "@/lib/core/crypto";
 import { GoogleSignInButton } from "@/components/GoogleSignInButton";
-import { RoleSelector, UserRole, roleOptions } from "@/components/RoleSelector";
+import { UserRole, roleOptions } from "@/components/RoleSelector";
 import { OrganizationField } from "@/components/OrganizationField";
-import { useTheme } from "@/lib/theme/theme-provider";
-import { ValidationIcon } from "@/components/ui/ValidationIcon";
-import { IconSymbol } from "@/components/ui/IconSymbol";
+import { useTheme } from "@/lib/theme/provider";
+import { ValidationIcon , Symbol as IconSymbol } from '@/components/universal';
 import { Box } from "@/components/universal/Box";
 import { Text, Heading1, Caption } from "@/components/universal/Text";
 import { VStack, HStack } from "@/components/universal/Stack";
@@ -25,12 +24,12 @@ import { Button } from "@/components/universal/Button";
 import { Input } from "@/components/universal/Input";
 import { Card, CardContent } from "@/components/universal/Card";
 import { Checkbox } from "@/components/universal/Checkbox";
-import { Container } from "@/components/universal/Container";
-import { ScrollContainer } from "@/components/universal/ScrollContainer";
-import { UniversalLink, TextLink } from "@/components/universal/Link";
-import { BorderRadius, SpacingScale } from "@/lib/design-system";
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+import { TextLink } from "@/components/universal/Link";
+import { BorderRadius, SpacingScale } from "@/lib/design";
+import { useBreakpoint } from '@/hooks/responsive';
+
 
 // Social button icons
 const SocialIcons = {
@@ -43,8 +42,10 @@ const SocialIcons = {
 };
 
 export default function SignupScreenV2() {
+// TODO: Replace with structured logging - console.log('[RegisterScreen] Component rendering');
   const { updateAuth, setLoading, setError } = useAuth();
   const theme = useTheme();
+  const router = useRouter();
   const [selectedRole, setSelectedRole] = React.useState<UserRole>();
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
@@ -65,14 +66,23 @@ export default function SignupScreenV2() {
     }
   }, []);
   
-  const isTabletOrDesktop = screenWidth >= 768;
+  const breakpoint = useBreakpoint();
+  const isTabletOrDesktop = ['md', 'lg', 'xl', '2xl'].includes(breakpoint);
 
   // Use tRPC mutation for sign up
   const signUpMutation = api.auth.signUp.useMutation({
     onSuccess: (data: any) => {
+// TODO: Replace with structured logging
+      // console.log('[RegisterScreen] Sign up successful', {
+      //   userId: data.user?.id,
+      //   email: data.user?.email,
+      //   role: data.user?.role,
+      //   hasToken: !!data.token
+      // });
       log.auth.signup('Sign up successful via tRPC', { userId: data.user?.id });
       setLoading(false);
-      if (data.user) {
+      
+      if (data.user && data.token) {
         const formRole = form.getValues('role') as 'admin' | 'manager' | 'user' | 'guest';
         const appUser = toAppUser(data.user, formRole || 'user');
         if (!appUser.organizationId && form.getValues('organizationId')) {
@@ -81,14 +91,25 @@ export default function SignupScreenV2() {
 
         const session = {
           id: generateUUID(),
-          token: 'new-user-session',
+          token: data.token,
           userId: appUser.id,
           createdAt: new Date(),
           updatedAt: new Date(),
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         };
+        
+// TODO: Replace with structured logging - console.log('[RegisterScreen] Updating auth state and navigating');
         updateAuth(appUser, session);
         showSuccessAlert("Account Created", "Welcome to the app!");
+        
+        // Navigate after a small delay to ensure auth state is updated
+        setTimeout(() => {
+// TODO: Replace with structured logging - console.log('[RegisterScreen] Navigating to home after registration');
+          router.replace('/(home)');
+        }, 500);
+      } else {
+        console.error('[RegisterScreen] No user or token in response');
+        showErrorAlert("Registration Error", "Account created but login failed. Please login manually.");
       }
     },
     onError: (error) => {
@@ -215,6 +236,15 @@ export default function SignupScreenV2() {
   }, [formValues, acceptTerms, acceptPrivacy, emailCheckData]);
 
   const onSubmit = async (data: SignUpInput) => {
+// TODO: Replace with structured logging
+    // console.log('[RegisterScreen] Form submitted with data:', {
+    //   email: data.email,
+    //   name: data.name,
+    //   role: data.role,
+    //   hasPassword: !!data.password,
+    //   acceptTerms: data.acceptTerms,
+    //   acceptPrivacy: data.acceptPrivacy
+    // });
     log.auth.signup('Starting signup attempt', { email: data.email });
     
     if (!form.formState.isValid) {
@@ -247,6 +277,7 @@ export default function SignupScreenV2() {
         submissionData.organizationName = data.organizationName;
       }
 
+// TODO: Replace with structured logging - console.log('[RegisterScreen] Calling signUp mutation');
       await signUpMutation.mutateAsync(submissionData);
       
     } catch (error: any) {
@@ -272,7 +303,7 @@ export default function SignupScreenV2() {
         maxWidth: isTabletOrDesktop ? 900 : 400,
         ...(Platform.OS === 'web' && {
           maxHeight: isTabletOrDesktop ? '90vh' : '100%',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          boxShadow: '0 25px 50px -12px theme.mutedForeground + "40"',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -286,7 +317,7 @@ export default function SignupScreenV2() {
           borderBottomWidth={1} 
           borderTheme="border"
           px={isTabletOrDesktop ? 8 : 6}
-          py={4}
+          py={4 as SpacingScale}
           style={{
             position: 'sticky' as any,
             top: 0,
@@ -406,7 +437,7 @@ export default function SignupScreenV2() {
                               <TextLink 
                                 href="/(auth)/login"
                                 size="sm"
-                                variant="primary"
+                                variant="solid"
                                 style={{ display: 'inline' as any }}
                               >
                                 Login to your account
@@ -594,7 +625,7 @@ export default function SignupScreenV2() {
                     <IconSymbol name="lock.fill" size={20} color={theme.mutedForeground} />
                   }
                   rightElement={
-                    <Box flexDirection="row" alignItems="center" gap={2}>
+                    <Box flexDirection="row" alignItems="center" gap={2 as SpacingScale}>
                       {form.formState.touchedFields.password && form.watch('password') && (
                         <ValidationIcon status={form.formState.errors.password ? 'error' : 'success'} />
                       )}
@@ -633,7 +664,7 @@ export default function SignupScreenV2() {
                     <IconSymbol name="lock.shield.fill" size={20} color={theme.mutedForeground} />
                   }
                   rightElement={
-                    <Box flexDirection="row" alignItems="center" gap={2}>
+                    <Box flexDirection="row" alignItems="center" gap={2 as SpacingScale}>
                       {form.formState.touchedFields.confirmPassword && form.watch('confirmPassword') && (
                         <ValidationIcon status={form.formState.errors.confirmPassword ? 'error' : 'success'} />
                       )}
@@ -655,8 +686,8 @@ export default function SignupScreenV2() {
               <Box mb={3}>
                 <HStack flexWrap="wrap" spacing={1}>
                   <Box 
-                    px={2} 
-                    py={1} 
+                    px={2 as SpacingScale} 
+                    py={1 as SpacingScale} 
                     rounded="sm"
                     bgTheme={(form.watch('password')?.length >= 12) ? 'accent' : 'destructive'}
                     style={{ opacity: 0.2, marginRight: 4, marginBottom: 4 }}
@@ -666,8 +697,8 @@ export default function SignupScreenV2() {
                     </Text>
                   </Box>
                   <Box 
-                    px={2} 
-                    py={1} 
+                    px={2 as SpacingScale} 
+                    py={1 as SpacingScale} 
                     rounded="sm"
                     bgTheme={/[A-Z]/.test(form.watch('password') || '') ? 'accent' : 'destructive'}
                     style={{ opacity: 0.2, marginRight: 4, marginBottom: 4 }}
@@ -677,8 +708,8 @@ export default function SignupScreenV2() {
                     </Text>
                   </Box>
                   <Box 
-                    px={2} 
-                    py={1} 
+                    px={2 as SpacingScale} 
+                    py={1 as SpacingScale} 
                     rounded="sm"
                     bgTheme={/[a-z]/.test(form.watch('password') || '') ? 'accent' : 'destructive'}
                     style={{ opacity: 0.2, marginRight: 4, marginBottom: 4 }}
@@ -688,8 +719,8 @@ export default function SignupScreenV2() {
                     </Text>
                   </Box>
                   <Box 
-                    px={2} 
-                    py={1} 
+                    px={2 as SpacingScale} 
+                    py={1 as SpacingScale} 
                     rounded="sm"
                     bgTheme={/\d/.test(form.watch('password') || '') ? 'accent' : 'destructive'}
                     style={{ opacity: 0.2, marginRight: 4, marginBottom: 4 }}
@@ -699,8 +730,8 @@ export default function SignupScreenV2() {
                     </Text>
                   </Box>
                   <Box 
-                    px={2} 
-                    py={1} 
+                    px={2 as SpacingScale} 
+                    py={1 as SpacingScale} 
                     rounded="sm"
                     bgTheme={/[@$!%*?&]/.test(form.watch('password') || '') ? 'accent' : 'destructive'}
                     style={{ opacity: 0.2, marginBottom: 4 }}
@@ -782,7 +813,7 @@ export default function SignupScreenV2() {
                 right={0} 
               />
               <Box alignItems="center">
-                <Box bgTheme="card" px={2}>
+                <Box bgTheme="card" px={2 as SpacingScale}>
                   <Caption colorTheme="mutedForeground">Or continue with</Caption>
                 </Box>
               </Box>
@@ -832,7 +863,7 @@ export default function SignupScreenV2() {
                   href="/(auth)/login"
                   size="sm"
                   weight="medium"
-                  variant="primary"
+                  variant="solid"
                 >
                   Login
                 </TextLink>
@@ -844,7 +875,7 @@ export default function SignupScreenV2() {
     </Card>
   );
 
-  const isMobile = screenWidth < 768;
+  const { isMobile } = useResponsive();
 
   // Mobile layout - no card, full screen
   if (isMobile) {
@@ -865,7 +896,7 @@ export default function SignupScreenV2() {
             <VStack spacing={6}>
               
               {/* Form content directly without card wrapper */}
-              <Box px={6} pt={4} pb={6}>
+              <Box px={6 as SpacingScale} pt={4} pb={6}>
                 <VStack spacing={4}>
                   {/* Row 1: Name and Email - stacked on mobile */}
                   <VStack spacing={3}>
@@ -950,7 +981,7 @@ export default function SignupScreenV2() {
                               <TextLink 
                                 href="/(auth)/login"
                                 size="sm"
-                                variant="primary"
+                                variant="solid"
                                 style={{ display: 'inline' as any }}
                               >
                                 Login to your account
@@ -1071,7 +1102,7 @@ export default function SignupScreenV2() {
                           <IconSymbol name="lock.fill" size={20} color={theme.mutedForeground} />
                         }
                         rightElement={
-                          <Box flexDirection="row" alignItems="center" gap={2}>
+                          <Box flexDirection="row" alignItems="center" gap={2 as SpacingScale}>
                             {form.formState.touchedFields.password && form.watch('password') && (
                               <ValidationIcon status={form.formState.errors.password ? 'error' : 'success'} />
                             )}
@@ -1110,7 +1141,7 @@ export default function SignupScreenV2() {
                           <IconSymbol name="lock.shield.fill" size={20} color={theme.mutedForeground} />
                         }
                         rightElement={
-                          <Box flexDirection="row" alignItems="center" gap={2}>
+                          <Box flexDirection="row" alignItems="center" gap={2 as SpacingScale}>
                             {form.formState.touchedFields.confirmPassword && form.watch('confirmPassword') && (
                               <ValidationIcon status={form.formState.errors.confirmPassword ? 'error' : 'success'} />
                             )}
@@ -1132,8 +1163,8 @@ export default function SignupScreenV2() {
                     <Box>
                       <HStack flexWrap="wrap" spacing={1}>
                         <Box 
-                          px={2} 
-                          py={1} 
+                          px={2 as SpacingScale} 
+                          py={1 as SpacingScale} 
                           rounded="sm"
                           bgTheme={(form.watch('password')?.length >= 12) ? 'accent' : 'destructive'}
                           style={{ opacity: 0.2, marginRight: 4, marginBottom: 4 }}
@@ -1143,8 +1174,8 @@ export default function SignupScreenV2() {
                           </Text>
                         </Box>
                         <Box 
-                          px={2} 
-                          py={1} 
+                          px={2 as SpacingScale} 
+                          py={1 as SpacingScale} 
                           rounded="sm"
                           bgTheme={/[A-Z]/.test(form.watch('password') || '') ? 'accent' : 'destructive'}
                           style={{ opacity: 0.2, marginRight: 4, marginBottom: 4 }}
@@ -1154,8 +1185,8 @@ export default function SignupScreenV2() {
                           </Text>
                         </Box>
                         <Box 
-                          px={2} 
-                          py={1} 
+                          px={2 as SpacingScale} 
+                          py={1 as SpacingScale} 
                           rounded="sm"
                           bgTheme={/[a-z]/.test(form.watch('password') || '') ? 'accent' : 'destructive'}
                           style={{ opacity: 0.2, marginRight: 4, marginBottom: 4 }}
@@ -1165,8 +1196,8 @@ export default function SignupScreenV2() {
                           </Text>
                         </Box>
                         <Box 
-                          px={2} 
-                          py={1} 
+                          px={2 as SpacingScale} 
+                          py={1 as SpacingScale} 
                           rounded="sm"
                           bgTheme={/\d/.test(form.watch('password') || '') ? 'accent' : 'destructive'}
                           style={{ opacity: 0.2, marginRight: 4, marginBottom: 4 }}
@@ -1176,8 +1207,8 @@ export default function SignupScreenV2() {
                           </Text>
                         </Box>
                         <Box 
-                          px={2} 
-                          py={1} 
+                          px={2 as SpacingScale} 
+                          py={1 as SpacingScale} 
                           rounded="sm"
                           bgTheme={/[@$!%*?&]/.test(form.watch('password') || '') ? 'accent' : 'destructive'}
                           style={{ opacity: 0.2, marginBottom: 4 }}
@@ -1259,7 +1290,7 @@ export default function SignupScreenV2() {
                       right={0} 
                     />
                     <Box alignItems="center">
-                      <Box bgTheme="background" px={2}>
+                      <Box bgTheme="background" px={2 as SpacingScale}>
                         <Caption colorTheme="mutedForeground">Or continue with</Caption>
                       </Box>
                     </Box>
@@ -1309,7 +1340,7 @@ export default function SignupScreenV2() {
                         href="/(auth)/login"
                         size="sm"
                         weight="medium"
-                        variant="primary"
+                        variant="solid"
                       >
                         Sign in
                       </TextLink>

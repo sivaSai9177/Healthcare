@@ -5,8 +5,9 @@ import { ChartContainer, ChartLegend } from './ChartContainer';
 import { HStack } from '../Stack';
 import { Box } from '../Box';
 import { Button } from '../Button';
-import { SpacingScale } from '@/lib/design-system';
-import { useTheme } from '@/lib/theme/theme-provider';
+import { SpacingScale } from '@/lib/design';
+import { useTheme } from '@/lib/theme/provider';
+import { useBreakpoint } from '@/hooks/responsive';
 
 export interface TimeRange {
   label: string;
@@ -44,6 +45,7 @@ export const AreaChartWithControls: React.FC<AreaChartWithControlsProps> = ({
   onTimeRangeChange,
 }) => {
   const theme = useTheme();
+  const breakpoint = useBreakpoint();
   const [selectedRange, setSelectedRange] = useState(defaultTimeRange);
   const [isMobile, setIsMobile] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -129,7 +131,7 @@ export const AreaChartWithControls: React.FC<AreaChartWithControlsProps> = ({
               showYAxis
               bezier
               style={{
-                backgroundColor: 'transparent',
+                backgroundColor: transparent,
               }}
             />
           </Box>

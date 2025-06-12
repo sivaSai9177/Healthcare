@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { api } from '@/lib/trpc';
+import { api } from '@/lib/api/trpc';
 import { useAuth } from '@/hooks/useAuth';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
   const { updateAuth, clearAuth, hasHydrated } = useAuth();
@@ -11,7 +11,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     // Always enable the query after hydration to verify session
     enabled: hasHydrated,
     
-    // Don't retry too many times on mobile to prevent blocking
+    // Don&apos;t retry too many times on mobile to prevent blocking
     retry: 1,
     
     // Poll every 5 minutes (reduced frequency to minimize rerenders)
@@ -27,7 +27,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     // Keep in cache for 30 minutes
     gcTime: 30 * 60 * 1000,
     
-    // Don't refetch on mount if data is fresh
+    // Don&apos;t refetch on mount if data is fresh
     refetchOnMount: false,
   });
   
@@ -37,7 +37,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     if (data && (data as any).user) {
       updateAuth((data as any).user, (data as any).session);
     }
-    // Don't clear auth just because the query returned null
+    // Don&apos;t clear auth just because the query returned null
     // Let the error handler deal with actual auth failures
   }, [data, updateAuth]);
   

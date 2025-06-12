@@ -1,9 +1,13 @@
-import { useSpacing } from "@/contexts/SpacingContext";
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { AnimationVariant, AnimationVariantConfig , SpacingScale } from '@/lib/design';
 import { useTheme } from "@/lib/theme/provider";
-import { Ionicons } from "@expo/vector-icons";
+import { useAnimationVariant } from "@/hooks/useAnimationVariant";
+import { useAnimationStore } from "@/lib/stores/animation-store";
+import { haptic } from "@/lib/ui/haptics";
+import { Symbol } from './Symbols';
+import { log } from '@/lib/core/debug/logger';
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Animated,
   Dimensions,
   Modal,
   Platform,
@@ -15,11 +19,29 @@ import {
 import { Box } from "./Box";
 import { VStack } from "./Stack";
 import { Text as UniversalText } from "./Text";
+// Import Reanimated properly
+import ReAnimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withDelay,
+} from 'react-native-reanimated';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
+export type DropdownMenuAnimationType = 'scale' | 'fade' | 'slide' | 'none';
+
 export interface DropdownMenuProps {
   children: React.ReactNode;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: DropdownMenuAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: Partial<AnimationVariantConfig>;
 }
 
 export interface DropdownMenuTriggerProps {
@@ -33,6 +55,14 @@ export interface DropdownMenuContentProps {
   align?: "start" | "center" | "end";
   sideOffset?: number;
   minWidth?: number;
+  
+  // Animation props (can override parent props)
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: DropdownMenuAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: Partial<AnimationVariantConfig>;
 }
 
 export interface DropdownMenuItemProps {
@@ -61,6 +91,10 @@ export interface DropdownMenuSeparatorProps {
   style?: any;
 }
 
+export interface DropdownMenuShortcutProps {
+  children: React.ReactNode;
+}
+
 export interface DropdownMenuGroupProps {
   children: React.ReactNode;
 }
@@ -77,6 +111,12 @@ const DropdownMenuContext = React.createContext<{
   onOpenChange: (open: boolean) => void;
   triggerLayout: { x: number; y: number; width: number; height: number } | null;
   setTriggerLayout: (layout: { x: number; y: number; width: number; height: number } | null) => void;
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: DropdownMenuAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
+  animationConfig?: Partial<AnimationVariantConfig>;
 } | null>(null);
 
 const DropdownMenuRadioContext = React.createContext<{
@@ -95,7 +135,15 @@ const useDropdownMenuContext = () => {
 };
 
 // Main DropdownMenu Component
-export function DropdownMenu({ children }: DropdownMenuProps) {
+export function DropdownMenu({ 
+  children,
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'scale',
+  animationDuration,
+  useHaptics = true,
+  animationConfig,
+}: DropdownMenuProps) {
   const [open, setOpen] = useState(false);
   const [triggerLayout, setTriggerLayout] = useState<{
     x: number;
@@ -117,7 +165,18 @@ export function DropdownMenu({ children }: DropdownMenuProps) {
   };
 
   return (
-    <DropdownMenuContext.Provider value={{ open, onOpenChange, triggerLayout, setTriggerLayout: updateTriggerLayout }}>
+    <DropdownMenuContext.Provider value={{ 
+      open, 
+      onOpenChange, 
+      triggerLayout, 
+      setTriggerLayout: updateTriggerLayout,
+      animated,
+      animationVariant,
+      animationType,
+      animationDuration,
+      useHaptics,
+      animationConfig,
+    }}>
       {children}
     </DropdownMenuContext.Provider>
   );
@@ -136,6 +195,11 @@ export function DropdownMenuTrigger({
 
   const handlePress = () => {
     if (disabled) return;
+    
+    // Haptic feedback
+    if (context.useHaptics && Platform.OS !== 'web') {
+      haptic('selection');
+    }
 
     triggerRef.current?.measureInWindow((x, y, width, height) => {
       // Update trigger layout through context method
@@ -193,36 +257,180 @@ export function DropdownMenuPortal({
   return <>{children}</>;
 }
 
+const AnimatedView = ReAnimated.createAnimatedComponent(View);
+const AnimatedScrollView = ReAnimated.createAnimatedComponent(ScrollView);
+
+// Helper components to avoid hooks in conditional rendering
+const CheckboxIcon = ({ checked }: { checked: boolean }) => {
+  const theme = useTheme();
+  return (
+    <Box width={16} height={16} alignItems="center" justifyContent="center">
+      {checked && (
+        <Symbol
+          name="checkmark"
+          size={14}
+          color={theme.foreground}
+        />
+      )}
+    </Box>
+  );
+};
+
+const RadioIcon = ({ selected }: { selected: boolean }) => {
+  const theme = useTheme();
+  return (
+    <Box width={16} height={16} alignItems="center" justifyContent="center">
+      <View
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: selected ? theme.foreground : "transparent",
+        }}
+      />
+    </Box>
+  );
+};
+
+// DropdownMenuItemWrapper - Component for animating individual menu items with stagger
+const DropdownMenuItemWrapper = ({ 
+  children, 
+  index, 
+  animated, 
+  isAnimated, 
+  shouldAnimate, 
+  config 
+}: {
+  children: React.ReactNode;
+  index: number;
+  animated: boolean;
+  isAnimated: boolean;
+  shouldAnimate: () => boolean;
+  config: any;
+}) => {
+  const itemOpacity = useSharedValue(0);
+  
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      itemOpacity.value = withDelay(
+        index * 50, // Stagger delay
+        withTiming(1, { duration: config.duration.fast })
+      );
+    } else {
+      itemOpacity.value = 1;
+    }
+  }, [animated, isAnimated, shouldAnimate, index, config, itemOpacity]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: itemOpacity.value,
+  }));
+
+  if (!animated || !isAnimated || !shouldAnimate()) {
+    return <>{children}</>;
+  }
+
+  return (
+    <AnimatedView style={animatedStyle}>
+      {children}
+    </AnimatedView>
+  );
+};
+
 // DropdownMenu Content
 export function DropdownMenuContent({
   children,
   align = "start",
   sideOffset = 8,
   minWidth = 200,
+  animated: propsAnimated,
+  animationVariant: propsVariant,
+  animationType: propsAnimationType,
+  animationDuration: _animationDuration,
+  useHaptics: propsUseHaptics,
+  animationConfig: propsAnimationConfig,
 }: DropdownMenuContentProps) {
-  const { open, onOpenChange, triggerLayout } = useDropdownMenuContext();
+  const contextValues = useDropdownMenuContext();
+  const { open, onOpenChange, triggerLayout } = contextValues;
+  
+  // Use props if provided, otherwise fall back to context
+  const animated = propsAnimated ?? contextValues.animated ?? true;
+  const animationVariant = propsVariant ?? contextValues.animationVariant ?? 'moderate';
+  const animationType = propsAnimationType ?? contextValues.animationType ?? 'scale';
+  const useHaptics = propsUseHaptics ?? contextValues.useHaptics ?? true;
+  const animationConfig = propsAnimationConfig ?? contextValues.animationConfig;
+  
   const theme = useTheme();
   const { spacing } = useSpacing();
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  // Animation values
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(animationType === 'scale' ? 0.9 : 1);
+  const translateY = useSharedValue(animationType === 'slide' ? -10 : 0);
+  
+  // Track items for stagger animation
 
   useEffect(() => {
-    if (open) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 65,
-          friction: 9,
-          useNativeDriver: true,
-        }),
-      ]).start();
+    if (open && animated && isAnimated && shouldAnimate()) {
+      // Haptic feedback when menu opens
+      if (useHaptics && Platform.OS !== 'web') {
+        haptic('selection');
+      }
+      
+      if (animationType === 'scale') {
+        opacity.value = withTiming(1, { duration: config.duration.fast });
+        scale.value = withSpring(1, config.spring);
+      } else if (animationType === 'fade') {
+        opacity.value = withTiming(1, { duration: config.duration.normal });
+      } else if (animationType === 'slide') {
+        opacity.value = withTiming(1, { duration: config.duration.fast });
+        translateY.value = withSpring(0, config.spring);
+      }
+    } else if (open) {
+      opacity.value = 1;
+      scale.value = 1;
+      translateY.value = 0;
+    } else {
+      opacity.value = 0;
+      if (animationType === 'scale') scale.value = 0.9;
+      if (animationType === 'slide') translateY.value = -10;
     }
-  }, [open]);
+  }, [open, animated, isAnimated, shouldAnimate, animationType, config, useHaptics, opacity, scale, translateY]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const baseStyle: any = {
+      opacity: opacity.value,
+    };
+    
+    if (animationType === 'scale') {
+      baseStyle.transform = [
+        { scale: scale.value },
+        { translateY: translateY.value },
+      ];
+    } else if (animationType === 'slide') {
+      baseStyle.transform = [
+        { translateY: translateY.value },
+      ];
+    }
+    
+    return baseStyle;
+  });
+  
+  // Get transform origin for web animations
+  const getTransformOrigin = () => {
+    switch (align) {
+      case 'center':
+        return 'top center';
+      case 'end':
+        return 'top right';
+      default:
+        return 'top left';
+    }
+  };
 
   if (!triggerLayout) return null;
 
@@ -253,33 +461,51 @@ export function DropdownMenuContent({
     >
       <TouchableWithoutFeedback onPress={() => onOpenChange(false)}>
         <View style={{ flex: 1 }}>
-          <Animated.View
-            style={{
-              position: "absolute",
-              left,
-              top,
-              minWidth,
-              backgroundColor: theme.popover,
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: theme.border,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 3,
-              elevation: 3,
-              padding: spacing[1],
-              opacity: fadeAnim,
-              transform: [{ scale: scaleAnim }],
-            }}
+          <AnimatedView
+            style={[
+              {
+                position: "absolute",
+                left,
+                top,
+                minWidth,
+                backgroundColor: theme.popover,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: theme.border,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 3,
+                elevation: 3,
+                padding: spacing[1],
+              },
+              animated && isAnimated && shouldAnimate() && animationType !== 'none' 
+                ? animatedStyle 
+                : { opacity: 1 },
+              Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && {
+                transition: 'all 0.2s ease',
+                transformOrigin: getTransformOrigin(),
+              } as any,
+            ]}
           >
-            <ScrollView
+            <AnimatedScrollView
               showsVerticalScrollIndicator={false}
               style={{ maxHeight: 300 }}
             >
-              {children}
-            </ScrollView>
-          </Animated.View>
+              {React.Children.map(children, (child, index) => (
+                <DropdownMenuItemWrapper
+                  key={index}
+                  index={index}
+                  animated={animated}
+                  isAnimated={isAnimated}
+                  shouldAnimate={shouldAnimate}
+                  config={config}
+                >
+                  {child}
+                </DropdownMenuItemWrapper>
+              ))}
+            </AnimatedScrollView>
+          </AnimatedView>
         </View>
       </TouchableWithoutFeedback>
     </Modal>
@@ -295,37 +521,63 @@ export function DropdownMenuItem({
   icon,
   shortcut,
 }: DropdownMenuItemProps) {
-  const { onOpenChange } = useDropdownMenuContext();
+  const context = useDropdownMenuContext();
+  const { onOpenChange } = context;
   const theme = useTheme();
   const { spacing } = useSpacing();
   const [isHovered, setIsHovered] = useState(false);
 
   const handlePress = () => {
     if (!disabled && onPress) {
+      // Haptic feedback for menu item selection
+      if (context.useHaptics && Platform.OS !== 'web') {
+        haptic('light');
+      }
+      
       onPress();
       onOpenChange(false);
     }
   };
 
+  const AnimatedPressable = ReAnimated.createAnimatedComponent(Pressable);
+  const itemScale = useSharedValue(1);
+  
+  const handlePressIn = () => {
+    itemScale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+  };
+  
+  const handlePressOut = () => {
+    itemScale.value = withSpring(1, { damping: 15, stiffness: 400 });
+  };
+  
+  const animatedItemStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: itemScale.value }] as any,
+  }));
+  
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       disabled={disabled}
       onPointerEnter={Platform.OS === 'web' && !disabled ? () => setIsHovered(true) : undefined}
       onPointerLeave={Platform.OS === 'web' && !disabled ? () => setIsHovered(false) : undefined}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: spacing[2],
-        paddingVertical: spacing[1.5],
-        borderRadius: 4,
-        backgroundColor: pressed || isHovered ? theme.accent : 'transparent',
-        opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
-        ...(Platform.OS === 'web' && {
-          transition: 'backgroundColor 0.15s ease',
-          cursor: disabled ? 'not-allowed' : 'pointer',
-        } as any),
-      })}
+      style={[
+        ({ pressed }: any) => ({
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: spacing[2],
+          paddingVertical: spacing[1.5],
+          borderRadius: 4,
+          backgroundColor: pressed || isHovered ? theme.accent : 'transparent',
+          opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
+          ...(Platform.OS === 'web' && {
+            transition: 'backgroundColor 0.15s ease',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+          } as any),
+        }),
+        animatedItemStyle,
+      ]}
     >
       {icon && <Box mr={2}>{icon}</Box>}
 
@@ -346,7 +598,7 @@ export function DropdownMenuItem({
           {shortcut}
         </UniversalText>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -371,15 +623,7 @@ export function DropdownMenuCheckboxItem({
       onPress={handlePress}
       disabled={disabled}
       icon={
-        <Box width={16} height={16} alignItems="center" justifyContent="center">
-          {checked && (
-            <Ionicons
-              name="checkmark"
-              size={14}
-              color={useTheme().foreground}
-            />
-          )}
-        </Box>
+        <CheckboxIcon checked={checked} />
       }
     >
       {children}
@@ -423,18 +667,7 @@ export function DropdownMenuRadioItem({
       onPress={handlePress}
       disabled={disabled}
       icon={
-        <Box width={16} height={16} alignItems="center" justifyContent="center">
-          <View
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: isSelected
-                ? useTheme().foreground
-                : "transparent",
-            }}
-          />
-        </Box>
+        <RadioIcon selected={isSelected} />
       }
     >
       {children}
@@ -444,10 +677,8 @@ export function DropdownMenuRadioItem({
 
 // DropdownMenu Label
 export function DropdownMenuLabel({ children }: DropdownMenuLabelProps) {
-  const { spacing } = useSpacing();
-
   return (
-    <Box px={2} py={1.5}>
+    <Box px={2 as SpacingScale} py={1.5}>
       <UniversalText size="xs" weight="semibold" colorTheme="mutedForeground">
         {children}
       </UniversalText>
@@ -481,12 +712,10 @@ export function DropdownMenuGroup({ children }: DropdownMenuGroupProps) {
 }
 
 // DropdownMenu Sub (not implemented for mobile)
-export const DropdownMenuSub = ({
-  children,
-}: {
+export const DropdownMenuSub = (_: {
   children: React.ReactNode;
 }) => {
-  console.warn("DropdownMenuSub is not supported on mobile platforms");
+  log.warn('DropdownMenuSub is not supported on mobile platforms', 'DROPDOWN');
   return null;
 };
 
@@ -494,14 +723,10 @@ export const DropdownMenuSubTrigger = DropdownMenuItem;
 export const DropdownMenuSubContent = DropdownMenuContent;
 
 // DropdownMenu Shortcut (convenience component)
-export function DropdownMenuShortcut({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export function DropdownMenuShortcut(props: DropdownMenuShortcutProps) {
   return (
     <UniversalText size="xs" colorTheme="mutedForeground">
-      {children}
+      {props.children}
     </UniversalText>
   );
 }

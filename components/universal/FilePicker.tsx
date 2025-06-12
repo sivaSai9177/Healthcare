@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   Image,
   ScrollView,
   Platform,
@@ -11,11 +11,31 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withSequence,
+  FadeIn,
+  FadeOut,
+  Layout,
+  ZoomIn,
+  ZoomOut,
+} from 'react-native-reanimated';
+import { Symbol } from './Symbols';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
 import { Card } from './Card';
 import { Button } from './Button';
+import { 
+  AnimationVariant,
+  getAnimationConfig,
+  SpacingScale,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
 
 export interface FileItem {
   uri: string;
@@ -24,6 +44,8 @@ export interface FileItem {
   mimeType?: string;
   type?: 'image' | 'document' | 'video' | 'audio' | 'other';
 }
+
+export type FilePickerAnimationType = 'dragHover' | 'uploadProgress' | 'fadeIn' | 'none';
 
 export interface FilePickerProps {
   value?: FileItem[];
@@ -39,6 +61,20 @@ export interface FilePickerProps {
   style?: ViewStyle;
   previewStyle?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: FilePickerAnimationType;
+  animationDuration?: number;
+  dragAnimation?: boolean;
+  uploadAnimation?: boolean;
+  previewAnimation?: 'zoomIn' | 'fadeIn' | 'slideUp';
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 const formatFileSize = (bytes?: number): string => {
@@ -63,6 +99,99 @@ const getFileIcon = (type?: string): string => {
   }
 };
 
+const AnimatedView = Animated.View;
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// Animated file preview item
+const AnimatedFilePreview = ({ 
+  file, 
+  index, 
+  onRemove, 
+  theme, 
+  spacing,
+  animated,
+  shouldAnimate,
+  previewAnimation,
+  animationDuration,
+}: any) => {
+  const scale = useSharedValue(0);
+  const opacity = useSharedValue(0);
+  
+  useEffect(() => {
+    if (animated && shouldAnimate()) {
+      if (previewAnimation === 'zoomIn') {
+        scale.value = withSpring(1, { damping: 10, stiffness: 200 });
+        opacity.value = withTiming(1, { duration: animationDuration });
+      } else if (previewAnimation === 'fadeIn') {
+        scale.value = 1;
+        opacity.value = withTiming(1, { duration: animationDuration });
+      } else if (previewAnimation === 'slideUp') {
+        scale.value = 1;
+        opacity.value = withTiming(1, { duration: animationDuration });
+      }
+    } else {
+      scale.value = 1;
+      opacity.value = 1;
+    }
+  }, [animated, shouldAnimate, previewAnimation]);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+  
+  return (
+    <AnimatedView
+      style={[{
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: spacing[3],
+        backgroundColor: theme.muted,
+        borderRadius: 8,
+        marginBottom: spacing[2],
+      }, animatedStyle]}
+    >
+      {file.type === 'image' && file.uri ? (
+        <Image
+          source={{ uri: file.uri }}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 4,
+            marginRight: spacing[2],
+          }}
+        />
+      ) : (
+        <Symbol
+          name="getFileIcon(file.type) as any"
+          size={24}
+          color={theme.mutedForeground}
+          style={{ marginRight: spacing[2] }}
+        />
+      )}
+      
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: theme.foreground, fontSize: 14 }}>
+          {file.name}
+        </Text>
+        <Text style={{ color: theme.mutedForeground, fontSize: 12 }}>
+          {formatFileSize(file.size)}
+        </Text>
+      </View>
+      
+      <Pressable 
+        onPress={() => onRemove(index)}
+        style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+      >
+        <Symbol name="xmark.circle"
+          size={20}
+          color={theme.mutedForeground}
+        />
+      </Pressable>
+    </AnimatedView>
+  );
+};
+
 export const FilePicker = React.forwardRef<View, FilePickerProps>(
   (
     {
@@ -79,12 +208,60 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
       style,
       previewStyle,
       testID,
+      // Animation props
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'fadeIn',
+      animationDuration,
+      dragAnimation = true,
+      uploadAnimation = true,
+      previewAnimation = 'zoomIn',
+      useHaptics = true,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
     const { spacing } = useSpacing();
+    const { shouldAnimate } = useAnimationStore();
     const [loading, setLoading] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
+    
+    // Get animation config
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
+    
+    const duration = animationDuration ?? config.duration.normal;
+    
+    // Animation values
+    const dragScale = useSharedValue(1);
+    const dragOpacity = useSharedValue(1);
+    const uploadProgress = useSharedValue(0);
+    
+    // Drag hover animation
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate() && dragAnimation) {
+        if (isDragging) {
+          dragScale.value = withSpring(1.02, config.spring);
+          dragOpacity.value = withTiming(0.9, { duration: config.duration.fast });
+        } else {
+          dragScale.value = withSpring(1, config.spring);
+          dragOpacity.value = withTiming(1, { duration: config.duration.fast });
+        }
+      }
+    }, [isDragging, animated, isAnimated, shouldAnimate, dragAnimation]);
+    
+    // Animated styles
+    const dropzoneAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: dragScale.value }],
+      opacity: dragOpacity.value,
+    }));
+    
+    const uploadProgressStyle = useAnimatedStyle(() => ({
+      width: `${uploadProgress.value}%`,
+    }));
 
     const pickImage = async () => {
       // Simplified implementation - in a real app, you would install and use expo-image-picker
@@ -132,6 +309,9 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
         const oversizedFiles = newFiles.filter(file => file.size && file.size > maxSize);
         if (oversizedFiles.length > 0) {
           Alert.alert('File too large', `Maximum file size is ${formatFileSize(maxSize)}`);
+          if (useHaptics) {
+            haptic('error');
+          }
           return;
         }
       }
@@ -143,38 +323,56 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
         updatedFiles = newFiles.slice(0, 1);
       }
 
+      if (useHaptics) {
+        haptic('success');
+      }
+      
+      // Simulate upload progress animation
+      if (animated && isAnimated && shouldAnimate() && uploadAnimation) {
+        uploadProgress.value = 0;
+        uploadProgress.value = withTiming(100, { duration: 1000 });
+      }
+
       onChange?.(updatedFiles);
     };
 
     const removeFile = (index: number) => {
+      if (useHaptics) {
+        haptic('impact');
+      }
       const updatedFiles = value.filter((_, i) => i !== index);
       onChange?.(updatedFiles);
     };
 
-    const renderDropzone = () => (
-      <TouchableOpacity
-        onPress={pickDocument}
-        disabled={disabled || loading}
-        style={[
-          {
-            borderWidth: 2,
-            borderStyle: 'dashed',
-            borderColor: disabled ? theme.mutedForeground : theme.border,
-            borderRadius: 8,
-            padding: spacing[8],
-            alignItems: 'center',
-            backgroundColor: disabled ? theme.muted : theme.card,
-            opacity: loading ? 0.7 : 1,
-          },
-          style,
-        ]}
-      >
+    const renderDropzone = () => {
+      const DropzoneComponent = animated && isAnimated && shouldAnimate() ? AnimatedPressable : Pressable;
+      
+      return (
+        <DropzoneComponent
+          onPress={pickDocument}
+          disabled={disabled || loading}
+          style={[
+            {
+              borderWidth: 2,
+              borderStyle: 'dashed',
+              borderColor: disabled ? theme.mutedForeground : theme.border,
+              borderRadius: 8,
+              padding: spacing[8],
+              alignItems: 'center',
+              backgroundColor: disabled ? theme.muted : theme.card,
+              opacity: loading ? 0.7 : 1,
+            },
+            animated && isAnimated && shouldAnimate() && dragAnimation ? dropzoneAnimatedStyle : {},
+            style,
+          ]}
+          onPressIn={() => setIsDragging(true)}
+          onPressOut={() => setIsDragging(false)}
+        >
         {loading ? (
           <ActivityIndicator color={theme.primary} />
         ) : (
           <>
-            <Ionicons
-              name="cloud-upload"
+            <Symbol name="arrow.up.circle"
               size={48}
               color={disabled ? theme.mutedForeground : theme.primary}
             />
@@ -201,8 +399,9 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
             </Text>
           </>
         )}
-      </TouchableOpacity>
-    );
+        </DropzoneComponent>
+      );
+    };
 
     const renderButton = () => (
       <View style={style}>
@@ -210,7 +409,7 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
           onPress={pickDocument}
           disabled={disabled || loading}
           variant="outline"
-          leftIcon={<Ionicons name="attach" size={20} />}
+          leftIcon={<Symbol name="attach" size={20} />}
           isLoading={loading}
         >
           {placeholder}
@@ -232,7 +431,7 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
             disabled={disabled || loading}
             variant="outline"
             size="sm"
-            leftIcon={<Ionicons name="image" size={16} />}
+            leftIcon={<Symbol name="photo" size={16} />}
           >
             Image
           </Button>
@@ -241,7 +440,7 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
             disabled={disabled || loading}
             variant="outline"
             size="sm"
-            leftIcon={<Ionicons name="document" size={16} />}
+            leftIcon={<Symbol name="doc" size={16} />}
           >
             Document
           </Button>
@@ -262,7 +461,7 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
             {value.map((file, index) => (
               <Card
                 key={`${file.uri}-${index}`}
-                p={2}
+                p={2 as SpacingScale}
                 style={[
                   {
                     width: 120,
@@ -294,8 +493,8 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
                       marginBottom: spacing[2],
                     }}
                   >
-                    <Ionicons
-                      name={getFileIcon(file.type) as any}
+                    <Symbol
+                      name="getFileIcon(file.type) as any"
                       size={32}
                       color={theme.mutedForeground}
                     />
@@ -325,23 +524,23 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
                 )}
                 
                 {!disabled && (
-                  <TouchableOpacity
+                  <Pressable
                     onPress={() => removeFile(index)}
-                    style={{
+                    style={({ pressed }) => ({
                       position: 'absolute',
                       top: spacing[1],
                       right: spacing[1],
                       backgroundColor: theme.background,
                       borderRadius: 12,
                       padding: spacing[0.5],
-                    }}
+                      opacity: pressed ? 0.7 : 1,
+                    })}
                   >
-                    <Ionicons
-                      name="close-circle"
+                    <Symbol name="xmark.circle"
                       size={20}
                       color={theme.destructive}
                     />
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
               </Card>
             ))}
@@ -350,12 +549,51 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
       );
     };
 
+    // Render list view with animations
+    const renderListView = () => {
+      if (value.length === 0) return null;
+      
+      return (
+        <View style={{ marginTop: spacing[3] }}>
+          {value.map((file, index) => (
+            <AnimatedFilePreview
+              key={`${file.uri}-${index}`}
+              file={file}
+              index={index}
+              onRemove={removeFile}
+              theme={theme}
+              spacing={spacing}
+              animated={animated}
+              shouldAnimate={shouldAnimate}
+              previewAnimation={previewAnimation}
+              animationDuration={duration}
+            />
+          ))}
+        </View>
+      );
+    };
+
     return (
       <View ref={ref} testID={testID}>
         {variant === 'dropzone' && renderDropzone()}
         {variant === 'button' && renderButton()}
         {variant === 'default' && renderDefault()}
-        {renderPreview()}
+        
+        {/* Show upload progress bar if animated */}
+        {animated && isAnimated && shouldAnimate() && uploadAnimation && loading && (
+          <AnimatedView
+            style={[{
+              height: 4,
+              backgroundColor: theme.primary,
+              marginTop: spacing[2],
+              borderRadius: 2,
+            }, uploadProgressStyle]}
+          />
+        )}
+        
+        {/* Render preview based on type */}
+        {showPreview && variant !== 'button' && renderListView()}
+        {showPreview && variant === 'button' && renderPreview()}
       </View>
     );
   }
@@ -398,10 +636,10 @@ export const FileUploadProgress: React.FC<FileUploadProgressProps> = ({
   };
 
   return (
-    <Card p={3} style={style}>
+    <Card p={3 as SpacingScale} style={style}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <Ionicons
-          name={status === 'completed' ? 'checkmark-circle' : status === 'error' ? 'close-circle' : 'cloud-upload'}
+        <Symbol
+          name={status === 'completed' ? 'checkmark.circle' : status === 'error' ? 'xmark.circle' : 'arrow.up.circle'}
           size={24}
           color={getStatusColor()}
         />
@@ -451,15 +689,27 @@ export const FileUploadProgress: React.FC<FileUploadProgressProps> = ({
         </View>
         
         {status === 'uploading' && onCancel && (
-          <TouchableOpacity onPress={onCancel} style={{ marginLeft: spacing[2] }}>
-            <Ionicons name="close" size={20} color={theme.mutedForeground} />
-          </TouchableOpacity>
+          <Pressable 
+            onPress={onCancel} 
+            style={({ pressed }) => ({ 
+              marginLeft: spacing[2],
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Symbol name="xmark" size={20} color={theme.mutedForeground} />
+          </Pressable>
         )}
         
         {status === 'error' && onRetry && (
-          <TouchableOpacity onPress={onRetry} style={{ marginLeft: spacing[2] }}>
-            <Ionicons name="refresh" size={20} color={theme.primary} />
-          </TouchableOpacity>
+          <Pressable 
+            onPress={onRetry} 
+            style={({ pressed }) => ({ 
+              marginLeft: spacing[2],
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Symbol name="refresh" size={20} color={theme.primary} />
+          </Pressable>
         )}
       </View>
     </Card>

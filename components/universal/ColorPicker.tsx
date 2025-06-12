@@ -2,21 +2,100 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
+  Pressable,
   Modal,
   ViewStyle,
-  TextStyle,
   Platform,
-  Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withSequence,
+  interpolate,
+  ZoomIn,
+  SlideInDown,
+} from 'react-native-reanimated';
+import { Symbol } from './Symbols';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
 import { Card } from './Card';
 import { Input } from './Input';
 import { Button } from './Button';
+import { 
+  AnimationVariant,
+  SpacingScale,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
+
+const AnimatedView = Animated.View;
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+// Preset color button component
+const PresetColorButton = ({
+  preset,
+  index,
+  isSelected,
+  onPress,
+  disabled,
+  theme,
+  animated,
+  isAnimated,
+  shouldAnimate,
+  presetAnimation,
+  config,
+  duration,
+}: any) => {
+  const presetScaleValue = useSharedValue(1);
+  
+  const presetAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: presetScaleValue.value }],
+  }));
+  
+  const handlePresetPress = () => {
+    if (animated && isAnimated && shouldAnimate() && presetAnimation) {
+      presetScaleValue.value = withSequence(
+        withTiming(0.9, { duration: config.duration.fast / 2 }),
+        withSpring(1, config.spring)
+      );
+    }
+    onPress(preset);
+  };
+  
+  const ButtonComponent = animated && isAnimated && shouldAnimate() && presetAnimation
+    ? AnimatedPressable
+    : Pressable;
+  
+  return (
+    <ButtonComponent
+      onPress={handlePresetPress}
+      disabled={disabled}
+      style={[
+        {
+          width: 40,
+          height: 40,
+          borderRadius: 8,
+          backgroundColor: preset,
+          borderWidth: 2,
+          borderColor: isSelected ? theme.foreground : theme.border,
+        },
+        animated && isAnimated && shouldAnimate() && presetAnimation
+          ? presetAnimatedStyle
+          : {},
+      ]}
+      entering={
+        Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() && presetAnimation
+          ? ZoomIn.duration(duration).delay(index * 30)
+          : undefined
+      }
+    />
+  );
+};
+
+export type ColorPickerAnimationType = 'colorTransition' | 'pickerExpand' | 'fadeIn' | 'none';
 
 export interface ColorPickerProps {
   value?: string;
@@ -31,10 +110,24 @@ export interface ColorPickerProps {
   label?: string;
   style?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: ColorPickerAnimationType;
+  animationDuration?: number;
+  colorChangeAnimation?: boolean;
+  pickerOpenAnimation?: 'scale' | 'fade' | 'slide';
+  presetAnimation?: boolean;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 const DEFAULT_PRESETS = [
-  '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF', '#FFFF00',
+  'theme.foreground', 'theme.background', '#FF0000', '#00FF00', 'theme.foreground0FF', '#FFFF00',
   '#FF00FF', '#00FFFF', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
   '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2',
   '#F8B739', '#6C5CE7', '#A29BFE', '#FD79A8', '#FDCB6E', '#6C5CE7',
@@ -51,75 +144,75 @@ const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
     : { r: 0, g: 0, b: 0 };
 };
 
-const rgbToHex = (r: number, g: number, b: number): string => {
-  return '#' + [r, g, b].map(x => {
-    const hex = x.toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
-  }).join('').toUpperCase();
-};
+// const rgbToHex = (r: number, g: number, b: number): string => {
+//   return '#' + [r, g, b].map(x => {
+//     const hex = x.toString(16);
+//     return hex.length === 1 ? '0' + hex : hex;
+//   }).join('').toUpperCase();
+// };
 
-const rgbToHsv = (r: number, g: number, b: number): { h: number; s: number; v: number } => {
-  r /= 255;
-  g /= 255;
-  b /= 255;
+// const rgbToHsv = (r: number, g: number, b: number): { h: number; s: number; v: number } => {
+//   r /= 255;
+//   g /= 255;
+//   b /= 255;
   
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const diff = max - min;
+//   const max = Math.max(r, g, b);
+//   const min = Math.min(r, g, b);
+//   const diff = max - min;
   
-  let h = 0;
-  const s = max === 0 ? 0 : diff / max;
-  const v = max;
+//   let h = 0;
+//   const s = max === 0 ? 0 : diff / max;
+//   const v = max;
   
-  if (max !== min) {
-    switch (max) {
-      case r:
-        h = ((g - b) / diff + (g < b ? 6 : 0)) / 6;
-        break;
-      case g:
-        h = ((b - r) / diff + 2) / 6;
-        break;
-      case b:
-        h = ((r - g) / diff + 4) / 6;
-        break;
-    }
-  }
+//   if (max !== min) {
+//     switch (max) {
+//       case r:
+//         h = ((g - b) / diff + (g < b ? 6 : 0)) / 6;
+//         break;
+//       case g:
+//         h = ((b - r) / diff + 2) / 6;
+//         break;
+//       case b:
+//         h = ((r - g) / diff + 4) / 6;
+//         break;
+//     }
+//   }
   
-  return { h, s, v };
-};
+//   return { h, s, v };
+// };
 
-const hsvToRgb = (h: number, s: number, v: number): { r: number; g: number; b: number } => {
-  const i = Math.floor(h * 6);
-  const f = h * 6 - i;
-  const p = v * (1 - s);
-  const q = v * (1 - f * s);
-  const t = v * (1 - (1 - f) * s);
+// const hsvToRgb = (h: number, s: number, v: number): { r: number; g: number; b: number } => {
+//   const i = Math.floor(h * 6);
+//   const f = h * 6 - i;
+//   const p = v * (1 - s);
+//   const q = v * (1 - f * s);
+//   const t = v * (1 - (1 - f) * s);
   
-  let r: number, g: number, b: number;
+//   let r: number, g: number, b: number;
   
-  switch (i % 6) {
-    case 0: r = v; g = t; b = p; break;
-    case 1: r = q; g = v; b = p; break;
-    case 2: r = p; g = v; b = t; break;
-    case 3: r = p; g = q; b = v; break;
-    case 4: r = t; g = p; b = v; break;
-    case 5: r = v; g = p; b = q; break;
-    default: r = 0; g = 0; b = 0;
-  }
+//   switch (i % 6) {
+//     case 0: r = v; g = t; b = p; break;
+//     case 1: r = q; g = v; b = p; break;
+//     case 2: r = p; g = v; b = t; break;
+//     case 3: r = p; g = q; b = v; break;
+//     case 4: r = t; g = p; b = v; break;
+//     case 5: r = v; g = p; b = q; break;
+//     default: r = 0; g = 0; b = 0;
+//   }
   
-  return {
-    r: Math.round(r * 255),
-    g: Math.round(g * 255),
-    b: Math.round(b * 255),
-  };
-};
+//   return {
+//     r: Math.round(r * 255),
+//     g: Math.round(g * 255),
+//     b: Math.round(b * 255),
+//   };
+// };
 
 export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
   (
     {
       value,
       onChange,
-      defaultValue = '#000000',
+      defaultValue = 'theme.foreground',
       showInput = true,
       showPresets = true,
       presets = DEFAULT_PRESETS,
@@ -129,11 +222,22 @@ export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
       label,
       style,
       testID,
+      // Animation props
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'colorTransition',
+      animationDuration,
+      colorChangeAnimation = true,
+      pickerOpenAnimation = 'scale',
+      presetAnimation = true,
+      useHaptics = true,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
     const { spacing } = useSpacing();
+    const { shouldAnimate } = useAnimationStore();
     
     const [isOpen, setIsOpen] = useState(false);
     const [internalValue, setInternalValue] = useState(value || defaultValue);
@@ -141,7 +245,21 @@ export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
     
     const currentColor = value || internalValue;
     const rgb = hexToRgb(currentColor);
-    const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+    // const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+    
+    // Get animation config
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
+    
+    const duration = animationDuration ?? config.duration.normal;
+    
+    // Animation values
+    const colorScale = useSharedValue(1);
+    const modalScale = useSharedValue(0.9);
+    const modalOpacity = useSharedValue(0);
+    const sliderProgress = useSharedValue(0);
     
     useEffect(() => {
       if (value) {
@@ -150,11 +268,67 @@ export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
       }
     }, [value]);
     
+    // Modal open/close animations
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate()) {
+        if (isOpen) {
+          if (pickerOpenAnimation === 'scale') {
+            modalScale.value = withSpring(1, config.spring);
+            modalOpacity.value = withTiming(1, { duration: config.duration.fast });
+          } else if (pickerOpenAnimation === 'fade') {
+            modalScale.value = 1;
+            modalOpacity.value = withTiming(1, { duration });
+          } else if (pickerOpenAnimation === 'slide') {
+            modalScale.value = 1;
+            modalOpacity.value = withTiming(1, { duration: config.duration.fast });
+          }
+        } else {
+          modalScale.value = 0.9;
+          modalOpacity.value = 0;
+        }
+      }
+    }, [isOpen, animated, isAnimated, shouldAnimate, pickerOpenAnimation, modalScale, modalOpacity, config.spring, config.duration.fast, duration]);
+    
+    // Color change animation
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate() && colorChangeAnimation) {
+        colorScale.value = withSequence(
+          withTiming(1.1, { duration: config.duration.fast / 2 }),
+          withSpring(1, config.spring)
+        );
+      }
+    }, [currentColor, animated, isAnimated, shouldAnimate, colorChangeAnimation, colorScale, config.duration.fast, config.spring]);
+    
+    // Slider animation
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate() && animationType === 'colorTransition') {
+        sliderProgress.value = withTiming(1, { duration });
+      }
+    }, [rgb, animated, isAnimated, shouldAnimate, animationType, sliderProgress, duration]);
+    
+    // Animated styles
+    const modalAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: modalScale.value }],
+      opacity: modalOpacity.value,
+    }));
+    
+    const colorPreviewAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: colorScale.value }],
+    }));
+    
+    const sliderAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: interpolate(sliderProgress.value, [0, 1], [0.7, 1]),
+    }));
+    
     const handleColorChange = useCallback((newColor: string) => {
       setInternalValue(newColor);
       setInputValue(newColor);
       onChange?.(newColor);
-    }, [onChange]);
+      
+      if (useHaptics) {
+        haptic('impact');
+      }
+    }, [onChange, useHaptics]);
     
     const handleInputChange = useCallback((text: string) => {
       setInputValue(text);
@@ -163,39 +337,46 @@ export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
       }
     }, [handleColorChange]);
     
-    const renderColorWheel = () => (
-      <View
-        style={{
-          width: 200,
-          height: 200,
-          borderRadius: 100,
-          overflow: 'hidden',
-          marginBottom: spacing[4],
-          alignSelf: 'center',
-        }}
-      >
-        {/* Simplified color wheel - in production, use a proper color wheel library */}
-        <TouchableOpacity
-          style={{
-            flex: 1,
-            backgroundColor: currentColor,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-          onPress={() => {
-            // In a real implementation, this would open a color wheel
-            Alert.alert('Color Wheel', 'Full color wheel not implemented in this demo');
-          }}
-        >
-          <Text style={{ color: rgb.r + rgb.g + rgb.b > 380 ? '#000' : '#FFF' }}>
-            Tap to change
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
+    // const renderColorWheel = () => (
+    //   <View
+    //     style={{
+    //       width: 200,
+    //       height: 200,
+    //       borderRadius: 100,
+    //       overflow: 'hidden',
+    //       marginBottom: spacing[4],
+    //       alignSelf: 'center',
+    //     }}
+    //   >
+    //     {/* Simplified color wheel - in production, use a proper color wheel library */}
+    //     <TouchableOpacity
+    //       style={{
+    //         flex: 1,
+    //         backgroundColor: currentColor,
+    //         justifyContent: 'center',
+    //         alignItems: 'center',
+    //       }}
+    //       onPress={() => {
+    //         // In a real implementation, this would open a color wheel
+    //         Alert.alert('Color Wheel', 'Full color wheel not implemented in this demo');
+    //       }}
+    //     >
+    //       <Text style={{ color: rgb.r + rgb.g + rgb.b > 380 ? 'theme.foreground' : '#FFF' }}>
+    //         Tap to change
+    //       </Text>
+    //     </TouchableOpacity>
+    //   </View>
+    // );
     
-    const renderSliders = () => (
-      <View style={{ marginBottom: spacing[4] }}>
+    const renderSliders = () => {
+      const SliderContainer = animated && isAnimated && shouldAnimate() ? AnimatedView : View;
+      
+      return (
+        <SliderContainer 
+          style={[
+            { marginBottom: spacing[4] },
+            animated && isAnimated && shouldAnimate() ? sliderAnimatedStyle : {},
+          ]}>
         <View style={{ marginBottom: spacing[3] }}>
           <Text style={{ color: theme.foreground, marginBottom: spacing[1] }}>
             Red: {rgb.r}
@@ -261,8 +442,9 @@ export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
             />
           </View>
         </View>
-      </View>
+      </SliderContainer>
     );
+    };
     
     const renderPresetColors = () => {
       if (!showPresets) return null;
@@ -287,18 +469,20 @@ export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
             }}
           >
             {presets.map((preset, index) => (
-              <TouchableOpacity
+              <PresetColorButton
                 key={`${preset}-${index}`}
-                onPress={() => handleColorChange(preset)}
+                preset={preset}
+                index={index}
+                isSelected={currentColor === preset}
+                onPress={handleColorChange}
                 disabled={disabled}
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 8,
-                  backgroundColor: preset,
-                  borderWidth: 2,
-                  borderColor: currentColor === preset ? theme.foreground : theme.border,
-                }}
+                theme={theme}
+                animated={animated}
+                isAnimated={isAnimated}
+                shouldAnimate={shouldAnimate}
+                presetAnimation={presetAnimation}
+                config={config}
+                duration={duration}
               />
             ))}
           </View>
@@ -306,41 +490,52 @@ export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
       );
     };
     
-    const renderCompact = () => (
-      <TouchableOpacity
-        ref={ref as any}
-        onPress={() => !disabled && setIsOpen(true)}
-        disabled={disabled}
-        style={[
-          {
-            flexDirection: 'row',
-            alignItems: 'center',
-            padding: spacing[2],
-            backgroundColor: theme.card,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: theme.border,
-            opacity: disabled ? 0.5 : 1,
-          },
-          style,
-        ]}
-        testID={testID}
-      >
-        <View
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: 4,
-            backgroundColor: currentColor,
-            marginRight: spacing[2],
-            borderWidth: 1,
-            borderColor: theme.border,
-          }}
-        />
-        <Text style={{ color: theme.foreground, flex: 1 }}>{currentColor}</Text>
-        <Ionicons name="chevron-down" size={16} color={theme.mutedForeground} />
-      </TouchableOpacity>
-    );
+    const renderCompact = () => {
+      const ColorPreview = animated && isAnimated && shouldAnimate() && colorChangeAnimation
+        ? AnimatedView
+        : View;
+      
+      return (
+        <Pressable
+          ref={ref as any}
+          onPress={() => !disabled && setIsOpen(true)}
+          disabled={disabled}
+          style={[
+            {
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: spacing[2],
+              backgroundColor: theme.card,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: theme.border,
+              opacity: disabled ? 0.5 : 1,
+            },
+            style,
+          ]}
+          testID={testID}
+        >
+          <ColorPreview
+            style={[
+              {
+                width: 24,
+                height: 24,
+                borderRadius: 4,
+                backgroundColor: currentColor,
+                marginRight: spacing[2],
+                borderWidth: 1,
+                borderColor: theme.border,
+              },
+              animated && isAnimated && shouldAnimate() && colorChangeAnimation
+                ? colorPreviewAnimatedStyle
+                : {},
+            ]}
+          />
+          <Text style={{ color: theme.foreground, flex: 1 }}>{currentColor}</Text>
+          <Symbol name="chevron.down" size={16} color={theme.mutedForeground} />
+        </Pressable>
+      );
+    };
     
     const renderDefault = () => (
       <View ref={ref} style={style} testID={testID}>
@@ -357,18 +552,23 @@ export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
           </Text>
         )}
         
-        <Card p={4}>
+        <Card p={4 as SpacingScale}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing[4] }}>
-            <View
-              style={{
-                width: 60,
-                height: 60,
-                borderRadius: 8,
-                backgroundColor: currentColor,
-                marginRight: spacing[4],
-                borderWidth: 1,
-                borderColor: theme.border,
-              }}
+            <AnimatedView
+              style={[
+                {
+                  width: 60,
+                  height: 60,
+                  borderRadius: 8,
+                  backgroundColor: currentColor,
+                  marginRight: spacing[4],
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                },
+                animated && isAnimated && shouldAnimate() && colorChangeAnimation
+                  ? colorPreviewAnimatedStyle
+                  : {},
+              ]}
             />
             
             {showInput && (
@@ -376,7 +576,7 @@ export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
                 <Input
                   value={inputValue}
                   onChangeText={handleInputChange}
-                  placeholder="#000000"
+                  placeholder="theme.foreground"
                   isDisabled={disabled}
                   style={{ marginBottom: 0 }}
                 />
@@ -400,23 +600,32 @@ export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
             animationType="fade"
             onRequestClose={() => setIsOpen(false)}
           >
-            <TouchableOpacity
+            <Pressable
               style={{
                 flex: 1,
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                backgroundColor: Platform.OS === 'web' 
+                  ? `${theme.background}CC` 
+                  : theme.background + 'CC',
                 justifyContent: 'center',
                 alignItems: 'center',
               }}
               onPress={() => setIsOpen(false)}
             >
-              <View
-                style={{
-                  backgroundColor: theme.background,
-                  borderRadius: 12,
-                  padding: spacing[4],
-                  width: '90%',
-                  maxWidth: 400,
-                }}
+              <AnimatedView
+                style={[
+                  {
+                    backgroundColor: theme.background,
+                    borderRadius: 12,
+                    padding: spacing[4],
+                    width: '90%',
+                    maxWidth: 400,
+                  },
+                  animated && isAnimated && shouldAnimate() ? modalAnimatedStyle : {},
+                ]}
+                entering={Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() && pickerOpenAnimation === 'slide'
+                  ? SlideInDown.duration(duration)
+                  : undefined
+                }
               >
                 <View
                   style={{
@@ -435,30 +644,35 @@ export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
                   >
                     {placeholder}
                   </Text>
-                  <TouchableOpacity onPress={() => setIsOpen(false)}>
-                    <Ionicons name="close" size={24} color={theme.mutedForeground} />
-                  </TouchableOpacity>
+                  <Pressable onPress={() => setIsOpen(false)}>
+                    <Symbol name="xmark" size={24} color={theme.mutedForeground} />
+                  </Pressable>
                 </View>
                 
                 <View style={{ marginBottom: spacing[4] }}>
-                  <View
-                    style={{
-                      width: 80,
-                      height: 80,
-                      borderRadius: 12,
-                      backgroundColor: currentColor,
-                      alignSelf: 'center',
-                      marginBottom: spacing[4],
-                      borderWidth: 1,
-                      borderColor: theme.border,
-                    }}
+                  <AnimatedView
+                    style={[
+                      {
+                        width: 80,
+                        height: 80,
+                        borderRadius: 12,
+                        backgroundColor: currentColor,
+                        alignSelf: 'center',
+                        marginBottom: spacing[4],
+                        borderWidth: 1,
+                        borderColor: theme.border,
+                      },
+                      animated && isAnimated && shouldAnimate() && colorChangeAnimation
+                        ? colorPreviewAnimatedStyle
+                        : {},
+                    ]}
                   />
                   
                   {showInput && (
                     <Input
                       value={inputValue}
                       onChangeText={handleInputChange}
-                      placeholder="#000000"
+                      placeholder="theme.foreground"
                       isDisabled={disabled}
                     />
                   )}
@@ -473,8 +687,8 @@ export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
                 >
                   Done
                 </Button>
-              </View>
-            </TouchableOpacity>
+              </AnimatedView>
+            </Pressable>
           </Modal>
         </>
       );

@@ -1,5 +1,6 @@
-import React, { useRef, useTransition, memo } from 'react';
-import { Platform, FlatList, ViewToken } from 'react-native';
+import React, { useRef, useTransition, memo, useEffect } from 'react';
+import { Platform, FlatList } from 'react-native';
+import Animated from 'react-native-reanimated';
 import {
   Card,
   VStack,
@@ -10,13 +11,18 @@ import {
   Box,
   ScrollContainer,
 } from '@/components/universal';
-import { goldenSpacing, goldenShadows, goldenDimensions, goldenAnimations, healthcareColors } from '@/lib/design-system/golden-ratio';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { api } from '@/lib/trpc';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { PLATFORM_TOKENS } from '@/lib/design/responsive';
+import { useResponsive , useResponsiveUtils } from '@/hooks/responsive';
+import { api } from '@/lib/api/trpc';
 import { formatDistanceToNow } from 'date-fns';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
 import { showSuccessAlert, showErrorAlert } from '@/lib/core/alert';
 import { HealthcareUserRole } from '@/types/healthcare';
+
+import { useFadeAnimation, useScaleAnimation, useEntranceAnimation } from '@/lib/ui/animations/hooks';
+import { haptic } from '@/lib/ui/haptics';
 
 // Alert card item component with memo for performance
 const AlertCardItem = memo(({ 
@@ -35,7 +41,26 @@ const AlertCardItem = memo(({
   index: number;
 }) => {
   const theme = useTheme();
+  const { spacing, componentSizes } = useSpacing();
   const [isPending, startTransition] = useTransition();
+  
+  // Animation for individual alert cards
+  const { animatedStyle: cardEntranceStyle } = useEntranceAnimation({
+    type: 'slide',
+    delay: index * 100,
+    duration: 400,
+    from: 'left',
+  });
+  
+  const { animatedStyle: scaleStyle, scaleIn } = useScaleAnimation({
+    initialScale: 0.95,
+    finalScale: 1,
+    springConfig: 'gentle',
+  });
+  
+  useEffect(() => {
+    scaleIn();
+  }, []);
   
   const getUrgencyColor = (urgency: number) => {
     if (urgency <= 2) return healthcareColors.emergency;
@@ -56,34 +81,28 @@ const AlertCardItem = memo(({
   };
   
   return (
-    <Card
-      padding={goldenSpacing.lg}
-      gap={goldenSpacing.md}
-      shadow={goldenShadows.md}
+    <Animated.View style={[cardEntranceStyle, scaleStyle]}>
+      <Card
+      padding={spacing[5]}
+      gap={spacing[4]}
+      shadow={PLATFORM_TOKENS.shadow?.md}
       style={{
-        height: goldenDimensions.heights.large,
+        minHeight: 120,
         borderLeftWidth: 3,
         borderLeftColor: getUrgencyColor(alert.urgency),
         opacity: alert.resolved ? 0.7 : 1,
-        // Staggered animation
-        ...(Platform.OS === 'web' && {
-          animation: `slideIn ${goldenAnimations.durations.fast}ms ${
-            index * goldenAnimations.stagger.fast
-          }ms ${goldenAnimations.easeGolden} forwards`,
-          opacity: 0,
-        }),
       }}
     >
       {/* Header Row */}
       <HStack justifyContent="space-between" alignItems="center">
-        <HStack gap={goldenSpacing.md} alignItems="center">
+        <HStack gap={spacing[4]} alignItems="center">
           <Text size="2xl">{getAlertIcon(alert.alertType)}</Text>
-          <VStack gap={goldenSpacing.xxs}>
-            <HStack gap={goldenSpacing.sm}>
+          <VStack gap={spacing[1]}>
+            <HStack gap={spacing[3]}>
               <Text weight="bold" size="lg">Room {alert.roomNumber}</Text>
               <Badge
                 variant={alert.urgency >= 4 ? "destructive" : alert.urgency >= 3 ? "secondary" : "default"}
-                size="small"
+                size="sm"
               >
                 Urgency {alert.urgency}
               </Badge>
@@ -95,17 +114,17 @@ const AlertCardItem = memo(({
         </HStack>
         
         {/* Status Badges */}
-        <VStack gap={goldenSpacing.xs} alignItems="flex-end">
+        <VStack gap={spacing[2]} alignItems="flex-end">
           {alert.resolved ? (
-            <Badge variant="outline" size="small">
+            <Badge variant="outline" size="sm">
               ✓ Resolved
             </Badge>
           ) : alert.acknowledged ? (
-            <Badge variant="secondary" size="small">
+            <Badge variant="secondary" size="sm">
               ✓ Acknowledged
             </Badge>
           ) : (
-            <Badge variant="destructive" size="small">
+            <Badge variant="error" size="sm">
               New Alert
             </Badge>
           )}
@@ -120,7 +139,7 @@ const AlertCardItem = memo(({
       )}
       
       {/* Metadata */}
-      <HStack gap={goldenSpacing.md} flexWrap="wrap">
+      <HStack gap={spacing[4]} flexWrap="wrap">
         <Text size="xs" colorTheme="mutedForeground">
           Created by {alert.createdByName}
         </Text>
@@ -138,13 +157,14 @@ const AlertCardItem = memo(({
       
       {/* Action Buttons */}
       {!alert.resolved && (
-        <HStack gap={goldenSpacing.md} marginTop={goldenSpacing.sm}>
+        <HStack gap={spacing[4]} marginTop={spacing[3]}>
           {!alert.acknowledged && canAcknowledge && (
             <Button
-              variant="primary"
-              size="small"
+              variant="solid"
+              size="sm"
               style={{ flex: 1.618 }}
               onPress={() => {
+                haptic('medium');
                 startTransition(() => {
                   onAcknowledge(alert.id);
                 });
@@ -156,10 +176,11 @@ const AlertCardItem = memo(({
           )}
           {alert.acknowledged && canResolve && (
             <Button
-              variant="success"
-              size="small"
+              variant="solid" colorScheme="accent"
+              size="sm"
               style={{ flex: 1 }}
               onPress={() => {
+                haptic('success');
                 startTransition(() => {
                   onResolve(alert.id);
                 });
@@ -172,6 +193,7 @@ const AlertCardItem = memo(({
         </HStack>
       )}
     </Card>
+    </Animated.View>
   );
 }, (prevProps, nextProps) => {
   // Custom comparison for memo
@@ -198,8 +220,21 @@ export const AlertListBlock = ({
   maxHeight?: number;
 }) => {
   const theme = useTheme();
+  const { spacing, componentSizes } = useSpacing();
+  const { isMobile } = useResponsive();
+  const { getPlatformShadow } = useResponsiveUtils();
   const queryClient = api.useUtils();
   const listRef = useRef<FlatList>(null);
+  
+  // List animation
+  const { animatedStyle: listFadeStyle, fadeIn: fadeInList } = useFadeAnimation({ 
+    duration: 300,
+    delay: 100 
+  });
+  
+  useEffect(() => {
+    fadeInList();
+  }, [fadeInList]);
   
   // Permissions based on role
   const canAcknowledge = ['nurse', 'doctor', 'head_doctor', 'admin'].includes(role);
@@ -290,17 +325,23 @@ export const AlertListBlock = ({
     },
   });
   
-  // Real-time subscription
+  // Real-time subscription (only if WebSocket is enabled)
+  const wsEnabled = process.env.EXPO_PUBLIC_ENABLE_WS === 'true';
+  
   api.healthcare.subscribeToAlerts.useSubscription(
     undefined,
     {
+      enabled: wsEnabled, // Only enable if WebSocket is configured
       onData: (event) => {
         log.info('Alert subscription event', 'ALERT_LIST', { event });
         // Refetch to get latest data
         refetch();
       },
       onError: (error) => {
-        log.error('Alert subscription error', 'ALERT_LIST', error);
+        // Only log error if WebSocket was expected to work
+        if (wsEnabled) {
+          log.error('Alert subscription error', 'ALERT_LIST', error);
+        }
       },
     }
   );
@@ -318,19 +359,44 @@ export const AlertListBlock = ({
   
   const keyExtractor = (item: any) => item.id;
   
+  // Skeleton animation (used when loading)
+  const { animatedStyle: skeletonStyle } = useFadeAnimation({
+    duration: 800,
+    loop: true,
+    reverseOnComplete: true,
+  });
+  
+  // Empty state animation
+  const { animatedStyle: emptyStateStyle } = useScaleAnimation({
+    initialScale: 0.8,
+    finalScale: 1,
+    springConfig: 'bouncy',
+  });
+  
+  // Add defensive check after all hooks
+  if (!hospitalId || !role) {
+    log.error('AlertListBlock missing required props', 'ALERT_LIST', { hospitalId, role });
+    return (
+      <Box flex={1} alignItems="center" justifyContent="center">
+        <Text colorTheme="mutedForeground">Missing required data</Text>
+      </Box>
+    );
+  }
+  
   if (isLoading) {
     return (
-      <VStack gap={goldenSpacing.md}>
+      <VStack gap={spacing[4]}>
         {[1, 2, 3].map((i) => (
-          <Card
-            key={i}
-            padding={goldenSpacing.lg}
-            style={{
-              height: goldenDimensions.heights.large,
-              backgroundColor: theme.muted,
-              opacity: 0.5,
-            }}
-          />
+          <Animated.View key={i} style={skeletonStyle}>
+            <Card
+              padding={spacing[5]}
+              style={{
+                height: 120,
+                backgroundColor: theme.muted,
+                opacity: 0.5,
+              }}
+            />
+          </Animated.View>
         ))}
       </VStack>
     );
@@ -340,69 +406,75 @@ export const AlertListBlock = ({
   
   if (alerts.length === 0) {
     return (
-      <Card
-        padding={goldenSpacing.xxl}
-        style={{
-          minHeight: goldenDimensions.heights.xlarge,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <VStack gap={goldenSpacing.md} alignItems="center">
-          <Text size="4xl">✅</Text>
-          <Text size="lg" weight="medium">No Active Alerts</Text>
-          <Text colorTheme="mutedForeground" align="center">
-            All alerts have been handled
-          </Text>
-        </VStack>
-      </Card>
+      <Animated.View style={[listFadeStyle, emptyStateStyle]}>
+        <Card
+          padding={spacing[8]}
+          style={{
+            minHeight: 200,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <VStack gap={spacing[4]} alignItems="center">
+            <Text size="4xl">✅</Text>
+            <Text size="lg" weight="medium">No Active Alerts</Text>
+            <Text colorTheme="mutedForeground" align="center">
+              All alerts have been handled
+            </Text>
+          </VStack>
+        </Card>
+      </Animated.View>
     );
   }
   
   // Use FlatList for native, regular mapping for web
   if (Platform.OS !== 'web') {
     return (
-      <FlatList
-        ref={listRef}
-        data={alerts}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        contentContainerStyle={{
-          gap: goldenSpacing.md,
-        }}
-        showsVerticalScrollIndicator={false}
-        maxToRenderPerBatch={10}
-        windowSize={10}
-        initialNumToRender={5}
-        removeClippedSubviews={true}
-        style={{
-          maxHeight: maxHeight || goldenDimensions.heights.massive,
-        }}
-      />
+      <Animated.View style={listFadeStyle}>
+        <FlatList
+          ref={listRef}
+          data={alerts}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={{
+            gap: spacing[4],
+          }}
+          showsVerticalScrollIndicator={false}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={5}
+          removeClippedSubviews={true}
+          style={{
+            maxHeight: maxHeight || 600,
+          }}
+        />
+      </Animated.View>
     );
   }
   
   // Web version with CSS animations
   return (
-    <ScrollContainer
-      style={{ 
-        maxHeight: maxHeight || goldenDimensions.heights.massive,
-      }}
-      showsVerticalScrollIndicator={false}
-    >
-      <VStack gap={goldenSpacing.md}>
-        {alerts.map((alert, index) => (
-          <AlertCardItem
-            key={alert.id}
-            alert={alert}
-            onAcknowledge={(id) => acknowledgeMutation.mutate({ alertId: id })}
-            onResolve={(id) => resolveMutation.mutate({ alertId: id })}
-            canAcknowledge={canAcknowledge}
-            canResolve={canResolve}
-            index={index}
-          />
-        ))}
-      </VStack>
-    </ScrollContainer>
+    <Animated.View style={listFadeStyle}>
+      <ScrollContainer
+        style={{ 
+          maxHeight: maxHeight || 600,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <VStack gap={spacing[4]}>
+          {alerts.map((alert, index) => (
+            <AlertCardItem
+              key={alert.id}
+              alert={alert}
+              onAcknowledge={(id) => acknowledgeMutation.mutate({ alertId: id })}
+              onResolve={(id) => resolveMutation.mutate({ alertId: id })}
+              canAcknowledge={canAcknowledge}
+              canResolve={canResolve}
+              index={index}
+            />
+          ))}
+        </VStack>
+      </ScrollContainer>
+    </Animated.View>
   );
 };

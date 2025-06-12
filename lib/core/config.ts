@@ -1,4 +1,4 @@
-import { getApiUrlSync as getEnvApiUrl } from "./env";
+import { getApiUrlSync as getEnvApiUrl } from "./config/env";
 
 /**
  * Get the API URL based on the platform and environment (synchronous version)

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Text as RNText, TextProps as RNTextProps, TextStyle } from 'react-native';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { designSystem, FontSize, FontWeight, SpacingScale } from '@/lib/design-system';
-import { useSpacing } from '@/contexts/SpacingContext';
+import { useTheme } from '@/lib/theme/provider';
+import { designSystem, FontSize, FontWeight, SpacingScale } from '@/lib/design';
+import { useSpacing } from '@/lib/stores/spacing-store';
 
 export interface TextProps extends RNTextProps {
   // Typography

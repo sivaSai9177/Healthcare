@@ -3,7 +3,7 @@ import { useRouter, usePathname } from "expo-router";
 import React, { useEffect, useRef } from "react";
 import { ActivityIndicator, View, Alert } from "react-native";
 
-type UserRole = "admin" | "manager" | "user" | "guest";
+type UserRole = "admin" | "manager" | "user" | "guest" | "operator" | "nurse" | "doctor" | "head_doctor";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;

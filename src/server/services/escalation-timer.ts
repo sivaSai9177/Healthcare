@@ -11,13 +11,11 @@ import {
   healthcareAuditLogs 
 } from '@/src/db/healthcare-schema';
 import { users } from '@/src/db/schema';
-import { eq, and, lt, or, isNull } from 'drizzle-orm';
+import { eq, and, lt, or } from 'drizzle-orm';
 import { 
-  HEALTHCARE_ESCALATION_TIERS, 
-  HEALTHCARE_ALERT_STATUSES,
-  type AlertUrgencyLevel 
+  HEALTHCARE_ESCALATION_TIERS
 } from '@/types/healthcare';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
 import { alertEventHelpers } from './alert-subscriptions';
 
 // Service configuration
@@ -123,11 +121,20 @@ export class EscalationTimerService {
     const toTier = fromTier + 1;
 
     try {
-      // Get the next escalation tier configuration
+      // Get the current and next escalation tier configurations
+      const currentTier = HEALTHCARE_ESCALATION_TIERS[fromTier - 1]; // 0-indexed
       const nextTier = HEALTHCARE_ESCALATION_TIERS[toTier - 1]; // 0-indexed
+      
       if (!nextTier) {
         throw new Error(`No escalation tier found for tier ${toTier}`);
       }
+      
+      // Get role names from tier configurations
+      const fromRole = currentTier?.role || 'nurse'; // Default to nurse if no current tier
+      const toRole = nextTier.role;
+      
+      // Verification log to ensure new code is running
+      log.info(`Escalating alert ${alert.id} from ${fromRole} (tier ${fromTier}) to ${toRole} (tier ${toTier})`, 'ESCALATION');
 
       // Begin transaction
       const escalationResult = await db.transaction(async (tx) => {
@@ -148,14 +155,15 @@ export class EscalationTimerService {
         // Record escalation
         await tx.insert(alertEscalations).values({
           alertId: alert.id,
-          fromTier,
-          toTier,
+          from_role: fromRole,
+          to_role: toRole,
           reason: 'timeout',
           escalatedAt: new Date(),
         });
 
         // Get users to notify based on role
-        const usersToNotify = await this.getUsersToNotify(alert.hospitalId, nextTier.notify_roles);
+        const rolesToNotify = toRole === 'all_staff' ? ['nurse', 'doctor', 'head_doctor'] : [toRole];
+        const usersToNotify = await this.getUsersToNotify(alert.hospitalId, rolesToNotify);
 
         // Create notification logs
         const notificationPromises = usersToNotify.map(user =>
@@ -175,20 +183,43 @@ export class EscalationTimerService {
 
         await Promise.all(notificationPromises);
 
-        // Audit log
-        await tx.insert(healthcareAuditLogs).values({
-          userId: 'system',
-          action: 'alert_escalated',
-          entityType: 'alert',
-          entityId: alert.id,
-          hospitalId: alert.hospitalId,
-          metadata: {
-            fromTier,
-            toTier,
-            reason: 'timeout',
-            notifiedUsers: usersToNotify.map(u => u.id),
-          },
-        });
+        // Audit log for system-initiated escalation
+        // Note: After running fix-healthcare-audit-logs.sql, userId can be null for system actions
+        try {
+          await tx.insert(healthcareAuditLogs).values({
+            userId: null as any, // System action - no user involved
+            action: 'alert_escalated',
+            entityType: 'alert',
+            entityId: alert.id,
+            hospitalId: alert.hospitalId,
+            metadata: {
+              fromTier,
+              toTier,
+              reason: 'timeout',
+              notifiedUsers: usersToNotify.map((u: any) => u.id),
+              systemAction: true,
+              escalatedBy: 'automatic_timeout',
+            },
+          });
+        } catch (auditError) {
+          // Fallback: If the migration hasn't been run yet, use the alert creator
+          log.error('[ESCALATION] Failed to log with null userId, using creator as fallback', auditError);
+          await tx.insert(healthcareAuditLogs).values({
+            userId: alert.createdBy,
+            action: 'alert_escalated',
+            entityType: 'alert',
+            entityId: alert.id,
+            hospitalId: alert.hospitalId,
+            metadata: {
+              fromTier,
+              toTier,
+              reason: 'timeout',
+              notifiedUsers: usersToNotify.map((u: any) => u.id),
+              systemAction: true,
+              escalatedBy: 'automatic_timeout',
+            },
+          });
+        }
 
         return {
           alertId: alert.id,

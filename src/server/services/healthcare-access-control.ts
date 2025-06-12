@@ -1,5 +1,3 @@
-import { z } from 'zod';
-import { Role } from './access-control';
 import { HealthcareUserRole } from '@/types/healthcare';
 
 // Extend ResourceType for healthcare

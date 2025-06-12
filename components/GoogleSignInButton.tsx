@@ -6,11 +6,10 @@ import { useRouter } from "expo-router";
 import { useAuthStore, toAppUser } from "@/lib/stores/auth-store";
 import { log, getEnvironment } from "@/lib/core";
 import { authClient as defaultAuthClient } from "@/lib/auth/auth-client";
-import { trpc } from "@/lib/trpc";
+import { trpc } from "@/lib/api/trpc";
 import { Button, Text, HStack } from "@/components/universal";
 import { type ButtonProps } from "@/components/universal/Button";
-import { Ionicons } from '@expo/vector-icons';
-
+import { Symbol } from '@/components/universal/Symbols';
 interface GoogleSignInButtonProps extends Partial<ButtonProps> {
   showIcon?: boolean;
   text?: string;
@@ -288,8 +287,8 @@ export function GoogleSignInButton({
         <HStack spacing={iconOnly || !text ? 0 : 2} alignItems="center" justifyContent="center">
           {/* Google Logo */}
           {showIcon && (
-            <Ionicons 
-              name="logo-google" 
+            <Symbol 
+              name="globe" 
               size={size === "lg" ? 20 : size === "sm" ? 16 : 18} 
               color={variant === 'outline' ? "#4285F4" : "#ffffff"}
             />

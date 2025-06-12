@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   ViewStyle,
@@ -11,8 +11,26 @@ import Svg, {
   G,
   Text as SvgText,
 } from 'react-native-svg';
+import Animated, {
+  useSharedValue,
+  useAnimatedProps,
+  withTiming,
+  withDelay,
+  withSpring,
+  interpolate,
+  Easing,
+} from 'react-native-reanimated';
 import { useChartConfig } from './ChartContainer';
-import { useTheme } from '@/lib/theme/theme-provider';
+import { useTheme } from '@/lib/theme/provider';
+import { AnimationVariant } from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedSvgText = Animated.createAnimatedComponent(SvgText);
+
+export type RadialChartAnimationType = 'sweep' | 'fade' | 'pulse' | 'bounce' | 'none';
 
 export interface RadialChartProps {
   value: number;
@@ -28,6 +46,18 @@ export interface RadialChartProps {
   endAngle?: number;
   style?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: RadialChartAnimationType;
+  animationDuration?: number;
+  animationDelay?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    easing?: typeof Easing.inOut;
+  };
 }
 
 export const RadialChart: React.FC<RadialChartProps> = ({
@@ -44,11 +74,26 @@ export const RadialChart: React.FC<RadialChartProps> = ({
   endAngle = 270,
   style,
   testID,
+  // Animation props
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'sweep',
+  animationDuration,
+  animationDelay = 0,
+  useHaptics = true,
+  animationConfig,
 }) => {
   const theme = useTheme();
   const chartConfig = useChartConfig();
   const screenWidth = Dimensions.get('window').width;
   const size = propSize || Math.min(screenWidth - 64, 200);
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  const duration = animationDuration ?? config.duration.normal;
   
   const radius = (size - strokeWidth) / 2;
   const centerX = size / 2;
@@ -83,6 +128,151 @@ export const RadialChart: React.FC<RadialChartProps> = ({
   
   const progressColor = color || chartConfig.colors.primary;
   const bgColor = backgroundColor || theme.muted;
+  
+  // Animation values
+  const animationProgress = useSharedValue(0);
+  const pulseScale = useSharedValue(1);
+  const textOpacity = useSharedValue(0);
+  
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      if (animationType === 'sweep') {
+        animationProgress.value = withDelay(
+          animationDelay,
+          withTiming(1, {
+            duration,
+            easing: Easing.out(Easing.cubic),
+          })
+        );
+      } else if (animationType === 'fade') {
+        animationProgress.value = withDelay(
+          animationDelay,
+          withTiming(1, { duration })
+        );
+      } else if (animationType === 'pulse') {
+        animationProgress.value = withDelay(
+          animationDelay,
+          withTiming(1, { duration })
+        );
+        // Add continuous pulse
+        pulseScale.value = withDelay(
+          animationDelay + duration,
+          withTiming(1.05, {
+            duration: 1500,
+            easing: Easing.inOut(Easing.sine),
+          })
+        );
+      } else if (animationType === 'bounce') {
+        animationProgress.value = withDelay(
+          animationDelay,
+          withSpring(1, {
+            damping: 8,
+            stiffness: 100,
+            velocity: 2,
+          })
+        );
+      }
+      
+      // Animate text after progress
+      textOpacity.value = withDelay(
+        animationDelay + duration / 2,
+        withTiming(1, { duration: duration / 2 })
+      );
+    } else {
+      animationProgress.value = 1;
+      textOpacity.value = 1;
+    }
+  }, [animated, isAnimated, shouldAnimate, animationType, duration, animationDelay, animationProgress, pulseScale, textOpacity]);
+  
+  const animatedProgressProps = useAnimatedProps(() => {
+    const progress = animationProgress.value * percentage;
+    const currentAngleAnimated = startAngleRad + sweepAngle * progress;
+    
+    const x2Animated = centerX + Math.cos(currentAngleAnimated) * radius;
+    const y2Animated = centerY + Math.sin(currentAngleAnimated) * radius;
+    
+    const largeArcFlagAnimated = Math.abs(currentAngleAnimated - startAngleRad) > Math.PI ? 1 : 0;
+    
+    const pathDataAnimated = [
+      `M ${x1} ${y1}`,
+      `A ${radius} ${radius} 0 ${largeArcFlagAnimated} 1 ${x2Animated} ${y2Animated}`,
+    ].join(' ');
+    
+    let opacity = 1;
+    let scale = 1;
+    
+    if (animationType === 'fade') {
+      opacity = animationProgress.value;
+    } else if (animationType === 'pulse') {
+      scale = pulseScale.value;
+    }
+    
+    return {
+      d: pathDataAnimated,
+      stroke: progressColor,
+      strokeWidth: strokeWidth * scale,
+      fillOpacity: 0,
+      strokeOpacity: opacity,
+    };
+  });
+  
+  const animatedTextStyle = useAnimatedProps(() => {
+    return {
+      opacity: textOpacity.value,
+    };
+  });
+  
+  if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+    return (
+      <View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]} testID={testID}>
+        <Svg width={size} height={size} style={{ position: 'absolute' }}>
+          <G>
+            {/* Background arc */}
+            <Path
+              d={backgroundPathData}
+              stroke={bgColor}
+              strokeWidth={strokeWidth}
+              fill="none"
+              strokeLinecap="round"
+            />
+            
+            {/* Animated Progress arc */}
+            <AnimatedPath
+              animatedProps={animatedProgressProps}
+              fill="none"
+              strokeLinecap="round"
+            />
+          </G>
+        </Svg>
+        
+        {/* Center content */}
+        <Animated.View style={[{ alignItems: 'center' }, animatedTextStyle]}>
+          {showValue && (
+            <Text
+              style={{
+                fontSize: size / 5,
+                fontWeight: 'bold',
+                color: theme.foreground,
+              }}
+            >
+              {showPercentage ? `${Math.round(percentage * 100)}%` : value}
+            </Text>
+          )}
+          {label && (
+            <Text
+              style={{
+                fontSize: size / 12,
+                color: theme.mutedForeground,
+                marginTop: 4,
+              }}
+            >
+              {label}
+            </Text>
+          )}
+        </Animated.View>
+      </View>
+    );
+  }
   
   return (
     <View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]} testID={testID}>
@@ -154,6 +344,19 @@ export interface RadialBarChartProps {
   showValues?: boolean;
   style?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: RadialChartAnimationType;
+  animationDuration?: number;
+  animationDelay?: number;
+  staggerDelay?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    easing?: typeof Easing.inOut;
+  };
 }
 
 export const RadialBarChart: React.FC<RadialBarChartProps> = ({
@@ -166,11 +369,27 @@ export const RadialBarChart: React.FC<RadialBarChartProps> = ({
   showValues = true,
   style,
   testID,
+  // Animation props
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'sweep',
+  animationDuration,
+  animationDelay = 0,
+  staggerDelay = 100,
+  useHaptics = true,
+  animationConfig,
 }) => {
   const theme = useTheme();
   const chartConfig = useChartConfig();
   const screenWidth = Dimensions.get('window').width;
   const size = propSize || Math.min(screenWidth - 64, 250);
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  const duration = animationDuration ?? config.duration.normal;
   
   const centerX = size / 2;
   const centerY = size / 2;
@@ -208,54 +427,239 @@ export const RadialBarChart: React.FC<RadialBarChartProps> = ({
     <View style={[{ width: size, height: size }, style]} testID={testID}>
       <Svg width={size} height={size}>
         {bars.map((bar, index) => (
-          <G key={`bar-${index}`}>
-            {/* Background */}
-            <Path
-              d={bar.backgroundPath}
-              stroke={theme.muted}
-              strokeWidth={barWidth}
-              fill="none"
-              strokeLinecap="round"
-            />
-            
-            {/* Progress */}
-            <Path
-              d={bar.progressPath}
-              stroke={bar.color}
-              strokeWidth={barWidth}
-              fill="none"
-              strokeLinecap="round"
-            />
-            
-            {/* Label */}
-            {showLabels && (
-              <SvgText
-                x={centerX - bar.radius - barWidth}
-                y={centerY + 4}
-                fill={theme.mutedForeground}
-                fontSize={10}
-                textAnchor="end"
-              >
-                {bar.item.label}
-              </SvgText>
-            )}
-            
-            {/* Value */}
-            {showValues && (
-              <SvgText
-                x={centerX + bar.radius + barWidth}
-                y={centerY + 4}
-                fill={theme.foreground}
-                fontSize={12}
-                fontWeight="bold"
-                textAnchor="start"
-              >
-                {`${Math.round(bar.percentage * 100)}%`}
-              </SvgText>
-            )}
-          </G>
+          <AnimatedRadialBar
+            key={`bar-${index}`}
+            bar={bar}
+            index={index}
+            barWidth={barWidth}
+            centerX={centerX}
+            centerY={centerY}
+            theme={theme}
+            showLabels={showLabels}
+            showValues={showValues}
+            animated={animated}
+            isAnimated={isAnimated}
+            shouldAnimate={shouldAnimate}
+            animationType={animationType}
+            duration={duration}
+            animationDelay={animationDelay}
+            staggerDelay={staggerDelay}
+          />
         ))}
       </Svg>
     </View>
+  );
+};
+
+// Animated Radial Bar Component
+interface AnimatedRadialBarProps {
+  bar: any;
+  index: number;
+  barWidth: number;
+  centerX: number;
+  centerY: number;
+  theme: any;
+  showLabels: boolean;
+  showValues: boolean;
+  animated: boolean;
+  isAnimated: boolean;
+  shouldAnimate: () => boolean;
+  animationType: RadialChartAnimationType;
+  duration: number;
+  animationDelay: number;
+  staggerDelay: number;
+}
+
+const AnimatedRadialBar: React.FC<AnimatedRadialBarProps> = ({
+  bar,
+  index,
+  barWidth,
+  centerX,
+  centerY,
+  theme,
+  showLabels,
+  showValues,
+  animated,
+  isAnimated,
+  shouldAnimate,
+  animationType,
+  duration,
+  animationDelay,
+  staggerDelay,
+}) => {
+  const animationProgress = useSharedValue(0);
+  const textOpacity = useSharedValue(0);
+  
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      const delay = animationDelay + (index * staggerDelay);
+      
+      if (animationType === 'sweep') {
+        animationProgress.value = withDelay(
+          delay,
+          withTiming(1, {
+            duration,
+            easing: Easing.out(Easing.cubic),
+          })
+        );
+      } else if (animationType === 'fade') {
+        animationProgress.value = withDelay(
+          delay,
+          withTiming(1, { duration })
+        );
+      } else if (animationType === 'pulse') {
+        animationProgress.value = withDelay(
+          delay,
+          withTiming(1, { duration })
+        );
+      } else if (animationType === 'bounce') {
+        animationProgress.value = withDelay(
+          delay,
+          withSpring(1, {
+            damping: 8,
+            stiffness: 100,
+          })
+        );
+      }
+      
+      // Animate text after bar
+      textOpacity.value = withDelay(
+        delay + duration / 2,
+        withTiming(1, { duration: duration / 2 })
+      );
+    } else {
+      animationProgress.value = 1;
+      textOpacity.value = 1;
+    }
+  }, [animated, isAnimated, shouldAnimate, animationType, duration, animationDelay, staggerDelay, index, animationProgress, textOpacity]);
+  
+  const animatedProgressProps = useAnimatedProps(() => {
+    const progress = animationProgress.value * bar.percentage;
+    const sweepAngleAnimated = progress * 2 * Math.PI * 0.75;
+    const startAngle = -Math.PI * 0.75;
+    const endAngleAnimated = startAngle + sweepAngleAnimated;
+    
+    const x2Animated = centerX + Math.cos(endAngleAnimated) * bar.radius;
+    const y2Animated = centerY + Math.sin(endAngleAnimated) * bar.radius;
+    
+    const progressPathAnimated = `M ${bar.progressPath.split(' ')[1]} ${bar.progressPath.split(' ')[2]} A ${bar.radius} ${bar.radius} 0 ${sweepAngleAnimated > Math.PI ? 1 : 0} 1 ${x2Animated} ${y2Animated}`;
+    
+    let opacity = 1;
+    if (animationType === 'fade') {
+      opacity = animationProgress.value;
+    }
+    
+    return {
+      d: progressPathAnimated,
+      stroke: bar.color,
+      strokeWidth: barWidth,
+      strokeOpacity: opacity,
+    };
+  });
+  
+  const animatedTextProps = useAnimatedProps(() => {
+    return {
+      fillOpacity: textOpacity.value,
+    };
+  });
+  
+  if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+    return (
+      <G>
+        {/* Background */}
+        <Path
+          d={bar.backgroundPath}
+          stroke={theme.muted}
+          strokeWidth={barWidth}
+          fill="none"
+          strokeLinecap="round"
+        />
+        
+        {/* Animated Progress */}
+        <AnimatedPath
+          animatedProps={animatedProgressProps}
+          fill="none"
+          strokeLinecap="round"
+        />
+        
+        {/* Animated Label */}
+        {showLabels && (
+          <AnimatedSvgText
+            x={centerX - bar.radius - barWidth}
+            y={centerY + 4}
+            fill={theme.mutedForeground}
+            fontSize={10}
+            textAnchor="end"
+            animatedProps={animatedTextProps}
+          >
+            {bar.item.label}
+          </AnimatedSvgText>
+        )}
+        
+        {/* Animated Value */}
+        {showValues && (
+          <AnimatedSvgText
+            x={centerX + bar.radius + barWidth}
+            y={centerY + 4}
+            fill={theme.foreground}
+            fontSize={12}
+            fontWeight="bold"
+            textAnchor="start"
+            animatedProps={animatedTextProps}
+          >
+            {`${Math.round(bar.percentage * 100)}%`}
+          </AnimatedSvgText>
+        )}
+      </G>
+    );
+  }
+  
+  return (
+    <G>
+      {/* Background */}
+      <Path
+        d={bar.backgroundPath}
+        stroke={theme.muted}
+        strokeWidth={barWidth}
+        fill="none"
+        strokeLinecap="round"
+      />
+      
+      {/* Progress */}
+      <Path
+        d={bar.progressPath}
+        stroke={bar.color}
+        strokeWidth={barWidth}
+        fill="none"
+        strokeLinecap="round"
+      />
+      
+      {/* Label */}
+      {showLabels && (
+        <SvgText
+          x={centerX - bar.radius - barWidth}
+          y={centerY + 4}
+          fill={theme.mutedForeground}
+          fontSize={10}
+          textAnchor="end"
+        >
+          {bar.item.label}
+        </SvgText>
+      )}
+      
+      {/* Value */}
+      {showValues && (
+        <SvgText
+          x={centerX + bar.radius + barWidth}
+          y={centerY + 4}
+          fill={theme.foreground}
+          fontSize={12}
+          fontWeight="bold"
+          textAnchor="start"
+        >
+          {`${Math.round(bar.percentage * 100)}%`}
+        </SvgText>
+      )}
+    </G>
   );
 };

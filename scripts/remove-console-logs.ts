@@ -2,6 +2,14 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
+// Simple console wrapper for script logging
+const log = {
+  info: (msg: string, context?: string) => log.info('[${context || ', 'COMPONENT');
+  success: (msg: string) => log.info('✅ ${msg}', 'COMPONENT');
+  error: (msg: string, context?: string, error?: any) => console.error(`❌ [${context || 'SCRIPT'}] ${msg}`, error || ''),
+  warn: (msg: string) => console.warn(`⚠️ ${msg}`)
+};
+
 // Patterns to exclude
 const EXCLUDE_PATTERNS = [
   '**/node_modules/**',
@@ -23,7 +31,7 @@ const SPECIAL_FILES = {
 };
 
 async function removeConsoleLogs() {
-  log.info('🔍 Searching for console.log statements...\n', 'COMPONENT');
+// TODO: Replace with structured logging - log.info('🔍 Searching for console.log statements...\n', 'COMPONENT');
   
   // Find all TypeScript and JavaScript files using shell command
   const { execSync } = require('child_process');
@@ -35,7 +43,7 @@ async function removeConsoleLogs() {
 
   let totalCount = 0;
   let filesModified = 0;
-  const results: Array<{ file: string; count: number; lines: number[] }> = [];
+  const results: { file: string; count: number; lines: number[] }[] = [];
 
   for (const file of files) {
     // Skip special files
@@ -106,7 +114,13 @@ async function removeConsoleLogs() {
             newLines.some(line => line.includes('log.info') || line.includes('log.error'))) {
           // Add import at the top after other imports
           const firstImportIndex = newLines.findIndex(line => line.startsWith('import'));
-          const lastImportIndex = newLines.findLastIndex(line => line.startsWith('import'));
+          let lastImportIndex = -1;
+          for (let i = newLines.length - 1; i >= 0; i--) {
+            if (newLines[i].startsWith('import')) {
+              lastImportIndex = i;
+              break;
+            }
+          }
           
           if (lastImportIndex !== -1) {
             newLines.splice(lastImportIndex + 1, 0, "import { log } from '@/lib/core/logger';");
@@ -130,20 +144,20 @@ async function removeConsoleLogs() {
 
   // Print results
   log.info('\n📊 Results:', 'COMPONENT');
-  log.info('Total console.log statements found: ${totalCount}', 'COMPONENT');
+// TODO: Replace with structured logging - log.info('Total console.log statements found: ${totalCount}', 'COMPONENT');
   log.info('Files modified: ${filesModified}\n', 'COMPONENT');
 
   if (results.length > 0) {
     log.info('📝 Modified files:', 'COMPONENT');
     results.forEach(({ file, count, lines }) => {
       log.info('\n${file}', 'COMPONENT');
-      log.info('  - ${count} console.log statements replaced/commented', 'COMPONENT');
+// TODO: Replace with structured logging - log.info('  - ${count} console.log statements replaced/commented', 'COMPONENT');
       log.info('  - Lines: ${lines.join(', 'COMPONENT');
     });
   }
 
   log.info('\n✅ Done! Please review the changes and update any TODO comments.', 'COMPONENT');
-  log.info('\n⚠️  Important: Files with complex console.log statements have been commented out.', 'COMPONENT');
+// TODO: Replace with structured logging - log.info('\n⚠️  Important: Files with complex console.log statements have been commented out.', 'COMPONENT');
   log.info('    Please manually update these to use structured logging.\n', 'COMPONENT');
 }
 

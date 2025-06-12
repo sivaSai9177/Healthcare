@@ -24,3 +24,15 @@ db = drizzlePg(pool);
 export { db };
 // TODO: Replace with structured logging - console.log("[DB] Database client initialized");
 
+// Export all schemas
+export * from './schema';
+export * from './healthcare-schema';
+// Export organization schemas with explicit names to avoid conflicts
+export {
+  organization,
+  organizationMember,
+  organizationCode,
+  organizationSettings,
+  organizationActivityLog,
+  organizationInvitation,
+} from './organization-schema';

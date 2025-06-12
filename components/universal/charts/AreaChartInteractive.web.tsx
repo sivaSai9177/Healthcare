@@ -6,8 +6,9 @@ import { Button } from "../Button"
 import { HStack } from "../Stack"
 import { Box } from "../Box"
 import { Text } from "../Text"
-import { SpacingScale } from "@/lib/design-system"
-import { useTheme } from "@/lib/theme/theme-provider"
+import { SpacingScale } from "@/lib/design"
+import { useTheme } from "@/lib/theme/provider"
+import { useBreakpoint } from '@/hooks/responsive';
 
 export const description = "An interactive area chart"
 
@@ -47,7 +48,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         borderColor: theme.border,
         borderRadius: 6,
         padding: 8,
-        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+        boxShadow: '0px 2px 4px theme.mutedForeground + "10"',
       }}>
         <Text style={{ fontSize: 12, color: theme.mutedForeground, marginBottom: 4 }}>
           {new Date(label).toLocaleDateString("en-US", {
@@ -82,6 +83,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export function AreaChartInteractive() {
   const theme = useTheme()
+  const breakpoint = useBreakpoint()
   const [isMobile, setIsMobile] = React.useState(false)
   const [timeRange, setTimeRange] = React.useState("90d")
 

@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
 
 /**
  * Simple in-memory token store for mobile platforms

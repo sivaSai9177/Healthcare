@@ -3,7 +3,7 @@ import {
   View,
   ViewStyle,
   Dimensions,
-  Animated,
+  Animated as RNAnimated,
   Platform,
 } from 'react-native';
 import Svg, {
@@ -17,23 +17,40 @@ import Svg, {
   Stop,
   Rect,
 } from 'react-native-svg';
+import Animated, {
+  useSharedValue,
+  useAnimatedProps,
+  withTiming,
+  withDelay,
+  withSpring,
+  interpolate,
+  Easing,
+} from 'react-native-reanimated';
+import { AnimationVariant , SpacingScale } from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
 import { useChartConfig } from './ChartContainer';
 import { Box } from '../Box';
 import { Text } from '../Text';
 import { HStack } from '../Stack';
-import { SpacingScale } from '@/lib/design-system';
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export interface LineChartData {
   labels: string[];
-  datasets: Array<{
+  datasets: {
     label: string;
     data: number[];
     color?: string;
     strokeWidth?: number;
     showPoints?: boolean;
     filled?: boolean;
-  }>;
+  }[];
 }
+
+export type LineChartAnimationType = 'draw' | 'fade' | 'wave' | 'morph' | 'none';
 
 export interface LineChartProps {
   data: LineChartData;
@@ -47,6 +64,19 @@ export interface LineChartProps {
   style?: ViewStyle;
   onDataPointPress?: (dataset: number, index: number, value: number) => void;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: LineChartAnimationType;
+  animationDuration?: number;
+  animationDelay?: number;
+  staggerDelay?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    easing?: typeof Easing.inOut;
+  };
 }
 
 export const LineChart: React.FC<LineChartProps> = ({
@@ -61,10 +91,26 @@ export const LineChart: React.FC<LineChartProps> = ({
   style,
   onDataPointPress,
   testID,
+  // Animation props
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'draw',
+  animationDuration,
+  animationDelay = 0,
+  staggerDelay = 100,
+  useHaptics = true,
+  animationConfig,
 }) => {
   const chartConfig = useChartConfig();
   const screenWidth = Dimensions.get('window').width;
   const width = propWidth || screenWidth - 32;
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  const duration = animationDuration ?? config.duration.normal;
   
   // Tooltip state
   const [tooltip, setTooltip] = useState<{
@@ -74,7 +120,7 @@ export const LineChart: React.FC<LineChartProps> = ({
     label: string;
     datasetLabel: string;
   } | null>(null);
-  const tooltipOpacity = useRef(new Animated.Value(0)).current;
+  const tooltipOpacity = useRef(new RNAnimated.Value(0)).current;
   const tooltipTimer = useRef<any>(null);
   
   const padding = {
@@ -197,18 +243,22 @@ export const LineChart: React.FC<LineChartProps> = ({
       datasetLabel: dataset.label,
     });
     
-    Animated.timing(tooltipOpacity, {
+    RNAnimated.timing(tooltipOpacity, {
       toValue: 1,
       duration: 200,
       useNativeDriver: true,
     }).start();
+    
+    if (useHaptics) {
+      haptic('selection');
+    }
     
     onDataPointPress?.(datasetIndex, index, value);
   };
   
   const hideTooltip = () => {
     tooltipTimer.current = setTimeout(() => {
-      Animated.timing(tooltipOpacity, {
+      RNAnimated.timing(tooltipOpacity, {
         toValue: 0,
         duration: 200,
         useNativeDriver: true,
@@ -360,48 +410,32 @@ export const LineChart: React.FC<LineChartProps> = ({
           const color = dataset.color || chartConfig.colors[`chart${datasetIndex + 1}`];
           
           return (
-            <G key={`dataset-${datasetIndex}`}>
-              {/* Filled area */}
-              {dataset.filled && (
-                <Path
-                  d={`${path} L ${points[points.length - 1].x} ${padding.top + chartHeight} L ${points[0].x} ${padding.top + chartHeight} Z`}
-                  fill={`url(#gradient-${datasetIndex})`}
-                />
-              )}
-              
-              {/* Line */}
-              <Path
-                d={path}
-                stroke={color}
-                strokeWidth={dataset.strokeWidth || 2}
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              
-              {/* Data points - hidden by default, shown on hover */}
-              {points.map((point, index) => (
-                <G key={`point-${datasetIndex}-${index}`}>
-                  {tooltip?.x === point.x && tooltip?.y === point.y && (
-                    <Circle
-                      cx={point.x}
-                      cy={point.y}
-                      r={5}
-                      fill={color}
-                      strokeWidth={2}
-                      stroke={chartConfig.colors.background}
-                    />
-                  )}
-                </G>
-              ))}
-            </G>
+            <AnimatedLine
+              key={`dataset-${datasetIndex}`}
+              path={path}
+              points={points}
+              dataset={dataset}
+              datasetIndex={datasetIndex}
+              color={color}
+              padding={padding}
+              chartHeight={chartHeight}
+              animated={animated}
+              isAnimated={isAnimated}
+              shouldAnimate={shouldAnimate}
+              animationType={animationType}
+              duration={duration}
+              animationDelay={animationDelay}
+              staggerDelay={staggerDelay}
+              tooltip={tooltip}
+              chartConfig={chartConfig}
+            />
           );
         })}
       </Svg>
       
       {/* Tooltip */}
       {tooltip && (
-        <Animated.View
+        <RNAnimated.View
           style={{
             position: 'absolute',
             left: Math.max(10, Math.min(tooltip.x - 75, width - 160)),
@@ -444,8 +478,241 @@ export const LineChart: React.FC<LineChartProps> = ({
               {tooltip.value.toLocaleString()}
             </Text>
           </Box>
-        </Animated.View>
+        </RNAnimated.View>
       )}
     </View>
   );
+};
+
+// Animated Line Component
+interface AnimatedLineProps {
+  path: string;
+  points: { x: number; y: number; value: number }[];
+  dataset: any;
+  datasetIndex: number;
+  color: string;
+  padding: any;
+  chartHeight: number;
+  animated: boolean;
+  isAnimated: boolean;
+  shouldAnimate: () => boolean;
+  animationType: LineChartAnimationType;
+  duration: number;
+  animationDelay: number;
+  staggerDelay: number;
+  tooltip: any;
+  chartConfig: any;
+}
+
+const AnimatedLine: React.FC<AnimatedLineProps> = ({
+  path,
+  points,
+  dataset,
+  datasetIndex,
+  color,
+  padding,
+  chartHeight,
+  animated,
+  isAnimated,
+  shouldAnimate,
+  animationType,
+  duration,
+  animationDelay,
+  staggerDelay,
+  tooltip,
+  chartConfig,
+}) => {
+  const pathAnimation = useSharedValue(0);
+  const opacityAnimation = useSharedValue(0);
+  
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      const delay = animationDelay + (datasetIndex * staggerDelay);
+      
+      if (animationType === 'draw') {
+        pathAnimation.value = withDelay(
+          delay,
+          withTiming(1, {
+            duration: duration * 1.5,
+            easing: Easing.out(Easing.cubic),
+          })
+        );
+        opacityAnimation.value = withDelay(
+          delay,
+          withTiming(1, { duration: duration / 2 })
+        );
+      } else if (animationType === 'fade') {
+        pathAnimation.value = 1;
+        opacityAnimation.value = withDelay(
+          delay,
+          withTiming(1, { duration })
+        );
+      } else if (animationType === 'wave') {
+        pathAnimation.value = withDelay(
+          delay,
+          withTiming(1, {
+            duration: duration * 2,
+            easing: Easing.inOut(Easing.sin),
+          })
+        );
+        opacityAnimation.value = withDelay(
+          delay,
+          withTiming(1, { duration: duration / 2 })
+        );
+      } else if (animationType === 'morph') {
+        pathAnimation.value = withDelay(
+          delay,
+          withSpring(1, {
+            damping: 12,
+            stiffness: 100,
+          })
+        );
+        opacityAnimation.value = withDelay(
+          delay,
+          withTiming(1, { duration: duration / 3 })
+        );
+      }
+    } else {
+      pathAnimation.value = 1;
+      opacityAnimation.value = 1;
+    }
+  }, [animated, isAnimated, shouldAnimate, animationType, duration, animationDelay, staggerDelay, datasetIndex, pathAnimation, opacityAnimation]);
+  
+  const animatedPathProps = useAnimatedProps(() => {
+    if (animationType === 'draw') {
+      const pathLength = path.length;
+      const strokeDashoffset = interpolate(pathAnimation.value, [0, 1], [pathLength, 0]);
+      return {
+        strokeDasharray: pathLength,
+        strokeDashoffset,
+        opacity: opacityAnimation.value,
+      };
+    } else if (animationType === 'wave') {
+      // Create a wave effect by modifying the path
+      return {
+        opacity: opacityAnimation.value,
+      };
+    } else {
+      return {
+        opacity: opacityAnimation.value,
+      };
+    }
+  });
+  
+  const animatedAreaProps = useAnimatedProps(() => ({
+    opacity: interpolate(opacityAnimation.value, [0, 1], [0, 0.8]),
+  }));
+  
+  const LineComponent = animated && isAnimated && shouldAnimate() && animationType !== 'none' ? AnimatedPath : Path;
+  const AreaComponent = animated && isAnimated && shouldAnimate() && animationType !== 'none' ? AnimatedPath : Path;
+  
+  return (
+    <G>
+      {/* Filled area */}
+      {dataset.filled && (
+        <AreaComponent
+          d={`${path} L ${points[points.length - 1].x} ${padding.top + chartHeight} L ${points[0].x} ${padding.top + chartHeight} Z`}
+          fill={`url(#gradient-${datasetIndex})`}
+          animatedProps={animated && isAnimated && shouldAnimate() && animationType !== 'none' ? animatedAreaProps : undefined}
+        />
+      )}
+      
+      {/* Line */}
+      <LineComponent
+        d={path}
+        stroke={color}
+        strokeWidth={dataset.strokeWidth || 2}
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        animatedProps={animated && isAnimated && shouldAnimate() && animationType !== 'none' ? animatedPathProps : undefined}
+      />
+      
+      {/* Data points */}
+      {points.map((point, index) => (
+        <AnimatedDataPoint
+          key={`point-${datasetIndex}-${index}`}
+          point={point}
+          index={index}
+          color={color}
+          animated={animated}
+          isAnimated={isAnimated}
+          shouldAnimate={shouldAnimate}
+          animationDelay={animationDelay + (datasetIndex * staggerDelay) + (index * 30)}
+          duration={duration}
+          tooltip={tooltip}
+          chartConfig={chartConfig}
+        />
+      ))}
+    </G>
+  );
+};
+
+// Animated Data Point Component
+interface AnimatedDataPointProps {
+  point: { x: number; y: number; value: number };
+  index: number;
+  color: string;
+  animated: boolean;
+  isAnimated: boolean;
+  shouldAnimate: () => boolean;
+  animationDelay: number;
+  duration: number;
+  tooltip: any;
+  chartConfig: any;
+}
+
+const AnimatedDataPoint: React.FC<AnimatedDataPointProps> = ({
+  point,
+  index,
+  color,
+  animated,
+  isAnimated,
+  shouldAnimate,
+  animationDelay,
+  duration,
+  tooltip,
+  chartConfig,
+}) => {
+  const scale = useSharedValue(0);
+  const opacity = useSharedValue(0);
+  
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      opacity.value = withDelay(
+        animationDelay,
+        withTiming(1, { duration: duration / 3 })
+      );
+      scale.value = withDelay(
+        animationDelay,
+        withSpring(1, {
+          damping: 12,
+          stiffness: 200,
+        })
+      );
+    } else {
+      opacity.value = 1;
+      scale.value = 1;
+    }
+  }, [animated, isAnimated, shouldAnimate, animationDelay, duration, opacity, scale]);
+  
+  const animatedProps = useAnimatedProps(() => ({
+    r: interpolate(scale.value, [0, 1], [0, tooltip?.x === point.x && tooltip?.y === point.y ? 5 : 3]),
+    opacity: opacity.value,
+  }));
+  
+  if (tooltip?.x === point.x && tooltip?.y === point.y) {
+    return (
+      <AnimatedCircle
+        cx={point.x}
+        cy={point.y}
+        fill={color}
+        strokeWidth={2}
+        stroke={chartConfig.colors.background}
+        animatedProps={animatedProps}
+      />
+    );
+  }
+  
+  return null;
 };

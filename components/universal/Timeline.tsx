@@ -1,9 +1,28 @@
-import React from 'react';
-import { View, ViewStyle } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, ViewStyle, Platform } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withDelay,
+  interpolate,
+  FadeIn,
+  SlideInLeft,
+  SlideInUp,
+} from 'react-native-reanimated';
 import { Text } from './Text';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { Symbol } from './Symbols';
+import { 
+  AnimationVariant,
+  getAnimationConfig,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+
+const AnimatedView = Animated.View;
 
 export interface TimelineItem {
   id: string;
@@ -17,6 +36,8 @@ export interface TimelineItem {
   content?: React.ReactNode;
 }
 
+export type TimelineAnimationType = 'stagger' | 'fade' | 'slide' | 'none';
+
 export interface TimelineProps {
   items: TimelineItem[];
   orientation?: 'vertical' | 'horizontal';
@@ -26,6 +47,16 @@ export interface TimelineProps {
   activeIndex?: number;
   style?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: TimelineAnimationType;
+  animationDuration?: number;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const Timeline = React.forwardRef<View, TimelineProps>(
@@ -39,11 +70,21 @@ export const Timeline = React.forwardRef<View, TimelineProps>(
       activeIndex,
       style,
       testID,
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'stagger',
+      animationDuration,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
     const { spacing } = useSpacing();
+    const { shouldAnimate } = useAnimationStore();
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
 
     const variantConfig = {
       compact: {
@@ -115,7 +156,7 @@ export const Timeline = React.forwardRef<View, TimelineProps>(
       if (item.iconName) {
         return (
           <View style={iconContainerStyle}>
-            <Ionicons
+            <Symbol
               name={item.iconName}
               size={variantConfig.iconSize * 0.6}
               color={status === 'active' ? theme.background : iconColor}
@@ -133,7 +174,7 @@ export const Timeline = React.forwardRef<View, TimelineProps>(
 
       return (
         <View style={iconContainerStyle}>
-          <Ionicons
+          <Symbol
             name={defaultIcons[status] as keyof typeof Ionicons.glyphMap}
             size={variantConfig.iconSize * 0.6}
             color={status === 'active' ? theme.background : iconColor}
@@ -142,10 +183,37 @@ export const Timeline = React.forwardRef<View, TimelineProps>(
       );
     };
 
-    const renderConnector = (status: TimelineItem['status'], isLast: boolean) => {
-      if (!showConnectors || isLast) return null;
-
+    const TimelineConnector = React.memo(function TimelineConnector({ status, isLast, index }: { status: TimelineItem['status'], isLast: boolean, index: number }) {
       const lineColor = getItemColor(status);
+      const height = useSharedValue(0);
+      const width = useSharedValue(0);
+      
+      // Define animated style before any conditional returns
+      const animatedStyle = useAnimatedStyle(() => ({
+        ...(orientation === 'vertical' 
+          ? { height: `${height.value}%` }
+          : { width: `${width.value}%` }
+        ),
+      }));
+      
+      // Animate connector growth
+      useEffect(() => {
+        if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+          const delay = animationType === 'stagger' ? index * 100 + 200 : 0;
+          
+          if (orientation === 'vertical') {
+            height.value = withDelay(delay, withTiming(100, { duration: config.duration.normal }));
+          } else {
+            width.value = withDelay(delay, withTiming(100, { duration: config.duration.normal }));
+          }
+        } else {
+          height.value = 100;
+          width.value = 100;
+        }
+      }, [index, animated, isAnimated, shouldAnimate, animationType, config, orientation]);
+
+      if (!showConnectors || isLast) return null;
+      
       const connectorStyle: ViewStyle = {
         position: 'absolute',
         backgroundColor: lineColor,
@@ -197,17 +265,65 @@ export const Timeline = React.forwardRef<View, TimelineProps>(
         );
       }
 
-      return <View style={connectorStyle} />;
-    };
+      return (
+        <AnimatedView 
+          style={[
+            connectorStyle,
+            animated && isAnimated && shouldAnimate() && animationType !== 'none' ? animatedStyle : {},
+          ]} 
+        />
+      );
+    });
 
     const formatDate = (date: string | Date) => {
       if (typeof date === 'string') return date;
       return date.toLocaleDateString();
     };
 
-    const renderTimelineItem = (item: TimelineItem, index: number) => {
+    const TimelineItemComponent = React.memo(function TimelineItemComponent({ item, index }: { item: TimelineItem, index: number }) {
       const status = getItemStatus(index, item);
       const isLast = index === items.length - 1;
+      
+      // Animation values
+      const opacity = useSharedValue(0);
+      const translateX = useSharedValue(orientation === 'vertical' ? -30 : 0);
+      const translateY = useSharedValue(orientation === 'horizontal' ? -30 : 0);
+      const scale = useSharedValue(0.8);
+      
+      // Animate item entrance
+      useEffect(() => {
+        if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+          const delay = animationType === 'stagger' ? index * 100 : 0;
+          
+          opacity.value = withDelay(delay, withTiming(1, { duration: config.duration.normal }));
+          
+          if (animationType === 'slide') {
+            if (orientation === 'vertical') {
+              translateX.value = withDelay(delay, withSpring(0, config.spring));
+            } else {
+              translateY.value = withDelay(delay, withSpring(0, config.spring));
+            }
+          }
+          
+          if (animationType === 'stagger') {
+            scale.value = withDelay(delay, withSpring(1, config.spring));
+          }
+        } else {
+          opacity.value = 1;
+          translateX.value = 0;
+          translateY.value = 0;
+          scale.value = 1;
+        }
+      }, [index, animated, isAnimated, shouldAnimate, animationType, config, orientation]);
+      
+      const animatedStyle = useAnimatedStyle(() => ({
+        opacity: opacity.value,
+        transform: [
+          { translateX: translateX.value },
+          { translateY: translateY.value },
+          { scale: scale.value },
+        ],
+      }));
 
       const itemContainerStyle: ViewStyle = {
         flexDirection: orientation === 'vertical' ? 'row' : 'column',
@@ -224,11 +340,20 @@ export const Timeline = React.forwardRef<View, TimelineProps>(
       };
 
       return (
-        <View key={item.id} style={itemContainerStyle}>
+        <AnimatedView 
+          key={item.id} 
+          style={[
+            itemContainerStyle,
+            animated && isAnimated && shouldAnimate() && animationType !== 'none' ? animatedStyle : {},
+            Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && {
+              transition: 'all 0.3s ease',
+            } as any,
+          ]}
+        >
           {/* Icon and Connector */}
           <View style={{ position: 'relative' }}>
             {renderIcon(item, status)}
-            {renderConnector(status, isLast)}
+            <TimelineConnector status={status} isLast={isLast} index={index} />
           </View>
 
           {/* Content */}
@@ -265,13 +390,13 @@ export const Timeline = React.forwardRef<View, TimelineProps>(
               <View style={{ marginTop: spacing(2) }}>{item.content}</View>
             )}
           </View>
-        </View>
+        </AnimatedView>
       );
-    };
+    });
 
     return (
       <View ref={ref} style={containerStyle} testID={testID}>
-        {items.map((item, index) => renderTimelineItem(item, index))}
+        {items.map((item, index) => <TimelineItemComponent key={item.id || index} item={item} index={index} />)}
       </View>
     );
   }
@@ -287,6 +412,15 @@ export interface TimelineCardProps {
   tags?: string[];
   actions?: React.ReactNode;
   style?: ViewStyle;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationDuration?: number;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export const TimelineCard: React.FC<TimelineCardProps> = ({
@@ -296,9 +430,38 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   tags,
   actions,
   style,
+  animated = true,
+  animationVariant = 'moderate',
+  animationDuration,
+  animationConfig,
 }) => {
   const theme = useTheme();
   const { spacing } = useSpacing();
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  // Animation values
+  const scale = useSharedValue(0.95);
+  const opacity = useSharedValue(0);
+  
+  // Animate card entrance
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      opacity.value = withTiming(1, { duration: config.duration.normal });
+      scale.value = withSpring(1, config.spring);
+    } else {
+      opacity.value = 1;
+      scale.value = 1;
+    }
+  }, [animated, isAnimated, shouldAnimate, config]);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
 
   const cardStyle: ViewStyle = {
     backgroundColor: theme.card,
@@ -310,7 +473,15 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
   };
 
   return (
-    <View style={cardStyle}>
+    <AnimatedView 
+      style={[
+        cardStyle,
+        animated && isAnimated && shouldAnimate() ? animatedStyle : {},
+        Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && {
+          transition: 'all 0.3s ease',
+        } as any,
+      ]}
+    >
       <Text size="md" weight="semibold">
         {title}
       </Text>
@@ -330,8 +501,11 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
       {tags && tags.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing(2) }}>
           {tags.map((tag, index) => (
-            <View
+            <AnimatedView
               key={index}
+              entering={Platform.OS !== 'web' && animated && isAnimated && shouldAnimate() 
+                ? FadeIn.delay(index * 50).duration(config.duration.fast)
+                : undefined}
               style={{
                 backgroundColor: theme.muted,
                 paddingHorizontal: spacing(2),
@@ -344,12 +518,12 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
               <Text size="xs" colorTheme="mutedForeground">
                 {tag}
               </Text>
-            </View>
+            </AnimatedView>
           ))}
         </View>
       )}
 
       {actions && <View style={{ marginTop: spacing(3) }}>{actions}</View>}
-    </View>
+    </AnimatedView>
   );
 };

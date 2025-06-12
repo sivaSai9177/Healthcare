@@ -1,8 +1,8 @@
 import React from "react";
 import { Platform, TouchableOpacity } from "react-native";
 import { Box, Text, Card, CardContent } from "@/components/universal";
-import { useTheme } from "@/lib/theme/theme-provider";
-import { BorderRadius, SpacingScale } from "@/lib/design-system";
+import { useTheme } from "@/lib/theme/provider";
+import { BorderRadius, SpacingScale } from "@/lib/design";
 
 export type UserRole = 'guest' | 'user' | 'manager' | 'admin';
 

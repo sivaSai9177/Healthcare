@@ -10,15 +10,17 @@ export async function getSessionWithBearer(headers: Headers): Promise<{
   user: User;
 } | null> {
   try {
-// TODO: Replace with structured logging - console.log('[SESSION] getSessionWithBearer called with headers:', {
-      authorization: headers.get('authorization'),
-      cookie: headers.get('cookie')?.substring(0, 50) + '...',
-    });
+    // TODO: Replace with structured logging
+    // console.log('[SESSION] getSessionWithBearer called with headers:', {
+    //   authorization: headers.get('authorization'),
+    //   cookie: headers.get('cookie')?.substring(0, 50) + '...',
+    // });
     
     // First try standard cookie-based auth
     const cookieSession = await auth.api.getSession({ headers });
     if (cookieSession) {
-// TODO: Replace with structured logging - console.log('[SESSION] Found session via cookie');
+      // TODO: Replace with structured logging
+      // console.log('[SESSION] Found session via cookie');
       return cookieSession;
     }
 

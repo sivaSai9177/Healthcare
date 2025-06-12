@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   useForm,
   Controller,
@@ -9,15 +9,44 @@ import {
   RegisterOptions,
 } from 'react-hook-form';
 import { View, ViewStyle, TextStyle } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withSequence,
+  FadeIn,
+  SlideInRight,
+} from 'react-native-reanimated';
 import { Button, ButtonProps } from './Button';
-import { VStack } from './Stack';
+import { VStack , HStack } from './Stack';
 import { FormField } from './Label';
-import { SpacingScale } from '@/lib/design-system';
-import { useSpacing } from '@/contexts/SpacingContext';
+import { SpacingScale, AnimationVariant } from '@/lib/design';
+
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
+
+// Import necessary components
+import { Text } from './Text';
+import { Input } from './Input';
+import { Select } from './Select';
+import { Checkbox } from './Checkbox';
+import { Switch } from './Switch';
+import { useTheme } from '@/lib/theme/provider';
+
+export type FormAnimationType = 'validate' | 'submit' | 'error' | 'none';
+
+const AnimatedView = Animated.createAnimatedComponent(View);
 
 // Form Context
 interface FormContextValue<TFieldValues extends FieldValues = FieldValues> {
   form: UseFormReturn<TFieldValues>;
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: FormAnimationType;
+  animationDuration?: number;
+  useHaptics?: boolean;
 }
 
 const FormContext = React.createContext<FormContextValue | null>(null);
@@ -37,6 +66,18 @@ export interface FormProps<TFieldValues extends FieldValues = FieldValues> {
   children: React.ReactNode;
   style?: ViewStyle;
   spacing?: SpacingScale;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: FormAnimationType;
+  animationDuration?: number;
+  staggerDelay?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 export function Form<TFieldValues extends FieldValues = FieldValues>({
@@ -45,16 +86,86 @@ export function Form<TFieldValues extends FieldValues = FieldValues>({
   children,
   style,
   spacing = 4,
+  // Animation props
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'validate',
+  animationDuration,
+  staggerDelay = 100,
+  useHaptics = true,
+  animationConfig,
 }: FormProps<TFieldValues>) {
-  const handleSubmit = form.handleSubmit(onSubmit);
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  const duration = animationDuration ?? config.duration.normal;
+  
+  // Animation values
+  const formScale = useSharedValue(1);
+  const formShakeX = useSharedValue(0);
+  const submitScale = useSharedValue(1);
+  
+  const handleSubmit = form.handleSubmit(async (data) => {
+    if (animated && isAnimated && shouldAnimate() && animationType === 'submit') {
+      submitScale.value = withSequence(
+        withSpring(0.95, config.spring),
+        withSpring(1, config.spring)
+      );
+      if (useHaptics) {
+        haptic('success');
+      }
+    }
+    await onSubmit(data);
+  });
+  
+  // Shake on error
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate() && animationType === 'error') {
+      const hasErrors = Object.keys(form.formState.errors).length > 0;
+      if (hasErrors) {
+        formShakeX.value = withSequence(
+          withTiming(-10, { duration: 50 }),
+          withTiming(10, { duration: 50 }),
+          withTiming(-10, { duration: 50 }),
+          withTiming(10, { duration: 50 }),
+          withTiming(0, { duration: 50 })
+        );
+        if (useHaptics) {
+          haptic('error');
+        }
+      }
+    }
+  }, [form.formState.errors, animated, isAnimated, shouldAnimate, animationType, useHaptics]);
+  
+  const formAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: formShakeX.value },
+      { scale: formScale.value },
+    ],
+  }));
+  
+  const contextValue = {
+    form,
+    animated,
+    animationVariant,
+    animationType,
+    animationDuration: duration,
+    useHaptics,
+  };
+  
+  const shouldUseAnimation = animated && isAnimated && shouldAnimate();
+  const FormContainer = shouldUseAnimation ? AnimatedView : View;
 
   return (
-    <FormContext.Provider value={{ form }}>
-      <View style={style}>
+    <FormContext.Provider value={contextValue}>
+      <FormContainer style={[style, shouldUseAnimation ? formAnimatedStyle : {}]}>
         <VStack spacing={spacing}>
           {children}
         </VStack>
-      </View>
+      </FormContainer>
     </FormContext.Provider>
   );
 }
@@ -85,8 +196,44 @@ export function FormItem<
   children,
   style,
 }: FormItemProps<TFieldValues, TName>) {
-  const form = useFormContext<TFieldValues>();
+  const context = React.useContext(FormContext) as FormContextValue<TFieldValues>;
+  const form = context.form;
   const error = form.formState.errors[name];
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: context.animationVariant || 'moderate',
+  });
+  
+  // Animation values for field error
+  const fieldShakeX = useSharedValue(0);
+  const fieldScale = useSharedValue(1);
+  
+  useEffect(() => {
+    if (context.animated && isAnimated && shouldAnimate() && context.animationType === 'validate') {
+      if (error) {
+        fieldShakeX.value = withSequence(
+          withTiming(-5, { duration: 50 }),
+          withTiming(5, { duration: 50 }),
+          withTiming(-5, { duration: 50 }),
+          withTiming(5, { duration: 50 }),
+          withTiming(0, { duration: 50 })
+        );
+        if (context.useHaptics) {
+          haptic('light');
+        }
+      }
+    }
+  }, [error, context.animated, isAnimated, shouldAnimate, context.animationType, context.useHaptics]);
+  
+  const fieldAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: fieldShakeX.value },
+      { scale: fieldScale.value },
+    ],
+  }));
+  
+  const shouldUseAnimation = context.animated && isAnimated && shouldAnimate();
+  const FieldContainer = shouldUseAnimation ? AnimatedView : View;
 
   return (
     <Controller
@@ -94,15 +241,16 @@ export function FormItem<
       name={name}
       rules={rules}
       render={({ field }) => (
-        <FormField
-          label={label || ''}
-          required={required}
-          hint={hint}
-          error={error?.message}
-          style={style}
-        >
-          {children(field)}
-        </FormField>
+        <FieldContainer style={[shouldUseAnimation ? fieldAnimatedStyle : {}, style]}>
+          <FormField
+            label={label || ''}
+            required={required}
+            hint={hint}
+            error={error?.message}
+          >
+            {children(field)}
+          </FormField>
+        </FieldContainer>
       )}
     />
   );
@@ -120,7 +268,9 @@ export const FormSubmit: React.FC<FormSubmitProps> = ({
   onPress,
   ...props
 }) => {
-  const form = useFormContext();
+  const context = React.useContext(FormContext);
+  const formFromHook = useFormContext();
+  const form = context?.form || formFromHook;
   const { isSubmitting, isValid } = form.formState;
 
   const handlePress = () => {
@@ -137,6 +287,10 @@ export const FormSubmit: React.FC<FormSubmitProps> = ({
       onPress={handlePress}
       isLoading={isLoading || isSubmitting}
       isDisabled={isDisabled || !isValid || isSubmitting}
+      animated={context?.animated}
+      animationVariant={context?.animationVariant}
+      animationType="scale"
+      useHaptics={context?.useHaptics}
       {...props}
     >
       {children}
@@ -178,7 +332,7 @@ export type { UseFormReturn, FieldValues, FieldPath, RegisterOptions } from 'rea
 
 // Pre-configured form field components
 export const FormInput: React.FC<
-  FormItemProps & { placeholder?: string; type?: string }
+  Omit<FormItemProps, 'children'> & { placeholder?: string; type?: string }
 > = ({ name, label, rules, placeholder, type, ...props }) => {
   return (
     <FormItem name={name} label={label} rules={rules} {...props}>
@@ -251,12 +405,3 @@ export const FormSwitch: React.FC<
     </FormItem>
   );
 };
-
-// Import necessary components
-import { Text } from './Text';
-import { Input } from './Input';
-import { Select } from './Select';
-import { Checkbox } from './Checkbox';
-import { Switch } from './Switch';
-import { HStack } from './Stack';
-import { useTheme } from '@/lib/theme/theme-provider';

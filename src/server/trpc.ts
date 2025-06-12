@@ -1,5 +1,5 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-import { auth } from '@/lib/auth/auth-server';
+
 import { getSessionWithBearerFix } from '@/lib/auth/get-session-with-bearer-fix';
 import type { Session, User } from 'better-auth';
 import { log , trpcLogger } from '@/lib/core';
@@ -103,7 +103,7 @@ const auditMiddleware = t.middleware(async ({ path, type, ctx, next }) => {
     const durationMs = Date.now() - start;
     
     // Import audit service dynamically to avoid circular dependencies
-    const { auditService, AuditAction, AuditOutcome, AuditSeverity, auditHelpers } = await import('./services/audit');
+    const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('./services/audit');
     const context = auditHelpers.extractContext(ctx.req, ctx.session);
     
     // Log successful API access
@@ -187,11 +187,12 @@ const performanceMiddleware = t.middleware(async ({ path, type, next }) => {
 });
 
 // Rate limiting middleware (basic implementation)
-const rateLimitMiddleware = t.middleware(async ({ ctx, next }) => {
-  // In production, implement proper rate limiting with Redis
-  // This is a basic example for the starter template
-  return next();
-});
+// TODO: Uncomment and implement proper rate limiting with Redis in production
+// const rateLimitMiddleware = t.middleware(async ({ ctx, next }) => {
+//   // In production, implement proper rate limiting with Redis
+//   // This is a basic example for the starter template
+//   return next();
+// });
 
 // Enhanced authentication middleware following tRPC best practices
 const authMiddleware = t.middleware(async ({ ctx, next, path }) => {

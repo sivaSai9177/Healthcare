@@ -22,15 +22,18 @@ module.exports = {
       testEnvironment: 'jsdom',
       testMatch: [
         '<rootDir>/__tests__/integration/**/*.test.{js,jsx,ts,tsx}',
+        '<rootDir>/__tests__/animations/**/*.test.{js,jsx,ts,tsx}',
+        '<rootDir>/__tests__/components/**/*.test.{js,jsx,ts,tsx}',
         '<rootDir>/components/**/*.test.{js,jsx,ts,tsx}',
         '<rootDir>/app/**/*.test.{js,jsx,ts,tsx}',
       ],
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/$1',
+        'react-native$': '<rootDir>/jest.react-native-mock.js',
       },
       setupFilesAfterEnv: ['<rootDir>/jest.setup.js', '@testing-library/jest-native/extend-expect'],
       transformIgnorePatterns: [
-        'node_modules/(?!(react-native|@react-native|expo|@expo|@unimodules|unimodules|sentry-expo|native-base|react-clone-referenced-element|@react-native-community|react-navigation|@react-navigation/.*|@unimodules/.*|react-native-svg|react-native-screens)/)',
+        'node_modules/(?!(react-native|@react-native|expo|@expo|@unimodules|unimodules|sentry-expo|native-base|react-clone-referenced-element|@react-native-community|react-navigation|@react-navigation/.*|@unimodules/.*|react-native-svg|react-native-screens|react-native-reanimated|nativewind)/)',
       ],
     },
   ],

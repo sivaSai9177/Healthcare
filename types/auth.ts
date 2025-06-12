@@ -11,7 +11,7 @@ export interface CustomUser extends BetterAuthUser {
 // Update the module declaration to use our custom user type
 declare module "better-auth/types" {
   interface User {
-    role: string;
+    // Extend with our custom fields
     organizationId?: string;
     organizationName?: string;
     needsProfileCompletion?: boolean;

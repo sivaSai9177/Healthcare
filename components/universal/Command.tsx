@@ -3,19 +3,30 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   Modal,
   FlatList,
   KeyboardAvoidingView,
   Platform,
   ViewStyle,
-  TextStyle,
-  Keyboard,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withSequence,
+} from 'react-native-reanimated';
+import { Symbol } from './Symbols';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
 import { Card } from './Card';
+import { 
+  AnimationVariant,
+} from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
 
 export interface CommandItem {
   id: string;
@@ -29,6 +40,8 @@ export interface CommandItem {
   disabled?: boolean;
 }
 
+export type CommandAnimationType = 'modalOpen' | 'itemSelection' | 'searchResults' | 'none';
+
 export interface CommandProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -41,6 +54,20 @@ export interface CommandProps {
   inputStyle?: ViewStyle;
   itemStyle?: ViewStyle;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: CommandAnimationType;
+  animationDuration?: number;
+  modalAnimation?: 'fade' | 'slide' | 'scale';
+  itemAnimation?: boolean;
+  searchAnimation?: boolean;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    spring?: { damping: number; stiffness: number };
+  };
 }
 
 const fuzzySearch = (query: string, text: string, keywords?: string[]): boolean => {
@@ -64,6 +91,142 @@ const fuzzySearch = (query: string, text: string, keywords?: string[]): boolean 
   return queryIndex === lowerQuery.length;
 };
 
+const AnimatedModal = Animated.createAnimatedComponent(Modal);
+
+// Command Item Component
+const CommandItemComponent = ({
+  item,
+  index,
+  isSelected,
+  onPress,
+  theme,
+  spacing,
+  itemStyle,
+  animated,
+  isAnimated,
+  shouldAnimate,
+  itemAnimation,
+  config,
+}: any) => {
+  const itemScale = useSharedValue(1);
+  const itemOpacity = useSharedValue(0);
+  
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate() && itemAnimation) {
+      itemOpacity.value = withTiming(1, { 
+        duration: config.duration.fast,
+        delay: index * 30,
+      });
+    } else {
+      itemOpacity.value = 1;
+    }
+  }, [animated, isAnimated, shouldAnimate, itemAnimation, itemOpacity, config.duration.fast, index]);
+  
+  const itemAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: itemOpacity.value,
+    transform: [{ scale: itemScale.value }],
+  }));
+  
+  const handlePress = () => {
+    if (animated && isAnimated && shouldAnimate() && itemAnimation) {
+      itemScale.value = withSequence(
+        withTiming(0.95, { duration: config.duration.fast / 2 }),
+        withSpring(1, config.spring)
+      );
+    }
+    onPress();
+  };
+  
+  const ItemContainer = animated && isAnimated && shouldAnimate() && itemAnimation
+    ? Animated.createAnimatedComponent(TouchableOpacity)
+    : TouchableOpacity;
+  
+  return (
+    <ItemContainer
+      onPress={handlePress}
+      disabled={item.disabled}
+      style={[
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: spacing[4],
+          paddingVertical: spacing[3],
+          backgroundColor: isSelected ? theme.accent : 'transparent',
+          opacity: item.disabled ? 0.5 : 1,
+        },
+        itemStyle,
+        animated && isAnimated && shouldAnimate() && itemAnimation
+          ? itemAnimatedStyle
+          : {},
+      ]}
+    >
+      {item.icon && (
+        <Symbol
+          name="item.icon as any"
+          size={20}
+          color={item.disabled ? theme.mutedForeground : theme.foreground}
+          style={{ marginRight: spacing[3] }}
+        />
+      )}
+      
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{
+            fontSize: 14,
+            fontWeight: '500',
+            color: item.disabled ? theme.mutedForeground : theme.foreground,
+          }}
+        >
+          {item.label}
+        </Text>
+        {item.description && (
+          <Text
+            style={{
+              fontSize: 12,
+              color: theme.mutedForeground,
+              marginTop: spacing[0.5],
+            }}
+          >
+            {item.description}
+          </Text>
+        )}
+      </View>
+      
+      {item.shortcut && Platform.OS === 'web' && (
+        <View
+          style={{
+            flexDirection: 'row',
+            marginLeft: spacing[3],
+          }}
+        >
+          {item.shortcut.split('+').map((key: string, idx: number) => (
+            <View
+              key={idx}
+              style={{
+                backgroundColor: theme.muted,
+                paddingHorizontal: spacing[1.5],
+                paddingVertical: spacing[0.5],
+                borderRadius: 4,
+                marginLeft: idx > 0 ? spacing[1] : 0,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: theme.mutedForeground,
+                  fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+                }}
+              >
+                {key}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </ItemContainer>
+  );
+};
+
 export const Command = React.memo(React.forwardRef<View, CommandProps>(
   (
     {
@@ -78,19 +241,64 @@ export const Command = React.memo(React.forwardRef<View, CommandProps>(
       inputStyle,
       itemStyle,
       testID,
+      // Animation props
+      animated = true,
+      animationVariant = 'moderate',
+      animationType = 'modalOpen',
+      animationDuration,
+      modalAnimation = 'slide',
+      itemAnimation = true,
+      searchAnimation = true,
+      useHaptics = true,
+      animationConfig,
     },
     ref
   ) => {
     const theme = useTheme();
     const { spacing } = useSpacing();
+    const { shouldAnimate } = useAnimationStore();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [isPending, startTransition] = useTransition();
     const flatListRef = useRef<FlatList>(null);
     const inputRef = useRef<TextInput>(null);
     
+    // Get animation config
+    const { config, isAnimated } = useAnimationVariant({
+      variant: animationVariant,
+      overrides: animationConfig,
+    });
+    
+    const duration = animationDuration ?? config.duration.normal;
+    
+    // Animation values
+    const modalOpacity = useSharedValue(0);
+    const modalScale = useSharedValue(0.9);
+    const modalTranslateY = useSharedValue(50);
+    const searchIconRotation = useSharedValue(0);
+    const listOpacity = useSharedValue(1);
+    
     // Use deferred value for better search performance
     const deferredSearchQuery = useDeferredValue(searchQuery);
+    
+    // Search animation
+    useEffect(() => {
+      if (animated && isAnimated && shouldAnimate() && searchAnimation) {
+        if (searchQuery) {
+          // Rotate search icon when searching
+          searchIconRotation.value = withSequence(
+            withTiming(360, { duration: config.duration.normal }),
+            withTiming(0, { duration: 0 })
+          );
+          
+          // Fade list during search
+          listOpacity.value = withSequence(
+            withTiming(0.7, { duration: config.duration.fast }),
+            withTiming(1, { duration: config.duration.fast })
+          );
+        }
+      }
+    }, [searchQuery, animated, isAnimated, shouldAnimate, searchAnimation, searchIconRotation, listOpacity, config]);
 
     // Filter and group items with deferred value
     const filteredItems = useMemo(() => {
@@ -131,8 +339,45 @@ export const Command = React.memo(React.forwardRef<View, CommandProps>(
         setSearchQuery('');
         setSelectedIndex(0);
         setTimeout(() => inputRef.current?.focus(), 100);
+        
+        // Modal open animations
+        if (animated && isAnimated && shouldAnimate()) {
+          if (modalAnimation === 'fade') {
+            modalOpacity.value = withTiming(1, { duration });
+            modalScale.value = 1;
+            modalTranslateY.value = 0;
+          } else if (modalAnimation === 'scale') {
+            modalOpacity.value = withTiming(1, { duration: config.duration.fast });
+            modalScale.value = withSpring(1, config.spring);
+            modalTranslateY.value = 0;
+          } else if (modalAnimation === 'slide') {
+            modalOpacity.value = withTiming(1, { duration: config.duration.fast });
+            modalScale.value = 1;
+            modalTranslateY.value = withSpring(0, config.spring);
+          }
+        }
+      } else {
+        // Modal close animations
+        if (animated && isAnimated && shouldAnimate()) {
+          modalOpacity.value = withTiming(0, { duration: config.duration.fast });
+          modalScale.value = withTiming(0.9, { duration: config.duration.fast });
+          modalTranslateY.value = withTiming(50, { duration: config.duration.fast });
+        }
       }
-    }, [open]);
+    }, [open, animated, isAnimated, shouldAnimate, modalAnimation, duration, config, modalOpacity, modalScale, modalTranslateY]);
+
+    const handleItemSelect = useCallback((item: CommandItem) => {
+      if (item.disabled) return;
+      
+      if (useHaptics) {
+        haptic('impact');
+      }
+      
+      startTransition(() => {
+        item.onSelect();
+        onOpenChange(false);
+      });
+    }, [onOpenChange, useHaptics]);
 
     // Keyboard navigation
     useEffect(() => {
@@ -166,16 +411,25 @@ export const Command = React.memo(React.forwardRef<View, CommandProps>(
       
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [open, flattenedItems, selectedIndex, onOpenChange]);
+    }, [open, flattenedItems, selectedIndex, onOpenChange, handleItemSelect]);
 
-    const handleItemSelect = useCallback((item: CommandItem) => {
-      if (item.disabled) return;
-      startTransition(() => {
-        item.onSelect();
-        onOpenChange(false);
-      });
-    }, [onOpenChange]);
-
+    // Animated styles
+    const modalAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: modalOpacity.value,
+      transform: [
+        { scale: modalScale.value },
+        { translateY: modalTranslateY.value },
+      ],
+    }));
+    
+    const searchIconAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [{ rotate: `${searchIconRotation.value}deg` }],
+    }));
+    
+    const listAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: listOpacity.value,
+    }));
+    
     // Memoize renderItem for better performance
     const renderItem = useCallback(({ item, index }: { item: any; index: number }) => {
       if ('isCategory' in item) {
@@ -204,203 +458,167 @@ export const Command = React.memo(React.forwardRef<View, CommandProps>(
       const isSelected = index === selectedIndex;
       
       return (
-        <TouchableOpacity
+        <CommandItemComponent
+          item={item}
+          index={index}
+          isSelected={isSelected}
           onPress={() => handleItemSelect(item)}
-          disabled={item.disabled}
-          style={[
-            {
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingHorizontal: spacing[4],
-              paddingVertical: spacing[3],
-              backgroundColor: isSelected ? theme.accent : 'transparent',
-              opacity: item.disabled ? 0.5 : 1,
-            },
-            itemStyle,
-          ]}
-        >
-          {item.icon && (
-            <Ionicons
-              name={item.icon as any}
-              size={20}
-              color={item.disabled ? theme.mutedForeground : theme.foreground}
-              style={{ marginRight: spacing[3] }}
-            />
-          )}
-          
-          <View style={{ flex: 1 }}>
-            <Text
-              style={{
-                fontSize: 14,
-                fontWeight: '500',
-                color: item.disabled ? theme.mutedForeground : theme.foreground,
-              }}
-            >
-              {item.label}
-            </Text>
-            {item.description && (
-              <Text
-                style={{
-                  fontSize: 12,
-                  color: theme.mutedForeground,
-                  marginTop: spacing[0.5],
-                }}
-              >
-                {item.description}
-              </Text>
-            )}
-          </View>
-          
-          {item.shortcut && Platform.OS === 'web' && (
-            <View
-              style={{
-                flexDirection: 'row',
-                marginLeft: spacing[3],
-              }}
-            >
-              {item.shortcut.split('+').map((key, idx) => (
-                <View
-                  key={idx}
-                  style={{
-                    backgroundColor: theme.muted,
-                    paddingHorizontal: spacing[1.5],
-                    paddingVertical: spacing[0.5],
-                    borderRadius: 4,
-                    marginLeft: idx > 0 ? spacing[1] : 0,
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      color: theme.mutedForeground,
-                      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-                    }}
-                  >
-                    {key}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </TouchableOpacity>
+          theme={theme}
+          spacing={spacing}
+          itemStyle={itemStyle}
+          animated={animated}
+          isAnimated={isAnimated}
+          shouldAnimate={shouldAnimate}
+          itemAnimation={itemAnimation}
+          config={config}
+        />
       );
-    }, [selectedIndex, handleItemSelect, theme, spacing, itemStyle]);
+    }, [selectedIndex, handleItemSelect, theme, spacing, itemStyle, animated, isAnimated, shouldAnimate, itemAnimation, config]);
 
     if (!open) return null;
+    
+    const ModalComponent = animated && isAnimated && shouldAnimate() ? AnimatedModal : Modal;
 
     return (
-      <Modal
+      <ModalComponent
         visible={open}
         transparent
-        animationType="fade"
+        animationType={animated && isAnimated && shouldAnimate() ? "none" : "fade"}
         onRequestClose={() => onOpenChange(false)}
         testID={testID}
       >
-        <TouchableOpacity
+        <Pressable
           style={{
             flex: 1,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backgroundColor: Platform.OS === 'web' 
+              ? `${theme.background}80` 
+              : theme.background + '80',
             justifyContent: 'flex-start',
             paddingTop: Platform.OS === 'ios' ? 100 : 50,
           }}
           onPress={() => onOpenChange(false)}
-          activeOpacity={1}
         >
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
-            <TouchableOpacity activeOpacity={1}>
-              <Card
-                ref={ref}
+            <Pressable>
+              <Animated.View
                 style={[
-                  {
-                    marginHorizontal: spacing[4],
-                    maxHeight,
-                    overflow: 'hidden',
-                  },
-                  style,
+                  animated && isAnimated && shouldAnimate() ? modalAnimatedStyle : {},
                 ]}
               >
-                <View
+                <Card
+                  ref={ref}
                   style={[
                     {
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      paddingHorizontal: spacing[4],
-                      paddingVertical: spacing[3],
-                      borderBottomWidth: 1,
-                      borderBottomColor: theme.border,
+                      marginHorizontal: spacing[4],
+                      maxHeight,
+                      overflow: 'hidden',
                     },
-                    inputStyle,
+                    style,
                   ]}
                 >
-                  <Ionicons
-                    name="search"
-                    size={20}
-                    color={theme.mutedForeground}
-                    style={{ marginRight: spacing[3] }}
-                  />
-                  <TextInput
-                    ref={inputRef}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    placeholder={placeholder}
-                    placeholderTextColor={theme.mutedForeground}
-                    style={{
-                      flex: 1,
-                      fontSize: 16,
-                      color: theme.foreground,
-                      opacity: isPending ? 0.7 : 1,
-                    }}
-                    autoFocus
-                    autoCorrect={false}
-                    autoCapitalize="none"
-                  />
-                  {searchQuery.length > 0 && (
-                    <TouchableOpacity
-                      onPress={() => setSearchQuery('')}
-                      style={{ marginLeft: spacing[2] }}
+                  <View
+                    style={[
+                      {
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingHorizontal: spacing[4],
+                        paddingVertical: spacing[3],
+                        borderBottomWidth: 1,
+                        borderBottomColor: theme.border,
+                      },
+                      inputStyle,
+                    ]}
+                  >
+                    <Animated.View
+                      style={[
+                        { marginRight: spacing[3] },
+                        animated && isAnimated && shouldAnimate() && searchAnimation
+                          ? searchIconAnimatedStyle
+                          : {},
+                      ]}
                     >
-                      <Ionicons
-                        name="close-circle"
+                      <Symbol name="magnifyingglass"
                         size={20}
                         color={theme.mutedForeground}
                       />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                
-                <FlatList
-                  ref={flatListRef}
-                  data={flattenedItems}
-                  renderItem={renderItem}
-                  keyExtractor={(item, index) => 
-                    'isCategory' in item ? `category-${item.title}` : item.id
-                  }
-                  showsVerticalScrollIndicator={false}
-                  ListEmptyComponent={
-                    <View
+                    </Animated.View>
+                    <TextInput
+                      ref={inputRef}
+                      value={searchQuery}
+                      onChangeText={setSearchQuery}
+                      placeholder={placeholder}
+                      placeholderTextColor={theme.mutedForeground}
                       style={{
-                        padding: spacing[8],
-                        alignItems: 'center',
+                        flex: 1,
+                        fontSize: 16,
+                        color: theme.foreground,
+                        opacity: isPending ? 0.7 : 1,
                       }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          color: theme.mutedForeground,
+                      autoFocus
+                      autoCorrect={false}
+                      autoCapitalize="none"
+                    />
+                    {searchQuery.length > 0 && (
+                      <Pressable
+                        onPress={() => {
+                          setSearchQuery('');
+                          if (useHaptics) {
+                            haptic('impact');
+                          }
                         }}
+                        style={{ marginLeft: spacing[2] }}
                       >
-                        {emptyMessage}
-                      </Text>
-                    </View>
-                  }
-                />
-              </Card>
-            </TouchableOpacity>
+                        <Symbol name="xmark.circle"
+                          size={20}
+                          color={theme.mutedForeground}
+                        />
+                      </Pressable>
+                    )}
+                  </View>
+                  
+                  <Animated.View
+                    style={[
+                      { flex: 1 },
+                      animated && isAnimated && shouldAnimate() && searchAnimation
+                        ? listAnimatedStyle
+                        : {},
+                    ]}
+                  >
+                    <FlatList
+                      ref={flatListRef}
+                      data={flattenedItems}
+                      renderItem={renderItem}
+                      keyExtractor={(item, index) => 
+                        'isCategory' in item ? `category-${item.title}` : item.id
+                      }
+                      showsVerticalScrollIndicator={false}
+                      ListEmptyComponent={
+                        <View
+                          style={{
+                            padding: spacing[8],
+                            alignItems: 'center',
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 14,
+                              color: theme.mutedForeground,
+                            }}
+                          >
+                            {emptyMessage}
+                          </Text>
+                        </View>
+                      }
+                    />
+                  </Animated.View>
+                </Card>
+              </Animated.View>
+            </Pressable>
           </KeyboardAvoidingView>
-        </TouchableOpacity>
-      </Modal>
+        </Pressable>
+      </ModalComponent>
     );
   }
 ));
@@ -425,10 +643,37 @@ export const CommandTrigger: React.FC<CommandTriggerProps> = ({
 }) => {
   const theme = useTheme();
   const { spacing } = useSpacing();
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({ variant: 'moderate' });
+  
+  // Animation values
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+  
+  const handlePress = () => {
+    if (shouldAnimate() && isAnimated) {
+      scale.value = withSequence(
+        withTiming(0.95, { duration: config.duration.fast / 2 }),
+        withSpring(1, config.spring)
+      );
+      
+      haptic('impact');
+    }
+    onPress();
+  };
+  
+  const AnimatedTrigger = shouldAnimate() && isAnimated
+    ? Animated.createAnimatedComponent(TouchableOpacity)
+    : TouchableOpacity;
 
   return (
-    <TouchableOpacity
-      onPress={onPress}
+    <AnimatedTrigger
+      onPress={handlePress}
       style={[
         {
           flexDirection: 'row',
@@ -441,11 +686,11 @@ export const CommandTrigger: React.FC<CommandTriggerProps> = ({
           borderColor: theme.border,
         },
         style,
+        shouldAnimate() && isAnimated ? animatedStyle : {},
       ]}
       testID={testID}
     >
-      <Ionicons
-        name="search"
+      <Symbol name="magnifyingglass"
         size={16}
         color={theme.mutedForeground}
         style={{ marginRight: spacing[2] }}
@@ -481,6 +726,6 @@ export const CommandTrigger: React.FC<CommandTriggerProps> = ({
           </Text>
         </View>
       )}
-    </TouchableOpacity>
+    </AnimatedTrigger>
   );
 };

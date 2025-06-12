@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { Platform, Pressable, Dimensions } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
-import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
 import {
   Box,
   HStack,
@@ -35,12 +34,15 @@ import {
   CommandShortcut,
 } from '@/components/universal';
 import { ThemeSelector } from '@/components/ThemeSelector';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
+import { Symbol } from './universal/Symbols';
+import { SpacingScale } from '@/lib/design';
+import { useBreakpoint } from '@/hooks/responsive';
 
 interface NavItem {
   label: string;
   href: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: keyof typeof any;
   badge?: string | number;
   requiresAuth?: boolean;
   requiresRole?: string;
@@ -156,8 +158,8 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
     >
       <Container>
         <HStack
-          py={3}
-          px={4}
+          py={3 as SpacingScale}
+          px={4 as SpacingScale}
           justifyContent="space-between"
           alignItems="center"
         >
@@ -167,7 +169,7 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
             <Pressable onPress={() => handleNavigation('/(home)')}>
               {customLogo || (
                 <HStack spacing={2} alignItems="center">
-                  <Ionicons name="rocket" size={28} color={theme.primary} />
+                  <Symbol name="airplane" size={28} color={theme.primary} />
                   <Text size="xl" weight="bold">
                     MyExpo
                   </Text>
@@ -205,8 +207,8 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
                     >
                       <HStack spacing={2} alignItems="center">
                         {item.icon && (
-                          <Ionicons
-                            name={item.icon}
+                          <Symbol
+                            name={item.icon as any}
                             size={18}
                             color={active ? theme.accentForeground : theme.foreground}
                           />
@@ -243,7 +245,7 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
                 onPress={() => setCommandOpen(true)}
               >
                 <HStack spacing={2} alignItems="center">
-                  <Ionicons name="search" size={16} color={theme.mutedForeground} />
+                  <Symbol name="magnifyingglass" size={16} color={theme.mutedForeground} />
                   <Text size="sm" colorTheme="mutedForeground">
                     Search...
                   </Text>
@@ -287,13 +289,13 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onPress={() => handleNavigation('/(home)/settings')}>
                     <HStack spacing={2} alignItems="center">
-                      <Ionicons name="person-outline" size={16} />
+                      <Symbol name="person" size={16} />
                       <Text>Profile</Text>
                     </HStack>
                   </DropdownMenuItem>
                   <DropdownMenuItem onPress={() => handleNavigation('/(home)/settings')}>
                     <HStack spacing={2} alignItems="center">
-                      <Ionicons name="settings-outline" size={16} />
+                      <Symbol name="gearshape" size={16} />
                       <Text>Settings</Text>
                     </HStack>
                   </DropdownMenuItem>
@@ -302,7 +304,7 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onPress={() => handleNavigation('/(home)/admin-dashboard')}>
                         <HStack spacing={2} alignItems="center">
-                          <Ionicons name="shield-checkmark-outline" size={16} />
+                          <Symbol name="shield.checkmark" size={16} />
                           <Text>Admin Dashboard</Text>
                         </HStack>
                       </DropdownMenuItem>
@@ -311,7 +313,7 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onPress={handleLogout}>
                     <HStack spacing={2} alignItems="center">
-                      <Ionicons name="log-out-outline" size={16} />
+                      <Symbol name="rectangle.portrait.and.arrow.right" size={16} />
                       <Text>Logout</Text>
                     </HStack>
                   </DropdownMenuItem>
@@ -342,7 +344,7 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
                 size="sm"
                 onPress={() => setMobileMenuOpen(true)}
               >
-                <Ionicons name="menu" size={24} color={theme.foreground} />
+                <Symbol name="line.3.horizontal" size={24} color={theme.foreground} />
               </Button>
             )}
           </HStack>
@@ -364,11 +366,11 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
           <DrawerClose />
         </DrawerHeader>
 
-        <VStack spacing={4} p={4}>
+        <VStack spacing={4} p={4 as SpacingScale}>
           {/* User Info */}
           {isAuthenticated && (
             <>
-              <HStack spacing={3} alignItems="center" p={3} bgTheme="muted" rounded="md">
+              <HStack spacing={3} alignItems="center" p={3 as SpacingScale} bgTheme="muted" rounded="md">
                 <Avatar name={user?.name || user?.email} size="md" />
                 <VStack spacing={0} flex={1}>
                   <Text weight="medium">{user?.name || 'User'}</Text>
@@ -396,8 +398,8 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
                 >
                   <HStack spacing={3} alignItems="center" flex={1}>
                     {item.icon && (
-                      <Ionicons
-                        name={item.icon}
+                      <Symbol
+                        name={item.icon as any}
                         size={20}
                         color={active ? theme.primary : theme.foreground}
                       />
@@ -431,7 +433,7 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
                 }}
               >
                 <HStack spacing={3} alignItems="center">
-                  <Ionicons name="search" size={20} color={theme.foreground} />
+                  <Symbol name="magnifyingglass" size={20} color={theme.foreground} />
                   <Text>Search</Text>
                 </HStack>
               </Button>
@@ -444,7 +446,7 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
               onPress={() => handleNavigation('/(home)/settings')}
             >
               <HStack spacing={3} alignItems="center">
-                <Ionicons name="settings-outline" size={20} color={theme.foreground} />
+                <Symbol name="gearshape" size={20} color={theme.foreground} />
                 <Text>Settings</Text>
               </HStack>
             </Button>
@@ -457,7 +459,7 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
                 onPress={handleLogout}
               >
                 <HStack spacing={3} alignItems="center">
-                  <Ionicons name="log-out-outline" size={20} color={theme.foreground} />
+                  <Symbol name="rectangle.portrait.and.arrow.right" size={20} color={theme.foreground} />
                   <Text>Logout</Text>
                 </HStack>
               </Button>
@@ -521,20 +523,20 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
             
             <CommandGroup heading="Navigation">
               <CommandItem onSelect={() => handleCommand('home')}>
-                <Ionicons name="home-outline" size={16} />
+                <Symbol name="house" size={16} />
                 <Text ml={2}>Home</Text>
               </CommandItem>
               <CommandItem onSelect={() => handleCommand('explore')}>
-                <Ionicons name="compass-outline" size={16} />
+                <Symbol name="safari" size={16} />
                 <Text ml={2}>Explore</Text>
               </CommandItem>
               <CommandItem onSelect={() => handleCommand('components')}>
-                <Ionicons name="cube-outline" size={16} />
+                <Symbol name="cube" size={16} />
                 <Text ml={2}>Components</Text>
               </CommandItem>
               {user?.role === 'admin' && (
                 <CommandItem onSelect={() => handleCommand('admin')}>
-                  <Ionicons name="shield-checkmark-outline" size={16} />
+                  <Symbol name="shield.checkmark" size={16} />
                   <Text ml={2}>Admin Dashboard</Text>
                   <CommandShortcut>⌘A</CommandShortcut>
                 </CommandItem>
@@ -543,18 +545,18 @@ export const WebNavBar: React.FC<WebNavBarProps> = ({
 
             <CommandGroup heading="Actions">
               <CommandItem onSelect={() => handleCommand('theme')}>
-                <Ionicons name="color-palette-outline" size={16} />
+                <Symbol name="paintpalette" size={16} />
                 <Text ml={2}>Change Theme</Text>
                 <CommandShortcut>⌘T</CommandShortcut>
               </CommandItem>
               <CommandItem onSelect={() => handleCommand('settings')}>
-                <Ionicons name="settings-outline" size={16} />
+                <Symbol name="gearshape" size={16} />
                 <Text ml={2}>Settings</Text>
                 <CommandShortcut>⌘,</CommandShortcut>
               </CommandItem>
               {isAuthenticated && (
                 <CommandItem onSelect={() => handleCommand('logout')}>
-                  <Ionicons name="log-out-outline" size={16} />
+                  <Symbol name="rectangle.portrait.and.arrow.right" size={16} />
                   <Text ml={2}>Logout</Text>
                 </CommandItem>
               )}

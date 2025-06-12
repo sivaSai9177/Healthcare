@@ -1,5 +1,13 @@
-import React, { Suspense, useDeferredValue, useTransition } from 'react';
+import React, { Suspense, useDeferredValue, useTransition, useEffect } from 'react';
 import { Platform } from 'react-native';
+import Animated, { 
+  useAnimatedStyle, 
+  useSharedValue, 
+  withTiming, 
+  withSpring,
+  interpolate,
+  Extrapolate,
+} from 'react-native-reanimated';
 import {
   Card,
   VStack,
@@ -11,12 +19,18 @@ import {
   Grid,
   Progress,
 } from '@/components/universal';
-import { goldenSpacing, goldenShadows, goldenDimensions, goldenAnimations, healthcareColors } from '@/lib/design-system/golden-ratio';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { api } from '@/lib/trpc';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { PLATFORM_TOKENS } from '@/lib/design/responsive';
+
+import { api } from '@/lib/api/trpc';
 import { create } from 'zustand';
 import { devtools, subscribeWithSelector } from 'zustand/middleware';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
+
+import { useFadeAnimation, useEntranceAnimation } from '@/lib/ui/animations/hooks';
+import { haptic } from '@/lib/ui/haptics';
+import { SpacingScale } from '@/lib/design';
 
 // Metrics store with Zustand
 interface MetricsState {
@@ -59,28 +73,70 @@ const PrimaryMetricCard = ({
   icon: string;
 }) => {
   const theme = useTheme();
+  const { spacing, componentSizes } = useSpacing();
+  
+  // Animation for card entrance
+  const { animatedStyle: cardEntranceStyle, fadeIn } = useFadeAnimation({ 
+    duration: 600,
+    delay: 100 
+  });
+  
+  // Animated value for number transitions
+  const animatedValue = useSharedValue(0);
+  const progressAnimation = useSharedValue(0);
+  
+  useEffect(() => {
+    fadeIn();
+    // Animate number value
+    animatedValue.value = withSpring(value, {
+      damping: 15,
+      stiffness: 100,
+    });
+    
+    // Animate progress bar
+    if (capacity) {
+      progressAnimation.value = withTiming((value / capacity) * 100, {
+        duration: 1000,
+      });
+    }
+  }, [value, capacity, fadeIn, animatedValue, progressAnimation]);
+  
+  // Animated text style
+  const animatedTextStyle = useAnimatedStyle(() => {
+    return {
+      opacity: interpolate(
+        animatedValue.value,
+        [0, value],
+        [0.5, 1],
+        Extrapolate.CLAMP
+      ),
+    };
+  });
   
   return (
-    <Card
-      padding={goldenSpacing.xl}
-      gap={goldenSpacing.md}
-      shadow={goldenShadows.lg}
+    <Animated.View style={cardEntranceStyle}>
+      <Card
+      padding={spacing[6]}
+      gap={spacing[4]}
+      shadow={PLATFORM_TOKENS.shadow?.lg}
       style={{
-        minHeight: goldenDimensions.heights.large,
+        minHeight: 120,
         borderTopWidth: 3,
         borderTopColor: color,
       }}
     >
       <HStack justifyContent="space-between" alignItems="flex-start">
-        <VStack gap={goldenSpacing.sm}>
-          <Text size="4xl" weight="bold">{value}</Text>
+        <VStack gap={spacing[3]}>
+          <Animated.Text style={[{ fontSize: 48, fontWeight: 'bold', color: theme.foreground }, animatedTextStyle]}>
+            {Math.round(animatedValue.value)}
+          </Animated.Text>
           <Text size="sm" colorTheme="mutedForeground">{label}</Text>
         </VStack>
         <Text size="3xl">{icon}</Text>
       </HStack>
       
       {capacity !== undefined && (
-        <VStack gap={goldenSpacing.xs}>
+        <VStack gap={spacing[2]}>
           <HStack justifyContent="space-between">
             <Text size="xs" colorTheme="mutedForeground">Capacity</Text>
             <Text size="xs" weight="medium">{Math.round((value / capacity) * 100)}%</Text>
@@ -90,7 +146,7 @@ const PrimaryMetricCard = ({
       )}
       
       {trend !== undefined && (
-        <HStack gap={goldenSpacing.xs} alignItems="center">
+        <HStack gap={spacing[2]} alignItems="center">
           <Text size="sm" colorTheme={trend > 0 ? "destructive" : "success"}>
             {trend > 0 ? '↑' : '↓'}
           </Text>
@@ -100,6 +156,7 @@ const PrimaryMetricCard = ({
         </HStack>
       )}
     </Card>
+    </Animated.View>
   );
 };
 
@@ -116,43 +173,63 @@ const SecondaryMetricCard = ({
   status?: 'good' | 'warning' | 'critical';
 }) => {
   const theme = useTheme();
+  const { spacing, componentSizes } = useSpacing();
   const statusColors = {
     good: healthcareColors.success,
     warning: healthcareColors.warning,
     critical: healthcareColors.emergency,
   };
   
+  // Slide in animation
+  const { animatedStyle: slideInStyle } = useEntranceAnimation({
+    type: 'slide',
+    delay: 200,
+    duration: 400,
+    from: 'right',
+  });
+  
   return (
-    <Card
-      padding={goldenSpacing.lg}
-      gap={goldenSpacing.sm}
-      shadow={goldenShadows.md}
+    <Animated.View style={slideInStyle}>
+      <Card
+      padding={spacing[5]}
+      gap={spacing[3]}
+      shadow={PLATFORM_TOKENS.shadow?.md}
       style={{
-        height: goldenDimensions.heights.medium,
+        height: componentSizes.button.lg.height * 2,
         borderLeftWidth: 3,
         borderLeftColor: status ? statusColors[status] : theme.border,
       }}
     >
       <Text size="xs" colorTheme="mutedForeground">{label}</Text>
-      <HStack gap={goldenSpacing.xs} alignItems="baseline">
+      <HStack gap={spacing[2]} alignItems="baseline">
         <Text size="2xl" weight="bold">{value}</Text>
         {unit && <Text size="sm" colorTheme="mutedForeground">{unit}</Text>}
       </HStack>
     </Card>
+    </Animated.View>
   );
 };
 
 // Mini stat component
-const MiniStat = ({ label, value, color }: { label: string; value: number; color: string }) => {
+const MiniStat = ({ label, value, color, index }: { label: string; value: number; color: string; index: number }) => {
   const theme = useTheme();
+  const { spacing, componentSizes } = useSpacing();
+  
+  // Staggered fade in for mini stats
+  const { animatedStyle } = useEntranceAnimation({
+    type: 'fade',
+    delay: 300 + (index * 100),
+    duration: 400,
+  });
   
   return (
-    <HStack
-      gap={goldenSpacing.md}
+    <Animated.View style={animatedStyle}>
+      <HStack
+      gap={spacing[4]}
       alignItems="center"
-      padding={goldenSpacing.sm}
+      padding={spacing[3]}
       style={{
-        height: goldenDimensions.heights.small,
+        height: componentSizes.button.sm.height,
         borderRadius: theme.radius?.md || 8,
         backgroundColor: color + '10',
       }}
@@ -165,33 +242,41 @@ const MiniStat = ({ label, value, color }: { label: string; value: number; color
           borderRadius: 8,
         }}
       />
-      <VStack gap={2} flex={1}>
+      <VStack gap={2 as SpacingScale} flex={1}>
         <Text size="xs" colorTheme="mutedForeground">{label}</Text>
         <Text weight="bold">{value}</Text>
       </VStack>
     </HStack>
+    </Animated.View>
   );
 };
 
 // Metrics skeleton loader
 const MetricsSkeleton = () => {
   const theme = useTheme();
+  const { spacing, componentSizes } = useSpacing();
+  const { animatedStyle: pulseStyle } = useFadeAnimation({
+    duration: 1000,
+    loop: true,
+    reverseOnComplete: true,
+  });
   
   return (
     <Grid
       columns={Platform.OS === 'web' ? "1.618fr 1fr 0.618fr" : "1fr"}
-      gap={goldenSpacing.lg}
+      gap={spacing[6]}
     >
       {[1, 2, 3].map((i) => (
-        <Card
-          key={i}
-          padding={goldenSpacing.xl}
-          style={{
-            height: goldenDimensions.heights.large,
-            backgroundColor: theme.muted,
-            opacity: 0.5,
-          }}
-        />
+        <Animated.View key={i} style={pulseStyle}>
+          <Card
+            padding={spacing[8]}
+            style={{
+              height: componentSizes.button.lg.height * 3,
+              backgroundColor: theme.muted,
+              opacity: 0.5,
+            }}
+          />
+        </Animated.View>
       ))}
     </Grid>
   );
@@ -237,13 +322,14 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
   return (
     <>
       {/* Time range selector */}
-      <HStack gap={goldenSpacing.md} justifyContent="flex-end">
+      <HStack gap={spacing[4]} justifyContent="flex-end">
         {(['1h', '6h', '24h', '7d'] as const).map((range) => (
           <Button
             key={range}
             variant={timeRange === range ? "default" : "outline"}
-            size="small"
+            size="sm"
             onPress={() => {
+              haptic('light');
               startTransition(() => {
                 setTimeRange(range);
               });
@@ -258,8 +344,8 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
       {/* Main metrics grid */}
       <Grid
         columns={Platform.OS === 'web' ? "1.618fr 1fr 0.618fr" : "1fr"}
-        gap={goldenSpacing.lg}
-        style={{ minHeight: goldenDimensions.heights.xlarge }}
+        gap={spacing[6]}
+        style={{ minHeight: componentSizes.button.xl.height * 3 }}
       >
         {/* Primary Metric */}
         <PrimaryMetricCard
@@ -272,7 +358,7 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
         />
         
         {/* Secondary Metrics */}
-        <VStack gap={goldenSpacing.md}>
+        <VStack gap={spacing[4]}>
           <SecondaryMetricCard
             value={metrics.avgResponseTime}
             label="Avg Response Time"
@@ -288,30 +374,30 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
         </VStack>
         
         {/* Mini Stats */}
-        <VStack gap={goldenSpacing.sm}>
+        <VStack gap={spacing[3]}>
           <Text size="sm" weight="medium">By Priority</Text>
-          <MiniStat label="Critical" value={metrics.criticalAlerts} color={healthcareColors.emergency} />
-          <MiniStat label="Urgent" value={metrics.urgentAlerts} color={healthcareColors.warning} />
-          <MiniStat label="Standard" value={metrics.standardAlerts} color={healthcareColors.info} />
-          <MiniStat label="Resolved" value={metrics.resolvedToday} color={healthcareColors.success} />
+          <MiniStat label="Critical" value={metrics.criticalAlerts} color={healthcareColors.emergency} index={0} />
+          <MiniStat label="Urgent" value={metrics.urgentAlerts} color={healthcareColors.warning} index={1} />
+          <MiniStat label="Standard" value={metrics.standardAlerts} color={healthcareColors.info} index={2} />
+          <MiniStat label="Resolved" value={metrics.resolvedToday} color={healthcareColors.success} index={3} />
         </VStack>
       </Grid>
       
       {/* Department breakdown */}
-      <Card padding={goldenSpacing.lg} gap={goldenSpacing.md}>
+      <Card padding={spacing[6]} gap={spacing[4]}>
         <Text weight="medium">Department Performance</Text>
-        <Grid columns={Platform.OS === 'web' ? 4 : 2} gap={goldenSpacing.md}>
+        <Grid columns={Platform.OS === 'web' ? 4 : 2} gap={spacing[4]}>
           {metrics.departmentStats.map((dept) => (
-            <VStack key={dept.id} gap={goldenSpacing.xs}>
+            <VStack key={dept.id} gap={spacing[2]}>
               <HStack justifyContent="space-between">
                 <Text size="sm">{dept.name}</Text>
-                <Badge size="small" variant={dept.alerts > 0 ? "destructive" : "outline"}>
+                <Badge size="sm" variant={dept.alerts > 0 ? "error" : "outline"}>
                   {dept.alerts}
                 </Badge>
               </HStack>
               <Progress 
                 value={(dept.responseRate || 0) * 100} 
-                size="small"
+                size="sm"
                 colorTheme={dept.responseRate >= 0.8 ? "success" : "warning"}
               />
               <Text size="xs" colorTheme="mutedForeground">
@@ -327,11 +413,18 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
 
 // Main component with Suspense boundary
 export const MetricsOverviewBlock = ({ hospitalId }: { hospitalId: string }) => {
+  const { animatedStyle: blockFadeStyle, fadeIn } = useFadeAnimation({ duration: 500 });
+  
+  useEffect(() => {
+    fadeIn();
+  }, [fadeIn]);
+  
   return (
-    <VStack gap={goldenSpacing.lg}>
+    <Animated.View style={blockFadeStyle}>
+      <VStack gap={spacing[6]}>
       <HStack justifyContent="space-between" alignItems="center">
         <Text size="xl" weight="bold">System Metrics</Text>
-        <Badge variant="outline" size="small">
+        <Badge variant="outline" size="sm">
           Live
         </Badge>
       </HStack>
@@ -340,5 +433,6 @@ export const MetricsOverviewBlock = ({ hospitalId }: { hospitalId: string }) => 
         <MetricsContent hospitalId={hospitalId} />
       </Suspense>
     </VStack>
+    </Animated.View>
   );
 };

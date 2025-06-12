@@ -1,15 +1,14 @@
-import React, { useState, useCallback, useRef, useEffect, useOptimistic, useTransition } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useTransition } from 'react';
 import { View, Text, ScrollView, Alert, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
-import { api } from '@/lib/trpc';
-import { PrimaryButton } from '@/components/ui/PrimaryButton';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/shadcn/ui/card';
-import { Input } from '@/components/shadcn/ui/input';
+import { api } from '@/lib/api/trpc';
+import { Button as PrimaryButton, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from '@/components/universal';
 import { RoleSelector } from '@/components/RoleSelector';
-import { CompleteProfileInputSchema } from '@/lib/validations/server';
+import { CompleteProfileInputSchema } from '@/lib/validations/profile';
 import { z } from 'zod';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
+import { useTheme } from '@/lib/theme/provider';
 
 const logger = log;
 
@@ -22,6 +21,7 @@ interface ProfileCompletionFlowProps {
 type ProfileCompletionData = z.infer<typeof CompleteProfileInputSchema>;
 
 export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: ProfileCompletionFlowProps) {
+  const theme = useTheme();
   const router = useRouter();
   const { user, updateUserData } = useAuth();
   const utils = api.useUtils();
@@ -48,11 +48,8 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   
-  // Use optimistic updates for profile completion status
-  const [optimisticProfileComplete, setOptimisticProfileComplete] = useOptimistic(
-    user?.needsProfileCompletion === false,
-    (state, newValue: boolean) => newValue
-  );
+  // Track profile completion status
+  const [isProfileComplete, setIsProfileComplete] = useState(user?.needsProfileCompletion === false);
 
   // Stabilized mutation to prevent re-creation on every render
   const completeProfileMutation = api.auth.completeProfile.useMutation({
@@ -160,10 +157,8 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
       // Validate cleaned data
       const validatedData = CompleteProfileInputSchema.parse(cleanedFormData);
       
-      // Optimistically update the profile completion status
-      startTransition(() => {
-        setOptimisticProfileComplete(true);
-      });
+      // Update profile completion status
+      setIsProfileComplete(true);
       
       logger.info('Submitting profile completion data', 'PROFILE_COMPLETION', { 
         fields: Object.keys(validatedData), 
@@ -174,10 +169,8 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
     } catch (error) {
       isSubmittingRef.current = false;
       
-      // Revert optimistic update on error
-      startTransition(() => {
-        setOptimisticProfileComplete(false);
-      });
+      // Revert status on error
+      setIsProfileComplete(false);
       
       if (error instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {};
@@ -414,7 +407,7 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
                   }}
                 >
                   {formData.acceptTerms && (
-                    <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>✓</Text>
+                    <Text style={{ color: theme.background, fontSize: 12, fontWeight: 'bold' }}>✓</Text>
                   )}
                 </Pressable>
                 <View style={{ flex: 1 }}>
@@ -444,7 +437,7 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
                   }}
                 >
                   {formData.acceptPrivacy && (
-                    <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>✓</Text>
+                    <Text style={{ color: theme.background, fontSize: 12, fontWeight: 'bold' }}>✓</Text>
                   )}
                 </Pressable>
                 <View style={{ flex: 1 }}>
@@ -516,7 +509,7 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
                       <PrimaryButton
                         title="Next"
                         onPress={nextStep}
-                        variant="primary"
+                        variant="solid"
                       />
                     ) : (
                       <PrimaryButton
@@ -524,7 +517,7 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
                         onPress={handleSubmit}
                         disabled={completeProfileMutation.isPending || isSubmittingRef.current || hasCompletedRef.current}
                         loading={completeProfileMutation.isPending || isSubmittingRef.current}
-                        variant="primary"
+                        variant="solid"
                       />
                     )}
                   </View>

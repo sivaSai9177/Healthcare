@@ -6,7 +6,7 @@ import { Popover } from '@/components/universal/Popover';
 import { Switch } from '@/components/universal/Switch';
 import { Button } from '@/components/universal/Button';
 import { Text } from '@/components/universal/Text';
-import { EnhancedThemeProvider } from '@/lib/theme/theme-provider';
+import { ThemeProvider } from '@/lib/theme/provider';
 
 // Mock theme provider
 const mockTheme = {
@@ -21,8 +21,8 @@ const mockTheme = {
   mutedForeground: '#666666',
 };
 
-jest.mock('@/lib/theme/theme-provider', () => ({
-  ...jest.requireActual('@/lib/theme/theme-provider'),
+jest.mock('@/lib/theme/enhanced-theme-provider', () => ({
+  ...jest.requireActual('@/lib/theme/enhanced-theme-provider'),
   useTheme: () => mockTheme,
 }));
 

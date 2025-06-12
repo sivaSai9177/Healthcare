@@ -1,5 +1,6 @@
-import React, { Suspense, useTransition, useDeferredValue } from 'react';
+import React, { Suspense, useTransition } from 'react';
 import { Platform, ScrollView, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
   Container,
@@ -14,35 +15,36 @@ import {
   Badge,
   Separator,
   SimpleBreadcrumb,
-  Sidebar07Trigger,
+  SidebarTrigger,
   Skeleton,
   Grid,
 } from '@/components/universal';
 import { 
   AlertCreationBlock,
   AlertListBlock,
-  MetricsOverviewBlock,
+  HealthcareMetricsOverviewBlock,
   PatientCardBlock,
-  goldenSpacing,
-  goldenDimensions,
-  goldenShadows,
-  healthcareColors,
 } from '@/components/healthcare/blocks';
-import { AlertDashboard } from '@/components/healthcare/AlertDashboard';
-import { AlertCreationForm } from '@/components/healthcare/AlertCreationForm';
+
+
 import { useAuthStore } from '@/lib/stores/auth-store';
-import { useTheme } from '@/lib/theme/theme-provider';
+import { useTheme } from '@/lib/theme/provider';
 import { HealthcareUserRole } from '@/types/healthcare';
-import { log } from '@/lib/core/logger';
-import { api } from '@/lib/trpc';
+import { log } from '@/lib/core/debug/logger';
+import { api } from '@/lib/api/trpc';
+import { SpacingScale } from '@/lib/design';
 
 export default function HealthcareDashboard() {
+// TODO: Replace with structured logging - console.log('[HealthcareDashboard] Rendering');
   const { user } = useAuthStore();
   const router = useRouter();
   const theme = useTheme();
   const [refreshing, setRefreshing] = React.useState(false);
   const [showCreateAlert, setShowCreateAlert] = React.useState(false);
   const [isPending, startTransition] = useTransition();
+  
+// TODO: Replace with structured logging - console.log('[HealthcareDashboard] User:', user?.email, 'Role:', user?.role);
+// TODO: Replace with structured logging - console.log('[HealthcareDashboard] Theme background:', theme.background);
   
   // For demo, use a placeholder hospital ID
   const hospitalId = 'f155b026-01bd-4212-94f3-e7aedef2801d';
@@ -69,18 +71,30 @@ export default function HealthcareDashboard() {
   const getRoleContent = () => {
     const role = user?.role as HealthcareUserRole;
     
+    // Ensure role is defined
+    if (!role) {
+      return (
+        <Card>
+          <Box p={5 as SpacingScale}>
+            <VStack gap={3 as SpacingScale} alignItems="center">
+              <Text size="lg" colorTheme="mutedForeground">
+              Loading user role...
+            </Text>
+          </VStack>
+          </Box>
+        </Card>
+      );
+    }
+    
     switch (role) {
       case 'operator':
         return (
           <>
             {!showCreateAlert ? (
-              <VStack gap={goldenSpacing.xl}>
-                <Card
-                  padding={goldenSpacing.xl}
-                  gap={goldenSpacing.lg}
-                  shadow={goldenShadows.lg}
-                >
-                  <VStack gap={goldenSpacing.md} alignItems="center">
+              <VStack gap={5 as SpacingScale}>
+                <Card shadow="lg">
+                  <Box p={5 as SpacingScale}>
+                    <VStack gap={3 as SpacingScale} alignItems="center">
                     <Text size="4xl">🚨</Text>
                     <Text size="xl" weight="bold">Alert Center</Text>
                     <Text colorTheme="mutedForeground" align="center">
@@ -88,42 +102,43 @@ export default function HealthcareDashboard() {
                     </Text>
                     <Button
                       onPress={() => setShowCreateAlert(true)}
-                      variant="destructive"
-                      size="large"
+                      colorScheme="destructive"
+                      size="lg"
                       fullWidth
                     >
                       Create New Alert
                     </Button>
                   </VStack>
+                  </Box>
                 </Card>
                 
                 <Separator />
                 
-                <VStack gap={goldenSpacing.lg}>
+                <VStack gap={4 as SpacingScale}>
                   <Text size="xl" weight="bold">Recent Alerts</Text>
-                  <Suspense fallback={<Skeleton height={goldenDimensions.heights.xlarge} />}>
+                  <Suspense fallback={<Skeleton height={400} />}>
                     <AlertListBlock 
                       hospitalId={hospitalId} 
                       role={role}
                       showResolved={false}
-                      maxHeight={goldenDimensions.heights.massive}
+                      maxHeight={600}
                     />
                   </Suspense>
                 </VStack>
               </VStack>
             ) : (
-              <VStack gap={goldenSpacing.xl}>
-                <HStack alignItems="center" gap={goldenSpacing.sm}>
+              <VStack gap={5 as SpacingScale}>
+                <HStack alignItems="center" gap={2 as SpacingScale}>
                   <Button
                     onPress={() => setShowCreateAlert(false)}
                     variant="ghost"
-                    size="small"
+                    size="sm"
                   >
                     ← Back
                   </Button>
                   <Text size="xl" weight="bold">Create Alert</Text>
                 </HStack>
-                <Suspense fallback={<Skeleton height={goldenDimensions.heights.huge} />}>
+                <Suspense fallback={<Skeleton height={500} />}>
                   <AlertCreationBlock hospitalId={hospitalId} />
                 </Suspense>
               </VStack>
@@ -135,14 +150,12 @@ export default function HealthcareDashboard() {
       case 'nurse':
       case 'head_doctor':
         return (
-          <VStack gap={goldenSpacing.xl}>
+          <VStack gap={5 as SpacingScale}>
             {/* On-Duty Status Card */}
-            <Card
-              padding={goldenSpacing.lg}
-              shadow={goldenShadows.md}
-            >
-              <HStack justifyContent="space-between" alignItems="center">
-                <VStack gap={goldenSpacing.xs}>
+            <Card shadow="md">
+              <Box p={4 as SpacingScale}>
+                <HStack justifyContent="space-between" alignItems="center">
+                <VStack gap={1 as SpacingScale}>
                   <Text weight="semibold">Duty Status</Text>
                   <Text size="sm" colorTheme="mutedForeground">
                     {onDutyStatus?.isOnDuty ? 'Currently on duty' : 'Off duty'}
@@ -156,24 +169,25 @@ export default function HealthcareDashboard() {
                       });
                     });
                   }}
-                  variant={onDutyStatus?.isOnDuty ? 'destructive' : 'secondary'}
-                  size="small"
-                  loading={isPending}
+                  colorScheme={onDutyStatus?.isOnDuty ? 'destructive' : 'secondary'}
+                  size="sm"
+                  isLoading={isPending}
                 >
                   {onDutyStatus?.isOnDuty ? 'End Shift' : 'Start Shift'}
                 </Button>
               </HStack>
+              </Box>
             </Card>
             
             {/* Metrics Overview */}
-            <Suspense fallback={<Skeleton height={goldenDimensions.heights.xlarge} />}>
-              <MetricsOverviewBlock hospitalId={hospitalId} />
+            <Suspense fallback={<Skeleton height={400} />}>
+              <HealthcareMetricsOverviewBlock hospitalId={hospitalId} />
             </Suspense>
             
             {/* Active Alerts */}
-            <VStack gap={goldenSpacing.lg}>
+            <VStack gap={4 as SpacingScale}>
               <Text size="xl" weight="bold">Active Alerts</Text>
-              <Suspense fallback={<Skeleton height={goldenDimensions.heights.xlarge} />}>
+              <Suspense fallback={<Skeleton height={400} />}>
                 <AlertListBlock 
                   hospitalId={hospitalId} 
                   role={role}
@@ -184,13 +198,13 @@ export default function HealthcareDashboard() {
             
             {/* Patient Cards for doctors */}
             {(role === 'doctor' || role === 'head_doctor') && (
-              <VStack gap={goldenSpacing.lg}>
+              <VStack gap={4 as SpacingScale}>
                 <Text size="xl" weight="bold">My Patients</Text>
-                <Grid columns={Platform.OS === 'web' ? 2 : 1} gap={goldenSpacing.lg}>
-                  <Suspense fallback={<Skeleton height={goldenDimensions.heights.large} />}>
+                <Grid columns={Platform.OS === 'web' ? 2 : 1} gap={4 as SpacingScale}>
+                  <Suspense fallback={<Skeleton height={300} />}>
                     <PatientCardBlock patientId="patient-1" />
                   </Suspense>
-                  <Suspense fallback={<Skeleton height={goldenDimensions.heights.large} />}>
+                  <Suspense fallback={<Skeleton height={300} />}>
                     <PatientCardBlock patientId="patient-2" />
                   </Suspense>
                 </Grid>
@@ -201,21 +215,18 @@ export default function HealthcareDashboard() {
         
       case 'admin':
         return (
-          <VStack gap={goldenSpacing.xl}>
+          <VStack gap={5 as SpacingScale}>
             {/* System Metrics Overview */}
-            <Suspense fallback={<Skeleton height={goldenDimensions.heights.xlarge} />}>
-              <MetricsOverviewBlock hospitalId={hospitalId} />
+            <Suspense fallback={<Skeleton height={400} />}>
+              <HealthcareMetricsOverviewBlock hospitalId={hospitalId} />
             </Suspense>
             
             {/* Admin Actions */}
-            <Card
-              padding={goldenSpacing.xl}
-              gap={goldenSpacing.lg}
-              shadow={goldenShadows.md}
-            >
-              <VStack gap={goldenSpacing.md}>
+            <Card shadow="md">
+              <Box p={5 as SpacingScale}>
+                <VStack gap={3 as SpacingScale}>
                 <Text weight="bold" size="lg">System Actions</Text>
-                <Grid columns={Platform.OS === 'web' ? 2 : 1} gap={goldenSpacing.md}>
+                <Grid columns={Platform.OS === 'web' ? 2 : 1} gap={3 as SpacingScale}>
                   <Button
                     onPress={() => router.push('/(home)/admin')}
                     variant="outline"
@@ -258,12 +269,13 @@ export default function HealthcareDashboard() {
                   </Button>
                 </Grid>
               </VStack>
+              </Box>
             </Card>
             
             {/* All Alerts with resolved */}
-            <VStack gap={goldenSpacing.lg}>
+            <VStack gap={4 as SpacingScale}>
               <Text size="xl" weight="bold">All System Alerts</Text>
-              <Suspense fallback={<Skeleton height={goldenDimensions.heights.xlarge} />}>
+              <Suspense fallback={<Skeleton height={400} />}>
                 <AlertListBlock 
                   hospitalId={hospitalId} 
                   role={role}
@@ -277,7 +289,7 @@ export default function HealthcareDashboard() {
       default:
         return (
           <Card>
-            <VStack spacing={3} align="center" p={4}>
+            <VStack gap={3 as SpacingScale} alignItems="center" p={4 as SpacingScale}>
               <Text size="4xl">👋</Text>
               <Text size="lg" weight="bold">Welcome to Hospital Alert System</Text>
               <Text colorTheme="mutedForeground" align="center">
@@ -285,7 +297,7 @@ export default function HealthcareDashboard() {
               </Text>
               <Button
                 onPress={() => router.push('/(home)/settings')}
-                variant="default"
+                variant="outline"
               >
                 Complete Profile
               </Button>
@@ -296,9 +308,9 @@ export default function HealthcareDashboard() {
   };
   
   const content = (
-    <VStack gap={goldenSpacing.xl}>
-      {/* Header */}
-      <HStack justifyContent="space-between" alignItems="center">
+    <VStack gap={5 as SpacingScale}>
+        {/* Header */}
+        <HStack justifyContent="space-between" alignItems="center">
         <Box flex={1}>
           <Heading1>Hospital Alert System</Heading1>
           <Text colorTheme="mutedForeground">
@@ -308,16 +320,14 @@ export default function HealthcareDashboard() {
         <Avatar
           source={user?.image ? { uri: user.image } : undefined}
           name={user?.name || 'User'}
-          size={goldenDimensions.heights.medium}
+          size="xl"
         />
       </HStack>
       
       {/* Role Badge */}
-      <Card
-        padding={goldenSpacing.lg}
-        shadow={goldenShadows.sm}
-      >
-        <HStack justifyContent="space-between" alignItems="center">
+      <Card shadow="sm">
+        <Box p={4 as SpacingScale}>
+          <HStack justifyContent="space-between" alignItems="center">
           <Box>
             <Text weight="semibold">{user?.email}</Text>
             <Text size="sm" colorTheme="mutedForeground">
@@ -326,19 +336,20 @@ export default function HealthcareDashboard() {
           </Box>
           <Badge
             variant={
-              user?.role === 'admin' ? 'destructive' :
+              user?.role === 'admin' ? 'error' :
               user?.role === 'head_doctor' ? 'default' :
               user?.role === 'doctor' ? 'secondary' :
               user?.role === 'nurse' ? 'outline' :
               'outline'
             }
-            size="large"
+            size="lg"
           >
             <Text size="sm" weight="semibold">
               {(user?.role || 'user').replace('_', ' ').toUpperCase()}
             </Text>
           </Badge>
         </HStack>
+        </Box>
       </Card>
       
       <Separator />
@@ -350,8 +361,6 @@ export default function HealthcareDashboard() {
   
   // Mobile view
   if (Platform.OS !== 'web') {
-    const SafeAreaView = require('react-native-safe-area-context').SafeAreaView;
-    
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
         <ScrollView
@@ -366,7 +375,7 @@ export default function HealthcareDashboard() {
             />
           }
         >
-          <VStack p={goldenSpacing.lg} gap={goldenSpacing.lg}>
+          <VStack p={4 as SpacingScale} gap={4 as SpacingScale}>
             {content}
           </VStack>
         </ScrollView>
@@ -380,13 +389,13 @@ export default function HealthcareDashboard() {
       <VStack p={0} spacing={0}>
         {/* Header with Toggle and Breadcrumbs */}
         <Box
-          px={goldenSpacing.lg}
-          py={goldenSpacing.md}
+          px={4 as SpacingScale}
+          py={3 as SpacingScale}
           borderBottomWidth={1}
           borderTheme="border"
         >
-          <HStack alignItems="center" gap={goldenSpacing.sm} mb={goldenSpacing.sm}>
-            <Sidebar07Trigger />
+          <HStack alignItems="center" gap={2 as SpacingScale} mb={2}>
+            <SidebarTrigger />
             <Separator orientation="vertical" style={{ height: 24 }} />
             <SimpleBreadcrumb
               items={[{ label: "Healthcare Dashboard", current: true }]}
@@ -396,7 +405,7 @@ export default function HealthcareDashboard() {
         </Box>
         
         <ScrollView>
-          <VStack p={goldenSpacing.lg} gap={goldenSpacing.lg}>
+          <VStack p={4 as SpacingScale} gap={4 as SpacingScale}>
             {content}
           </VStack>
         </ScrollView>

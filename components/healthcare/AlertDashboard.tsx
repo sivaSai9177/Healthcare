@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, RefreshControl, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
+import Animated from 'react-native-reanimated';
 import { 
   VStack, 
   HStack,
@@ -13,7 +14,7 @@ import {
   Box,
   Separator,
 } from '@/components/universal';
-import { api } from '@/lib/trpc';
+import { api } from '@/lib/api/trpc';
 import { 
   HealthcareUserRole,
   ALERT_TYPE_CONFIG, 
@@ -21,12 +22,15 @@ import {
   type Alert,
 } from '@/types/healthcare';
 import { useAuthStore } from '@/lib/stores/auth-store';
-import { useTheme } from '@/lib/theme/theme-provider';
+import { useTheme } from '@/lib/theme/provider';
 import { showErrorAlert } from '@/lib/core/alert';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
 import { EscalationTimer, EscalationSummary } from './EscalationTimer';
-import { Ionicons } from '@expo/vector-icons';
-import { useAlertSubscription } from '@/hooks/useAlertSubscription';
+import { useAlertSubscription } from '@/hooks/healthcare';
+
+import { useFadeAnimation, useScaleAnimation, useEntranceAnimation } from '@/lib/ui/animations/hooks';
+import { haptic } from '@/lib/ui/haptics';
+import { SpacingScale } from '@/lib/design';
 
 interface AlertDashboardProps {
   role: HealthcareUserRole;
@@ -40,19 +44,35 @@ export function AlertDashboard({ role, hospitalId }: AlertDashboardProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState<string | null>(null);
   
+  // Animation hooks
+  const { animatedStyle: dashboardFadeStyle, fadeIn: fadeInDashboard } = useFadeAnimation({ duration: 400 });
+  const { animatedStyle: statsScaleStyle, scaleIn: scaleInStats } = useScaleAnimation({ 
+    initialScale: 0.9, 
+    finalScale: 1,
+    springConfig: 'gentle' 
+  });
+  
   // Subscribe to real-time updates
   useAlertSubscription({
     hospitalId,
     onAlertCreated: (event) => {
       log.info('New alert created', 'ALERT_DASHBOARD', event);
-      // Could add sound/vibration here
+      haptic('notification');
+      // Trigger re-animation
+      fadeInDashboard();
     },
     onAlertEscalated: (event) => {
       log.info('Alert escalated', 'ALERT_DASHBOARD', event);
-      // Could add more urgent notification here
+      haptic('warning');
     },
     showNotifications: true,
   });
+  
+  // Entrance animations
+  useEffect(() => {
+    fadeInDashboard();
+    scaleInStats();
+  }, []);
   
   // Fetch active alerts (will be refreshed by subscription)
   const { data, refetch, isLoading } = api.healthcare.getActiveAlerts.useQuery({
@@ -119,18 +139,28 @@ export function AlertDashboard({ role, hospitalId }: AlertDashboardProps) {
   const canAcknowledge = ['doctor', 'nurse', 'head_doctor', 'admin'].includes(role);
   const canResolve = ['doctor', 'head_doctor', 'admin'].includes(role);
   
-  const renderAlert = (alertData: any) => {
+  const AlertItem: React.FC<{ alertData: any; index: number }> = ({ alertData, index }) => {
     const alert = alertData.alert;
     const isSelected = selectedAlert === alert.id;
     const config = ALERT_TYPE_CONFIG[alert.alertType];
     const urgencyConfig = URGENCY_LEVEL_CONFIG[alert.urgencyLevel];
     
+    // Stagger animation for list items
+    const { animatedStyle: alertEntranceStyle } = useEntranceAnimation({
+      type: 'slide',
+      delay: index * 50,
+      duration: 300,
+    });
+    
     return (
-      <Pressable
-        key={alert.id}
-        onPress={() => setSelectedAlert(isSelected ? null : alert.id)}
-      >
-        <Card
+      <Animated.View key={alert.id} style={alertEntranceStyle}>
+        <Pressable
+          onPress={() => {
+            haptic('light');
+            setSelectedAlert(isSelected ? null : alert.id);
+          }}
+        >
+          <Card
           style={{
             borderLeftWidth: 4,
             borderLeftColor: urgencyConfig.color,
@@ -198,7 +228,7 @@ export function AlertDashboard({ role, hospitalId }: AlertDashboardProps) {
             {/* Acknowledged Info */}
             {alert.acknowledgedAt && alertData.acknowledgedBy && (
               <Box
-                p={2}
+                p={2 as SpacingScale}
                 rounded="md"
                 style={{ backgroundColor: theme.muted }}
               >
@@ -225,7 +255,7 @@ export function AlertDashboard({ role, hospitalId }: AlertDashboardProps) {
             
             {/* Escalation Warning */}
             {alert.currentEscalationTier > 1 && (
-              <AlertComponent variant="destructive">
+              <AlertComponent variant="primary" colorScheme="destructive">
                 <Text size="sm" weight="semibold">
                   ⚠️ Escalated to Tier {alert.currentEscalationTier}
                 </Text>
@@ -238,7 +268,7 @@ export function AlertDashboard({ role, hospitalId }: AlertDashboardProps) {
                 <Separator />
                 <Button
                   onPress={() => handleAcknowledge(alert.id)}
-                  variant="default"
+                  variant="outline"
                   size="lg"
                   disabled={acknowledgeMutation.isPending}
                 >
@@ -264,14 +294,15 @@ export function AlertDashboard({ role, hospitalId }: AlertDashboardProps) {
             )}
           </VStack>
         </Card>
-      </Pressable>
+        </Pressable>
+      </Animated.View>
     );
   };
   
   if (isLoading && !data) {
     return (
       <Container>
-        <VStack spacing={4} p={4} align="center" justify="center" style={{ flex: 1 }}>
+        <VStack spacing={4} p={4 as SpacingScale} align="center" justify="center" style={{ flex: 1 }}>
           <Text>Loading alerts...</Text>
         </VStack>
       </Container>
@@ -284,26 +315,29 @@ export function AlertDashboard({ role, hospitalId }: AlertDashboardProps) {
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
-      <VStack spacing={4} p={4}>
-        {/* Summary Stats */}
-        <HStack spacing={3}>
-          <Card style={{ flex: 1 }}>
-            <VStack align="center">
-              <Text size="3xl" weight="bold" style={{ color: theme.destructive }}>
-                {activeAlerts.length}
-              </Text>
-              <Text size="sm" colorTheme="mutedForeground">Active Alerts</Text>
-            </VStack>
-          </Card>
-          <Card style={{ flex: 1 }}>
-            <VStack align="center">
-              <Text size="3xl" weight="bold" style={{ color: theme.warning }}>
-                {acknowledgedAlerts.length}
-              </Text>
-              <Text size="sm" colorTheme="mutedForeground">In Progress</Text>
-            </VStack>
-          </Card>
-        </HStack>
+      <Animated.View style={dashboardFadeStyle}>
+        <VStack spacing={4} p={4 as SpacingScale}>
+          {/* Summary Stats */}
+          <Animated.View style={statsScaleStyle}>
+            <HStack spacing={3}>
+              <Card style={{ flex: 1 }}>
+                <VStack align="center">
+                  <Text size="3xl" weight="bold" style={{ color: theme.destructive }}>
+                    {activeAlerts.length}
+                  </Text>
+                  <Text size="sm" colorTheme="mutedForeground">Active Alerts</Text>
+                </VStack>
+              </Card>
+              <Card style={{ flex: 1 }}>
+                <VStack align="center">
+                  <Text size="3xl" weight="bold" style={{ color: theme.warning }}>
+                    {acknowledgedAlerts.length}
+                  </Text>
+                  <Text size="sm" colorTheme="mutedForeground">In Progress</Text>
+                </VStack>
+              </Card>
+            </HStack>
+          </Animated.View>
         
         {/* Escalation Summary */}
         {activeAlerts.length > 0 && (
@@ -315,13 +349,13 @@ export function AlertDashboard({ role, hospitalId }: AlertDashboardProps) {
           <VStack spacing={2}>
             <HStack align="center" spacing={2}>
               <Text size="lg" weight="bold">Active Alerts</Text>
-              <Badge variant="destructive">
-                <Text size="xs" weight="bold" style={{ color: 'white' }}>
+              <Badge variant="error">
+                <Text size="xs" weight="bold" style={{ color: theme.background }}>
                   {activeAlerts.length}
                 </Text>
               </Badge>
             </HStack>
-            {activeAlerts.map(renderAlert)}
+            {activeAlerts.map((alert, index) => <AlertItem key={alert.alert.id} alertData={alert} index={index} />)}
           </VStack>
         )}
         
@@ -329,14 +363,14 @@ export function AlertDashboard({ role, hospitalId }: AlertDashboardProps) {
         {acknowledgedAlerts.length > 0 && (
           <VStack spacing={2}>
             <Text size="lg" weight="bold">In Progress</Text>
-            {acknowledgedAlerts.map(renderAlert)}
+            {acknowledgedAlerts.map((alert, index) => <AlertItem key={alert.alert.id} alertData={alert} index={index} />)}
           </VStack>
         )}
         
         {/* Empty State */}
         {activeAlerts.length === 0 && acknowledgedAlerts.length === 0 && (
           <Card>
-            <VStack spacing={3} align="center" p={4}>
+            <VStack spacing={3} align="center" p={4 as SpacingScale}>
               <Text size="4xl">✅</Text>
               <Text size="lg" weight="semibold">All Clear</Text>
               <Text colorTheme="mutedForeground" align="center">
@@ -350,13 +384,15 @@ export function AlertDashboard({ role, hospitalId }: AlertDashboardProps) {
         {role === 'operator' && (
           <Button
             onPress={() => router.push('/(home)/create-alert')}
-            variant="destructive"
+            variant="solid"
+            colorScheme="destructive"
             size="lg"
           >
             Create New Alert
           </Button>
         )}
-      </VStack>
+        </VStack>
+      </Animated.View>
     </ScrollView>
   );
 }

@@ -4,8 +4,8 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { oAuthProxy, multiSession, organization, admin } from "better-auth/plugins";
 import * as schema from "../../src/db/schema";
-import { log } from "@/lib/core/logger";
-import { getAuthBaseUrl, isOAuthSafe } from "@/lib/core/unified-env";
+import { log } from "@/lib/core/debug/logger";
+import { getAuthBaseUrl, isOAuthSafe } from "@/lib/core/config/unified-env";
 
 // Server-safe base URL configuration
 const getBaseURL = () => {

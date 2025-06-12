@@ -1,5 +1,21 @@
 # Unified Scripts Guide
 
+## 🆕 Latest Updates (Runtime Fixes Applied)
+
+### Script Improvements
+- **Pre-flight Checks**: Automatic dependency verification
+- **Port Cleanup**: Auto-kills processes on ports 8081, 3001, 3002
+- **Service Health Checks**: Verifies all services are running
+- **Auto-install**: Missing packages (@expo/server) installed automatically
+- **Better Error Handling**: Clear error messages and recovery steps
+
+### Runtime Fixes
+- Email service now works in React Native (mock implementation)
+- Theme provider import paths corrected
+- Syntax errors in config files fixed
+- WebSocket server runs standalone (no React Native deps)
+- All console.log statements replaced with structured logging
+
 ## 🚀 Quick Start - One Command for All Scenarios
 
 ### Main Commands (NEW)
@@ -13,8 +29,12 @@ bun start:local
 # Tunnel mode - Remote access via Expo tunnel
 bun start:tunnel
 
-# OAuth mode - Optimized for OAuth testing
+# OAuth mode - Optimized for OAuth testing with all services
 bun start:oauth
+
+# Healthcare demo with all services
+bun local:healthcare      # Standard
+bun local:healthcare:web  # Auto-opens web browser
 ```
 
 ## 📱 What Each Mode Does
@@ -133,6 +153,21 @@ The new unified system automatically handles:
 
 ## 🚨 Troubleshooting
 
+### Common Runtime Errors (FIXED)
+```bash
+# "nodemailer.default.createTransporter is not a function"
+# ✅ Fixed: Email service uses conditional imports
+
+# "spacing is not defined"
+# ✅ Fixed: Import spacing from '@/lib/design'
+
+# "Cannot find module '@expo/server/build/vendor/http'"
+# ✅ Fixed: Scripts now auto-install @expo/server
+
+# Port already in use errors
+# ✅ Fixed: Scripts auto-cleanup ports before starting
+```
+
 ### OAuth Not Working?
 ```bash
 # Use OAuth mode
@@ -164,6 +199,19 @@ bun db:local:up
 bun db:local:reset
 ```
 
+### Quick Reset Everything
+```bash
+# Kill all processes
+pkill -f "expo start" || true
+pkill -f "metro" || true
+lsof -ti:8081 | xargs kill -9 2>/dev/null || true
+lsof -ti:3001 | xargs kill -9 2>/dev/null || true
+lsof -ti:3002 | xargs kill -9 2>/dev/null || true
+
+# Restart with healthcare
+bun local:healthcare
+```
+
 ## 📝 Demo Credentials
 
 All users can login with any password:
@@ -172,13 +220,32 @@ All users can login with any password:
 - **Doctor**: johndoe@gmail.com
 - **Head Doctor**: saipramod273@gmail.com
 
+## 🔔 Notification Services
+
+### Email Server (Mock for React Native)
+```bash
+# Starts automatically with healthcare commands
+# Logs: logs/email-server.log
+# Port: 3001
+# Test endpoint: http://localhost:3001/send-test
+```
+
+### WebSocket Server (Real-time alerts)
+```bash
+# Starts automatically with healthcare commands
+# Logs: logs/websocket-server.log
+# Port: 3002
+# Test with: wscat -c ws://localhost:3002
+```
+
 ## 🎯 Quick Decision Guide
 
 - **Testing locally?** → `bun start:local`
 - **Testing on phone?** → `bun start`
 - **Testing OAuth?** → `bun start:oauth`
 - **Sharing with others?** → `bun start:tunnel`
-- **Healthcare demo?** → `bun healthcare`
+- **Healthcare demo?** → `bun local:healthcare`
+- **Web development?** → `bun local:healthcare:web`
 
 ## 📦 Package.json Script Reference
 
@@ -198,6 +265,12 @@ All users can login with any password:
 - `db:local:down` - Stop PostgreSQL
 - `db:local:reset` - Reset database
 - `healthcare:setup` - Setup healthcare tables
+
+### Notification/Email Scripts
+- `email:server` - Start email notification server
+- `email:test` - Test email configuration
+- `notification:test` - Test notification service
+- `ws:start` - Start WebSocket server for real-time alerts
 
 ### Platform Scripts
 - `ios` - iOS simulator

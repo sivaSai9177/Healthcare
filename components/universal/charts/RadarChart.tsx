@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import {
   View,
   ViewStyle,
@@ -11,18 +11,37 @@ import Svg, {
   Text as SvgText,
   G,
 } from 'react-native-svg';
+import Animated, {
+  useSharedValue,
+  useAnimatedProps,
+  withTiming,
+  withDelay,
+  withSpring,
+  interpolate,
+  Easing,
+} from 'react-native-reanimated';
 import { useChartConfig } from './ChartContainer';
+import { AnimationVariant } from '@/lib/design';
+import { useAnimationVariant } from '@/hooks/useAnimationVariant';
+import { useAnimationStore } from '@/lib/stores/animation-store';
+import { haptic } from '@/lib/ui/haptics';
+
+const AnimatedPolygon = Animated.createAnimatedComponent(Polygon);
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedG = Animated.createAnimatedComponent(G);
 
 export interface RadarChartData {
   labels: string[];
-  datasets: Array<{
+  datasets: {
     label: string;
     data: number[];
     color?: string;
     fillOpacity?: number;
     strokeWidth?: number;
-  }>;
+  }[];
 }
+
+export type RadarChartAnimationType = 'expand' | 'draw' | 'fade' | 'pulse' | 'none';
 
 export interface RadarChartProps {
   data: RadarChartData;
@@ -35,6 +54,19 @@ export interface RadarChartProps {
   style?: ViewStyle;
   onDataPointPress?: (dataset: number, index: number, value: number) => void;
   testID?: string;
+  
+  // Animation props
+  animated?: boolean;
+  animationVariant?: AnimationVariant;
+  animationType?: RadarChartAnimationType;
+  animationDuration?: number;
+  animationDelay?: number;
+  staggerDelay?: number;
+  useHaptics?: boolean;
+  animationConfig?: {
+    duration?: number;
+    easing?: typeof Easing.inOut;
+  };
 }
 
 export const RadarChart: React.FC<RadarChartProps> = ({
@@ -48,10 +80,26 @@ export const RadarChart: React.FC<RadarChartProps> = ({
   style,
   onDataPointPress,
   testID,
+  // Animation props
+  animated = true,
+  animationVariant = 'moderate',
+  animationType = 'expand',
+  animationDuration,
+  animationDelay = 0,
+  staggerDelay = 100,
+  useHaptics = true,
+  animationConfig,
 }) => {
   const chartConfig = useChartConfig();
   const screenWidth = Dimensions.get('window').width;
   const width = propWidth || screenWidth - 32;
+  const { shouldAnimate } = useAnimationStore();
+  const { config, isAnimated } = useAnimationVariant({
+    variant: animationVariant,
+    overrides: animationConfig,
+  });
+  
+  const duration = animationDuration ?? config.duration.normal;
   
   const centerX = width / 2;
   const centerY = height / 2;
@@ -170,33 +218,201 @@ export const RadarChart: React.FC<RadarChartProps> = ({
         {gridLines}
         
         {/* Data polygons */}
-        {dataPolygons.map(polygon => (
-          <G key={polygon.key}>
-            <Polygon
-              points={polygon.polygonPoints}
-              fill={polygon.color}
-              fillOpacity={polygon.fillOpacity}
-              stroke={polygon.color}
-              strokeWidth={polygon.strokeWidth}
-            />
-            
-            {/* Data points */}
-            {showPoints && polygon.points.map((point, index) => (
-              <Circle
-                key={`point-${polygon.datasetIndex}-${index}`}
-                cx={point.x}
-                cy={point.y}
-                r={4}
-                fill={polygon.color}
-                onPress={() => onDataPointPress?.(polygon.datasetIndex, point.index, point.value)}
-              />
-            ))}
-          </G>
+        {dataPolygons.map((polygon, datasetIndex) => (
+          <AnimatedDataset
+            key={polygon.key}
+            polygon={polygon}
+            datasetIndex={datasetIndex}
+            showPoints={showPoints}
+            animated={animated}
+            isAnimated={isAnimated}
+            shouldAnimate={shouldAnimate}
+            animationType={animationType}
+            duration={duration}
+            animationDelay={animationDelay}
+            staggerDelay={staggerDelay}
+            onPointPress={(pointIndex, value) => {
+              if (useHaptics) {
+                haptic('impact');
+              }
+              onDataPointPress?.(polygon.datasetIndex, pointIndex, value);
+            }}
+          />
         ))}
         
         {/* Labels */}
         {labels}
       </Svg>
     </View>
+  );
+};
+
+// Animated Dataset Component
+interface AnimatedDatasetProps {
+  polygon: any;
+  datasetIndex: number;
+  showPoints: boolean;
+  animated: boolean;
+  isAnimated: boolean;
+  shouldAnimate: () => boolean;
+  animationType: RadarChartAnimationType;
+  duration: number;
+  animationDelay: number;
+  staggerDelay: number;
+  onPointPress: (index: number, value: number) => void;
+}
+
+const AnimatedDataset: React.FC<AnimatedDatasetProps> = ({
+  polygon,
+  datasetIndex,
+  showPoints,
+  animated,
+  isAnimated,
+  shouldAnimate,
+  animationType,
+  duration,
+  animationDelay,
+  staggerDelay,
+  onPointPress,
+}) => {
+  const animationProgress = useSharedValue(0);
+  const pulseScale = useSharedValue(1);
+  const pointScale = useSharedValue(0);
+  
+  useEffect(() => {
+    if (animated && isAnimated && shouldAnimate()) {
+      const delay = animationDelay + (datasetIndex * staggerDelay);
+      
+      if (animationType === 'expand') {
+        animationProgress.value = withDelay(
+          delay,
+          withSpring(1, {
+            damping: 15,
+            stiffness: 100,
+          })
+        );
+      } else if (animationType === 'draw') {
+        animationProgress.value = withDelay(
+          delay,
+          withTiming(1, {
+            duration,
+            easing: Easing.out(Easing.cubic),
+          })
+        );
+      } else if (animationType === 'fade') {
+        animationProgress.value = withDelay(
+          delay,
+          withTiming(1, { duration })
+        );
+      } else if (animationType === 'pulse') {
+        animationProgress.value = withDelay(
+          delay,
+          withTiming(1, { duration })
+        );
+        // Add pulse effect
+        pulseScale.value = withDelay(
+          delay + duration,
+          withTiming(1.05, {
+            duration: 1000,
+            easing: Easing.inOut(Easing.sine),
+          })
+        );
+      }
+      
+      // Animate points after polygon
+      if (showPoints) {
+        pointScale.value = withDelay(
+          delay + duration / 2,
+          withSpring(1, {
+            damping: 10,
+            stiffness: 200,
+          })
+        );
+      }
+    } else {
+      animationProgress.value = 1;
+      pointScale.value = 1;
+    }
+  }, [animated, isAnimated, shouldAnimate, animationType, duration, animationDelay, staggerDelay, datasetIndex, showPoints, animationProgress, pulseScale, pointScale]);
+  
+  const animatedPolygonProps = useAnimatedProps(() => {
+    let scale = 1;
+    let opacity = polygon.fillOpacity;
+    
+    if (animationType === 'expand') {
+      scale = animationProgress.value;
+    } else if (animationType === 'draw') {
+      // For draw effect, we'd need to animate stroke-dasharray
+      // For now, use scale as a simpler implementation
+      scale = animationProgress.value;
+    } else if (animationType === 'fade') {
+      opacity = interpolate(animationProgress.value, [0, 1], [0, polygon.fillOpacity]);
+    } else if (animationType === 'pulse') {
+      scale = interpolate(animationProgress.value, [0, 1], [0.8, 1]) * pulseScale.value;
+      opacity = interpolate(animationProgress.value, [0, 1], [0, polygon.fillOpacity]);
+    }
+    
+    return {
+      points: polygon.polygonPoints,
+      fill: polygon.color,
+      fillOpacity: opacity,
+      stroke: polygon.color,
+      strokeWidth: polygon.strokeWidth,
+      transform: [{
+        scale,
+      }],
+      transformOrigin: 'center',
+    };
+  });
+  
+  const animatedPointProps = useAnimatedProps(() => {
+    return {
+      r: 4 * pointScale.value,
+    };
+  });
+  
+  if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+    return (
+      <G>
+        <AnimatedPolygon
+          animatedProps={animatedPolygonProps}
+        />
+        
+        {/* Animated Data points */}
+        {showPoints && polygon.points.map((point: any, index: number) => (
+          <AnimatedCircle
+            key={`point-${polygon.datasetIndex}-${index}`}
+            cx={point.x}
+            cy={point.y}
+            animatedProps={animatedPointProps}
+            fill={polygon.color}
+            onPress={() => onPointPress(point.index, point.value)}
+          />
+        ))}
+      </G>
+    );
+  }
+  
+  return (
+    <G>
+      <Polygon
+        points={polygon.polygonPoints}
+        fill={polygon.color}
+        fillOpacity={polygon.fillOpacity}
+        stroke={polygon.color}
+        strokeWidth={polygon.strokeWidth}
+      />
+      
+      {showPoints && polygon.points.map((point: any, index: number) => (
+        <Circle
+          key={`point-${polygon.datasetIndex}-${index}`}
+          cx={point.x}
+          cy={point.y}
+          r={4}
+          fill={polygon.color}
+          onPress={() => onPointPress(point.index, point.value)}
+        />
+      ))}
+    </G>
   );
 };

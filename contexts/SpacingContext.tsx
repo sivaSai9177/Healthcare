@@ -1,107 +1,23 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Dimensions } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { 
-  SpacingDensity, 
-  spacingTheme, 
-  getSpacing,
-  SpacingScale 
-} from '@/lib/design-system/spacing-theme';
+/**
+ * SpacingContext - Backward compatibility wrapper
+ * This file now wraps the Zustand store to maintain compatibility
+ * with components that still import from SpacingContext
+ */
+import React from 'react';
+import { useSpacingStore } from '@/lib/stores/spacing-store';
+import type { SpacingDensity, SpacingScale } from '@/lib/design/spacing';
 
-interface SpacingContextType {
-  density: SpacingDensity;
-  setDensity: (density: SpacingDensity) => void;
-  spacing: Record<SpacingScale, number>;
-  componentSpacing: typeof spacingTheme.componentSpacing[SpacingDensity];
-  typographyScale: typeof spacingTheme.typographyScale[SpacingDensity];
-  componentSizes: typeof spacingTheme.componentSizes[SpacingDensity];
-}
+// Re-export the Zustand hook as useSpacing for backward compatibility
+export const useSpacing = useSpacingStore;
 
-const SpacingContext = createContext<SpacingContextType | undefined>(undefined);
-
-const STORAGE_KEY = '@app/spacing-density';
-
+// Dummy provider for backward compatibility - not needed with Zustand
 export function SpacingProvider({ children }: { children: React.ReactNode }) {
-  const [density, setDensityState] = useState<SpacingDensity>('medium');
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  // Load saved density preference
-  useEffect(() => {
-    loadDensityPreference();
-  }, []);
-
-  // Listen for screen size changes
-  useEffect(() => {
-    const subscription = Dimensions.addEventListener('change', ({ window }) => {
-      // Only auto-adjust if no preference is saved
-      AsyncStorage.getItem(STORAGE_KEY).then(saved => {
-        if (!saved) {
-          const autoDensity = spacingTheme.getAutoDensity();
-          setDensityState(autoDensity);
-        }
-      });
-    });
-
-    return () => subscription?.remove();
-  }, []);
-
-  const loadDensityPreference = async () => {
-    try {
-      const saved = await AsyncStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setDensityState(saved as SpacingDensity);
-      } else {
-        // Auto-detect based on screen size
-        const autoDensity = spacingTheme.getAutoDensity();
-        setDensityState(autoDensity);
-      }
-    } catch (error) {
-      console.error('Failed to load spacing density preference:', error);
-    } finally {
-      setIsLoaded(true);
-    }
-  };
-
-  const setDensity = async (newDensity: SpacingDensity) => {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEY, newDensity);
-      setDensityState(newDensity);
-    } catch (error) {
-      console.error('Failed to save spacing density preference:', error);
-    }
-  };
-
-  const value: SpacingContextType = {
-    density,
-    setDensity,
-    spacing: getSpacing(density),
-    componentSpacing: spacingTheme.componentSpacing[density],
-    typographyScale: spacingTheme.typographyScale[density],
-    componentSizes: spacingTheme.componentSizes[density],
-  };
-
-  // Don't render until preferences are loaded
-  if (!isLoaded) {
-    return null;
-  }
-
-  return (
-    <SpacingContext.Provider value={value}>
-      {children}
-    </SpacingContext.Provider>
-  );
-}
-
-export function useSpacing() {
-  const context = useContext(SpacingContext);
-  if (!context) {
-    throw new Error('useSpacing must be used within a SpacingProvider');
-  }
-  return context;
+  // Zustand doesn't need a provider, so we just return children
+  return <>{children}</>;
 }
 
 // Hook for responsive values based on density
 export function useResponsive<T>(values: { compact: T; medium: T; large: T }): T {
-  const { density } = useSpacing();
+  const { density } = useSpacingStore();
   return values[density];
 }

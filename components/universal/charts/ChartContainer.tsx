@@ -7,9 +7,10 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { useSpacing } from '@/contexts/SpacingContext';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
 import { Card } from '../Card';
+import { SpacingScale } from '@/lib/design';
 
 export interface ChartContainerProps {
   children: React.ReactNode;
@@ -46,7 +47,7 @@ export const ChartContainer = React.forwardRef<View, ChartContainerProps>(
     const containerHeight = aspectRatio ? undefined : height;
 
     return (
-      <Card ref={ref} p={4} style={style} testID={testID}>
+      <Card ref={ref} p={4 as SpacingScale} style={style} testID={testID}>
         {(title || description) && (
           <View style={{ marginBottom: spacing[4] }}>
             {title && (
@@ -238,7 +239,7 @@ const OldChartTooltip: React.FC<any> = ({
           minWidth: 120,
           ...Platform.select({
             ios: {
-              boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+              boxShadow: '0px 2px 4px theme.mutedForeground + "10"',
             },
             android: {
               elevation: 4,
@@ -346,15 +347,15 @@ export const useChartConfig = (): ChartConfig => {
       primary: theme.primary,
       secondary: theme.secondary,
       accent: theme.accent,
-      success: theme.success || '#10b981',
-      warning: '#f59e0b', // Orange for warnings
+      success: theme.success || 'theme.success',
+      warning: 'theme.warning', // Orange for warnings
       danger: theme.destructive,
       // Chart-specific colors
       chart1: theme.primary,
       chart2: theme.secondary,
       chart3: theme.accent,
-      chart4: theme.success || '#10b981',
-      chart5: '#f59e0b', // Orange
+      chart4: theme.success || 'theme.success',
+      chart5: 'theme.warning', // Orange
     },
     styles: {
       axis: {
@@ -399,8 +400,8 @@ export const ChartTooltipContent: React.FC<{
         borderWidth: 1,
         borderColor: theme.border,
         borderRadius: 6,
-        padding: 8,
-        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+        padding: spacing[2],
+        boxShadow: '0px 2px 4px theme.mutedForeground + "10"',
         elevation: 5,
       }}
     >
@@ -409,7 +410,7 @@ export const ChartTooltipContent: React.FC<{
           style={{
             fontSize: 12,
             color: theme.mutedForeground,
-            marginBottom: 4,
+            marginBottom: spacing[1],
           }}
         >
           {labelFormatter ? labelFormatter(label) : label}
@@ -440,7 +441,7 @@ export const ChartTooltipContent: React.FC<{
             style={{
               fontSize: 12,
               color: theme.mutedForeground,
-              marginRight: 4,
+              marginRight: spacing[1],
             }}
           >
             {entry.name || entry.dataKey}:

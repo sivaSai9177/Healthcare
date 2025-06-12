@@ -1,5 +1,5 @@
 import React from 'react';
-import { ViewStyle } from 'react-native';
+
 import { LineChart, LineChartData, LineChartProps } from './LineChart';
 
 export interface AreaChartData extends LineChartData {}

@@ -1,19 +1,37 @@
 // lib/stores/auth-store.ts
 import React from 'react';
 import { create } from 'zustand';
-import { persist, createJSONStorage, subscribeWithSelector } from 'zustand/middleware';
-import { devtools } from 'zustand/middleware';
+import { persist, createJSONStorage, subscribeWithSelector , devtools } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import type { User, Session } from 'better-auth/types';
 import '@/types/auth'; // Import our type extensions
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
+
+// Create a safe storage adapter that works on all platforms
+const storage = Platform.OS === 'web' 
+  ? {
+      getItem: (name: string) => {
+        if (typeof window === 'undefined') return null;
+        return window.localStorage.getItem(name);
+      },
+      setItem: (name: string, value: string) => {
+        if (typeof window === 'undefined') return;
+        window.localStorage.setItem(name, value);
+      },
+      removeItem: (name: string) => {
+        if (typeof window === 'undefined') return;
+        window.localStorage.removeItem(name);
+      },
+    }
+  : AsyncStorage;
 
 // Types
 export interface AppUser extends User {
   role: 'admin' | 'manager' | 'user' | 'guest' | 'operator' | 'nurse' | 'doctor' | 'head_doctor';
   organizationId?: string;
   organizationName?: string;
+  organizationRole?: 'operator' | 'doctor' | 'nurse' | 'head_doctor';
   department?: string;
   needsProfileCompletion?: boolean;
 }
@@ -23,6 +41,7 @@ export type UserToAppUser<T extends User> = T & {
   role: 'admin' | 'manager' | 'user' | 'guest' | 'operator' | 'nurse' | 'doctor' | 'head_doctor';
   organizationId?: string;
   organizationName?: string;
+  organizationRole?: 'operator' | 'doctor' | 'nurse' | 'head_doctor';
   department?: string;
   needsProfileCompletion?: boolean;
 };
@@ -34,6 +53,7 @@ export function toAppUser(user: any, fallbackRole: 'admin' | 'manager' | 'user' 
     role: user.role || fallbackRole,
     organizationId: user.organizationId || undefined,
     organizationName: user.organizationName || undefined,
+    organizationRole: user.organizationRole || undefined,
     department: user.department || undefined,
     needsProfileCompletion: user.needsProfileCompletion || false,
   } as AppUser;
@@ -298,26 +318,40 @@ export const useAuthStore = create<AuthStore>()(
       })),
       {
         name: 'app-auth-storage',
-        storage: createJSONStorage(() => AsyncStorage),
-        onRehydrateStorage: () => (state) => {
-          state?.setHasHydrated(true);
+        storage: createJSONStorage(() => storage),
+        skipHydration: Platform.OS === 'web' && typeof window === 'undefined', // Skip on SSR
+        onRehydrateStorage: (state) => {
+          log.store.update('onRehydrateStorage called', { hasState: !!state });
           
-          // Session validation will be handled by components via tRPC
-          if (state?.user) {
-            log.store.update('Rehydrated with user', { email: state.user.email });
-            
-            // On mobile, validate that we have a token
-            if (Platform.OS !== 'web') {
-              // Check if token exists asynchronously
-              import('@/lib/auth/session-manager').then(({ sessionManager }) => {
-                const token = sessionManager.getSessionToken();
-                if (!token) {
-                  log.auth.debug('User exists but no token found during rehydration, clearing auth state');
-                  state?.clearAuth();
-                }
-              });
-            }
+          // Immediately mark as hydrated on web to prevent loading screen hang
+          if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            setTimeout(() => {
+              const currentState = useAuthStore.getState();
+              if (!currentState.hasHydrated) {
+                log.store.update('Force hydrating on web');
+                currentState.setHasHydrated(true);
+              }
+            }, 100);
           }
+          
+          return (rehydratedState, error) => {
+            if (error) {
+              log.store.error('Rehydration error', error);
+            }
+            
+            // Always set hasHydrated to true after rehydration attempt
+            if (rehydratedState) {
+              rehydratedState.setHasHydrated(true);
+            } else {
+              // Even if no state, mark as hydrated
+              setTimeout(() => {
+                const currentState = useAuthStore.getState();
+                if (!currentState.hasHydrated) {
+                  currentState.setHasHydrated(true);
+                }
+              }, 0);
+            }
+          };
         },
         // Only persist non-sensitive data
         partialize: (state) => ({

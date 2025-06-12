@@ -1,5 +1,12 @@
-import React, { useState, useTransition, useDeferredValue, useOptimistic, useMemo, useCallback, Suspense, use } from 'react';
+import React, { useState, useTransition, useDeferredValue, useOptimistic, useMemo, useCallback, Suspense, use, useEffect } from 'react';
 import { Platform } from 'react-native';
+import Animated, { 
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  interpolate,
+} from 'react-native-reanimated';
 import {
   Card,
   VStack,
@@ -13,14 +20,20 @@ import {
   Grid,
   Skeleton,
 } from '@/components/universal';
-import { goldenSpacing, goldenShadows, goldenDimensions, goldenAnimations, healthcareColors } from '@/lib/design-system/golden-ratio';
-import { useTheme } from '@/lib/theme/theme-provider';
-import { api } from '@/lib/trpc';
+import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
+
+import { useResponsive , useResponsiveUtils } from '@/hooks/responsive';
+import { api } from '@/lib/api/trpc';
 import { create } from 'zustand';
 import { subscribeWithSelector, devtools } from 'zustand/middleware';
 import { shallow } from 'zustand/shallow';
-import { log } from '@/lib/core/logger';
+import { log } from '@/lib/core/debug/logger';
 import { showUrgentNotification } from '@/lib/core/alert';
+
+import { useFadeAnimation } from '@/lib/ui/animations/hooks';
+import { haptic } from '@/lib/ui/haptics';
+import { SpacingScale } from '@/lib/design';
 
 // Patient state management
 interface PatientState {
@@ -84,18 +97,38 @@ const VitalSign = React.memo(({
   // Use deferred value for smooth animations
   const deferredStatus = useDeferredValue(status);
   
+  // Pulse animation for critical status
+  const pulseAnimation = useSharedValue(1);
+  
+  useEffect(() => {
+    if (status === 'critical') {
+      pulseAnimation.value = withSpring(
+        1.05,
+        { damping: 2, stiffness: 80 },
+        () => {
+          pulseAnimation.value = withSpring(1, { damping: 2, stiffness: 80 });
+        }
+      );
+    }
+  }, [status, pulseAnimation]);
+  
+  const animatedCardStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseAnimation.value }],
+  }));
+  
   return (
-    <Card
-      padding={goldenSpacing.md}
+    <Animated.View style={status === 'critical' ? animatedCardStyle : {}}>
+      <Card
+      padding={spacing.md}
       style={{
         height: goldenDimensions.heights.small,
         borderBottomWidth: 3,
         borderBottomColor: statusColors[deferredStatus],
-        transition: `border-color ${goldenAnimations.durations.fast}ms ${goldenAnimations.easeGolden}`,
+        transition: `border-color ${{ spring: { damping: 15, stiffness: 100 } }.durations.fast}ms ${{ spring: { damping: 15, stiffness: 100 } }.easeGolden}`,
       }}
     >
-      <VStack gap={2} alignItems="center">
-        <HStack gap={goldenSpacing.xs} alignItems="center">
+      <VStack gap={2 as SpacingScale} alignItems="center">
+        <HStack gap={spacing.xs} alignItems="center">
           <Text size="xs" colorTheme="mutedForeground">
             {label}
           </Text>
@@ -105,7 +138,7 @@ const VitalSign = React.memo(({
             </Text>
           )}
         </HStack>
-        <HStack gap={2} alignItems="baseline">
+        <HStack gap={2 as SpacingScale} alignItems="baseline">
           <Text weight="bold" size="lg">
             {value}
           </Text>
@@ -115,6 +148,7 @@ const VitalSign = React.memo(({
         </HStack>
       </VStack>
     </Card>
+    </Animated.View>
   );
 });
 
@@ -124,6 +158,16 @@ VitalSign.displayName = 'VitalSign';
 const VitalsGrid = ({ patientId }: { patientId: string }) => {
   const { vitalFilter } = usePatientStore();
   const deferredFilter = useDeferredValue(vitalFilter);
+  
+  // Grid entrance animation
+  const { animatedStyle: gridEntranceStyle, fadeIn } = useFadeAnimation({ 
+    duration: 400,
+    delay: 100 
+  });
+  
+  useEffect(() => {
+    fadeIn();
+  }, [fadeIn]);
   
   // Use React 19's use() hook for data fetching
   const { data: vitals } = api.patient.getCurrentVitals.useQuery(
@@ -153,7 +197,8 @@ const VitalsGrid = ({ patientId }: { patientId: string }) => {
   if (!vitals) return null;
   
   return (
-    <Grid columns="repeat(auto-fit, minmax(89px, 1fr))" gap={goldenSpacing.md}>
+    <Animated.View style={gridEntranceStyle}>
+      <Grid columns="repeat(auto-fit, minmax(89px, 1fr))" gap={spacing.md}>
       <VitalSign
         label="HR"
         value={vitals.heartRate}
@@ -190,6 +235,7 @@ const VitalsGrid = ({ patientId }: { patientId: string }) => {
         trend={vitals.respiratoryRateTrend}
       />
     </Grid>
+    </Animated.View>
   );
 };
 
@@ -201,13 +247,14 @@ const AlertIndicator = ({ alert, onAcknowledge }: { alert: any; onAcknowledge: (
   );
   
   const handleAcknowledge = useCallback(() => {
+    haptic('success');
     setOptimisticAcknowledged(true);
     onAcknowledge();
   }, [onAcknowledge, setOptimisticAcknowledged]);
   
   if (optimisticAcknowledged) {
     return (
-      <Badge variant="secondary" size="small">
+      <Badge variant="secondary" size="sm">
         ✓
       </Badge>
     );
@@ -215,12 +262,12 @@ const AlertIndicator = ({ alert, onAcknowledge }: { alert: any; onAcknowledge: (
   
   return (
     <Button
-      variant="destructive"
-      size="small"
+      variant="solid" colorScheme="destructive"
+      size="sm"
       onPress={handleAcknowledge}
-      style={{
-        animation: `pulse ${goldenAnimations.durations.slow}ms infinite`,
-      }}
+      style={Platform.OS === 'web' ? {
+        animation: 'pulse 1000ms infinite',
+      } : {}}
     >
       {alert.type === 'critical' ? '🚨' : '⚠️'}
     </Button>
@@ -234,16 +281,17 @@ const ExpandedPatientContent = ({ patientId }: { patientId: string }) => {
   
   return (
     <>
-      <Separator marginVertical={goldenSpacing.lg} />
+      <Separator marginVertical={spacing.lg} />
       
       {/* Vital filter buttons */}
-      <HStack gap={goldenSpacing.sm} marginBottom={goldenSpacing.md}>
+      <HStack gap={spacing.sm} marginBottom={spacing.md}>
         {(['all', 'critical', 'warning', 'normal'] as const).map((filter) => (
           <Button
             key={filter}
             variant={vitalFilter === filter ? "default" : "outline"}
-            size="small"
+            size="sm"
             onPress={() => {
+              haptic('light');
               startTransition(() => {
                 setVitalFilter(filter);
               });
@@ -255,7 +303,7 @@ const ExpandedPatientContent = ({ patientId }: { patientId: string }) => {
         ))}
       </HStack>
       
-      <VStack gap={goldenSpacing.md}>
+      <VStack gap={spacing.md}>
         <Text weight="medium">Current Vitals</Text>
         <Suspense fallback={<VitalsSkeleton />}>
           <VitalsGrid patientId={patientId} />
@@ -272,9 +320,9 @@ const QuickActionsBar = ({ patientId }: { patientId: string }) => {
   const [isPending, startTransition] = useTransition();
   
   return (
-    <HStack gap={goldenSpacing.md} marginTop={goldenSpacing.lg}>
+    <HStack gap={spacing.md} marginTop={spacing.lg}>
       <Button
-        variant="primary"
+        variant="solid"
         style={{ flex: 1.618 }}
         onPress={() => {
           startTransition(() => {
@@ -312,7 +360,7 @@ const QuickActionsBar = ({ patientId }: { patientId: string }) => {
 // Vitals skeleton loader
 const VitalsSkeleton = () => {
   return (
-    <Grid columns="repeat(auto-fit, minmax(89px, 1fr))" gap={goldenSpacing.md}>
+    <Grid columns="repeat(auto-fit, minmax(89px, 1fr))" gap={spacing.md}>
       {[1, 2, 3, 4, 5].map((i) => (
         <Skeleton key={i} height={goldenDimensions.heights.small} />
       ))}
@@ -326,8 +374,24 @@ export const PatientCardBlock = ({ patientId, onViewDetails }: {
   onViewDetails?: (patientId: string) => void;
 }) => {
   const theme = useTheme();
+  const { spacing } = useSpacing();
+  const { isMobile, isTablet } = useResponsive();
+  const { getPlatformShadow, getResponsiveValue } = useResponsiveUtils();
   const queryClient = api.useUtils();
   const [isPending, startTransition] = useTransition();
+  
+  // Card entrance animation
+  const { animatedStyle: cardEntranceStyle, fadeIn } = useFadeAnimation({ 
+    duration: 500,
+    delay: 50 
+  });
+  
+  // Height animation for expansion
+  const heightAnimation = useSharedValue(goldenDimensions.heights.large);
+  
+  useEffect(() => {
+    fadeIn();
+  }, []);
   
   // Zustand store with React 19 optimization
   const { expandedCards, toggleCardExpansion } = usePatientStore(
@@ -411,17 +475,29 @@ export const PatientCardBlock = ({ patientId, onViewDetails }: {
   });
   
   const handleToggleExpansion = useCallback(() => {
+    haptic('light');
     setOptimisticExpanded(!optimisticExpanded);
+    
+    // Animate height
+    heightAnimation.value = withSpring(
+      !optimisticExpanded ? goldenDimensions.heights.huge : goldenDimensions.heights.large,
+      { damping: 15, stiffness: 100 }
+    );
+    
     startTransition(() => {
       toggleCardExpansion(patientId);
     });
   }, [optimisticExpanded, patientId, setOptimisticExpanded, toggleCardExpansion]);
   
+  const animatedHeightStyle = useAnimatedStyle(() => ({
+    height: heightAnimation.value,
+  }));
+  
   if (!patient) {
     return (
       <Card
-        padding={goldenSpacing.xl}
-        shadow={goldenShadows.md}
+        padding={spacing.xl}
+        shadow={getPlatformShadow('md')}
         style={{ height: goldenDimensions.heights.large }}
       >
         <Skeleton height="100%" />
@@ -430,26 +506,26 @@ export const PatientCardBlock = ({ patientId, onViewDetails }: {
   }
   
   return (
-    <Card
-      padding={goldenSpacing.xl}
-      shadow={goldenShadows.md}
+    <Animated.View style={[cardEntranceStyle, animatedHeightStyle]}>
+      <Card
+      padding={spacing.xl}
+      shadow={getPlatformShadow('md')}
       style={{
-        height: optimisticExpanded ? goldenDimensions.heights.huge : goldenDimensions.heights.large,
-        transition: `all ${goldenAnimations.durations.normal}ms ${goldenAnimations.easeGolden}`,
+        flex: 1,
       }}
     >
       {/* Header with React 19 transitions */}
-      <HStack gap={goldenSpacing.lg} style={{ height: goldenDimensions.heights.medium }}>
+      <HStack gap={spacing.lg} style={{ height: goldenDimensions.heights.medium }}>
         <Avatar
           size={goldenDimensions.heights.medium}
           source={patient.photo ? { uri: patient.photo } : undefined}
           name={patient.name}
         />
         
-        <VStack flex={1} gap={goldenSpacing.sm}>
+        <VStack flex={1} gap={spacing.sm}>
           <HStack justifyContent="space-between">
             <Text size="lg" weight="bold">{patient.name}</Text>
-            <HStack gap={goldenSpacing.sm}>
+            <HStack gap={spacing.sm}>
               {patient.alerts.map((alert) => (
                 <AlertIndicator
                   key={alert.id}
@@ -464,7 +540,7 @@ export const PatientCardBlock = ({ patientId, onViewDetails }: {
             </HStack>
           </HStack>
           
-          <HStack gap={goldenSpacing.md}>
+          <HStack gap={spacing.md}>
             <Text colorTheme="mutedForeground" size="sm">
               {patient.age}yo • {patient.gender}
             </Text>
@@ -478,17 +554,17 @@ export const PatientCardBlock = ({ patientId, onViewDetails }: {
             </Text>
           </HStack>
           
-          <HStack gap={goldenSpacing.sm}>
-            <Badge variant="outline" size="small">
+          <HStack gap={spacing.sm}>
+            <Badge variant="outline" size="sm">
               {patient.department}
             </Badge>
             {patient.primaryCondition && (
-              <Badge variant="secondary" size="small">
+              <Badge variant="secondary" size="sm">
                 {patient.primaryCondition}
               </Badge>
             )}
             {patient.flags?.dnr && (
-              <Badge variant="destructive" size="small">
+              <Badge variant="error" size="sm">
                 DNR
               </Badge>
             )}
@@ -497,7 +573,7 @@ export const PatientCardBlock = ({ patientId, onViewDetails }: {
         
         <Button
           variant="ghost"
-          size="small"
+          size="sm"
           onPress={handleToggleExpansion}
           loading={isPending}
         >
@@ -512,5 +588,6 @@ export const PatientCardBlock = ({ patientId, onViewDetails }: {
         </Suspense>
       )}
     </Card>
+    </Animated.View>
   );
 };
