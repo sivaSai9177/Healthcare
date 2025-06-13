@@ -2,7 +2,7 @@
 
 ## Quick Start Options
 
-### 1. Simple Mode (Recommended for development)
+### 1. Simple Mode (Recommended for UI development)
 ```bash
 # Just start Expo without any backend services
 bun run start
@@ -10,13 +10,13 @@ bun run start
 bun run local
 ```
 
-### 2. Full Stack Mode (With Database)
+### 2. Full Stack Mode (With Database) - Unified Dev Environment
 ```bash
-# First time setup (run once)
-bun run db:setup:local
-
-# Then start with all services
+# Auto-setup on first run, then starts all services
 bun run local:healthcare
+
+# Skip database checks for faster startup (after initial setup)
+bun run local:healthcare:fast
 ```
 
 ## Available Scripts

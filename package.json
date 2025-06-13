@@ -27,6 +27,7 @@
     "// === ENVIRONMENT-SPECIFIC (LOCAL=DOCKER, DEV=NEON) ===": "",
     "local": "APP_ENV=local EXPO_GO=1 expo start --host lan --go",
     "local:healthcare": "APP_ENV=local ./scripts/start-with-healthcare.sh",
+    "local:healthcare:fast": "APP_ENV=local SKIP_DB_SETUP=true ./scripts/start-with-healthcare.sh",
     "db:setup:local": "./scripts/setup-database-local.sh",
     "local:healthcare:web": "APP_ENV=local AUTO_OPEN_WEB=true ./scripts/start-with-healthcare.sh",
     "local:oauth": "./scripts/start-local-oauth.sh",

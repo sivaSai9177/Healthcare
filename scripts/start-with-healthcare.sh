@@ -57,24 +57,59 @@ docker-compose -f docker-compose.local.yml up -d postgres-local redis-local
 echo "⏳ Waiting for database to be ready..."
 sleep 5
 
-# Check if database is already set up
-echo "🔍 Checking database setup..."
-DB_CHECK=$(APP_ENV=local DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev" bun -e "
-  import { sql } from '@/src/db';
-  try {
-    const result = await sql\`SELECT COUNT(*) as count FROM organizations\`;
-    console.log(result[0].count);
-  } catch (e) {
-    console.log('0');
-  }
-" 2>/dev/null || echo "0")
-
-if [ "$DB_CHECK" = "0" ]; then
-  echo "⚠️  Database not initialized. Please run: bun run db:setup:local"
-  echo "   This will set up the database schema and demo data."
-  exit 1
+# Check if we should skip database setup
+if [ "$SKIP_DB_SETUP" = "true" ]; then
+  echo "⚡ Skipping database setup (SKIP_DB_SETUP=true)"
 else
-  echo "✅ Database already set up with $DB_CHECK organizations"
+  # Check if database is already set up
+  echo "🔍 Checking database setup..."
+  DB_CHECK=$(APP_ENV=local DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev" bun -e "
+    import { sql } from '@/src/db';
+    try {
+      const result = await sql\`SELECT COUNT(*) as count FROM organizations\`;
+      console.log(result[0].count);
+    } catch (e) {
+      console.log('0');
+    }
+  " 2>/dev/null || echo "0")
+
+  if [ "$DB_CHECK" = "0" ]; then
+    echo "⚠️  Database not initialized. Setting up automatically..."
+    echo ""
+    
+    # Run migrations
+    echo "📋 Running database migrations..."
+    APP_ENV=local DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev" drizzle-kit push --config=drizzle.config.ts
+    
+    if [ $? -ne 0 ]; then
+      echo "❌ Database migration failed"
+      echo "   You can try running manually: bun run db:setup:local"
+      exit 1
+    fi
+    
+    # Setup healthcare demo data
+    echo "🏥 Setting up healthcare demo data..."
+    APP_ENV=local DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev" bun scripts/setup-healthcare-local.ts
+    
+    if [ $? -ne 0 ]; then
+      echo "❌ Healthcare data setup failed"
+      exit 1
+    fi
+    
+    echo "✅ Database setup completed successfully!"
+  else
+    echo "✅ Database already set up with $DB_CHECK organizations"
+    
+    # Optional: Check if schema needs updating
+    echo "🔄 Checking for schema updates..."
+    SCHEMA_CHECK=$(APP_ENV=local DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev" drizzle-kit push --config=drizzle.config.ts 2>&1 | grep -E "No changes detected|changes:" || echo "check")
+    
+    if [[ "$SCHEMA_CHECK" == *"changes:"* ]]; then
+      echo "📋 Schema updates applied"
+    elif [[ "$SCHEMA_CHECK" == *"No changes detected"* ]]; then
+      echo "✅ Schema is up to date"
+    fi
+  fi
 fi
 
 echo "✅ Healthcare setup complete!"
