@@ -655,3 +655,6 @@ export const SimpleList: React.FC<SimpleListProps> = ({
     </ScrollView>
   );
 };
+// Sub-components for compound component pattern
+List.Item = ListItem;
+List.ItemText = Text; // Using Text component as ItemText

@@ -59,13 +59,29 @@ const BASE_SPACING = {
 
 export type SpacingScale = keyof typeof BASE_SPACING;
 
+// Named spacing aliases for common use cases
+export const SPACING_ALIASES = {
+  xs: 2,     // 8px
+  sm: 3,     // 12px
+  md: 4,     // 16px
+  lg: 6,     // 24px
+  xl: 8,     // 32px
+  '2xl': 12, // 48px
+  '3xl': 16, // 64px
+} as const;
+
 // Generate spacing for a specific density
-export function getSpacing(density: SpacingDensity): typeof BASE_SPACING {
+export function getSpacing(density: SpacingDensity): typeof BASE_SPACING & Record<keyof typeof SPACING_ALIASES, number> {
   const multiplier = DENSITY_MULTIPLIERS[density];
   const spacing: any = {};
   
   Object.entries(BASE_SPACING).forEach(([key, value]) => {
     spacing[key] = Math.round(value * multiplier);
+  });
+  
+  // Add named aliases
+  Object.entries(SPACING_ALIASES).forEach(([alias, scaleKey]) => {
+    spacing[alias] = spacing[scaleKey];
   });
   
   return spacing;

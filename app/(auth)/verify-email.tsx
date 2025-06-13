@@ -147,7 +147,7 @@ export default function VerifyEmailScreen() {
 
   return (
     <KeyboardAvoidingView 
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
+      style={{ flex: 1, backgroundColor: theme.background }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={{ 
@@ -166,17 +166,17 @@ export default function VerifyEmailScreen() {
               width: 80,
               height: 80,
               borderRadius: 40,
-              backgroundColor: theme.colors.primary + '20',
+              backgroundColor: theme.primary + '20',
               justifyContent: 'center',
               alignItems: 'center',
             }}>
-              <Mail size={40} color={theme.colors.primary} />
+              <Mail size={40} color={theme.primary} />
             </View>
 
             {/* Header */}
             <VStack space={spacing.sm} style={{ alignItems: 'center' }}>
               <Heading size="lg">Verify Your Email</Heading>
-              <Paragraph style={{ textAlign: 'center', color: theme.colors.mutedForeground }}>
+              <Paragraph style={{ textAlign: 'center', color: theme.mutedForeground }}>
                 We&apos;ve sent a verification code to
               </Paragraph>
               <Text style={{ fontWeight: '600' }}>{email}</Text>
@@ -219,7 +219,7 @@ export default function VerifyEmailScreen() {
 
             {/* Resend Section */}
             <HStack space={spacing.xs} style={{ alignItems: 'center' }}>
-              <Text style={{ color: theme.colors.mutedForeground }}>
+              <Text style={{ color: theme.mutedForeground }}>
                 Didn&apos;t receive the code?
               </Text>
               <Button

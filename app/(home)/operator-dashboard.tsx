@@ -18,18 +18,19 @@ import {
 import { 
   AlertCreationBlock, 
   AlertListBlock
-} from '@/components/healthcare/blocks';
+} from '@/components/blocks/healthcare';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { useRouter , Redirect } from 'expo-router';
-import { useTheme } from '@/lib/theme/provider';
+import { useThemeStore } from '@/lib/stores/theme-store';
 import { log } from '@/lib/core/debug/logger';
+import { BASE_SPACING as spacing } from '@/lib/design/spacing';
 
 // Loading skeleton for suspense
 const DashboardSkeleton = () => {
   return (
-    <VStack gap={goldenSpacing.lg}>
-      <Skeleton height={goldenDimensions.heights.huge} />
-      <Skeleton height={goldenDimensions.heights.xlarge} />
+    <VStack gap={spacing[6]}>
+      <Skeleton height={200} />
+      <Skeleton height={150} />
     </VStack>
   );
 };
@@ -37,7 +38,7 @@ const DashboardSkeleton = () => {
 export default function OperatorDashboard() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const theme = useTheme();
+  const { theme } = useThemeStore();
   
   // Check if user is an operator
   if (!user || user.role !== 'operator') {

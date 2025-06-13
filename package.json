@@ -4,7 +4,9 @@
   "version": "2.0.0",
   "scripts": {
     "// === MAIN COMMANDS (UNIFIED) ===": "",
-    "start": "./scripts/start-unified.sh network",
+    "start": "EXPO_GO=1 expo start --host lan --go",
+    "start:simple": "EXPO_GO=1 expo start --host lan --go",
+    "start:unified": "./scripts/start-unified.sh network",
     "start:local": "./scripts/start-unified.sh local",
     "start:tunnel": "./scripts/start-unified.sh tunnel",
     "start:oauth": "./scripts/start-unified.sh oauth",
@@ -25,6 +27,7 @@
     "// === ENVIRONMENT-SPECIFIC (LOCAL=DOCKER, DEV=NEON) ===": "",
     "local": "APP_ENV=local EXPO_GO=1 expo start --host lan --go",
     "local:healthcare": "APP_ENV=local ./scripts/start-with-healthcare.sh",
+    "db:setup:local": "./scripts/setup-database-local.sh",
     "local:healthcare:web": "APP_ENV=local AUTO_OPEN_WEB=true ./scripts/start-with-healthcare.sh",
     "local:oauth": "./scripts/start-local-oauth.sh",
     "oauth:fix": "./scripts/fix-oauth-local.sh",
@@ -118,9 +121,7 @@
     "ngrok:build:android": "bun run ngrok:update-eas && eas build --profile local-ngrok --platform android"
   },
   "dependencies": {
-    "@babel/runtime": "^7.27.6",
     "@better-auth/expo": "^1.2.8",
-    "@expo/server": "^0.6.2",
     "@expo/vector-icons": "^14.1.0",
     "@hookform/resolvers": "^5.0.1",
     "@neondatabase/serverless": "^1.0.0",

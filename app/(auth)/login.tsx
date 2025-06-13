@@ -275,18 +275,18 @@ export default function LoginScreenV2() {
   };
 
   const formContent = (
-    <Box p={isTabletOrDesktop ? 12 : 6} flex={1}>
-      <VStack spacing={6}>
+    <Box className={`flex-1 ${isTabletOrDesktop ? 'p-12' : 'p-6'}`}>
+      <VStack gap={6}>
         {/* Header */}
-        <VStack spacing={2} alignItems="center">
+        <VStack gap={2} align="center">
           <Heading1>Welcome back</Heading1>
-          <Text colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
+          <Text variant="muted" className="text-center">
             Login to your Acme Inc account
           </Text>
         </VStack>
 
         {/* Form Fields */}
-        <VStack spacing={3}>
+        <VStack gap={3}>
           {/* Email Field */}
           <Input
             label="Email"
@@ -372,7 +372,7 @@ export default function LoginScreenV2() {
                 />
               }
               rightElement={
-                <Box flexDirection="row" alignItems="center" gap={2 as SpacingScale}>
+                <Box flexDirection="row" alignItems="center" gap={2 }>
                   {form.formState.touchedFields.password && form.watch("password") && (
                     <ValidationIcon 
                       status={form.formState.errors.password ? 'error' : 'success'} 
@@ -396,7 +396,6 @@ export default function LoginScreenV2() {
               <TextLink 
                 href="/(auth)/forgot-password" 
                 size="sm"
-                variant="default"
               >
                 Forgot your password?
               </TextLink>
@@ -416,27 +415,22 @@ export default function LoginScreenV2() {
         </Button>
 
         {/* Divider with "Or continue with" */}
-        <Box position="relative" my={4}>
+        <Box className="relative my-4">
           <Box 
-            height={1} 
-            bgTheme="muted" 
-            position="absolute" 
-            top={10} 
-            left={0} 
-            right={0} 
+            className="h-px bg-muted absolute top-2.5 left-0 right-0" 
           />
-          <Box alignItems="center">
-            <Box bgTheme="card" px={2 as SpacingScale}>
-              <Caption colorTheme="mutedForeground">Or continue with</Caption>
+          <Box className="items-center">
+            <Box className="bg-card px-2">
+              <Caption variant="muted">Or continue with</Caption>
             </Box>
           </Box>
         </Box>
 
         {/* Social Login Buttons */}
-        <HStack spacing={3} justifyContent="space-between">
-          <Box flex={1}>
+        <HStack gap={3} justify="between">
+          <Box className="flex-1">
             <GoogleSignInButton 
-              size="md"
+              size="default"
               variant="outline"
               fullWidth
               iconOnly
@@ -444,10 +438,10 @@ export default function LoginScreenV2() {
               style={{ height: 44 }}
             />
           </Box>
-          <Box flex={1}>
+          <Box className="flex-1">
             <Button
               variant="outline"
-              size="md"
+              size="default"
               fullWidth
               onPress={() => handleSocialAuth('meta')}
               style={{ height: 44 }}
@@ -455,10 +449,10 @@ export default function LoginScreenV2() {
               {socialIcons.meta}
             </Button>
           </Box>
-          <Box flex={1}>
+          <Box className="flex-1">
             <Button
               variant="outline"
-              size="md"
+              size="default"
               fullWidth
               onPress={() => handleSocialAuth('x')}
               style={{ height: 44 }}
@@ -469,14 +463,13 @@ export default function LoginScreenV2() {
         </HStack>
 
         {/* Register link */}
-        <Box alignItems="center">
-          <HStack spacing={1}>
+        <Box className="items-center">
+          <HStack gap={1}>
             <Caption>Don&apos;t have an account?</Caption>
             <TextLink 
               href="/(auth)/register"
               size="sm"
               weight="medium"
-              variant="default"
             >
               Register
             </TextLink>
@@ -499,19 +492,16 @@ export default function LoginScreenV2() {
       }}
     >
       <Box
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        p={8 as SpacingScale}
+        className="flex-1 justify-center items-center p-8"
       >
-        <VStack spacing={6} alignItems="center">
+        <VStack gap={6} align="center">
           {/* Rocket Emoji */}
           <Text style={{ fontSize: 80 }}>
             🚀
           </Text>
           
           {/* Minimal Text */}
-          <VStack spacing={2} alignItems="center">
+          <VStack gap={2} align="center">
             <Text 
               size="3xl" 
               weight="bold" 
@@ -573,7 +563,7 @@ export default function LoginScreenV2() {
   );
 
   const termsFooter = (
-    <Box p={4 as SpacingScale} maxWidth={isTabletOrDesktop ? 800 : 400} width="100%">
+    <Box className="p-4 w-full" style={{ maxWidth: isTabletOrDesktop ? 800 : 400 }}>
       <Text size="xs" colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
         By clicking continue, you agree to our{' '}
         <Text size="xs" colorTheme="foreground" style={{ textDecorationLine: 'underline' }}>
@@ -621,9 +611,9 @@ export default function LoginScreenV2() {
               showsVerticalScrollIndicator={false}
               bounces={true}
             >
-              <Box flex={1} justifyContent="center">
+              <Box className="flex-1 justify-center">
                 {/* Welcome Section with Logo */}
-                <Box px={6 as SpacingScale} pb={6} alignItems="center">
+                <Box px={6 } pb={6} alignItems="center">
                   <Box style={{ marginBottom: 16, height: 60, justifyContent: 'center', alignItems: 'center' }}>
                     <Text style={{ fontSize: 56, lineHeight: 60 }}>⭐</Text>
                   </Box>
@@ -637,10 +627,10 @@ export default function LoginScreenV2() {
                 </Box>
 
                 {/* Form Section */}
-                <VStack px={6 as SpacingScale} spacing={6} pb={4}>
+                <VStack className="px-6 pb-4" gap={6}>
                   {/* Email Field */}
                   <Box>
-                    <Text size="sm" weight="medium" style={{ color: theme.foreground, marginBottom: 8 }}>
+                    <Text size="sm" weight="medium" colorTheme="foreground" style={{ marginBottom: 8 }}>
                       Email
                     </Text>
                     <Input
@@ -725,7 +715,7 @@ export default function LoginScreenV2() {
                         />
                       }
                       rightElement={
-                        <Box flexDirection="row" alignItems="center" gap={2 as SpacingScale}>
+                        <Box flexDirection="row" alignItems="center" gap={2 }>
                           {form.formState.touchedFields.password && form.watch("password") && (
                             <ValidationIcon 
                               status={form.formState.errors.password ? 'error' : 'success'} 
@@ -749,7 +739,6 @@ export default function LoginScreenV2() {
                       <TextLink 
                         href="/(auth)/forgot-password" 
                         size="sm"
-                        variant="default"
                       >
                         Forgot your password?
                       </TextLink>
@@ -778,7 +767,7 @@ export default function LoginScreenV2() {
                       right={0} 
                     />
                     <Box alignItems="center">
-                      <Box style={{ backgroundColor: theme.background }} px={3 as SpacingScale}>
+                      <Box style={{ backgroundColor: theme.background }} px={3 }>
                         <Caption colorTheme="mutedForeground">Or continue with</Caption>
                       </Box>
                     </Box>
@@ -829,7 +818,6 @@ export default function LoginScreenV2() {
                           href="/(auth)/register"
                           size="sm"
                           weight="semibold"
-                          variant="default"
                         >
                           Register
                         </TextLink>
@@ -842,8 +830,8 @@ export default function LoginScreenV2() {
             
             {/* Fixed Terms Footer */}
             <Box 
-              px={6 as SpacingScale} 
-              py={3 as SpacingScale} 
+              px={6 } 
+              py={3 } 
               borderTopWidth={1} 
               borderTheme="border"
               style={{ backgroundColor: theme.background }}
@@ -904,17 +892,14 @@ export default function LoginScreenV2() {
         showsVerticalScrollIndicator={false}
       >
         <Box 
-          flex={1} 
-          bgTheme="muted"
-          justifyContent="center"
-          alignItems="center"
+          className="flex-1 bg-muted justify-center items-center"
           style={{ 
             flex: 1,
             width: '100%',
             paddingVertical: 20,
           }}
         >
-          <VStack spacing={0} alignItems="center">
+          <VStack gap={0} align="center">
             {cardContent}
             {termsFooter}
           </VStack>

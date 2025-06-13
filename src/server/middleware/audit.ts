@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { auditService, AuditAction, AuditOutcome, auditHelpers } from '../services/audit';
+import { auditService, AuditAction, AuditOutcome, AuditSeverity, auditHelpers } from '../services/audit';
 import type { Context } from '../trpc';
 
 /**
@@ -38,7 +38,7 @@ export const auditMiddleware = {
           durationMs,
           resultSize: JSON.stringify(result).length,
         },
-        severity: 'INFO',
+        severity: AuditSeverity.INFO,
       }, context);
       
       return result;
@@ -59,7 +59,7 @@ export const auditMiddleware = {
           error: error instanceof Error ? error.message : String(error),
           errorCode: error instanceof TRPCError ? error.code : 'UNKNOWN',
         },
-        severity: 'WARNING',
+        severity: AuditSeverity.WARNING,
         alertGenerated: error instanceof TRPCError && error.code === 'UNAUTHORIZED',
       }, context);
       

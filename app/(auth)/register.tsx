@@ -27,8 +27,8 @@ import { Checkbox } from "@/components/universal/Checkbox";
 
 
 import { TextLink } from "@/components/universal/Link";
-import { BorderRadius, SpacingScale } from "@/lib/design";
-import { useBreakpoint } from '@/hooks/responsive';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { useBreakpoint, useResponsive } from '@/hooks/responsive';
 
 
 // Social button icons
@@ -45,11 +45,13 @@ export default function SignupScreenV2() {
 // TODO: Replace with structured logging - console.log('[RegisterScreen] Component rendering');
   const { updateAuth, setLoading, setError } = useAuth();
   const theme = useTheme();
+  const { spacing } = useSpacing();
+  const { isMobile } = useResponsive();
   const router = useRouter();
   const [selectedRole, setSelectedRole] = React.useState<UserRole>();
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
-  const [screenWidth, setScreenWidth] = React.useState(SCREEN_WIDTH);
+  const [screenWidth, setScreenWidth] = React.useState(Dimensions.get('window').width);
   const [checkingEmail, setCheckingEmail] = React.useState(false);
   const [hasInteractedWithEmail, setHasInteractedWithEmail] = React.useState(false);
   const [shouldCheckEmail, setShouldCheckEmail] = React.useState(false);
@@ -437,7 +439,6 @@ export default function SignupScreenV2() {
                               <TextLink 
                                 href="/(auth)/login"
                                 size="sm"
-                                variant="solid"
                                 style={{ display: 'inline' as any }}
                               >
                                 Login to your account
@@ -863,7 +864,6 @@ export default function SignupScreenV2() {
                   href="/(auth)/login"
                   size="sm"
                   weight="medium"
-                  variant="solid"
                 >
                   Login
                 </TextLink>
@@ -874,8 +874,6 @@ export default function SignupScreenV2() {
       </ScrollView>
     </Card>
   );
-
-  const { isMobile } = useResponsive();
 
   // Mobile layout - no card, full screen
   if (isMobile) {
@@ -981,7 +979,6 @@ export default function SignupScreenV2() {
                               <TextLink 
                                 href="/(auth)/login"
                                 size="sm"
-                                variant="solid"
                                 style={{ display: 'inline' as any }}
                               >
                                 Login to your account
@@ -1340,7 +1337,6 @@ export default function SignupScreenV2() {
                         href="/(auth)/login"
                         size="sm"
                         weight="medium"
-                        variant="solid"
                       >
                         Sign in
                       </TextLink>

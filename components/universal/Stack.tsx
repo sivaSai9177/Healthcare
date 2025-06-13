@@ -1,277 +1,300 @@
-import React, { useEffect } from 'react';
-import { View, Platform } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withDelay,
-  withTiming,
-  withSpring,
-  FadeInDown,
-  FadeInUp,
-  FadeInLeft,
-  FadeInRight,
-} from 'react-native-reanimated';
-// eslint-disable-next-line import/no-unresolved
-import { Layout, type LayoutAnimationFunction } from '@/lib/ui/animations/layout-animations';
+import React from 'react';
+import { View, ViewProps } from 'react-native';
+import { cn } from '@/lib/core/utils';
 import { Box, BoxProps } from './Box';
-import { SpacingScale } from '@/lib/design';
-import { ResponsiveValue } from '@/lib/design/responsive';
-import { useResponsiveValue } from '@/hooks/responsive';
-import { DURATIONS } from '@/lib/ui/animations/constants';
-import { useAnimationStore } from '@/lib/stores/animation-store';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { getGapClass } from '@/lib/core/utils/density-classes';
 
-interface StackProps extends BoxProps {
-  spacing?: ResponsiveValue<SpacingScale>;
-  direction?: 'horizontal' | 'vertical';
-  divider?: React.ReactNode;
-  children?: React.ReactNode;
+// Base Stack props
+interface BaseStackProps extends BoxProps {
+  // Gap size using Tailwind spacing scale
+  gap?: 0 | 0.5 | 1 | 1.5 | 2 | 2.5 | 3 | 3.5 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 14 | 16 | 20 | 24 | 28 | 32 | 36 | 40 | 44 | 48 | 52 | 56 | 60 | 64 | 72 | 80 | 96;
   
-  // Animation props
-  animated?: boolean;
-  animateOnMount?: boolean;
+  // Alignment
+  align?: 'start' | 'center' | 'end' | 'stretch';
+  justify?: 'start' | 'center' | 'end' | 'between' | 'around' | 'evenly';
   
-  // Stagger animation
-  stagger?: number;
-  staggerDirection?: 'forward' | 'reverse' | 'center';
-  staggerDelay?: number;
-  
-  // Children animations
-  childAnimation?: 'fade' | 'slide' | 'scale' | 'none';
-  childAnimationDirection?: 'up' | 'down' | 'left' | 'right';
-  childAnimationDuration?: number;
-  
-  // Layout animations
-  enableLayoutAnimation?: boolean;
-  layoutAnimation?: LayoutAnimationFunction;
-  
-  // Collapse/Expand
-  collapsed?: boolean;
-  collapseDuration?: number;
+  // Other props
+  wrap?: boolean;
+  reverse?: boolean;
 }
 
-const AnimatedView = Animated.View;
+// Map gap values to Tailwind classes
+const gapClasses = {
+  0: '',
+  0.5: 'gap-0.5',
+  1: 'gap-1',
+  1.5: 'gap-1.5',
+  2: 'gap-2',
+  2.5: 'gap-2.5',
+  3: 'gap-3',
+  3.5: 'gap-3.5',
+  4: 'gap-4',
+  5: 'gap-5',
+  6: 'gap-6',
+  7: 'gap-7',
+  8: 'gap-8',
+  9: 'gap-9',
+  10: 'gap-10',
+  11: 'gap-11',
+  12: 'gap-12',
+  14: 'gap-14',
+  16: 'gap-16',
+  20: 'gap-20',
+  24: 'gap-24',
+  28: 'gap-28',
+  32: 'gap-32',
+  36: 'gap-36',
+  40: 'gap-40',
+  44: 'gap-44',
+  48: 'gap-48',
+  52: 'gap-52',
+  56: 'gap-56',
+  60: 'gap-60',
+  64: 'gap-64',
+  72: 'gap-72',
+  80: 'gap-80',
+  96: 'gap-96',
+} as const;
 
-// Animated child wrapper
-const AnimatedChild = ({ 
-  children, 
-  index, 
-  totalChildren,
-  stagger,
-  staggerDirection,
-  staggerDelay,
-  childAnimation,
-  childAnimationDirection,
-  childAnimationDuration,
-  animate,
-}: {
-  children: React.ReactNode;
-  index: number;
-  totalChildren: number;
-  stagger?: number;
-  staggerDirection?: 'forward' | 'reverse' | 'center';
-  staggerDelay?: number;
-  childAnimation?: 'fade' | 'slide' | 'scale' | 'none';
-  childAnimationDirection?: 'up' | 'down' | 'left' | 'right';
-  childAnimationDuration?: number;
-  animate?: boolean;
-}) => {
-  const { shouldAnimate } = useAnimationStore();
-  const opacity = useSharedValue(childAnimation === 'fade' && animate && shouldAnimate() ? 0 : 1);
-  const scale = useSharedValue(childAnimation === 'scale' && animate && shouldAnimate() ? 0.8 : 1);
-  const translateY = useSharedValue(0);
-  const translateX = useSharedValue(0);
-  
-  // Calculate stagger delay
-  const getStaggerDelay = () => {
-    if (!stagger) return 0;
-    
-    const baseDelay = staggerDelay || 0;
-    
-    switch (staggerDirection) {
-      case 'reverse':
-        return baseDelay + (totalChildren - index - 1) * stagger;
-      case 'center':
-        const center = Math.floor(totalChildren / 2);
-        const distance = Math.abs(index - center);
-        return baseDelay + distance * stagger;
-      case 'forward':
-      default:
-        return baseDelay + index * stagger;
-    }
-  };
-  
-  useEffect(() => {
-    if (!animate || !shouldAnimate()) return;
-    
-    const delay = getStaggerDelay();
-    const duration = childAnimationDuration || DURATIONS.normal;
-    
-    if (childAnimation === 'fade') {
-      opacity.value = withDelay(delay, withTiming(1, { duration }));
-    }
-    
-    if (childAnimation === 'scale') {
-      scale.value = withDelay(delay, withSpring(1, {
-        damping: 15,
-        stiffness: 150,
-      }));
-    }
-    
-    if (childAnimation === 'slide') {
-      const slideDistance = 30;
-      
-      switch (childAnimationDirection) {
-        case 'up':
-          translateY.value = slideDistance;
-          translateY.value = withDelay(delay, withSpring(0));
-          break;
-        case 'down':
-          translateY.value = -slideDistance;
-          translateY.value = withDelay(delay, withSpring(0));
-          break;
-        case 'left':
-          translateX.value = slideDistance;
-          translateX.value = withDelay(delay, withSpring(0));
-          break;
-        case 'right':
-          translateX.value = -slideDistance;
-          translateX.value = withDelay(delay, withSpring(0));
-          break;
-      }
-    }
-  }, [animate]);
-  
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [
-      { scale: scale.value },
-      { translateY: translateY.value },
-      { translateX: translateX.value },
-    ],
-  }));
-  
-  if (Platform.OS === 'web') {
-    const delay = getStaggerDelay();
-    const duration = childAnimationDuration || DURATIONS.normal;
-    
-    return (
-      <div
-        style={{
-          opacity: animate && shouldAnimate() && childAnimation === 'fade' ? 0 : 1,
-          transform: animate && shouldAnimate() && childAnimation === 'scale' ? 'scale(0.8)' : 'scale(1)',
-          animation: animate && shouldAnimate() && childAnimation !== 'none' 
-            ? `${childAnimation}In ${duration}ms ease-out ${delay}ms both`
-            : undefined,
-        } as any}
-      >
-        {children}
-      </div>
-    );
-  }
-  
-  return (
-    <AnimatedView style={animatedStyle}>
-      {children}
-    </AnimatedView>
-  );
-};
+// Alignment classes
+const alignClasses = {
+  start: 'items-start',
+  center: 'items-center',
+  end: 'items-end',
+  stretch: 'items-stretch',
+} as const;
 
-export const Stack = React.forwardRef<View, StackProps>(({
-  spacing: spacingProp = 0,
-  direction = 'vertical',
-  divider,
+const justifyClasses = {
+  start: 'justify-start',
+  center: 'justify-center',
+  end: 'justify-end',
+  between: 'justify-between',
+  around: 'justify-around',
+  evenly: 'justify-evenly',
+} as const;
+
+// VStack - Vertical Stack
+export interface VStackProps extends BaseStackProps {
+  spacing?: BaseStackProps['gap']; // Alias for gap
+}
+
+export const VStack = React.forwardRef<View, VStackProps>(({
+  gap = 0,
+  spacing,
+  align = 'stretch',
+  justify = 'start',
+  wrap = false,
+  reverse = false,
+  className,
   children,
-  // Animation props
-  animated = false,
-  animateOnMount = true,
-  stagger = 50,
-  staggerDirection = 'forward',
-  staggerDelay = 0,
-  childAnimation = 'fade',
-  childAnimationDirection = 'up',
-  childAnimationDuration,
-  enableLayoutAnimation = false,
-  layoutAnimation,
-  collapsed = false,
-  collapseDuration = DURATIONS.normal,
   ...props
 }, ref) => {
-  const { shouldAnimate } = useAnimationStore();
-  const spacing = useResponsiveValue(spacingProp);
-  const childrenArray = React.Children.toArray(children).filter(Boolean);
-  const height = useSharedValue(collapsed ? 0 : 'auto');
+  const { density } = useSpacing();
+  const gapValue = spacing ?? gap;
   
-  // Collapse animation
-  useEffect(() => {
-    if (animated && shouldAnimate() && typeof collapsed === 'boolean') {
-      height.value = withTiming(
-        collapsed ? 0 : 'auto',
-        { duration: collapseDuration }
-      );
-    }
-  }, [collapsed, animated]);
-  
-  const collapsedStyle = useAnimatedStyle(() => ({
-    height: height.value,
-    overflow: 'hidden',
-  }));
-  
-  const content = childrenArray.map((child, index) => {
-    const isLastChild = index === childrenArray.length - 1;
-    const childElement = animated && shouldAnimate() ? (
-      <AnimatedChild
-        key={index}
-        index={index}
-        totalChildren={childrenArray.length}
-        stagger={stagger}
-        staggerDirection={staggerDirection}
-        staggerDelay={staggerDelay}
-        childAnimation={childAnimation}
-        childAnimationDirection={childAnimationDirection}
-        childAnimationDuration={childAnimationDuration}
-        animate={animateOnMount}
-      >
-        {child}
-      </AnimatedChild>
-    ) : (
-      child
-    );
-    
-    return (
-      <React.Fragment key={index}>
-        {childElement}
-        {divider && !isLastChild && divider}
-      </React.Fragment>
-    );
-  });
-  
-  const BoxComponent = animated && shouldAnimate() && enableLayoutAnimation ? 
-    Animated.createAnimatedComponent(Box) : Box;
+  // Use density-aware gap class or fallback to standard
+  const gapClass = typeof gapValue === 'number' && gapValue <= 12 
+    ? getGapClass(gapValue, density)
+    : gapClasses[gapValue] || '';
   
   return (
-    <BoxComponent
-      ref={ref as any}
-      flexDirection={direction === 'horizontal' ? 'row' : 'column'}
-      gap={spacing}
-      style={[animated && shouldAnimate() && collapsed !== undefined ? collapsedStyle : {}, props.style]}
-      layout={animated && shouldAnimate() && enableLayoutAnimation && Layout ? (layoutAnimation || Layout.duration(DURATIONS.normal)) : undefined}
+    <Box
+      ref={ref}
+      className={cn(
+        // Base flex column
+        'flex flex-col',
+        // Gap
+        gapClass,
+        // Alignment
+        alignClasses[align],
+        justifyClasses[justify],
+        // Wrap
+        wrap && 'flex-wrap',
+        // Reverse
+        reverse && 'flex-col-reverse',
+        // Custom className
+        className
+      )}
       {...props}
     >
-      {content}
-    </BoxComponent>
+      {children}
+    </Box>
   );
 });
 
-Stack.displayName = 'Stack';
-
-// Convenience components
-export const VStack = React.forwardRef<View, Omit<StackProps, 'direction'>>((props, ref) => (
-  <Stack ref={ref} direction="vertical" {...props} />
-));
-
-export const HStack = React.forwardRef<View, Omit<StackProps, 'direction'>>((props, ref) => (
-  <Stack ref={ref} direction="horizontal" {...props} />
-));
-
 VStack.displayName = 'VStack';
+
+// HStack - Horizontal Stack
+export interface HStackProps extends BaseStackProps {
+  spacing?: BaseStackProps['gap']; // Alias for gap
+}
+
+export const HStack = React.forwardRef<View, HStackProps>(({
+  gap = 0,
+  spacing,
+  align = 'center', // Default to center for horizontal stacks
+  justify = 'start',
+  wrap = false,
+  reverse = false,
+  className,
+  children,
+  ...props
+}, ref) => {
+  const { density } = useSpacing();
+  const gapValue = spacing ?? gap;
+  
+  // Use density-aware gap class or fallback to standard
+  const gapClass = typeof gapValue === 'number' && gapValue <= 12 
+    ? getGapClass(gapValue, density)
+    : gapClasses[gapValue] || '';
+  
+  return (
+    <Box
+      ref={ref}
+      className={cn(
+        // Base flex row
+        'flex flex-row',
+        // Gap
+        gapClass,
+        // Alignment
+        alignClasses[align],
+        justifyClasses[justify],
+        // Wrap
+        wrap && 'flex-wrap',
+        // Reverse
+        reverse && 'flex-row-reverse',
+        // Custom className
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </Box>
+  );
+});
+
 HStack.displayName = 'HStack';
+
+// ZStack - Layered Stack (uses relative/absolute positioning)
+export interface ZStackProps extends BoxProps {
+  // Alignment within the stack
+  align?: 'topLeft' | 'top' | 'topRight' | 'left' | 'center' | 'right' | 'bottomLeft' | 'bottom' | 'bottomRight';
+}
+
+const zAlignClasses = {
+  topLeft: 'top-0 left-0',
+  top: 'top-0 left-0 right-0 items-center',
+  topRight: 'top-0 right-0',
+  left: 'top-0 bottom-0 left-0 justify-center',
+  center: 'top-0 bottom-0 left-0 right-0 items-center justify-center',
+  right: 'top-0 bottom-0 right-0 justify-center',
+  bottomLeft: 'bottom-0 left-0',
+  bottom: 'bottom-0 left-0 right-0 items-center',
+  bottomRight: 'bottom-0 right-0',
+} as const;
+
+export const ZStack = React.forwardRef<View, ZStackProps>(({
+  align = 'center',
+  className,
+  children,
+  ...props
+}, ref) => {
+  const childArray = React.Children.toArray(children);
+  
+  return (
+    <Box
+      ref={ref}
+      className={cn('relative', className)}
+      {...props}
+    >
+      {childArray.map((child, index) => {
+        if (index === 0) {
+          // First child is relative positioned
+          return child;
+        }
+        // Other children are absolutely positioned
+        return (
+          <View
+            key={index}
+            className={cn('absolute', zAlignClasses[align])}
+          >
+            {child}
+          </View>
+        );
+      })}
+    </Box>
+  );
+});
+
+ZStack.displayName = 'ZStack';
+
+// Spacer - Flexible space component
+export interface SpacerProps extends BoxProps {
+  size?: BaseStackProps['gap'];
+  horizontal?: boolean;
+}
+
+export const Spacer = React.forwardRef<View, SpacerProps>(({
+  size,
+  horizontal = false,
+  className,
+  ...props
+}, ref) => {
+  if (size !== undefined) {
+    // Fixed size spacer
+    const sizeClass = horizontal ? `w-${size}` : `h-${size}`;
+    return (
+      <Box
+        ref={ref}
+        className={cn(sizeClass, className)}
+        {...props}
+      />
+    );
+  }
+  
+  // Flexible spacer
+  return (
+    <Box
+      ref={ref}
+      className={cn('flex-1', className)}
+      {...props}
+    />
+  );
+});
+
+Spacer.displayName = 'Spacer';
+
+// Divider - Visual separator
+export interface DividerProps extends BoxProps {
+  orientation?: 'horizontal' | 'vertical';
+  thickness?: 'thin' | 'medium' | 'thick';
+}
+
+const dividerThickness = {
+  thin: 'border-[0.5px]',
+  medium: 'border',
+  thick: 'border-2',
+} as const;
+
+export const Divider = React.forwardRef<View, DividerProps>(({
+  orientation = 'horizontal',
+  thickness = 'thin',
+  className,
+  ...props
+}, ref) => {
+  return (
+    <Box
+      ref={ref}
+      className={cn(
+        'border-border',
+        dividerThickness[thickness],
+        orientation === 'horizontal' ? 'w-full border-t' : 'h-full border-l',
+        className
+      )}
+      {...props}
+    />
+  );
+});
+
+Divider.displayName = 'Divider';

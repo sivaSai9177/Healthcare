@@ -37,19 +37,19 @@ export function AlertTimeline({ alertId, events, loading }: AlertTimelineProps) 
   const getEventIcon = (eventType: TimelineEvent['eventType']) => {
     switch (eventType) {
       case 'created':
-        return { name: 'plus.circle.fill', color: theme.colors.blue };
+        return { name: 'plus.circle.fill', color: theme.primary };
       case 'acknowledged':
-        return { name: 'checkmark.circle.fill', color: theme.colors.green };
+        return { name: 'checkmark.circle.fill', color: theme.success };
       case 'escalated':
-        return { name: 'exclamationmark.triangle.fill', color: theme.colors.orange };
+        return { name: 'exclamationmark.triangle.fill', color: theme.destructive };
       case 'resolved':
-        return { name: 'checkmark.seal.fill', color: theme.colors.primary };
+        return { name: 'checkmark.seal.fill', color: theme.primary };
       case 'urgency_changed':
-        return { name: 'arrow.up.arrow.down.circle.fill', color: theme.colors.yellow };
+        return { name: 'arrow.up.arrow.down.circle.fill', color: theme.accent };
       case 'note_added':
-        return { name: 'note.text', color: theme.colors.muted };
+        return { name: 'note.text', color: theme.muted };
       default:
-        return { name: 'circle.fill', color: theme.colors.muted };
+        return { name: 'circle.fill', color: theme.muted };
     }
   };
 
@@ -76,7 +76,7 @@ export function AlertTimeline({ alertId, events, loading }: AlertTimelineProps) 
           <Stack spacing="xs" style={{ marginTop: spacing.xs }}>
             {metadata.responseAction && (
               <HStack spacing="xs" align="center">
-                <Symbol name="arrow.right.circle.fill" size={14} color={theme.colors.muted} />
+                <Symbol name="arrow.right.circle.fill" size={14} color={theme.muted} />
                 <Text size="xs" color="muted">
                   Response: {metadata.responseAction.replace('_', ' ')}
                 </Text>
@@ -84,7 +84,7 @@ export function AlertTimeline({ alertId, events, loading }: AlertTimelineProps) 
             )}
             {metadata.estimatedResponseTime && (
               <HStack spacing="xs" align="center">
-                <Symbol name="clock.fill" size={14} color={theme.colors.muted} />
+                <Symbol name="clock.fill" size={14} color={theme.muted} />
                 <Text size="xs" color="muted">
                   ETA: {metadata.estimatedResponseTime} minutes
                 </Text>
@@ -92,7 +92,7 @@ export function AlertTimeline({ alertId, events, loading }: AlertTimelineProps) 
             )}
             {metadata.urgencyAssessment && metadata.urgencyAssessment !== 'maintain' && (
               <HStack spacing="xs" align="center">
-                <Symbol name="flag.fill" size={14} color={theme.colors.muted} />
+                <Symbol name="flag.fill" size={14} color={theme.muted} />
                 <Text size="xs" color="muted">
                   Urgency: {metadata.urgencyAssessment}d
                 </Text>
@@ -105,7 +105,7 @@ export function AlertTimeline({ alertId, events, loading }: AlertTimelineProps) 
         return (
           <Stack spacing="xs" style={{ marginTop: spacing.xs }}>
             <HStack spacing="xs" align="center">
-              <Symbol name="person.fill" size={14} color={theme.colors.orange} />
+              <Symbol name="person.fill" size={14} color={theme.destructive} />
               <Text size="xs" color="muted">
                 From {metadata.fromRole} to {metadata.toRole}
               </Text>
@@ -157,7 +157,7 @@ export function AlertTimeline({ alertId, events, loading }: AlertTimelineProps) 
     return (
       <Card variant="secondary">
         <HStack spacing="sm" align="center">
-          <Symbol name="clock.arrow.circlepath" size={20} color={theme.colors.muted} />
+          <Symbol name="clock.arrow.circlepath" size={20} color={theme.muted} />
           <Text color="muted">No timeline events yet</Text>
         </HStack>
       </Card>
@@ -181,7 +181,7 @@ export function AlertTimeline({ alertId, events, loading }: AlertTimelineProps) 
                   top: 40,
                   bottom: -spacing.md,
                   width: 2,
-                  backgroundColor: theme.colors.border,
+                  backgroundColor: theme.border,
                   zIndex: 0,
                 }}
               />

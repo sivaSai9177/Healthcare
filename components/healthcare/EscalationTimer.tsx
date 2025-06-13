@@ -1,29 +1,28 @@
-import React, { useEffect, useState } from 'react';
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSequence, 
-  withTiming, 
-  withSpring, 
-  withRepeat 
-} from 'react-native-reanimated';
-import { api } from '@/lib/api/trpc';
-import { 
-  Box, 
-  Text, 
-  VStack, 
-  HStack, 
-  Progress,
+import {
   Badge,
+  Box,
   Button,
   Card,
-  Symbol as IconSymbol 
-} from '@/components/universal';
-import { useTheme } from '@/lib/theme/provider';
-import { log } from '@/lib/core/debug/logger';
-import { useActivityAwareEscalation } from '@/hooks/healthcare';
-import { haptic } from '@/lib/ui/haptics';
-import { SpacingScale } from '@/lib/design';
+  HStack,
+  Symbol as IconSymbol,
+  Progress,
+  Text,
+  VStack,
+} from "@/components/universal";
+import { useActivityAwareEscalation } from "@/hooks/healthcare";
+import { api } from "@/lib/api/trpc";
+import { log } from "@/lib/core/debug/logger";
+import { useThemeStore } from "@/lib/stores/theme-store";
+import { haptic } from "@/lib/ui/haptics";
+import React, { useEffect, useState } from "react";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 
 interface EscalationTimerProps {
   alertId: string;
@@ -33,47 +32,47 @@ interface EscalationTimerProps {
   isAdmin?: boolean;
 }
 
-export function EscalationTimer({ 
-  alertId, 
-  currentTier, 
+export function EscalationTimer({
+  alertId,
+  currentTier,
   nextEscalationAt,
   onManualEscalate,
-  isAdmin = false
+  isAdmin = false,
 }: EscalationTimerProps) {
-  const theme = useTheme();
+  const { theme } = useThemeStore();
   const [showPausedNotice, setShowPausedNotice] = useState(false);
-  
+
   // Animation values
   const fadeOpacity = useSharedValue(0);
   const scaleValue = useSharedValue(0.9);
   const shakeTranslateX = useSharedValue(0);
-  
+
   // Animated styles
   const cardFadeStyle = useAnimatedStyle(() => ({
-    opacity: fadeOpacity.value
+    opacity: fadeOpacity.value,
   }));
-  
+
   const pausedScaleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scaleValue.value }]
+    transform: [{ scale: scaleValue.value }],
   }));
-  
+
   const shakeStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: shakeTranslateX.value }]
+    transform: [{ translateX: shakeTranslateX.value }],
   }));
-  
+
   // Animation functions
   const fadeInCard = () => {
     fadeOpacity.value = withTiming(1, { duration: 300 });
   };
-  
+
   const scaleIn = () => {
     scaleValue.value = withSpring(1, { damping: 10, stiffness: 100 });
   };
-  
+
   const scaleOut = () => {
     scaleValue.value = withSpring(0.9, { damping: 10, stiffness: 100 });
   };
-  
+
   const shake = () => {
     shakeTranslateX.value = withSequence(
       withTiming(-5, { duration: 50 }),
@@ -81,18 +80,20 @@ export function EscalationTimer({
       withTiming(0, { duration: 50 })
     );
   };
-  
+
   useEffect(() => {
     fadeInCard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Get escalation status
-  const { data: escalationStatus } = api.healthcare.getEscalationStatus.useQuery(
+  const {
+    data: escalationStatus,
+  } = api.healthcare.getEscalationStatus.useQuery(
     { alertId },
-    { 
+    {
       refetchInterval: 30000, // Refetch every 30 seconds
-      enabled: !!alertId 
+      enabled: !!alertId,
     }
   );
 
@@ -103,33 +104,37 @@ export function EscalationTimer({
       onInactive: () => {
         setShowPausedNotice(true);
         scaleIn();
-        haptic('medium');
-        log.info('Escalation timer paused due to inactivity', 'ESCALATION_TIMER', { alertId });
+        haptic("medium");
+        log.info(
+          "Escalation timer paused due to inactivity",
+          "ESCALATION_TIMER",
+          { alertId }
+        );
       },
       onActive: () => {
         setShowPausedNotice(false);
         scaleOut();
-        haptic('medium');
-        log.info('Escalation timer resumed', 'ESCALATION_TIMER', { alertId });
+        haptic("medium");
+        log.info("Escalation timer resumed", "ESCALATION_TIMER", { alertId });
       },
       inactivityTimeout: 30000, // 30 seconds
     }
   );
 
   const isOverdue = timeRemaining === 0;
-  
+
   // Shake animation when overdue
   useEffect(() => {
     if (isOverdue) {
       shake();
-      haptic('warning');
+      haptic("warning");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOverdue]);
 
   // Format time remaining
   const formatTimeRemaining = (ms: number) => {
-    if (ms <= 0) return 'Overdue';
+    if (ms <= 0) return "Overdue";
 
     const seconds = Math.floor(ms / 1000);
     const minutes = Math.floor(seconds / 60);
@@ -147,45 +152,57 @@ export function EscalationTimer({
   // Get tier color using design system
   const getTierColor = (tier: number) => {
     switch (tier) {
-      case 1: return theme.accent;
-      case 2: return theme.destructive;
-      case 3: return theme.destructive;
-      default: return theme.primary;
+      case 1:
+        return theme.accent;
+      case 2:
+        return theme.destructive;
+      case 3:
+        return theme.destructive;
+      default:
+        return theme.primary;
     }
   };
 
   // Get tier label
   const getTierLabel = (tier: number) => {
     switch (tier) {
-      case 1: return 'Nurses';
-      case 2: return 'Doctors';
-      case 3: return 'Department Head';
-      default: return 'Unknown';
+      case 1:
+        return "Nurses";
+      case 2:
+        return "Doctors";
+      case 3:
+        return "Department Head";
+      default:
+        return "Unknown";
     }
   };
 
   // Calculate progress
-  const progress = escalationStatus?.timeUntilNextEscalation && escalationStatus?.currentTierConfig
-    ? 1 - (escalationStatus.timeUntilNextEscalation / (escalationStatus.currentTierConfig.timeout_minutes * 60 * 1000))
-    : 0;
+  const progress =
+    escalationStatus?.timeUntilNextEscalation &&
+    escalationStatus?.currentTierConfig
+      ? 1 -
+        escalationStatus.timeUntilNextEscalation /
+          (escalationStatus.currentTierConfig.timeout_minutes * 60 * 1000)
+      : 0;
 
   return (
     <Animated.View style={[cardFadeStyle, isOverdue ? shakeStyle : {}]}>
-      <Card p={3 as SpacingScale} borderWidth={1} borderTheme="border">
-        <VStack spacing={3}>
+      <Card className="p-3 border border-border">
+        <VStack gap={3}>
           {/* Header */}
-          <HStack justifyContent="space-between" alignItems="center">
-            <HStack spacing={2} alignItems="center">
-              <IconSymbol 
-                name="clock" 
-                size={20} 
-                color={getTierColor(currentTier)} 
+          <HStack justify="between" align="center">
+            <HStack gap={2} align="center">
+              <IconSymbol
+                name="clock"
+                size={20}
+                color={getTierColor(currentTier)}
               />
               <Text size="sm" weight="semibold">
                 Escalation Timer
               </Text>
             </HStack>
-            <Badge 
+            <Badge
               variant={isOverdue ? "default" : "outline"}
               size="sm"
               style={isOverdue ? { backgroundColor: theme.destructive } : {}}
@@ -196,26 +213,34 @@ export function EscalationTimer({
 
           {/* Timer Display */}
           {timeRemaining !== null && (
-            <VStack spacing={2}>
-              <HStack justifyContent="space-between" alignItems="center">
-                <HStack spacing={1} alignItems="center">
+            <VStack gap={2}>
+              <HStack justify="between" align="center">
+                <HStack gap={1} align="center">
                   <Text size="xs" colorTheme="mutedForeground">
                     Next escalation in:
                   </Text>
                   {isPaused && (
                     <Badge variant="outline" size="sm">
-                      <HStack spacing={1} alignItems="center">
-                        <IconSymbol name="pause" size={12} color={theme.accent} />
+                      <HStack gap={1} align="center">
+                        <IconSymbol
+                          name="pause"
+                          size={12}
+                          color={theme.accent}
+                        />
                         <Text size="xs">Paused</Text>
                       </HStack>
                     </Badge>
                   )}
                 </HStack>
-                <Text 
-                  size="lg" 
-                  weight="bold" 
-                  style={{ 
-                    color: isOverdue ? theme.destructive : isPaused ? theme.accent : theme.foreground 
+                <Text
+                  size="lg"
+                  weight="bold"
+                  style={{
+                    color: isOverdue
+                      ? theme.destructive
+                      : isPaused
+                      ? theme.accent
+                      : theme.foreground,
                   }}
                 >
                   {formatTimeRemaining(timeRemaining)}
@@ -223,25 +248,22 @@ export function EscalationTimer({
               </HStack>
 
               {/* Progress Bar */}
-              <Progress 
-                value={progress * 100} 
+              <Progress
+                value={progress * 100}
                 style={{
                   backgroundColor: theme.muted,
                   opacity: isPaused ? 0.5 : 1,
-                  height: 8
+                  height: 8,
                 }}
               />
-              
+
               {/* Paused Notice */}
               {showPausedNotice && (
                 <Animated.View style={pausedScaleStyle}>
-                  <Box 
-                    p={2 as SpacingScale} 
-                    bgTheme="accent"
-                    rounded="md"
-                    style={{ opacity: 0.2 }}
+                  <Box
+                    className="p-2 bg-accent rounded-md opacity-20"
                   >
-                    <Text size="xs" style={{ textAlign: 'center' }}>
+                    <Text size="xs" style={{ textAlign: "center" }}>
                       Timer paused due to inactivity
                     </Text>
                   </Box>
@@ -252,14 +274,14 @@ export function EscalationTimer({
 
           {/* Max Tier Reached */}
           {!nextEscalationAt && currentTier >= 3 && (
-            <Box 
-              p={2 as SpacingScale} 
-              bgTheme="muted" 
-              rounded="md"
-              borderWidth={1}
-              borderTheme="border"
+            <Box
+              className="p-2 bg-muted rounded-md border border-border"
             >
-              <Text size="sm" colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
+              <Text
+                size="sm"
+                colorTheme="mutedForeground"
+                style={{ textAlign: "center" }}
+              >
                 Maximum escalation tier reached
               </Text>
             </Box>
@@ -271,13 +293,17 @@ export function EscalationTimer({
               size="sm"
               variant="outline"
               onPress={() => {
-                haptic('warning');
+                haptic("warning");
                 onManualEscalate();
               }}
               fullWidth
             >
-              <HStack spacing={2} alignItems="center">
-                <IconSymbol name="arrow.up.circle" size={16} color={theme.primary} />
+              <HStack gap={2} align="center">
+                <IconSymbol
+                  name="arrow.up.circle"
+                  size={16}
+                  color={theme.primary}
+                />
                 <Text size="sm">Manual Escalate</Text>
               </HStack>
             </Button>
@@ -285,12 +311,8 @@ export function EscalationTimer({
 
           {/* Escalation Info */}
           {escalationStatus?.canEscalate && (
-            <Box 
-              p={2 as SpacingScale} 
-              bgTheme="accent" 
-              rounded="md"
-              borderWidth={1}
-              borderTheme="border"
+            <Box
+              className="p-2 bg-accent rounded-md border border-border"
             >
               <Text size="xs" colorTheme="mutedForeground">
                 Will notify: {getTierLabel(currentTier + 1)}
@@ -309,32 +331,35 @@ interface EscalationSummaryProps {
 }
 
 export function EscalationSummary({ hospitalId }: EscalationSummaryProps) {
-  const theme = useTheme();
+  const { theme } = useThemeStore();
   const fadeOpacity = useSharedValue(0);
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: fadeOpacity.value
+    opacity: fadeOpacity.value,
   }));
-  
+
   const fadeIn = () => {
     fadeOpacity.value = withTiming(1, { duration: 400 });
   };
-  
+
   useEffect(() => {
     fadeIn();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
-  const { data: escalations, isLoading } = api.healthcare.getActiveEscalations.useQuery(
+
+  const {
+    data: escalations,
+    isLoading,
+  } = api.healthcare.getActiveEscalations.useQuery(
     { hospitalId },
-    { 
+    {
       refetchInterval: 30000, // Refetch every 30 seconds
-      enabled: !!hospitalId 
+      enabled: !!hospitalId,
     }
   );
 
   if (isLoading) {
     return (
-      <Card p={4 as SpacingScale}>
+      <Card className="p-4">
         <Text colorTheme="mutedForeground">Loading escalations...</Text>
       </Card>
     );
@@ -346,40 +371,34 @@ export function EscalationSummary({ hospitalId }: EscalationSummaryProps) {
 
   return (
     <Animated.View style={animatedStyle}>
-      <Card p={4 as SpacingScale}>
-        <VStack spacing={4}>
-          <HStack justifyContent="space-between" alignItems="center">
-            <Text size="lg" weight="semibold">Escalation Overview</Text>
-            <Badge size="lg">
-              {escalations.totalActive} Active
-            </Badge>
+      <Card className="p-4">
+        <VStack gap={4}>
+          <HStack justify="between" align="center">
+            <Text size="lg" weight="semibold">
+              Escalation Overview
+            </Text>
+            <Badge size="lg">{escalations.totalActive} Active</Badge>
           </HStack>
 
           {/* Quick Stats */}
-          <HStack spacing={3} flexWrap="wrap">
+          <HStack gap={3} className="flex-wrap">
             {escalations.overdue > 0 && (
-              <Badge 
-                size="sm"
-                style={{ backgroundColor: theme.destructive }}
-              >
+              <Badge size="sm" style={{ backgroundColor: theme.destructive }}>
                 {escalations.overdue} Overdue
               </Badge>
             )}
             {escalations.nextEscalationIn5Minutes > 0 && (
-              <Badge 
-                size="sm"
-                style={{ backgroundColor: theme.accent }}
-              >
+              <Badge size="sm" style={{ backgroundColor: theme.accent }}>
                 {escalations.nextEscalationIn5Minutes} Escalating Soon
               </Badge>
             )}
           </HStack>
 
           {/* Tier Breakdown */}
-          <VStack spacing={2}>
+          <VStack gap={2}>
             {Object.entries(escalations.byTier).map(([tier, alerts]) => (
-              <Box key={tier} p={2 as SpacingScale} bgTheme="muted" rounded="md">
-                <HStack justifyContent="space-between" alignItems="center">
+              <Box key={tier} className="p-2 bg-muted rounded-md">
+                <HStack justify="between" align="center">
                   <Text size="sm" weight="medium">
                     Tier {tier} ({getTierLabel(parseInt(tier))})
                   </Text>
@@ -399,9 +418,13 @@ export function EscalationSummary({ hospitalId }: EscalationSummaryProps) {
 // Helper function to get tier label
 function getTierLabel(tier: number): string {
   switch (tier) {
-    case 1: return 'Nurses';
-    case 2: return 'Doctors';
-    case 3: return 'Department Head';
-    default: return 'Unknown';
+    case 1:
+      return "Nurses";
+    case 2:
+      return "Doctors";
+    case 3:
+      return "Department Head";
+    default:
+      return "Unknown";
   }
 }

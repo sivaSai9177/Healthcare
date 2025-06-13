@@ -57,13 +57,25 @@ docker-compose -f docker-compose.local.yml up -d postgres-local redis-local
 echo "⏳ Waiting for database to be ready..."
 sleep 5
 
-# Run migrations
-echo "📋 Running database migrations..."
-APP_ENV=local DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev" drizzle-kit push --config=drizzle.config.ts
+# Check if database is already set up
+echo "🔍 Checking database setup..."
+DB_CHECK=$(APP_ENV=local DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev" bun -e "
+  import { sql } from '@/src/db';
+  try {
+    const result = await sql\`SELECT COUNT(*) as count FROM organizations\`;
+    console.log(result[0].count);
+  } catch (e) {
+    console.log('0');
+  }
+" 2>/dev/null || echo "0")
 
-# Setup healthcare data
-echo "🏥 Setting up healthcare demo data..."
-APP_ENV=local DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev" bun scripts/setup-healthcare-local.ts
+if [ "$DB_CHECK" = "0" ]; then
+  echo "⚠️  Database not initialized. Please run: bun run db:setup:local"
+  echo "   This will set up the database schema and demo data."
+  exit 1
+else
+  echo "✅ Database already set up with $DB_CHECK organizations"
+fi
 
 echo "✅ Healthcare setup complete!"
 echo ""

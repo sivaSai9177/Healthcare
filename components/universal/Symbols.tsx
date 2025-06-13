@@ -400,3 +400,143 @@ export const Circle = (props: Omit<SymbolProps, 'name'>) => (
 export const PanelLeft = (props: Omit<SymbolProps, 'name'>) => (
   <Symbol name="sidebar.left" {...props} />
 );
+
+// Healthcare specific icons
+export const Users = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="person.2" {...props} />
+);
+
+export const Heart = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="heart" {...props} />
+);
+
+export const Activity = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="waveform.path.ecg" {...props} />
+);
+
+export const Thermometer = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="thermometer" {...props} />
+);
+
+export const Clock = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="clock" {...props} />
+);
+
+export const AlertCircle = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="exclamationmark.circle" {...props} />
+);
+
+export const TrendingUp = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="arrow.up.right" {...props} />
+);
+
+export const TrendingDown = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="arrow.down.right" {...props} />
+);
+
+// Organization specific icons
+export const Building2 = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="building.2" {...props} />
+);
+
+export const Globe = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="globe" {...props} />
+);
+
+export const Briefcase = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="briefcase" {...props} />
+);
+
+export const FileText = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="doc.text" {...props} />
+);
+
+// Additional missing icons
+export const Mail = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="envelope" {...props} />
+);
+
+export const ArrowLeft = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="arrow.left" {...props} />
+);
+
+export const RefreshCw = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="arrow.clockwise" {...props} />
+);
+
+export const Settings = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="gearshape" {...props} />
+);
+
+export const Search = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="magnifyingglass" {...props} />
+);
+
+export const Download = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="arrow.down.circle" {...props} />
+);
+
+export const CheckCircle = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="checkmark.circle" {...props} />
+);
+
+export const Info = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="info.circle" {...props} />
+);
+
+export const Database = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="externaldrive" {...props} />
+);
+
+export const Shield = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="shield" {...props} />
+);
+
+// Add missing icons
+export const XCircle = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="xmark.circle" {...props} />
+);
+
+export const User = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="person" {...props} />
+);
+
+export const HardDrive = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="externaldrive" {...props} />
+);
+
+export const Lock = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="lock" {...props} />
+);
+
+export const ChevronRight = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="chevron.right" {...props} />
+);
+
+export const UserPlus = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="person.badge.plus" {...props} />
+);
+
+export const MoreVertical = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="ellipsis.vertical" {...props} />
+);
+
+export const Calendar = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="calendar" {...props} />
+);
+
+export const Filter = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="line.3.horizontal.decrease" {...props} />
+);
+
+export const History = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="clock.arrow.circlepath" {...props} />
+);
+
+export const Target = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="target" {...props} />
+);
+
+export const Award = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="star.circle" {...props} />
+);

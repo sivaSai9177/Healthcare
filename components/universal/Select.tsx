@@ -393,3 +393,7 @@ export const Select = React.forwardRef<View, SelectProps>(({
 });
 
 Select.displayName = 'Select';
+
+// Additional exports for compatibility
+export const SelectValue: React.FC<{ placeholder?: string }> = ({ placeholder }) => null; // Handled internally by Select
+export const SelectItem: React.FC<SelectOption> = () => null; // Options are passed as array to Select

@@ -137,3 +137,6 @@ export const generatePalette = (primaryColor: string) => {
 
 // Re-export types
 export type { ExtendedTheme } from './registry';
+
+// Alias exports for compatibility
+export const ThemeProvider = EnhancedThemeProvider;

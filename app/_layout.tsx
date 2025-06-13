@@ -58,7 +58,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     if (!hasHydrated || isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    const inProtectedGroup = ['(home)', '(zhealthcare)', '(zorganization)', '(zadmin)', '(zmanager)', '(zmodals)'].includes(segments[0]);
+    const inProtectedGroup = ['(home)', '(healthcare)', '(organization)', '(admin)', '(manager)', '(modals)'].includes(segments[0]);
     
     // If not authenticated and trying to access protected routes
     if (!user && inProtectedGroup) {
@@ -84,7 +84,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
             if (user.organizationRole === 'operator') {
               router.replace('/(home)/operator-dashboard');
             } else if (user.organizationRole === 'doctor' || user.organizationRole === 'nurse') {
-              router.replace('/(home)/healthcare-dashboard');
+              router.replace('/(healthcare)/dashboard');
             } else {
               router.replace('/(home)');
             }
@@ -163,12 +163,12 @@ export default function RootLayout() {
                         
                         {/* Protected routes - require authentication */}
                         <Stack.Screen name="(home)" options={stackScreenOptions.default} />
-                        <Stack.Screen name="(zhealthcare)" options={stackScreenOptions.default} />
-                        <Stack.Screen name="(zorganization)" options={stackScreenOptions.default} />
-                        <Stack.Screen name="(zadmin)" options={stackScreenOptions.default} />
-                        <Stack.Screen name="(zmanager)" options={stackScreenOptions.default} />
+                        <Stack.Screen name="(healthcare)" options={stackScreenOptions.default} />
+                        <Stack.Screen name="(organization)" options={stackScreenOptions.default} />
+                        <Stack.Screen name="(admin)" options={stackScreenOptions.default} />
+                        <Stack.Screen name="(manager)" options={stackScreenOptions.default} />
                         <Stack.Screen 
-                          name="(zmodals)" 
+                          name="(modals)" 
                           options={stackScreenOptions.modal}
                         />
                         

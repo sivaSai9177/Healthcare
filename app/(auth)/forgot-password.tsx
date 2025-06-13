@@ -18,13 +18,13 @@ import { Button } from "@/components/universal/Button";
 import { Input } from "@/components/universal/Input";
 import { Card } from "@/components/universal/Card";
 import { TextLink } from "@/components/universal/Link";
-import { SpacingScale } from '@/lib/design';
-import { useBreakpoint } from '@/hooks/responsive';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { useBreakpoint, useResponsive } from '@/hooks/responsive';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const [screenWidth, setScreenWidth] = React.useState(SCREEN_WIDTH);
+  const [screenWidth, setScreenWidth] = React.useState(Dimensions.get('window').width);
   const [isLoading, setIsLoading] = React.useState(false);
   
   // Update screen width on resize (web)
@@ -43,6 +43,7 @@ export default function ForgotPasswordScreen() {
   const isTabletOrDesktop = ['md', 'lg', 'xl', '2xl'].includes(breakpoint);
   const isLargeScreen = ['lg', 'xl', '2xl'].includes(breakpoint);
   const { isMobile } = useResponsive();
+  const { spacing } = useSpacing();
 
   // Use tRPC mutation for password reset
   const resetPasswordMutation = api.auth.resetPassword.useMutation();
@@ -94,30 +95,30 @@ export default function ForgotPasswordScreen() {
   };
 
   const formContent = (
-    <Box p={isTabletOrDesktop ? 12 : 6} flex={1}>
-      <VStack spacing={6}>
+    <Box className={`flex-1 ${isTabletOrDesktop ? 'p-12' : 'p-6'}`}>
+      <VStack gap={6}>
 
         {/* Header */}
         {!isMobile ? (
-          <VStack spacing={2} alignItems="center">
+          <VStack gap={2} align="center">
             <Heading1>Forgot password?</Heading1>
-            <Text colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
+            <Text variant="muted" className="text-center">
               Enter your email address and we&apos;ll send you a link to reset your password
             </Text>
           </VStack>
         ) : (
-          <VStack spacing={2} alignItems="center">
-            <Box style={{ marginBottom: 16, height: 60, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ fontSize: 56, lineHeight: 60 }}>🔐</Text>
+          <VStack gap={2} align="center">
+            <Box className="mb-4 h-[60px] justify-center items-center">
+              <Text className="text-[56px] leading-[60px]">🔐</Text>
             </Box>
-            <Text colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
+            <Text variant="muted" className="text-center">
               Enter your email address and we&apos;ll send you a link to reset your password
             </Text>
           </VStack>
         )}
 
         {/* Form */}
-        <VStack spacing={4}>
+        <VStack gap={4}>
           <Input
             label="Email"
             placeholder="your@email.com"
@@ -162,14 +163,13 @@ export default function ForgotPasswordScreen() {
         </VStack>
 
         {/* Login link */}
-        <Box alignItems="center">
-          <HStack spacing={1}>
+        <Box className="items-center">
+          <HStack gap={1}>
             <Caption>Remember your password?</Caption>
             <TextLink 
               href="/(auth)/login"
               size="sm"
               weight="medium"
-              variant="solid"
             >
               Login
             </TextLink>
@@ -191,34 +191,26 @@ export default function ForgotPasswordScreen() {
         width: '100%',
       }}
     >
-      <Box
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        p={8 as SpacingScale}
-      >
-        <VStack spacing={6} alignItems="center">
+      <Box className="flex-1 justify-center items-center p-8">
+        <VStack gap={6} align="center">
           {/* Lock Emoji */}
           <Text style={{ fontSize: 80 }}>
             🔐
           </Text>
           
           {/* Minimal Text */}
-          <VStack spacing={2} alignItems="center">
+          <VStack gap={2} align="center">
             <Text 
               size="3xl" 
               weight="bold" 
-              style={{ color: theme.foreground }}
+              className="text-foreground"
             >
               Password Reset
             </Text>
             <Text 
               size="lg" 
-              style={{ 
-                color: theme.mutedForeground,
-                textAlign: 'center',
-                maxWidth: 300,
-              }}
+              variant="muted"
+              className="text-center max-w-[300px]"
             >
               We&apos;ll help you get back into your account securely
             </Text>
@@ -251,10 +243,10 @@ export default function ForgotPasswordScreen() {
             display: 'flex' as any,
           }}
         >
-          <Box flex={6} style={{ display: 'flex' as any }}>
+          <Box className="flex-[6] flex">
             {formContent}
           </Box>
-          <Box flex={4} style={{ display: 'flex' as any }}>
+          <Box className="flex-[4] flex">
             {imageColumn}
           </Box>
         </Box>
@@ -280,7 +272,7 @@ export default function ForgotPasswordScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Box flex={1} bgTheme="background">
+          <Box className="flex-1 bg-background">
             {formContent}
           </Box>
         </ScrollView>
@@ -291,18 +283,10 @@ export default function ForgotPasswordScreen() {
   if (Platform.OS === 'web') {
     return (
       <Box 
-        flex={1} 
-        bgTheme="muted"
-        justifyContent="center"
-        alignItems="center"
-        px={isTabletOrDesktop ? 6 : 4}
+        className={`flex-1 bg-muted justify-center items-center w-full ${isTabletOrDesktop ? 'px-6' : 'px-4'}`}
         style={Platform.OS === 'web' ? { 
-          minHeight: '100vh' as any,
-          width: '100%',
-        } : {
-          flex: 1,
-          width: '100%',
-        }}
+          minHeight: '100vh',
+        } : {}}
       >
         {cardContent}
       </Box>
@@ -324,15 +308,7 @@ export default function ForgotPasswordScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Box 
-          flex={1} 
-          bgTheme="muted"
-          justifyContent="center"
-          alignItems="center"
-          style={{ 
-            flex: 1,
-            width: '100%',
-            paddingVertical: 20,
-          }}
+          className="flex-1 bg-muted justify-center items-center w-full py-5"
         >
           {cardContent}
         </Box>

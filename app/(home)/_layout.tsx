@@ -85,7 +85,7 @@ export default function TabLayout() {
     navItems.push({
       id: "organization",
       title: "Organization",
-      href: "/(home)/organization-dashboard",
+      href: "/(organization)/dashboard",
       icon: "building.2",
     });
   }
@@ -95,7 +95,7 @@ export default function TabLayout() {
     navItems.push({
       id: "healthcare",
       title: "Healthcare",
-      href: "/(home)/healthcare-dashboard",
+      href: "/(healthcare)/dashboard",
       icon: "stethoscope",
     });
     
@@ -155,7 +155,7 @@ export default function TabLayout() {
     // Add organization dashboard
     sidebarItems.push({
       title: "Organization",
-      url: "/(home)/organization-dashboard",
+      url: "/(organization)/dashboard",
       icon: "building.2",
     });
   }
@@ -164,7 +164,7 @@ export default function TabLayout() {
   if (isHealthcareStaff) {
     sidebarItems.push({
       title: "Healthcare",
-      url: "/(home)/healthcare-dashboard",
+      url: "/(healthcare)/dashboard",
       icon: "stethoscope",
     });
     
@@ -306,26 +306,17 @@ export default function TabLayout() {
           href: (isManager || isAdmin) ? undefined : null,
         }}
       />
+      {/* Redirects for moved routes */}
       <Tabs.Screen
         name="organization-dashboard"
         options={{
-          title: "Organization",
-          tabBarIcon: ({ color }) => (
-            <Symbol size={24} name="building.2" color={color} />
-          ),
-          // Hide tab for non-manager/admin users
-          href: (isManager || isAdmin) ? undefined : null,
+          href: null, // Hidden from tab bar
         }}
       />
       <Tabs.Screen
         name="healthcare-dashboard"
         options={{
-          title: "Healthcare",
-          tabBarIcon: ({ color }) => (
-            <Symbol size={24} name="stethoscope" color={color} />
-          ),
-          // Show for healthcare staff
-          href: isHealthcareStaff ? undefined : null,
+          href: null, // Hidden from tab bar
         }}
       />
       <Tabs.Screen

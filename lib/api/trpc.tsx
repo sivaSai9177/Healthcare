@@ -1,5 +1,5 @@
 import { createTRPCReact } from '@trpc/react-query';
-import { httpBatchLink, TRPCClientError, wsLink, splitLink } from '@trpc/client';
+import { httpBatchLink, TRPCClientError, wsLink, splitLink, createWSClient } from '@trpc/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // React Query Devtools not available for React Native
 // import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -173,11 +173,9 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           const wsUrl = getWebSocketUrl();
           log.api.request('WebSocket URL configured', { wsUrl });
           
-          // Create WebSocket link for subscriptions with correct syntax
-          const websocketLink = wsLink({
+          // Create WebSocket client
+          const wsClient = createWSClient({
             url: wsUrl,
-            // WebSocket implementation
-            WebSocket: typeof WebSocket !== 'undefined' ? WebSocket : undefined,
             connectionParams: async () => {
               // Get auth token for WebSocket connection
               if (Platform.OS !== 'web') {
@@ -196,11 +194,25 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
               return {};
             },
             // Add error handling
+            onOpen: () => {
+              log.api.request('WebSocket connected', {});
+            },
+            onClose: () => {
+              log.api.request('WebSocket disconnected', {});
+            },
             onError: (error: any) => {
               log.api.error('WebSocket error', error);
             },
             // Lazy mode - don't connect until first subscription
-            lazy: true,
+            lazy: {
+              enabled: true,
+              closeMs: 30000, // Close after 30 seconds of inactivity
+            },
+          });
+
+          // Create WebSocket link for subscriptions
+          const websocketLink = wsLink({
+            client: wsClient,
           });
 
           // Use split link to route subscriptions through WebSocket
@@ -358,7 +370,7 @@ export function withTRPCErrorBoundary<P extends object>(
 }
 
 // Hook for handling loading states across multiple queries
-export function useMultipleQueries(queries: Array<{ enabled?: boolean }>) {
+export function useMultipleQueries(queries: { enabled?: boolean }[]) {
   const isLoading = queries.some(q => q.enabled !== false);
   const hasError = queries.some(q => 'error' in q && q.error);
   

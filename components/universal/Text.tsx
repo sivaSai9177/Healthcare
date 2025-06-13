@@ -98,9 +98,8 @@ export const Text = React.forwardRef<RNText, TextProps>(({
     <RNText
       ref={ref}
       style={[textStyle, style]}
-      selectable={selectable}
-      numberOfLines={numberOfLines}
-      ellipsizeMode={ellipsizeMode}
+      numberOfLines={truncate ? 1 : props.numberOfLines}
+      ellipsizeMode={truncate ? 'tail' : props.ellipsizeMode}
       {...props}
     >
       {children}
@@ -110,54 +109,73 @@ export const Text = React.forwardRef<RNText, TextProps>(({
 
 Text.displayName = 'Text';
 
-// Convenience components
+// Convenience components for common text styles
+export const Heading = React.forwardRef<RNText, TextProps>((props, ref) => (
+  <Text ref={ref} size="3xl" weight="bold" {...props} />
+));
+Heading.displayName = 'Heading';
+
 export const Heading1 = React.forwardRef<RNText, TextProps>((props, ref) => (
   <Text ref={ref} size="4xl" weight="bold" {...props} />
 ));
+Heading1.displayName = 'Heading1';
 
 export const Heading2 = React.forwardRef<RNText, TextProps>((props, ref) => (
   <Text ref={ref} size="3xl" weight="bold" {...props} />
 ));
+Heading2.displayName = 'Heading2';
 
 export const Heading3 = React.forwardRef<RNText, TextProps>((props, ref) => (
   <Text ref={ref} size="2xl" weight="semibold" {...props} />
 ));
+Heading3.displayName = 'Heading3';
 
 export const Heading4 = React.forwardRef<RNText, TextProps>((props, ref) => (
   <Text ref={ref} size="xl" weight="semibold" {...props} />
 ));
+Heading4.displayName = 'Heading4';
 
 export const Heading5 = React.forwardRef<RNText, TextProps>((props, ref) => (
   <Text ref={ref} size="lg" weight="medium" {...props} />
 ));
+Heading5.displayName = 'Heading5';
 
 export const Heading6 = React.forwardRef<RNText, TextProps>((props, ref) => (
   <Text ref={ref} size="base" weight="medium" {...props} />
 ));
+Heading6.displayName = 'Heading6';
+
+export const Title = React.forwardRef<RNText, TextProps>((props, ref) => (
+  <Text ref={ref} size="2xl" weight="semibold" {...props} />
+));
+Title.displayName = 'Title';
+
+export const Subtitle = React.forwardRef<RNText, TextProps>((props, ref) => (
+  <Text ref={ref} size="xl" weight="medium" {...props} />
+));
+Subtitle.displayName = 'Subtitle';
+
+export const Body = React.forwardRef<RNText, TextProps>((props, ref) => (
+  <Text ref={ref} size="base" weight="normal" {...props} />
+));
+Body.displayName = 'Body';
 
 export const Paragraph = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="base" weight="normal" lineHeight="relaxed" {...props} />
+  <Text ref={ref} size="base" weight="normal" className={cn('leading-relaxed', props.className)} {...props} />
 ));
+Paragraph.displayName = 'Paragraph';
 
 export const Caption = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="sm" weight="normal" colorTheme="mutedForeground" {...props} />
+  <Text ref={ref} size="sm" weight="normal" variant="muted" {...props} />
 ));
+Caption.displayName = 'Caption';
 
 export const TextLabel = React.forwardRef<RNText, TextProps>((props, ref) => (
   <Text ref={ref} size="sm" weight="medium" {...props} />
 ));
+TextLabel.displayName = 'TextLabel';
 
 export const Code = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="sm" font="mono" {...props} />
+  <Text ref={ref} className={cn('font-mono bg-muted px-1 py-0.5 rounded', props.className)} {...props} />
 ));
-
-Heading1.displayName = 'Heading1';
-Heading2.displayName = 'Heading2';
-Heading3.displayName = 'Heading3';
-Heading4.displayName = 'Heading4';
-Heading5.displayName = 'Heading5';
-Heading6.displayName = 'Heading6';
-Paragraph.displayName = 'Paragraph';
-Caption.displayName = 'Caption';
-TextLabel.displayName = 'TextLabel';
 Code.displayName = 'Code';

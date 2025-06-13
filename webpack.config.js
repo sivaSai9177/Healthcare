@@ -20,15 +20,13 @@ module.exports = async function (env, argv) {
   config.resolve.fallback = config.resolve.fallback || {};
   config.resolve.fallback.scripts = false;
   
-  // Externalize modules that use import.meta
+  // Externalize server-only modules
   config.externals = config.externals || [];
   if (!Array.isArray(config.externals)) {
     config.externals = [config.externals];
   }
   config.externals.push({
-    'jiti': 'commonjs jiti',
-    'drizzle-kit': 'commonjs drizzle-kit',
-    'drizzle-orm': 'commonjs drizzle-orm',
+    'drizzle-orm': 'commonjs drizzle-orm', // Only needed for API routes
   });
   
   // Exclude scripts folder from bundling (matches metro config)

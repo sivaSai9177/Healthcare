@@ -3,7 +3,7 @@ import { persist, devtools, subscribeWithSelector } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, Appearance } from 'react-native';
-import { themes, getTheme, ExtendedTheme } from '../theme/theme-registry';
+import { themes, getTheme, ExtendedTheme } from '../theme/registry';
 
 type ColorScheme = 'light' | 'dark';
 
