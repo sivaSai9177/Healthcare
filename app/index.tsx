@@ -1,132 +1,66 @@
-import { router, useSegments } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
-import { View, ActivityIndicator, Text, Platform } from "react-native";
+import { View, ActivityIndicator } from "react-native";
 import React from "react";
 import { useTheme } from '@/lib/theme/provider';
+import { Redirect } from "expo-router";
 
 export default function Index() {
   const theme = useTheme();
-  const segments = useSegments();
-  console.log('[Index] Component rendering');
-  const { user, isAuthenticated, hasHydrated } = useAuth();
-  console.log('[Index] Auth state:', { isAuthenticated, hasHydrated, user: !!user });
+  const { user, isLoading, hasHydrated } = useAuth();
   
-  // Use effect for navigation
-  React.useEffect(() => {
-    if (!hasHydrated) {
-      console.log('[Index] Waiting for auth hydration...');
-      // Add a timeout to force navigation if hydration takes too long
-      const timeout = setTimeout(() => {
-        console.log('[Index] Hydration timeout - forcing navigation to login');
-        router.replace("/(auth)/login");
-      }, 2000); // 2 second timeout
-      return () => clearTimeout(timeout);
-    }
-    
-    console.log('[Index] Checking navigation...', {
-      isAuthenticated, 
-      hasUser: !!user,
-      needsProfileCompletion: user?.needsProfileCompletion,
-      role: user?.role,
-      platform: Platform.OS 
-    });
-    
-    // Add a small delay for iOS to ensure the navigation stack is ready
-    const navigationDelay = Platform.OS === 'ios' ? 100 : 0;
-    
-    const navigateTimer = setTimeout(() => {
-      if (!isAuthenticated || !user) {
-        console.log('[Index] Navigating to login');
-        router.replace("/(auth)/login");
-      } else if (user.needsProfileCompletion || !user.role || user.role === 'guest') {
-        console.log('[Index] Navigating to complete profile - role:', user.role);
-        router.replace("/(auth)/complete-profile");
-      } else {
-        console.log('[Index] Navigating to home - role:', user.role);
-        router.replace("/(home)");
-      }
-    }, navigationDelay);
-    
-    return () => clearTimeout(navigateTimer);
-  }, [hasHydrated, isAuthenticated, user]);
-  
-  // 3-second fallback navigation - force navigate if still on index
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      console.log('[Index] Fallback navigation check after 3 seconds', {
-        hasHydrated,
-        isAuthenticated,
-        pathname: segments.join('/')
-      });
-      
-      // Force navigation if still on index page
-      // The root path will have no segments or the first segment will be empty/undefined
-      if (!segments || !segments[0] || segments.join('/') === '') {
-        console.log('[Index] Still on root page, forcing navigation to login');
-        router.replace("/(auth)/login");
-      }
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [segments, hasHydrated, isAuthenticated]);
-  
-  // Show loading while auth state is being hydrated or during navigation
-  console.log('[Index] Rendering loading screen');
-  return (
-    <View style={{ 
-      flex: 1, 
-      justifyContent: "center", 
-      alignItems: "center", 
-      backgroundColor: theme.muted 
-    }}>
-      <ActivityIndicator size="large" color="#000" />
-      <Text style={{ 
-        marginTop: 20, 
-        fontSize: 16, 
-        color: theme.foreground,
-        fontWeight: '500'
-      }}>
-        {!hasHydrated ? 'Loading auth state...' : 'Redirecting...'}
-      </Text>
-      
-      {/* Debug information */}
+  // Show loading screen while auth state is loading
+  if (!hasHydrated || isLoading) {
+    return (
       <View style={{ 
-        marginTop: 20, 
-        padding: 20, 
-        backgroundColor: theme.card,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: theme.border
+        flex: 1, 
+        justifyContent: "center", 
+        alignItems: "center", 
+        backgroundColor: theme.background 
       }}>
-        <Text style={{ fontSize: 14, color: theme.foreground, fontWeight: 'bold' }}>
-          Debug Info:
-        </Text>
-        <Text style={{ fontSize: 12, color: theme.mutedForeground, marginTop: 5 }}>
-          Platform: {Platform.OS}
-        </Text>
-        <Text style={{ fontSize: 12, color: theme.mutedForeground }}>
-          Has Hydrated: {hasHydrated ? '✅ Yes' : '❌ No'}
-        </Text>
-        <Text style={{ fontSize: 12, color: theme.mutedForeground }}>
-          Is Authenticated: {isAuthenticated ? '✅ Yes' : '❌ No'}
-        </Text>
-        <Text style={{ fontSize: 12, color: theme.mutedForeground }}>
-          Has User: {user ? '✅ Yes' : '❌ No'}
-        </Text>
-        <Text style={{ fontSize: 12, color: theme.mutedForeground, marginTop: 5 }}>
-          Theme: {theme.primary ? '✅ Loaded' : '❌ Not loaded'}
-        </Text>
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
-      
-      <Text style={{ 
-        marginTop: 20, 
-        fontSize: 10, 
-        color: theme.mutedForeground,
-        textAlign: 'center',
-        paddingHorizontal: 20
-      }}>
-        If stuck here, navigation will force redirect to login in 3 seconds
-      </Text>
-    </View>
-  );
+    );
+  }
+  
+  // Check if email verification is required
+  const requiresEmailVerification = process.env.EXPO_PUBLIC_REQUIRE_EMAIL_VERIFICATION === 'true';
+  
+  // If not authenticated, go to login
+  if (!user) {
+    return <Redirect href="/(auth)/login" />;
+  }
+  
+  // Check email verification if required
+  if (requiresEmailVerification && !user.emailVerified) {
+    return <Redirect href="/(auth)/verify-email" />;
+  }
+  
+  // Check profile completion
+  if (user.needsProfileCompletion || user.role === 'guest') {
+    return <Redirect href="/(auth)/complete-profile" />;
+  }
+  
+  // Route to appropriate dashboard based on role (check organizationRole first, then role)
+  const effectiveRole = user.organizationRole || user.role;
+  
+  const isHealthcareRole = ['doctor', 'nurse', 'head_doctor'].includes(effectiveRole);
+    
+  if (isHealthcareRole) {
+    return <Redirect href="/(healthcare)/dashboard" />;
+  }
+  
+  if (effectiveRole === 'operator') {
+    return <Redirect href="/(home)/operator-dashboard" />;
+  }
+  
+  if (user.role === 'admin') {
+    return <Redirect href="/(home)/admin" />;
+  }
+  
+  if (user.role === 'manager') {
+    return <Redirect href="/(home)/manager" />;
+  }
+  
+  // Default redirect for regular users
+  return <Redirect href="/(home)" />;
 }

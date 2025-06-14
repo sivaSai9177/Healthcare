@@ -1,10 +1,10 @@
 import * as React from "react"
 import { View, Dimensions } from "react-native"
 // Removed card imports - using Box instead
-import { Button } from "../Button"
-import { HStack } from "../Stack"
-import { Box } from "../Box"
-import { Text } from "../Text"
+import { Button } from '@/components/universal/interaction/Button'
+import { HStack } from '@/components/universal/layout/Stack'
+import { Box } from '@/components/universal/layout/Box'
+import { Text } from '@/components/universal/typography/Text'
 import { SpacingScale } from "@/lib/design"
 import { AreaChart as NativeAreaChart } from "./AreaChart"
 import { useTheme } from "@/lib/theme/provider"

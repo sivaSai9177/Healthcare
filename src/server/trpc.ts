@@ -1,8 +1,8 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-
-import { getSessionWithBearerFix } from '@/lib/auth/get-session-with-bearer-fix';
+import { auth } from '@/lib/auth/auth-server';
 import type { Session, User } from 'better-auth';
 import { log , trpcLogger } from '@/lib/core';
+import { rateLimitMiddleware as createRateLimitMiddleware } from './middleware/rate-limit';
 
 // Base context type for tRPC procedures
 export interface Context {
@@ -27,8 +27,18 @@ export interface AuthenticatedContext extends Context {
 // Create context function
 export async function createContext(req: Request): Promise<Context> {
   try {
-    // Use the fixed session retrieval for Expo Go compatibility
-    const sessionData = await getSessionWithBearerFix(req.headers);
+    // console.log('[TRPC CONTEXT] Creating context for:', {
+    //   url: req.url,
+    //   method: req.method,
+    //   hasAuthHeader: !!req.headers.get('authorization'),
+    //   hasCookieHeader: !!req.headers.get('cookie'),
+    //   cookie: req.headers.get('cookie')?.substring(0, 100) + '...',
+    // });
+    
+    // Use better-auth's universal session handling
+    const sessionData = await auth.api.getSession({
+      headers: req.headers
+    });
 
     // Log session status for debugging
     if (sessionData) {
@@ -38,6 +48,10 @@ export async function createContext(req: Request): Promise<Context> {
         userAgent: req.headers.get('user-agent'),
         authMethod: req.headers.get('authorization') ? 'bearer' : 'cookie',
       });
+      // console.log('[TRPC CONTEXT] Session found:', {
+      //   userId: sessionData.user?.id,
+      //   sessionId: sessionData.session?.id,
+      // });
     } else {
       log.auth.debug('No session found in tRPC context', {
         hasAuthHeader: !!req.headers.get('authorization'),
@@ -45,6 +59,7 @@ export async function createContext(req: Request): Promise<Context> {
         userAgent: req.headers.get('user-agent'),
         url: req.url,
       });
+      // console.log('[TRPC CONTEXT] No session found');
     }
 
     return {
@@ -54,6 +69,7 @@ export async function createContext(req: Request): Promise<Context> {
   } catch (err) {
     // If session fetch fails, return null session
     log.auth.error('Session fetch error in tRPC context', err);
+    console.error('[TRPC CONTEXT] Error:', err);
     return {
       session: null,
       req,
@@ -186,13 +202,12 @@ const performanceMiddleware = t.middleware(async ({ path, type, next }) => {
   }
 });
 
-// Rate limiting middleware (basic implementation)
-// TODO: Uncomment and implement proper rate limiting with Redis in production
-// const rateLimitMiddleware = t.middleware(async ({ ctx, next }) => {
-//   // In production, implement proper rate limiting with Redis
-//   // This is a basic example for the starter template
-//   return next();
-// });
+// Rate limiting middleware
+const rateLimitMiddleware = t.middleware(async ({ path, type, ctx, next }) => {
+  // Use our rate limiting middleware
+  const middleware = createRateLimitMiddleware();
+  return middleware({ path, type, ctx, next });
+});
 
 // Enhanced authentication middleware following tRPC best practices
 const authMiddleware = t.middleware(async ({ ctx, next, path }) => {
@@ -231,6 +246,7 @@ const authMiddleware = t.middleware(async ({ ctx, next, path }) => {
 
 // Protected procedure that requires authentication
 export const protectedProcedure = t.procedure
+  .use(rateLimitMiddleware)
   .use(performanceMiddleware)
   .use(loggingMiddleware)
   .use(auditMiddleware)

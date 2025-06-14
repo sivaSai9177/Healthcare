@@ -12,7 +12,7 @@ import {
   Avatar,
   Select,
 } from '@/components/universal';
-import { useThemeColor } from '@/hooks/useThemeColor';
+import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/hooks/core/useSpacing';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -32,7 +32,6 @@ interface ProfileFormData {
 
 export default function ProfileEditModal() {
   const { user } = useAuth();
-  const backgroundColor = useThemeColor({}, 'background');
   const spacing = useSpacing();
 
   // Initialize with current user data
@@ -75,7 +74,7 @@ export default function ProfileEditModal() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <Container style={{ flex: 1, backgroundColor }}>
+      <Container className="flex-1 bg-background">
         <ScrollView
           contentContainerStyle={{
             padding: spacing.md,

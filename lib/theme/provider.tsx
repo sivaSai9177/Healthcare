@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { useColorScheme } from '@/contexts/ColorSchemeContext';
 import { themes, getTheme, ThemeDefinition, ExtendedTheme } from './registry';
 import { useThemeStore, useTheme as useZustandTheme } from '@/lib/stores/theme-store';
@@ -48,9 +48,19 @@ export function EnhancedThemeProvider({ children }: { children: React.ReactNode 
 
   const loadThemePreference = async () => {
     try {
-      const savedThemeId = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-      if (savedThemeId && themes[savedThemeId]) {
-        setThemeIdState(savedThemeId);
+      // Conditionally import AsyncStorage to avoid globalThis issues
+      if (Platform.OS !== 'web') {
+        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+        const savedThemeId = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        if (savedThemeId && themes[savedThemeId]) {
+          setThemeIdState(savedThemeId);
+        }
+      } else {
+        // Use localStorage on web
+        const savedThemeId = localStorage.getItem(THEME_STORAGE_KEY);
+        if (savedThemeId && themes[savedThemeId]) {
+          setThemeIdState(savedThemeId);
+        }
       }
     } catch (error) {
       log.error('Error loading theme preference', 'THEME', error);
@@ -63,7 +73,12 @@ export function EnhancedThemeProvider({ children }: { children: React.ReactNode 
     if (themes[newThemeId]) {
       setThemeIdState(newThemeId);
       try {
-        await AsyncStorage.setItem(THEME_STORAGE_KEY, newThemeId);
+        if (Platform.OS !== 'web') {
+          const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+          await AsyncStorage.setItem(THEME_STORAGE_KEY, newThemeId);
+        } else {
+          localStorage.setItem(THEME_STORAGE_KEY, newThemeId);
+        }
       } catch (error) {
         log.error('Error saving theme preference', 'THEME', error);
       }

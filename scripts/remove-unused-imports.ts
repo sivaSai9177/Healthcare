@@ -228,7 +228,7 @@ async function main() {
 // TODO: Replace with structured logging - console.log('🔍 Dry run mode - no changes will be made\n');
   }
 
-  let importsToRemove: Array<[string, number]> = [];
+  let importsToRemove: [string, number][] = [];
 
   if (category) {
     switch (category) {

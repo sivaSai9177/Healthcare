@@ -32,7 +32,7 @@ async function fixRouteReferences(dir: string) {
       
       if (modified) {
         await writeFile(fullPath, content);
-        console.log(`✅ Updated routes in: ${fullPath}`);
+// TODO: Replace with structured logging - console.log(`✅ Updated routes in: ${fullPath}`);
       }
     }
   }
@@ -43,9 +43,9 @@ function escapeRegExp(string: string) {
 }
 
 // Run the fix
-console.log('🔧 Fixing route references...');
+// TODO: Replace with structured logging - console.log('🔧 Fixing route references...');
 fixRouteReferences('./app')
   .then(() => fixRouteReferences('./components'))
   .then(() => fixRouteReferences('./lib'))
-  .then(() => console.log('✅ All route references updated!'))
+// TODO: Replace with structured logging - .then(() => console.log('✅ All route references updated!'))
   .catch(console.error);

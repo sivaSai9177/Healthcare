@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react-native';
 import { useResponsive } from '@/hooks/useResponsive';
-import { useResponsiveUtils } from '@/hooks/useResponsiveUtils';
+import { useResponsiveUtils } from '@/hooks/responsive/useResponsiveUtils';
 import { Dimensions } from 'react-native';
 
 // Mock react-native-responsive-screen

@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { useEntranceAnimation } from '@/lib/ui/animations/hooks';
-import { Box } from '@/components/universal/Box';
+import { useEntranceAnimation } from '@/lib/ui/animations';
+import { Box } from '@/components/universal/layout/Box';
 
 interface AnimatedScreenProps {
   children: React.ReactNode;

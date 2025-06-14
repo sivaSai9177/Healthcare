@@ -17,11 +17,11 @@ const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle(sql, { schema: { ...schema, ...combinedSchema } });
 
 async function testAuth() {
-  console.log("🧪 Starting E2E Authentication Test...\n");
+// TODO: Replace with structured logging - console.log("🧪 Starting E2E Authentication Test...\n");
 
   try {
     // 1. Test Registration
-    console.log("1️⃣ Testing Registration...");
+// TODO: Replace with structured logging - console.log("1️⃣ Testing Registration...");
     const registerResponse = await fetch("http://localhost:8081/api/auth/sign-up", {
       method: "POST",
       headers: {
@@ -39,17 +39,17 @@ async function testAuth() {
       console.error("❌ Registration failed:", error);
       
       // Try login if user already exists
-      console.log("   Attempting login with existing user...");
+// TODO: Replace with structured logging - console.log("   Attempting login with existing user...");
     } else {
       const registerData = await registerResponse.json();
-      console.log("✅ Registration successful:", {
+// TODO: Replace with structured logging - console.log("✅ Registration successful:", {
         userId: registerData.user?.id,
         email: registerData.user?.email,
       });
     }
 
     // 2. Test Login
-    console.log("\n2️⃣ Testing Login...");
+// TODO: Replace with structured logging - console.log("\n2️⃣ Testing Login...");
     const loginResponse = await fetch("http://localhost:8081/api/auth/sign-in", {
       method: "POST",
       headers: {
@@ -70,14 +70,14 @@ async function testAuth() {
     const loginData = await loginResponse.json();
     const sessionToken = loginResponse.headers.get("set-cookie")?.match(/better-auth.session_token=([^;]+)/)?.[1];
     
-    console.log("✅ Login successful:", {
+// TODO: Replace with structured logging - console.log("✅ Login successful:", {
       userId: loginData.user?.id,
       email: loginData.user?.email,
       hasSession: !!sessionToken,
     });
 
     // 3. Test Session
-    console.log("\n3️⃣ Testing Session...");
+// TODO: Replace with structured logging - console.log("\n3️⃣ Testing Session...");
     const sessionResponse = await fetch("http://localhost:8081/api/auth/get-session", {
       headers: {
         "Cookie": `better-auth.session_token=${sessionToken}`,
@@ -90,14 +90,14 @@ async function testAuth() {
     }
 
     const sessionData = await sessionResponse.json();
-    console.log("✅ Session active:", {
+// TODO: Replace with structured logging - console.log("✅ Session active:", {
       userId: sessionData.user?.id,
       email: sessionData.user?.email,
       needsProfileCompletion: sessionData.user?.needsProfileCompletion,
     });
 
     // 4. Test Profile Completion
-    console.log("\n4️⃣ Testing Profile Completion...");
+// TODO: Replace with structured logging - console.log("\n4️⃣ Testing Profile Completion...");
     const profileResponse = await fetch("http://localhost:8081/api/auth/update-user", {
       method: "POST",
       headers: {
@@ -117,10 +117,10 @@ async function testAuth() {
       return;
     }
 
-    console.log("✅ Profile completed successfully");
+// TODO: Replace with structured logging - console.log("✅ Profile completed successfully");
 
     // 5. Test Logout
-    console.log("\n5️⃣ Testing Logout...");
+// TODO: Replace with structured logging - console.log("\n5️⃣ Testing Logout...");
     const logoutResponse = await fetch("http://localhost:8081/api/auth/sign-out", {
       method: "POST",
       headers: {
@@ -133,10 +133,10 @@ async function testAuth() {
       return;
     }
 
-    console.log("✅ Logout successful");
+// TODO: Replace with structured logging - console.log("✅ Logout successful");
 
     // 6. Verify session is invalidated
-    console.log("\n6️⃣ Verifying session invalidated...");
+// TODO: Replace with structured logging - console.log("\n6️⃣ Verifying session invalidated...");
     const invalidSessionResponse = await fetch("http://localhost:8081/api/auth/get-session", {
       headers: {
         "Cookie": `better-auth.session_token=${sessionToken}`,
@@ -145,12 +145,12 @@ async function testAuth() {
 
     const invalidSessionData = await invalidSessionResponse.json();
     if (!invalidSessionData.user) {
-      console.log("✅ Session properly invalidated");
+// TODO: Replace with structured logging - console.log("✅ Session properly invalidated");
     } else {
       console.error("❌ Session still active after logout");
     }
 
-    console.log("\n🎉 E2E Authentication Test Complete!");
+// TODO: Replace with structured logging - console.log("\n🎉 E2E Authentication Test Complete!");
     
   } catch (error) {
     console.error("\n❌ Test failed with error:", error);

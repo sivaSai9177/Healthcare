@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useColorScheme as useRNColorScheme, Appearance } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useColorScheme as useRNColorScheme, Appearance, Platform } from 'react-native';
+import PlatformStorage from '@/lib/core/platform-storage';
 
 export type ColorScheme = 'light' | 'dark';
 
@@ -14,19 +14,48 @@ const ColorSchemeContext = createContext<ColorSchemeContextType | undefined>(und
 
 const THEME_STORAGE_KEY = 'app-theme-preference';
 
+// Web-safe storage wrapper
+const storage = {
+  getItem: async (key: string): Promise<string | null> => {
+    if (Platform.OS === 'web') {
+      try {
+        return localStorage.getItem(key);
+      } catch {
+        return null;
+      }
+    }
+    return PlatformStorage.getItem(key);
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    if (Platform.OS === 'web') {
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+        // Ignore storage errors on web
+      }
+    } else {
+      await PlatformStorage.setItem(key, value);
+    }
+  }
+};
+
 export function ColorSchemeProvider({ children }: { children: ReactNode }) {
-  const systemColorScheme = useRNColorScheme() || 'light';
-  const [colorScheme, setColorSchemeState] = useState<ColorScheme>(systemColorScheme);
+  const [colorScheme, setColorSchemeState] = useState<ColorScheme>('light');
 
   useEffect(() => {
-    // Load saved preference
-    AsyncStorage.getItem(THEME_STORAGE_KEY).then((savedTheme) => {
+    // Load saved preference once on mount
+    storage.getItem(THEME_STORAGE_KEY).then((savedTheme) => {
       if (savedTheme === 'light' || savedTheme === 'dark') {
         setColorSchemeState(savedTheme);
         updateAppearance(savedTheme);
+      } else {
+        // Use system preference if no saved theme
+        const systemScheme = Appearance.getColorScheme() || 'light';
+        setColorSchemeState(systemScheme);
+        updateAppearance(systemScheme);
       }
     });
-  }, []);
+  }, []); // Empty dependency array to prevent infinite loops
 
   const updateAppearance = (scheme: ColorScheme) => {
     // Update the system appearance if possible
@@ -48,7 +77,7 @@ export function ColorSchemeProvider({ children }: { children: ReactNode }) {
 
   const setColorScheme = async (scheme: ColorScheme) => {
     setColorSchemeState(scheme);
-    await AsyncStorage.setItem(THEME_STORAGE_KEY, scheme);
+    await storage.setItem(THEME_STORAGE_KEY, scheme);
     updateAppearance(scheme);
   };
 

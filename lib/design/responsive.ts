@@ -1,5 +1,4 @@
 import { Platform, Dimensions } from 'react-native';
-import { useState, useEffect } from 'react';
 
 // Breakpoint tokens
 export const BREAKPOINTS = {
@@ -20,29 +19,8 @@ export function getScreenDimensions() {
 export const SCREEN_WIDTH = Dimensions.get('window').width;
 export const SCREEN_HEIGHT = Dimensions.get('window').height;
 
-// Hook to get responsive values
-export function useResponsive() {
-  const [dimensions, setDimensions] = useState(() => getScreenDimensions());
-  const [breakpoint, setBreakpoint] = useState(() => getCurrentBreakpoint());
-
-  useEffect(() => {
-    const subscription = Dimensions.addEventListener('change', ({ window }) => {
-      setDimensions(window);
-      setBreakpoint(getCurrentBreakpoint());
-    });
-
-    return () => subscription?.remove();
-  }, []);
-
-  return {
-    width: dimensions.width,
-    height: dimensions.height,
-    breakpoint,
-    isSmall: breakpoint === 'xs' || breakpoint === 'sm',
-    isMedium: breakpoint === 'md',
-    isLarge: breakpoint === 'lg' || breakpoint === 'xl' || breakpoint === '2xl',
-  };
-}
+// Note: useResponsive hook has been moved to @/hooks/responsive/useResponsive
+// This file now contains only design tokens and utilities
 
 // Get current breakpoint
 export function getCurrentBreakpoint(): keyof typeof BREAKPOINTS {

@@ -1,19 +1,36 @@
 /**
- * Authentication Module Exports
- * Centralized authentication functionality for the app
+ * Universal Authentication Module
+ * Enhanced auth using better-auth with security best practices
  */
 
-// Core authentication setup
-// Note: Server-side auth should be imported directly from './auth-server'
-export { authClient } from './auth-client';
+// Core authentication
+export { authClient, authClientEnhanced } from './auth-client';
 export type { AuthClient } from './auth-client';
+export { sessionManager } from './auth-session-manager';
 
-// Session management
-export { sessionManager } from './session-manager';
-export { mobileTokenStore } from './mobile-token-store';
+// Server-side authentication (only for server/API routes)
+export { auth, withSecurityHeaders, sessionSecurity, sessionHooks } from './auth-server';
+export type { Auth } from './auth-server';
 
-// Server-side utilities for Expo Go compatibility
-export { getSessionWithBearerFix } from './get-session-with-bearer-fix';
+// Security configuration
+export { securityConfig, securityHelpers } from './security-config';
+export type { SecurityConfig } from './security-config';
+
+// Authentication hooks
+export {
+  useSession,
+  useSecureSession,
+  useAuth,
+  usePermissions,
+  useRequireAuth,
+  useOAuthSignIn,
+} from './hooks';
+
+// Legacy exports for backward compatibility
+export { tokenRefreshManager } from './token-refresh-manager';
+export { sessionTimeoutManager } from './session-timeout-manager';
+export { SignOutManager, signOut, signOutAllDevices } from './signout-manager';
+export type { SignOutOptions } from './signout-manager';
 
 // Types
 export type { Session, User } from 'better-auth/types';

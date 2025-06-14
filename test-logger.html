@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Window Logger Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        .test-button {
+            margin: 5px;
+            padding: 8px 16px;
+            border: none;
+            background: #007AFF;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background: #0051D5;
+        }
+        .output {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .info { color: #17a2b8; }
+        .debug { color: #28a745; }
+        .warn { color: #ffc107; }
+        .error { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐛 Window Logger Test Page</h1>
+        <p>Open your browser console to see the full debug output. This page demonstrates the window logger functionality.</p>
+        
+        <div class="test-section">
+            <h2>Logger Status</h2>
+            <div id="status" class="output">Checking logger availability...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test Actions</h2>
+            <button class="test-button" onclick="testBasicLogging()">Test Basic Logging</button>
+            <button class="test-button" onclick="testModuleControl()">Test Module Control</button>
+            <button class="test-button" onclick="testLogHistory()">Test Log History</button>
+            <button class="test-button" onclick="showHelp()">Show Help</button>
+            <div id="output" class="output"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Module Control</h2>
+            <button class="test-button" onclick="listModules()">List Modules</button>
+            <button class="test-button" onclick="enableAllModules()">Enable All</button>
+            <button class="test-button" onclick="disableAllModules()">Disable All</button>
+            <div id="modules" class="output"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Log Export</h2>
+            <button class="test-button" onclick="exportLogs()">Export Logs</button>
+            <textarea id="export" class="output" rows="10" style="width: 100%"></textarea>
+        </div>
+    </div>
+
+    <script>
+        // Check if logger is available
+        function checkLogger() {
+            const statusEl = document.getElementById('status');
+            if (window.debugger) {
+                statusEl.innerHTML = '✅ Window logger is available!\n';
+                statusEl.innerHTML += 'Access it via: window.debugger\n';
+                statusEl.innerHTML += 'Get module logger via: window.getLogger("ModuleName")';
+            } else {
+                statusEl.innerHTML = '❌ Window logger not found. Make sure the app is running in development mode.';
+            }
+        }
+
+        // Test basic logging
+        function testBasicLogging() {
+            const output = document.getElementById('output');
+            output.innerHTML = '';
+            
+            if (!window.getLogger) {
+                output.innerHTML = '❌ Logger not available';
+                return;
+            }
+
+            const logger = window.getLogger('TestPage');
+            
+            output.innerHTML += '<span class="info">Testing info log...</span>\n';
+            logger.info('This is an info message');
+            
+            output.innerHTML += '<span class="debug">Testing debug log...</span>\n';
+            logger.debug('This is a debug message', { testData: 123 });
+            
+            output.innerHTML += '<span class="warn">Testing warning log...</span>\n';
+            logger.warn('This is a warning message');
+            
+            output.innerHTML += '<span class="error">Testing error log...</span>\n';
+            logger.error('This is an error message', new Error('Test error'));
+            
+            output.innerHTML += '\n✅ Check your browser console for full output!';
+        }
+
+        // Test module control
+        function testModuleControl() {
+            const output = document.getElementById('output');
+            output.innerHTML = '';
+            
+            if (!window.debugger) {
+                output.innerHTML = '❌ Debugger not available';
+                return;
+            }
+
+            output.innerHTML += 'Disabling TestPage module...\n';
+            window.debugger.disableModule('TestPage');
+            
+            output.innerHTML += 'Trying to log (should not appear in console)...\n';
+            const logger = window.getLogger('TestPage');
+            logger.info('This should not appear');
+            
+            output.innerHTML += 'Re-enabling TestPage module...\n';
+            window.debugger.enableModule('TestPage');
+            
+            output.innerHTML += 'Logging again (should appear in console)...\n';
+            logger.info('This should appear now');
+            
+            output.innerHTML += '\n✅ Check console to verify module control!';
+        }
+
+        // Test log history
+        function testLogHistory() {
+            const output = document.getElementById('output');
+            output.innerHTML = '';
+            
+            if (!window.debugger) {
+                output.innerHTML = '❌ Debugger not available';
+                return;
+            }
+
+            const history = window.debugger.getHistory();
+            const errors = window.debugger.getErrors();
+            
+            output.innerHTML += `Total logs in history: ${history.length}\n`;
+            output.innerHTML += `Total errors: ${errors.length}\n\n`;
+            
+            output.innerHTML += 'Recent logs:\n';
+            history.slice(-5).forEach(log => {
+                const time = new Date(log.timestamp).toLocaleTimeString();
+                output.innerHTML += `[${time}] [${log.component}] ${log.message}\n`;
+            });
+        }
+
+        // Show help
+        function showHelp() {
+            if (window.debugger) {
+                window.debugger.help();
+                document.getElementById('output').innerHTML = '✅ Help printed to console!';
+            }
+        }
+
+        // List modules
+        function listModules() {
+            const modulesEl = document.getElementById('modules');
+            if (!window.debugger) {
+                modulesEl.innerHTML = '❌ Debugger not available';
+                return;
+            }
+
+            const modules = window.debugger.listModules();
+            const enabled = window.debugger.listEnabledModules();
+            
+            modulesEl.innerHTML = `Registered modules: ${modules.join(', ')}\n`;
+            modulesEl.innerHTML += `Enabled modules: ${enabled.join(', ')}`;
+        }
+
+        // Enable all modules
+        function enableAllModules() {
+            if (window.debugger) {
+                window.debugger.enableAllModules();
+                listModules();
+            }
+        }
+
+        // Disable all modules
+        function disableAllModules() {
+            if (window.debugger) {
+                window.debugger.disableAllModules();
+                listModules();
+            }
+        }
+
+        // Export logs
+        function exportLogs() {
+            const exportEl = document.getElementById('export');
+            if (!window.debugger) {
+                exportEl.value = '❌ Debugger not available';
+                return;
+            }
+
+            const logs = window.debugger.exportHistory();
+            exportEl.value = logs || 'No logs to export';
+        }
+
+        // Check on load
+        window.addEventListener('load', () => {
+            checkLogger();
+            
+            // Create a test logger if available
+            if (window.getLogger) {
+                const logger = window.getLogger('TestPage');
+                logger.info('Test page loaded');
+            }
+        });
+    </script>
+</body>
+</html>

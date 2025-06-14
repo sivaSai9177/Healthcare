@@ -6,10 +6,10 @@
 import React, { useState } from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { View } from 'react-native';
-import { Button } from '@/components/universal/Button';
-import { Card } from '@/components/universal/Card';
-import { Dialog } from '@/components/universal/Dialog';
-import { Tabs } from '@/components/universal/Tabs';
+import { Button } from '@/components/universal/interaction/Button';
+import { Card } from '@/components/universal/display/Card';
+import { Dialog } from '@/components/universal/overlay/Dialog';
+import { Tabs } from '@/components/universal/navigation/Tabs';
 import { animationTestUtils, setupTest } from './setup';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 import { useTheme } from '@/lib/theme/provider';

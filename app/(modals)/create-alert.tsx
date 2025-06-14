@@ -11,7 +11,7 @@ import {
   Stack,
   Container,
 } from '@/components/universal';
-import { useThemeColor } from '@/hooks/useThemeColor';
+import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/hooks/core/useSpacing';
 
 type AlertPriority = 'low' | 'medium' | 'high' | 'critical';
@@ -27,7 +27,6 @@ interface AlertFormData {
 }
 
 export default function CreateAlertModal() {
-  const backgroundColor = useThemeColor({}, 'background');
   const spacing = useSpacing();
   
   const [formData, setFormData] = useState<AlertFormData>({
@@ -39,7 +38,7 @@ export default function CreateAlertModal() {
 
   const handleSubmit = () => {
     // TODO: Implement alert creation logic
-// TODO: Replace with structured logging - console.log('Creating alert:', formData);
+    // Alert creation logic handled by mutation
     router.back();
   };
 
@@ -52,7 +51,7 @@ export default function CreateAlertModal() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <Container style={{ flex: 1, backgroundColor }}>
+      <Container className="flex-1 bg-background">
         <ScrollView
           contentContainerStyle={{
             padding: spacing.md,

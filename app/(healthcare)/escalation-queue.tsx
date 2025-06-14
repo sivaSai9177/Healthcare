@@ -22,10 +22,10 @@ import {
   ChevronRight,
   Bell,
   RefreshCw,
-} from '@/components/universal/Symbols';
+} from '@/components/universal/display/Symbols';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useTheme } from '@/lib/theme/provider';
-import { EscalationTimer } from '@/components/healthcare/EscalationTimer';
+import { EscalationTimer } from '@/components/blocks/healthcare/EscalationTimer';
 
 interface EscalatingAlert {
   id: string;

@@ -1,13 +1,12 @@
 import { createTRPCReact } from '@trpc/react-query';
 import { httpBatchLink, TRPCClientError, wsLink, splitLink, createWSClient } from '@trpc/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-// React Query Devtools not available for React Native
-// import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import React, { useState } from 'react';
 import { Platform } from 'react-native';
 import type { AppRouter } from '@/src/server/routers';
 import { getApiUrl, getWebSocketUrl, isWebSocketEnabled } from '@/lib/core/config/unified-env';
 import { log } from '@/lib/core/debug/logger';
+import { authClient } from '@/lib/auth/auth-client';
 
 // Create tRPC React hooks
 export const api = createTRPCReact<AppRouter>();
@@ -96,8 +95,8 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           // On mobile, add the Authorization header with Bearer token
           if (Platform.OS !== 'web') {
             try {
-              // Use the correct session manager (not auth-session-manager)
-              const { sessionManager } = require('@/lib/auth/session-manager');
+              // Use the session manager to get token synchronously
+              const { sessionManager } = require('../auth/auth-session-manager');
               
               // Get token synchronously
               const token = sessionManager.getSessionToken();
@@ -123,7 +122,16 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
             return baseHeaders;
           }
           
-          log.debug('Web platform, returning base headers', 'TRPC');
+          // On web, use cookies
+          log.debug('Web platform, using cookies', 'TRPC');
+          const cookies = authClient.getCookie();
+          if (cookies) {
+            return {
+              ...baseHeaders,
+              'Cookie': cookies,
+            };
+          }
+          
           return baseHeaders;
         },
         // Simplified fetch with timeout and error handling
@@ -148,11 +156,11 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
             return response;
           } catch (error) {
             clearTimeout(timeoutId);
-            if (error.name === 'AbortError') {
+            if ((error as any).name === 'AbortError') {
               log.api.error('tRPC request aborted', { url: url.toString() });
             } else {
               log.api.error('tRPC request failed', { 
-                error: error.message,
+                error: (error as any).message,
                 url: url.toString(),
                 platform: Platform.OS,
                 isTunnel: url.toString().includes('.exp.direct') || url.toString().includes('.exp.host')
@@ -177,18 +185,15 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           const wsClient = createWSClient({
             url: wsUrl,
             connectionParams: async () => {
-              // Get auth token for WebSocket connection
-              if (Platform.OS !== 'web') {
-                try {
-                  const { sessionManager } = require('@/lib/auth/session-manager');
-                  const token = sessionManager.getSessionToken();
-                  if (token) {
-                    return {
-                      authorization: `Bearer ${token}`,
-                    };
-                  }
-                } catch (error) {
-                  log.api.error('Failed to get auth token for WebSocket', error);
+              // Use better-auth's universal cookie management for WebSocket
+              const cookies = authClient.getCookie();
+              if (cookies) {
+                // Extract session token from cookies for WebSocket auth
+                const match = cookies.match(/better-auth\.session_token=([^;]+)/);
+                if (match && match[1]) {
+                  return {
+                    authorization: `Bearer ${match[1]}`,
+                  };
                 }
               }
               return {};

@@ -13,10 +13,8 @@ import {
   Container,
   Avatar,
   Select,
-  SelectValue,
-  SelectItem,
 } from '@/components/universal';
-import { Search, UserPlus, MoreVertical } from '@/components/universal/Symbols';
+import { SearchSymbol, UserPlus, MoreVertical } from '@/components/universal/display/Symbols';
 import { useSpacing } from '@/lib/stores/spacing-store';
 
 export default function UsersScreen() {
@@ -67,7 +65,7 @@ export default function UsersScreen() {
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
       case 'admin':
-        return 'destructive';
+        return 'error';
       case 'manager':
         return 'secondary';
       case 'user':
@@ -84,7 +82,7 @@ export default function UsersScreen() {
       case 'inactive':
         return 'secondary';
       case 'suspended':
-        return 'destructive';
+        return 'error';
       default:
         return 'outline';
     }
@@ -103,21 +101,21 @@ export default function UsersScreen() {
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
-      contentContainerStyle={{ paddingBottom: spacing.xl }}
+      contentContainerStyle={{ paddingBottom: spacing[16] }}
     >
-      <Container size="full" padding="lg">
+      <Container maxWidth="full" padding={6}>
         <VStack spacing="lg">
           {/* Header */}
           <HStack justify="between" align="center">
             <VStack spacing="xs">
-              <Text variant="h3">User Management</Text>
-              <Text variant="body2" className="text-muted-foreground">
+              <Text size="2xl" weight="bold">User Management</Text>
+              <Text size="sm" className="text-muted-foreground">
                 Manage user accounts and permissions
               </Text>
             </VStack>
             <Button
               size="sm"
-              onPress={() => router.push('/(modals)/create-user')}
+              onPress={() => router.push('/modals/create-user' as any)}
             >
               <UserPlus size={16} />
               <Text>Add User</Text>
@@ -131,14 +129,14 @@ export default function UsersScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               className="w-full"
-              icon={<Search size={16} className="text-muted-foreground" />}
+              leftIcon={<SearchSymbol size={16} className="text-muted-foreground" />}
             />
             
             <HStack spacing="md">
               <View className="flex-1">
                 <Select 
                   value={roleFilter} 
-                  onValueChange={setRoleFilter}
+                  onValueChange={(value) => setRoleFilter(typeof value === 'string' ? value : value[0])}
                   placeholder="All roles"
                   options={[
                     { value: "all", label: "All roles" },
@@ -152,7 +150,7 @@ export default function UsersScreen() {
               <View className="flex-1">
                 <Select 
                   value={statusFilter} 
-                  onValueChange={setStatusFilter}
+                  onValueChange={(value) => setStatusFilter(typeof value === 'string' ? value : value[0])}
                   placeholder="All status"
                   options={[
                     { value: "all", label: "All status" },
@@ -168,17 +166,17 @@ export default function UsersScreen() {
           {/* User List */}
           <VStack spacing="md">
             {filteredUsers.map((user) => (
-              <Card key={user.id} padding="md">
-                <HStack spacing="md" align="center">
+              <Card key={user.id}>
+                <HStack spacing="md" align="center" className="p-4">
                   <Avatar
-                    src={user.avatar}
-                    alt={user.name}
-                    size="md"
+                    source={{ uri: user.avatar }}
+                    name={user.name}
+                    size="default"
                   />
                   
                   <VStack spacing="xs" className="flex-1">
                     <HStack spacing="sm" align="center">
-                      <Text variant="body1" weight="semibold">
+                      <Text size="base" weight="semibold">
                         {user.name}
                       </Text>
                       <Badge size="sm" variant={getRoleBadgeVariant(user.role)}>
@@ -188,16 +186,16 @@ export default function UsersScreen() {
                         {user.status}
                       </Badge>
                     </HStack>
-                    <Text variant="body2" className="text-muted-foreground">
+                    <Text size="sm" className="text-muted-foreground">
                       {user.email}
                     </Text>
-                    <Text variant="caption" className="text-muted-foreground">
+                    <Text size="xs" className="text-muted-foreground">
                       Last active: {user.lastActive}
                     </Text>
                   </VStack>
                   
                   <Pressable
-                    onPress={() => router.push(`/(modals)/user-details?id=${user.id}`)}
+                    onPress={() => router.push(`/modals/user-details?id=${user.id}` as any)}
                     className="p-2"
                   >
                     <MoreVertical size={20} className="text-muted-foreground" />
@@ -209,12 +207,12 @@ export default function UsersScreen() {
 
           {/* Empty State */}
           {filteredUsers.length === 0 && (
-            <Card padding="xl" className="items-center">
-              <VStack spacing="md" align="center">
-                <Text variant="body1" className="text-muted-foreground">
+            <Card className="items-center">
+              <VStack spacing="md" align="center" className="p-6">
+                <Text size="base" className="text-muted-foreground">
                   No users found
                 </Text>
-                <Text variant="body2" className="text-muted-foreground text-center">
+                <Text size="sm" className="text-muted-foreground text-center">
                   Try adjusting your search or filters
                 </Text>
               </VStack>

@@ -1,4 +1,4 @@
-import { useRequireRole } from "@/components/ProtectedRoute";
+import { useRequireRole } from "@/components/blocks/auth/ProtectedRoute";
 import {
   Avatar,
   Badge,
@@ -27,7 +27,7 @@ import { useTheme } from "@/lib/theme/provider";
 import { api } from "@/lib/api/trpc";
 // import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Symbol } from '@/components/universal/Symbols';
+import { Symbol } from '@/components/universal/display/Symbols';
 import {
   ActivityIndicator,
   Alert,
@@ -162,7 +162,7 @@ export default function AdminDashboard() {
             borderTheme="border"
           >
             <HStack alignItems="center" spacing={2} mb={2 as SpacingScale}>
-              <Sidebar07Trigger />
+              <SidebarTrigger />
               <Separator orientation="vertical" style={{ height: 24 }} />
               <SimpleBreadcrumb
                 items={[{ label: "Admin", current: true }]}

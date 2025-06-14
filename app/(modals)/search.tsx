@@ -11,7 +11,7 @@ import {
   Avatar,
   Tabs,
 } from '@/components/universal';
-import { useThemeColor } from '@/hooks/useThemeColor';
+import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/hooks/core/useSpacing';
 
 type SearchCategory = 'all' | 'patients' | 'staff' | 'alerts' | 'documents';
@@ -63,7 +63,6 @@ const mockSearchResults: SearchResult[] = [
 ];
 
 export default function SearchModal() {
-  const backgroundColor = useThemeColor({}, 'background');
   const spacing = useSpacing();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -149,7 +148,7 @@ export default function SearchModal() {
   };
 
   return (
-    <Container style={{ flex: 1, backgroundColor }}>
+    <Container className="flex-1 bg-background">
       <Stack spacing="md" style={{ flex: 1 }}>
         {/* Search Input */}
         <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.md }}>

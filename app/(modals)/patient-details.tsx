@@ -11,7 +11,7 @@ import {
   Separator,
   Avatar,
 } from '@/components/universal';
-import { useThemeColor } from '@/hooks/useThemeColor';
+import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/hooks/core/useSpacing';
 
 interface PatientInfo {
@@ -57,7 +57,6 @@ const mockPatient: PatientInfo = {
 
 export default function PatientDetailsModal() {
   const { patientId } = useLocalSearchParams<{ patientId: string }>();
-  const backgroundColor = useThemeColor({}, 'background');
   const spacing = useSpacing();
 
   // TODO: Fetch actual patient data based on patientId
@@ -68,7 +67,7 @@ export default function PatientDetailsModal() {
   };
 
   return (
-    <Container style={{ flex: 1, backgroundColor }}>
+    <Container className="flex-1 bg-background">
       <ScrollView
         contentContainerStyle={{
           padding: spacing.md,

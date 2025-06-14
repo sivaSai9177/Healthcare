@@ -6,9 +6,9 @@ import { z } from 'zod';
 // User & Authentication Schemas
 // ========================================
 
-// ID Schema that accepts both UUID format and Better Auth's nanoid format (32 hex chars)
+// ID Schema that accepts both UUID format and Better Auth's nanoid format (32 alphanumeric chars)
 export const UserIdSchema = z.string().regex(
-  /^[0-9a-f]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  /^[0-9a-zA-Z]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
   'Invalid ID format'
 );
 
@@ -287,6 +287,7 @@ export const SessionResponseSchema = z.object({
     userId: z.string(),
     expiresAt: z.date(),
     createdAt: z.date(),
+    token: z.string().optional(), // Include token for auth headers
   }),
   user: UserResponseSchema,
 });

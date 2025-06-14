@@ -1,11 +1,11 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/universal/Dialog';
-import { DropdownMenu, DropdownMenuItem } from '@/components/universal/DropdownMenu';
-import { Popover } from '@/components/universal/Popover';
-import { Switch } from '@/components/universal/Switch';
-import { Button } from '@/components/universal/Button';
-import { Text } from '@/components/universal/Text';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/universal/overlay/Dialog';
+import { DropdownMenu, DropdownMenuItem } from '@/components/universal/overlay/DropdownMenu';
+import { Popover } from '@/components/universal/overlay/Popover';
+import { Switch } from '@/components/universal/form/Switch';
+import { Button } from '@/components/universal/interaction/Button';
+import { Text } from '@/components/universal/typography/Text';
 import { ThemeProvider } from '@/lib/theme/provider';
 
 // Mock theme provider

@@ -11,7 +11,7 @@ import {
   Separator,
   Tabs,
 } from '@/components/universal';
-import { useThemeColor } from '@/hooks/useThemeColor';
+import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/hooks/core/useSpacing';
 
 type NotificationType = 'alert' | 'message' | 'system' | 'reminder';
@@ -69,9 +69,6 @@ const mockNotifications: Notification[] = [
 ];
 
 export default function NotificationCenterModal() {
-  const backgroundColor = useThemeColor({}, 'background');
-  const textColor = useThemeColor({}, 'text');
-  const primaryColor = useThemeColor({}, 'primary');
   const spacing = useSpacing();
 
   const [notifications, setNotifications] = useState(mockNotifications);
@@ -132,7 +129,7 @@ export default function NotificationCenterModal() {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <Container style={{ flex: 1, backgroundColor }}>
+    <Container className="flex-1 bg-background">
       <Stack spacing="lg" style={{ flex: 1 }}>
         {/* Header */}
         <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.md }}>
@@ -204,7 +201,7 @@ export default function NotificationCenterModal() {
                       borderLeftWidth: notification.read ? 0 : 3,
                       borderLeftColor: notification.read
                         ? undefined
-                        : primaryColor,
+                        : '#3B82F6',
                     }}
                   >
                     <Stack spacing="sm">

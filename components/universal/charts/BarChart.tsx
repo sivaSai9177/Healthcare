@@ -20,9 +20,6 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useChartConfig } from './ChartContainer';
-import { AnimationVariant } from '@/lib/design';
-import { useAnimationVariant } from '@/hooks/useAnimationVariant';
-import { useAnimationStore } from '@/lib/stores/animation-store';
 import { haptic } from '@/lib/ui/haptics';
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
@@ -54,16 +51,11 @@ export interface BarChartProps {
   
   // Animation props
   animated?: boolean;
-  animationVariant?: AnimationVariant;
   animationType?: BarChartAnimationType;
   animationDuration?: number;
   animationDelay?: number;
   staggerDelay?: number;
   useHaptics?: boolean;
-  animationConfig?: {
-    duration?: number;
-    easing?: typeof Easing.inOut;
-  };
 }
 
 export const BarChart: React.FC<BarChartProps> = ({
@@ -81,24 +73,16 @@ export const BarChart: React.FC<BarChartProps> = ({
   testID,
   // Animation props
   animated = true,
-  animationVariant = 'moderate',
   animationType = 'grow',
-  animationDuration,
+  animationDuration = 700,
   animationDelay = 0,
   staggerDelay = 50,
   useHaptics = true,
-  animationConfig,
 }) => {
   const chartConfig = useChartConfig();
   const screenWidth = Dimensions.get('window').width;
   const width = propWidth || screenWidth - 32;
-  const { shouldAnimate } = useAnimationStore();
-  const { config, isAnimated } = useAnimationVariant({
-    variant: animationVariant,
-    overrides: animationConfig,
-  });
-  
-  const duration = animationDuration ?? config.duration.normal;
+  const duration = animationDuration;
   
   const padding = useMemo(() => ({
     left: showYAxis ? 60 : 20,
@@ -279,8 +263,6 @@ export const BarChart: React.FC<BarChartProps> = ({
             bar={bar}
             index={index}
             animated={animated}
-            isAnimated={isAnimated}
-            shouldAnimate={shouldAnimate}
             animationType={animationType}
             duration={duration}
             animationDelay={animationDelay}
@@ -303,8 +285,6 @@ interface AnimatedBarProps {
   bar: any;
   index: number;
   animated: boolean;
-  isAnimated: boolean;
-  shouldAnimate: () => boolean;
   animationType: BarChartAnimationType;
   duration: number;
   animationDelay: number;
@@ -316,8 +296,6 @@ const AnimatedBar: React.FC<AnimatedBarProps> = ({
   bar,
   index,
   animated,
-  isAnimated,
-  shouldAnimate,
   animationType,
   duration,
   animationDelay,
@@ -328,7 +306,7 @@ const AnimatedBar: React.FC<AnimatedBarProps> = ({
   const scale = useSharedValue(1);
   
   useEffect(() => {
-    if (animated && isAnimated && shouldAnimate()) {
+    if (animated) {
       const delay = animationDelay + (index * staggerDelay);
       
       if (animationType === 'grow') {
@@ -364,7 +342,7 @@ const AnimatedBar: React.FC<AnimatedBarProps> = ({
     } else {
       animationProgress.value = 1;
     }
-  }, [animated, isAnimated, shouldAnimate, animationType, duration, animationDelay, staggerDelay, index, animationProgress]);
+  }, [animated, animationType, duration, animationDelay, staggerDelay, index, animationProgress]);
   
   const animatedProps = useAnimatedProps(() => {
     let height = bar.height;
@@ -396,18 +374,18 @@ const AnimatedBar: React.FC<AnimatedBarProps> = ({
   });
   
   const handlePressIn = () => {
-    if (animated && isAnimated && shouldAnimate()) {
+    if (animated) {
       scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
     }
   };
   
   const handlePressOut = () => {
-    if (animated && isAnimated && shouldAnimate()) {
+    if (animated) {
       scale.value = withSpring(1, { damping: 15, stiffness: 400 });
     }
   };
   
-  if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+  if (animated && animationType !== 'none') {
     return (
       <AnimatedRect
         animatedProps={animatedProps}

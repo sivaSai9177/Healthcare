@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { 
   ScrollContainer, 
@@ -19,17 +19,19 @@ import {
   Separator,
   SidebarTrigger
 } from '@/components/universal';
-import { DarkModeToggle } from '@/components/DarkModeToggle';
-import { SpacingDensitySelector } from '@/components/SpacingDensitySelector';
-import { ThemeSelector } from '@/components/ThemeSelector';
+import { DarkModeToggle } from '@/components/blocks/theme/DarkModeToggle/DarkModeToggle';
+import { SpacingDensitySelector } from '@/components/blocks/theme/DensitySelector/SpacingDensitySelector';
+import { ThemeSelector } from '@/components/blocks/theme/ThemeSelector/ThemeSelector';
 import { useAuth } from '@/hooks/useAuth';
 import { log } from '@/lib/core/debug/logger';
 import { useTheme } from '@/lib/theme/provider';
 import { notificationService } from '@/lib/ui/notifications/service';
 import { SpacingScale } from '@/lib/design';
+import { SignOutButton } from '@/components/blocks/auth';
+import { signOut } from '@/lib/auth/signout-manager';
 
 export default function SettingsScreen() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const theme = useTheme();
   const [notificationPermission, setNotificationPermission] = useState<string>('undetermined');
@@ -70,27 +72,21 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleLogout = async () => {
-    log.info('Logout initiated', 'SETTINGS', { user: user?.email });
+
+  const handleSignOut = async () => {
+    console.log('handleSignOut called');
     
     try {
-      await logout('user_initiated');
-      log.auth.logout('User logged out from settings', { trigger: 'manual' });
-      log.info('Logout completed successfully', 'SETTINGS');
-      
-      // The home layout guard will automatically redirect when isAuthenticated becomes false
-      log.info('Auth state cleared, home layout will redirect', 'SETTINGS');
-    } catch (error: any) {
-      log.error('Logout failed', 'SETTINGS', error);
-      log.auth.error('Logout failed', error);
-      
-      // Even if logout fails (e.g., session already gone), we've cleared local state
-      // The home layout guard will handle the redirect
-      if (error?.message?.includes('Failed to get session')) {
-        log.warn('Session already cleared on server, local state cleared', 'SETTINGS');
-      } else {
-        Alert.alert("Logout Notice", "You have been logged out");
-      }
+      // Direct signout without confirmation
+      await signOut({
+        reason: 'user_initiated',
+        showAlert: false,
+        redirectTo: '/(auth)/login'
+      });
+    } catch (error) {
+      console.error('Sign out error:', error);
+      // Even if API fails, we should still log out locally
+      router.replace('/(auth)/login');
     }
   };
 
@@ -406,25 +402,23 @@ export default function SettingsScreen() {
             <CardTitle colorTheme="destructive">Danger Zone</CardTitle>
           </CardHeader>
           <CardContent>
-            <VStack spacing={3}>
+            <View style={{ gap: 12 }}>
               <Button
-                variant="solid"
-                colorScheme="destructive"
+                variant="destructive"
                 fullWidth
-                onPress={handleLogout}
+                onPress={handleSignOut}
               >
                 Sign Out
               </Button>
               
               <Button
                 variant="outline"
-                colorScheme="destructive"
                 fullWidth
                 onPress={handleDeleteAccount}
               >
                 Delete Account
               </Button>
-            </VStack>
+            </View>
           </CardContent>
         </Card>
         </VStack>

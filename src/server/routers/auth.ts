@@ -26,6 +26,7 @@ import {
   SessionResponseSchema,
   validateUserRole
 } from '@/lib/validations/server';
+import { authExtensions } from './auth-extensions';
 
 // Security helpers
 const sanitizeInput = {
@@ -249,35 +250,19 @@ export const authRouter = router({
         // Handle organization creation/joining based on role
         if (input.role === 'manager' || input.role === 'admin') {
           if (sanitizedOrgName) {
-            log.info('[AUTH] Creating organization placeholder for:', 'COMPONENT', {});
-            
-            // Generate a proper UUID for the organization
-            const { randomUUID } = await import('crypto');
-            const orgId = randomUUID();
-            
-            // Update user with organization info directly in database (reuse imports)
-            
-            await db.update(userTable)
-              .set({ 
-                organizationId: orgId,
-                organizationName: sanitizedOrgName 
-              })
-              .where(eq(userTable.id, signUpResponse.user.id));
-            
-            organization = {
-              id: orgId,
+            log.info('[AUTH] Organization creation will be handled post-signup', 'COMPONENT', {
               name: sanitizedOrgName,
-              slug: sanitizedOrgName.toLowerCase().replace(/\s+/g, '-')
+              role: input.role
+            });
+            
+            // Store organization name in user record for later creation
+            // The actual organization will be created via the organization router
+            // after profile completion to avoid partial data
+            organization = {
+              id: null,
+              name: sanitizedOrgName,
+              pendingCreation: true
             };
-            
-            log.info('[AUTH] Organization placeholder created:', 'COMPONENT', {});
-            
-            // TODO: Implement proper organization creation with Better Auth after database migration
-            // try {
-            //   const orgResponse = await auth.api.createOrganization(...);
-            // } catch (orgError) {
-            //   console.error('[AUTH] Better Auth organization creation failed:', orgError);
-            // }
           }
         } else if (input.role === 'user' && input.organizationCode) {
           // TODO: Implement organization joining by code
@@ -285,12 +270,13 @@ export const authRouter = router({
           // For now, just continue without organization
         }
         
-        // Update user data with organization info if created
+        // Update user data - organization will be created later if needed
         const completeUser = {
           ...signUpResponse.user,
           role: input.role,
-          organizationId: organization?.id,
-          organizationName: organization?.name,
+          // Don't set organization yet - it will be created via organization router
+          organizationId: null,
+          organizationName: sanitizedOrgName || null, // Store intended org name
           needsProfileCompletion: false,
         };
 
@@ -344,8 +330,23 @@ export const authRouter = router({
   getSession: publicProcedure
     .output(SessionResponseSchema.nullable())
     .query(async ({ ctx }): Promise<z.infer<typeof SessionResponseSchema> | null> => {
+      // Enhanced logging for OAuth debugging
+      console.log('[AUTH_ROUTER] getSession called', {
+        hasSession: !!ctx.session,
+        sessionUserId: ctx.session?.user?.id,
+        sessionUserEmail: ctx.session?.user?.email,
+        sessionKeys: ctx.session ? Object.keys(ctx.session) : [],
+        userKeys: ctx.session?.user ? Object.keys(ctx.session.user) : [],
+        timestamp: new Date().toISOString()
+      });
+      
       // Return null early if no session exists
-      if (!ctx.session) {
+      if (!ctx.session || !ctx.session.user || !ctx.session.session) {
+        console.log('[AUTH_ROUTER] No valid session found, returning null', {
+          hasCtxSession: !!ctx.session,
+          hasUser: !!ctx.session?.user,
+          hasSessionObj: !!ctx.session?.session
+        });
         return null;
       }
       
@@ -364,6 +365,16 @@ export const authRouter = router({
         
         dbUser = user;
         
+        console.log('[AUTH_ROUTER] Database user query result', {
+          id: dbUser?.id,
+          email: dbUser?.email,
+          role: dbUser?.role,
+          needsProfileCompletion: dbUser?.needsProfileCompletion,
+          hasDbUser: !!dbUser,
+          organizationId: dbUser?.organizationId,
+          timestamp: new Date().toISOString()
+        });
+        
         log.auth.debug('getSession - DB user data', {
           id: dbUser?.id,
           email: dbUser?.email,
@@ -373,24 +384,39 @@ export const authRouter = router({
         });
 
         // Check if this is a new OAuth user who needs profile completion
-        // If user has no role or guest role, they need to complete their profile
-        if (dbUser && (!dbUser.role || dbUser.role === 'guest')) {
-          log.info('[AUTH] Detected OAuth user with incomplete profile:', 'COMPONENT', {
+        // If user has no role, guest role, or the default 'user' role with needsProfileCompletion, they need to complete their profile
+        const isIncompleteProfile = dbUser && (
+          !dbUser.role || 
+          dbUser.role === 'guest' || 
+          (dbUser.role === 'user' && dbUser.needsProfileCompletion)
+        );
+        
+        if (isIncompleteProfile) {
+          console.log('[AUTH_ROUTER] User has incomplete profile', {
+            id: dbUser.id,
+            role: dbUser.role,
+            needsProfileCompletion: dbUser.needsProfileCompletion,
+            isGuest: dbUser.role === 'guest',
+            organizationId: dbUser.organizationId
+          });
+          
+          log.info('[AUTH] Detected user with incomplete profile:', 'COMPONENT', {
             id: dbUser.id,
             role: dbUser.role,
             needsProfileCompletion: dbUser.needsProfileCompletion,
             hasName: !!dbUser.name,
-            hasEmail: !!dbUser.email
+            hasEmail: !!dbUser.email,
+            organizationId: dbUser.organizationId
           });
           
           // If they haven't been marked for profile completion yet, do it now
           if (!dbUser.needsProfileCompletion) {
-            log.info('[AUTH] Marking OAuth user for profile completion', 'COMPONENT', {});
+            console.log('[AUTH_ROUTER] Marking user for profile completion in DB');
+            log.info('[AUTH] Marking user for profile completion', 'COMPONENT', {});
             
             const [updatedUser] = await db
               .update(userTable)
               .set({ 
-                role: dbUser.role || 'guest',
                 needsProfileCompletion: true,
                 updatedAt: new Date()
               })
@@ -398,7 +424,12 @@ export const authRouter = router({
               .returning();
             
             dbUser = updatedUser;
-            log.info('[AUTH] Updated OAuth user for profile completion:', 'COMPONENT', {
+            console.log('[AUTH_ROUTER] User marked for profile completion', {
+              id: dbUser.id,
+              needsProfileCompletion: dbUser.needsProfileCompletion
+            });
+            
+            log.info('[AUTH] Updated user for profile completion:', 'COMPONENT', {
               id: dbUser.id,
               role: dbUser.role,
               needsProfileCompletion: dbUser.needsProfileCompletion
@@ -442,9 +473,19 @@ export const authRouter = router({
             userId: ctx.session.session.userId,
             expiresAt: ctx.session.session.expiresAt,
             createdAt: ctx.session.session.createdAt,
+            token: (ctx.session.session as any).token, // Include token if available
           },
           user: validatedUser,
         };
+        
+        console.log('[AUTH_ROUTER] Returning session response', {
+          userId: validatedUser.id,
+          userRole: validatedUser.role,
+          needsProfileCompletion: validatedUser.needsProfileCompletion,
+          isGuest: validatedUser.role === 'guest',
+          shouldRedirectToProfile: validatedUser.needsProfileCompletion || validatedUser.role === 'guest',
+          timestamp: new Date().toISOString()
+        });
 
         return SessionResponseSchema.parse(sessionResponse);
         
@@ -1345,4 +1386,7 @@ export const authRouter = router({
         };
       }
     }),
+
+  // Import and spread auth extensions
+  ...authExtensions,
 });

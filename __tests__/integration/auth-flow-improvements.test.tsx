@@ -6,7 +6,7 @@ import React from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TRPCProvider } from '@/lib/api/trpc';
-import SignupScreen from '@/app/(auth)/signup';
+import SignupScreen from '@/app/(auth)/register';
 
 // Mock dependencies
 jest.mock('@/hooks/useAuth', () => ({

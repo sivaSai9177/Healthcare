@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+// Jest is globally available, no import needed
 
 describe('ProfileCompletionFlow Logic Tests', () => {
   describe('Profile Completion Data Validation', () => {

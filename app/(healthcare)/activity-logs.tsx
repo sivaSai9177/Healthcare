@@ -18,10 +18,10 @@ import {
   IconSymbol,
   DatePicker,
 } from '@/components/universal';
-import { Download, Search, Activity, Clock, User, Shield } from '@/components/universal/Symbols';
+import { Download, SearchSymbol, Activity, Clock, User, Shield } from '@/components/universal/display/Symbols';
 import { format } from 'date-fns';
 import { useAuthStore } from '@/lib/stores/auth-store';
-import { LoadingView } from '@/components/LoadingView';
+import { LoadingView } from '@/components';
 import { useTheme } from '@/lib/theme/provider';
 import { showErrorAlert } from '@/lib/core/alert';
 

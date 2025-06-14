@@ -14,17 +14,15 @@ import {
   Separator,
 } from '@/components/universal';
 import { 
-  Settings, 
   Database, 
   Shield, 
   Bell, 
   Activity,
   HardDrive,
-  Users,
   Lock,
   Globe,
   ChevronRight
-} from '@/components/universal/Symbols';
+} from '@/components/universal/display/Symbols';
 import { useSpacing } from '@/lib/stores/spacing-store';
 
 export default function SystemScreen() {
@@ -76,9 +74,9 @@ export default function SystemScreen() {
           <Icon size={20} className="text-muted-foreground" />
         </View>
         <VStack spacing="xs" className="flex-1">
-          <Text variant="body1" weight="medium">{title}</Text>
+          <Text size="base" weight="medium">{title}</Text>
           {description && (
-            <Text variant="body2" className="text-muted-foreground">
+            <Text size="sm" className="text-muted-foreground">
               {description}
             </Text>
           )}
@@ -93,24 +91,24 @@ export default function SystemScreen() {
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
-      contentContainerStyle={{ paddingBottom: spacing.xl }}
+      contentContainerStyle={{ paddingBottom: spacing[16] }}
     >
-      <Container size="full" padding="lg">
+      <Container maxWidth="full" padding={6}>
         <VStack spacing="lg">
           {/* Header */}
           <VStack spacing="xs">
-            <Text variant="h3">System Settings</Text>
-            <Text variant="body2" className="text-muted-foreground">
+            <Text size="2xl" weight="bold">System Settings</Text>
+            <Text size="sm" className="text-muted-foreground">
               Configure system-wide settings and monitoring
             </Text>
           </VStack>
 
           {/* System Status */}
-          <Card padding="lg">
-            <VStack spacing="lg">
+          <Card>
+            <VStack spacing="lg" className="p-6">
               <HStack justify="between" align="center">
-                <Text variant="h5" weight="semibold">System Status</Text>
-                <Badge variant={maintenanceMode ? 'destructive' : 'success'}>
+                <Text size="lg" weight="semibold">System Status</Text>
+                <Badge variant={maintenanceMode ? 'error' : 'success'}>
                   {maintenanceMode ? 'Maintenance' : 'Operational'}
                 </Badge>
               </HStack>
@@ -119,8 +117,8 @@ export default function SystemScreen() {
                 {/* Storage */}
                 <VStack spacing="xs">
                   <HStack justify="between">
-                    <Text variant="body2">Storage</Text>
-                    <Text variant="body2" className="text-muted-foreground">
+                    <Text size="sm">Storage</Text>
+                    <Text size="sm" className="text-muted-foreground">
                       {systemStats.storage.used}GB / {systemStats.storage.total}GB
                     </Text>
                   </HStack>
@@ -133,8 +131,8 @@ export default function SystemScreen() {
                 {/* Memory */}
                 <VStack spacing="xs">
                   <HStack justify="between">
-                    <Text variant="body2">Memory</Text>
-                    <Text variant="body2" className="text-muted-foreground">
+                    <Text size="sm">Memory</Text>
+                    <Text size="sm" className="text-muted-foreground">
                       {systemStats.memory.used}GB / {systemStats.memory.total}GB
                     </Text>
                   </HStack>
@@ -147,8 +145,8 @@ export default function SystemScreen() {
                 {/* CPU */}
                 <VStack spacing="xs">
                   <HStack justify="between">
-                    <Text variant="body2">CPU Usage</Text>
-                    <Text variant="body2" className="text-muted-foreground">
+                    <Text size="sm">CPU Usage</Text>
+                    <Text size="sm" className="text-muted-foreground">
                       {systemStats.cpu}%
                     </Text>
                   </HStack>
@@ -158,21 +156,21 @@ export default function SystemScreen() {
 
               <HStack spacing="xl">
                 <VStack spacing="xs">
-                  <Text variant="caption" className="text-muted-foreground">Active Users</Text>
-                  <Text variant="h6">{systemStats.activeUsers}</Text>
+                  <Text size="xs" className="text-muted-foreground">Active Users</Text>
+                  <Text size="base" weight="semibold">{systemStats.activeUsers}</Text>
                 </VStack>
                 <VStack spacing="xs">
-                  <Text variant="caption" className="text-muted-foreground">Uptime</Text>
-                  <Text variant="h6">{systemStats.uptime}</Text>
+                  <Text size="xs" className="text-muted-foreground">Uptime</Text>
+                  <Text size="base" weight="semibold">{systemStats.uptime}</Text>
                 </VStack>
               </HStack>
             </VStack>
           </Card>
 
           {/* General Settings */}
-          <Card padding="lg">
-            <VStack spacing="md">
-              <Text variant="h5" weight="semibold">General Settings</Text>
+          <Card>
+            <VStack spacing="md" className="p-6">
+              <Text size="lg" weight="semibold">General Settings</Text>
               
               <SettingRow
                 icon={Activity}
@@ -217,9 +215,9 @@ export default function SystemScreen() {
           </Card>
 
           {/* Configuration */}
-          <Card padding="lg">
-            <VStack spacing="md">
-              <Text variant="h5" weight="semibold">Configuration</Text>
+          <Card>
+            <VStack spacing="md" className="p-6">
+              <Text size="lg" weight="semibold">Configuration</Text>
               
               <SettingRow
                 icon={Bell}
@@ -239,7 +237,7 @@ export default function SystemScreen() {
                 icon={Globe}
                 title="API Configuration"
                 description="Manage API keys and endpoints"
-                onPress={() => router.push('/(admin)/api-config')}
+                onPress={() => router.push('/admin/api-config' as any)}
               />
               
               <Separator />
@@ -248,7 +246,7 @@ export default function SystemScreen() {
                 icon={Lock}
                 title="Security Settings"
                 description="2FA, session timeout, password policies"
-                onPress={() => router.push('/(admin)/security')}
+                onPress={() => router.push('/admin/security' as any)}
               />
               
               <Separator />
@@ -257,7 +255,7 @@ export default function SystemScreen() {
                 icon={HardDrive}
                 title="Database Management"
                 description="Last backup: {systemStats.lastBackup}"
-                onPress={() => router.push('/(admin)/database')}
+                onPress={() => router.push('/admin/database' as any)}
               />
             </VStack>
           </Card>

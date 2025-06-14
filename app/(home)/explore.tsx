@@ -35,9 +35,10 @@ const FeatureCard = ({
   color: string;
   onPress: () => void;
 }) => (
-  <Card mb={4}>
-    <CardHeader>
-      <HStack gap={3 as SpacingScale} alignItems="center">
+  <Box mb={4}>
+    <Card>
+      <CardHeader>
+        <HStack gap={3 as SpacingScale} alignItems="center">
         <Box 
           width={48}
           height={48}
@@ -59,7 +60,8 @@ const FeatureCard = ({
         Learn More
       </Button>
     </CardContent>
-  </Card>
+    </Card>
+  </Box>
 );
 
 export default function ExploreScreen() {
@@ -198,7 +200,7 @@ export default function ExploreScreen() {
             <CardDescription>Can&apos;t find what you&apos;re looking for? Let us know!</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="solid" colorScheme="primary" fullWidth>
+            <Button variant="default" fullWidth>
               Request a Feature
             </Button>
           </CardContent>

@@ -11,7 +11,7 @@ import {
   Avatar,
   Separator,
 } from '@/components/universal';
-import { useThemeColor } from '@/hooks/useThemeColor';
+import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/hooks/core/useSpacing';
 
 interface MemberInfo {
@@ -50,7 +50,6 @@ const mockMember: MemberInfo = {
 
 export default function MemberDetailsModal() {
   const { memberId } = useLocalSearchParams<{ memberId: string }>();
-  const backgroundColor = useThemeColor({}, 'background');
   const spacing = useSpacing();
 
   // TODO: Fetch actual member data based on memberId
@@ -74,7 +73,7 @@ export default function MemberDetailsModal() {
   };
 
   return (
-    <Container style={{ flex: 1, backgroundColor }}>
+    <Container className="flex-1 bg-background">
       <ScrollView
         contentContainerStyle={{
           padding: spacing.md,
@@ -178,7 +177,7 @@ export default function MemberDetailsModal() {
               variant="default"
               onPress={() => {
                 // TODO: Navigate to edit member screen
-// TODO: Replace with structured logging - console.log('Edit member');
+                // Edit member logic
               }}
             >
               Edit Member
@@ -187,7 +186,7 @@ export default function MemberDetailsModal() {
               variant="destructive"
               onPress={() => {
                 // TODO: Implement remove member logic
-// TODO: Replace with structured logging - console.log('Remove member');
+                // Remove member logic
               }}
             >
               Remove from Organization

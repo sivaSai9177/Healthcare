@@ -1,7 +1,11 @@
-import { HapticTab } from "@/components/HapticTab";
-import { Symbol as IconSymbol ,
+import { HapticTab } from "@/components/universal/interaction/HapticTab";
+import { Symbol as IconSymbol } from '@/components/universal';
+import { 
   NavMain,
   NavUser,
+  TeamSwitcher,
+} from '@/components/blocks/navigation';
+import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -9,15 +13,14 @@ import { Symbol as IconSymbol ,
   SidebarInset,
   SidebarProvider,
   SidebarRail,
-  TeamSwitcher,
-} from '@/components/universal';
-import TabBarBackground from "@/components/ui/TabBarBackground";
+} from '@/components/universal/navigation/Sidebar';
+import TabBarBackground from "@/components/universal/navigation/TabBarBackground";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/lib/theme/provider";
 import { Redirect, Slot, Tabs, usePathname } from "expo-router";
 import React from "react";
 import { ActivityIndicator, Dimensions, Platform, View } from "react-native";
-import { Symbol } from '@/components/universal/Symbols';
+import { Symbol } from '@/components/universal/display/Symbols';
 import { tabAnimationConfig } from "@/lib/navigation/transitions";
 
 export default function TabLayout() {
@@ -32,11 +35,6 @@ export default function TabLayout() {
         <ActivityIndicator size="large" />
       </View>
     );
-  }
-
-  // Redirect to login if not authenticated
-  if (!isAuthenticated) {
-    return <Redirect href="/(auth)/login" />;
   }
 
   // Check if user has admin/manager role

@@ -1,3 +1,3 @@
-export { WelcomeHeaderBlock } from './WelcomeHeaderBlock';
-export { QuickActionsBlock } from './QuickActionsBlock';
-export { MetricsOverviewBlock } from './MetricsOverviewBlock';
+export { WelcomeHeaderBlock } from './WelcomeHeader';
+export { QuickActionsBlock } from './QuickActions';
+export { MetricsOverviewBlock } from './MetricsOverview';

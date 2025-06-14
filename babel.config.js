@@ -3,10 +3,6 @@ module.exports = (api) => {
   
   const plugins = [
     ["inline-import", { extensions: [".sql"] }],
-    // Transform import.meta for Metro compatibility
-    "./babel-plugin-transform-import-meta",
-    // Add babel helpers
-    "./babel-plugin-add-module-helpers",
   ];
   
   // Always include reanimated plugin but with web-safe config
@@ -24,8 +20,7 @@ module.exports = (api) => {
         "babel-preset-expo",
         {
           jsxImportSource: "nativewind",
-          // Ensure proper module handling
-          lazyImports: true,
+          unstable_transformImportMeta: true,
         },
       ],
       "nativewind/babel",

@@ -32,7 +32,7 @@ import {
   Filter,
   Target,
   Award,
-} from '@/components/universal/Symbols';
+} from '@/components/universal/display/Symbols';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useTheme } from '@/lib/theme/provider';
 

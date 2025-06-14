@@ -23,7 +23,7 @@ import { useTheme } from '@/lib/theme/provider';
 import { useResponsive } from '@/hooks/responsive';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { log } from '@/lib/core/debug/logger';
-import { Users, Settings, FileText, CreditCard } from '@/components/universal/Symbols';
+import { Users, Settings, FileText, CreditCard } from '@/components/universal/display/Symbols';
 
 // Loading skeleton for suspense
 const DashboardSkeleton = () => {
@@ -148,7 +148,7 @@ export default function OrganizationDashboard() {
             
             {/* Quick Actions */}
             <Box>
-              <QuickActionsBlock actions={quickActions} columns={2} />
+              <OrganizationQuickActionsBlock actions={quickActions} columns={2} />
             </Box>
             
             {/* Metrics Row */}
@@ -168,7 +168,7 @@ export default function OrganizationDashboard() {
               onUpgradePlan={() => {}}
               onSettings={() => router.push('/(home)/organization-settings')}
             />
-            <QuickActionsBlock actions={quickActions} columns={2} />
+            <OrganizationQuickActionsBlock actions={quickActions} columns={2} />
             <Box style={{ gridColumn: 'span 2' }}>
               <MemberManagementBlock 
                 organizationId={organizationId}

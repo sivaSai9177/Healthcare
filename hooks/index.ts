@@ -14,7 +14,7 @@ export * from './organization';
 
 // Theme & Styling Hooks
 export { useColorScheme } from './useColorScheme';
-export { useThemeColor } from './useThemeColor';
+export { useShadow, useShadowClass, useInteractiveShadow, shadowPresets } from './useShadow';
 
 // SSE (Server-Sent Events) Hook
 export { useSSESubscription } from './useSSESubscription';
@@ -24,14 +24,20 @@ export * from './responsive';
 
 // Animation Hooks (re-export from lib)
 export {
+  useAnimation,
+  useTransition,
+  useStaggerAnimation,
+  useSpringAnimation,
+} from '@/lib/ui/animations/hooks';
+
+export {
   useFadeAnimation,
   useScaleAnimation,
-  useSlideAnimation,
-  useBounceAnimation,
-  useShakeAnimation,
   useEntranceAnimation,
-  useCreateAnimatedStyle,
-} from '@/lib/ui/animations/hooks';
+  useListAnimation,
+  usePageTransition,
+  useInteractionAnimation,
+} from '@/lib/ui/animations/enhanced-hooks';
 
 // Animation Variant Hooks
 export { useAnimationVariant, useComponentAnimation } from './useAnimationVariant';

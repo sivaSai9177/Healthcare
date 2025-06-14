@@ -1,16 +1,16 @@
 import React from 'react';
 import {
   View,
-  Text,
   ViewStyle,
   TextStyle,
   ScrollView,
   Platform,
 } from 'react-native';
-import { useTheme } from '@/lib/theme/provider';
 import { useSpacing } from '@/lib/stores/spacing-store';
-import { Card } from '../Card';
+import { Card } from '@/components/universal/display/Card';
 import { SpacingScale } from '@/lib/design';
+import { Text as UniversalText } from '@/components/universal/typography/Text';
+import { cn } from '@/lib/core/utils';
 
 export interface ChartContainerProps {
   children: React.ReactNode;
@@ -41,42 +41,37 @@ export const ChartContainer = React.forwardRef<View, ChartContainerProps>(
     },
     ref
   ) => {
-    const theme = useTheme();
     const { spacing } = useSpacing();
 
     const containerHeight = aspectRatio ? undefined : height;
 
     return (
-      <Card ref={ref} p={4 as SpacingScale} style={style} testID={testID}>
+      <Card ref={ref} className="p-4" style={style} testID={testID}>
         {(title || description) && (
           <View style={{ marginBottom: spacing[4] }}>
             {title && (
-              <Text
+              <UniversalText
+                size="lg"
+                weight="semibold"
+                className="text-foreground"
                 style={[
                   {
-                    fontSize: 18,
-                    fontWeight: '600',
-                    color: theme.foreground,
                     marginBottom: spacing[1],
                   },
                   titleStyle,
                 ]}
               >
                 {title}
-              </Text>
+              </UniversalText>
             )}
             {description && (
-              <Text
-                style={[
-                  {
-                    fontSize: 14,
-                    color: theme.mutedForeground,
-                  },
-                  descriptionStyle,
-                ]}
+              <UniversalText
+                size="sm"
+                className="text-muted-foreground"
+                style={descriptionStyle}
               >
                 {description}
-              </Text>
+              </UniversalText>
             )}
           </View>
         )}
@@ -125,7 +120,6 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
   labelStyle,
   valueStyle,
 }) => {
-  const theme = useTheme();
   const { spacing } = useSpacing();
 
   const isHorizontal = orientation === 'horizontal';
@@ -174,31 +168,27 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
                 marginRight: spacing[2],
               }}
             />
-            <Text
-              style={[
-                {
-                  fontSize: 12,
-                  color: theme.mutedForeground,
-                },
-                labelStyle,
-              ]}
+            <UniversalText
+              size="xs"
+              className="text-muted-foreground"
+              style={labelStyle}
             >
               {item.name}
-            </Text>
+            </UniversalText>
             {item.value !== undefined && (
-              <Text
+              <UniversalText
+                size="xs"
+                weight="semibold"
+                className="text-foreground"
                 style={[
                   {
-                    fontSize: 12,
-                    fontWeight: '600',
-                    color: theme.foreground,
                     marginLeft: spacing[2],
                   },
                   valueStyle,
                 ]}
               >
                 {item.value}
-              </Text>
+              </UniversalText>
             )}
           </View>
         ))}
@@ -210,104 +200,7 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
 // Chart Tooltip Component
 // Removed old ChartTooltipProps interface
 
-// Old ChartTooltip implementation removed
-const OldChartTooltip: React.FC<any> = ({
-  visible,
-  x,
-  y,
-  title,
-  items,
-  style,
-}) => {
-  const theme = useTheme();
-  const { spacing } = useSpacing();
-
-  if (!visible) return null;
-
-  return (
-    <View
-      style={[
-        {
-          position: 'absolute',
-          left: x,
-          top: y,
-          backgroundColor: theme.popover,
-          borderRadius: 6,
-          padding: spacing[2],
-          borderWidth: 1,
-          borderColor: theme.border,
-          minWidth: 120,
-          ...Platform.select({
-            ios: {
-              boxShadow: '0px 2px 4px theme.mutedForeground + "10"',
-            },
-            android: {
-              elevation: 4,
-            },
-            default: {
-              boxShadow: `0 2px 8px ${theme.foreground}20`,
-            },
-          }),
-        },
-        style,
-      ]}
-    >
-      {title && (
-        <Text
-          style={{
-            fontSize: 12,
-            fontWeight: '600',
-            color: theme.foreground,
-            marginBottom: spacing[1],
-          }}
-        >
-          {title}
-        </Text>
-      )}
-      {items.map((item, index) => (
-        <View
-          key={`${item.label}-${index}`}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginTop: index > 0 ? spacing[1] : 0,
-          }}
-        >
-          {item.color && (
-            <View
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: item.color,
-                marginRight: spacing[1.5],
-              }}
-            />
-          )}
-          <Text
-            style={{
-              fontSize: 11,
-              color: theme.mutedForeground,
-              flex: 1,
-            }}
-          >
-            {item.label}
-          </Text>
-          <Text
-            style={{
-              fontSize: 11,
-              fontWeight: '600',
-              color: theme.foreground,
-              marginLeft: spacing[2],
-            }}
-          >
-            {item.value}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-};
+// Old ChartTooltip implementation removed - no longer needed
 
 // Chart Config Type
 export interface ChartConfig {
@@ -338,37 +231,35 @@ export interface ChartConfig {
   };
 }
 
-// Hook to get chart config from theme
+// Hook to get chart config with hardcoded color values
 export const useChartConfig = (): ChartConfig => {
-  const theme = useTheme();
-
   return {
     colors: {
-      primary: theme.primary,
-      secondary: theme.secondary,
-      accent: theme.accent,
-      success: theme.success || 'theme.success',
-      warning: 'theme.warning', // Orange for warnings
-      danger: theme.destructive,
+      primary: '#0F172A', // slate-900
+      secondary: '#64748B', // slate-500
+      accent: '#3B82F6', // blue-500
+      success: '#10B981', // emerald-500
+      warning: '#F59E0B', // amber-500
+      danger: '#EF4444', // red-500
       // Chart-specific colors
-      chart1: theme.primary,
-      chart2: theme.secondary,
-      chart3: theme.accent,
-      chart4: theme.success || 'theme.success',
-      chart5: 'theme.warning', // Orange
+      chart1: '#0F172A', // slate-900
+      chart2: '#64748B', // slate-500
+      chart3: '#3B82F6', // blue-500
+      chart4: '#10B981', // emerald-500
+      chart5: '#F59E0B', // amber-500
     },
     styles: {
       axis: {
-        stroke: theme.border,
+        stroke: '#E2E8F0', // slate-200
         strokeWidth: 1,
       },
       grid: {
-        stroke: theme.border,
+        stroke: '#E2E8F0', // slate-200
         strokeWidth: 0.5,
         strokeDasharray: '3 3',
       },
       text: {
-        fill: theme.mutedForeground,
+        fill: '#64748B', // slate-500
         fontSize: 11,
       },
     },
@@ -389,32 +280,34 @@ export const ChartTooltipContent: React.FC<{
   labelFormatter?: (value: any) => string;
   indicator?: 'line' | 'dot' | 'dashed';
 }> = ({ active, payload, label, labelFormatter, indicator = 'dot' }) => {
-  const theme = useTheme();
+  const { spacing } = useSpacing();
   
   if (!active || !payload) return null;
 
   return (
     <View
+      className={cn(
+        "bg-popover border border-border rounded-md",
+        Platform.OS === 'ios' && "shadow-sm",
+        Platform.OS === 'android' && "elevation-1"
+      )}
       style={{
-        backgroundColor: theme.popover,
-        borderWidth: 1,
-        borderColor: theme.border,
-        borderRadius: 6,
         padding: spacing[2],
-        boxShadow: '0px 2px 4px theme.mutedForeground + "10"',
-        elevation: 5,
+        ...(Platform.OS === 'web' && {
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        }),
       }}
     >
       {label && (
-        <Text
+        <UniversalText
+          size="xs"
+          className="text-muted-foreground"
           style={{
-            fontSize: 12,
-            color: theme.mutedForeground,
             marginBottom: spacing[1],
           }}
         >
           {labelFormatter ? labelFormatter(label) : label}
-        </Text>
+        </UniversalText>
       )}
       {payload.map((entry: any, index: number) => (
         <View
@@ -437,24 +330,22 @@ export const ChartTooltipContent: React.FC<{
               borderColor: entry.color || entry.fill,
             }}
           />
-          <Text
+          <UniversalText
+            size="xs"
+            className="text-muted-foreground"
             style={{
-              fontSize: 12,
-              color: theme.mutedForeground,
               marginRight: spacing[1],
             }}
           >
             {entry.name || entry.dataKey}:
-          </Text>
-          <Text
-            style={{
-              fontSize: 12,
-              fontWeight: '600',
-              color: theme.foreground,
-            }}
+          </UniversalText>
+          <UniversalText
+            size="xs"
+            weight="semibold"
+            className="text-foreground"
           >
             {entry.value.toLocaleString()}
-          </Text>
+          </UniversalText>
         </View>
       ))}
     </View>

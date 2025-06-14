@@ -1,5 +1,8 @@
 // Navigation-related blocks
-export { AppSidebarBlock } from './AppSidebarBlock';
-export { NavigationBlock } from './NavigationBlock';
-export { TeamSwitcherBlock } from './TeamSwitcherBlock';
-export { UserMenuBlock } from './UserMenuBlock';
+export { AppSidebar } from './AppSidebar';
+export { Navigation } from './Navigation';
+export { TeamSwitcher } from './TeamSwitcher';
+export { UserMenu } from './UserMenu';
+export { NavMain } from './NavMain';
+export { NavProjects } from './NavProjects';
+export { NavUser } from './NavUser';

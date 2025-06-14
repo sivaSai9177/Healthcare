@@ -5,8 +5,8 @@
 
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/universal/Card';
-import { Button } from '@/components/universal/Button';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/universal/display/Card';
+import { Button } from '@/components/universal/interaction/Button';
 import { animationTestUtils, setupTest } from '../setup';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 

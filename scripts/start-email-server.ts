@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 
-import nodemailer from 'nodemailer';
-import { createTransport } from 'nodemailer';
+import nodemailer, { createTransport } from 'nodemailer';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 

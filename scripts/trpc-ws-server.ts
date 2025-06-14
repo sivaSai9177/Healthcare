@@ -8,7 +8,7 @@ dotenv.config({ path: join(__dirname, '..', '.env') });
 
 const wsPort = process.env.EXPO_PUBLIC_WS_PORT ? parseInt(process.env.EXPO_PUBLIC_WS_PORT) : 3001;
 
-console.log('🚀 Starting tRPC WebSocket server on port', wsPort);
+// TODO: Replace with structured logging - console.log('🚀 Starting tRPC WebSocket server on port', wsPort);
 
 // Create WebSocket server
 const wss = new WebSocketServer({
@@ -39,8 +39,8 @@ const clients = new Map();
 wss.on('connection', (ws) => {
   const clientId = Date.now().toString();
   clients.set(clientId, ws);
-  console.log(`✅ Client connected: ${clientId}`);
-  console.log(`📊 Total clients: ${clients.size}`);
+// TODO: Replace with structured logging - console.log(`✅ Client connected: ${clientId}`);
+// TODO: Replace with structured logging - console.log(`📊 Total clients: ${clients.size}`);
 
   // Send welcome message
   ws.send(JSON.stringify({
@@ -52,7 +52,7 @@ wss.on('connection', (ws) => {
   ws.on('message', (data) => {
     try {
       const message = JSON.parse(data.toString());
-      console.log(`📨 Received from ${clientId}:`, message);
+// TODO: Replace with structured logging - console.log(`📨 Received from ${clientId}:`, message);
 
       // Echo back to sender
       ws.send(JSON.stringify({
@@ -85,8 +85,8 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     clients.delete(clientId);
-    console.log(`👋 Client disconnected: ${clientId}`);
-    console.log(`📊 Total clients: ${clients.size}`);
+// TODO: Replace with structured logging - console.log(`👋 Client disconnected: ${clientId}`);
+// TODO: Replace with structured logging - console.log(`📊 Total clients: ${clients.size}`);
   });
 
   ws.on('error', (error) => {
@@ -104,7 +104,7 @@ const healthCheck = () => {
 };
 
 // Log server status
-console.log(`
+// TODO: Replace with structured logging - console.log(`
 🔌 WebSocket server is running on ws://localhost:${wsPort}
 📊 Waiting for connections...
 
@@ -117,9 +117,9 @@ Or use the test script:
 
 // Handle graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n🛑 Shutting down WebSocket server...');
+// TODO: Replace with structured logging - console.log('\n🛑 Shutting down WebSocket server...');
   wss.close(() => {
-    console.log('✅ Server closed');
+// TODO: Replace with structured logging - console.log('✅ Server closed');
     process.exit(0);
   });
 });

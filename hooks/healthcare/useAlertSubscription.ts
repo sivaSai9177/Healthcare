@@ -3,6 +3,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/trpc';
 import { log } from '@/lib/core/debug/logger';
 import { showSuccessAlert } from '@/lib/core/alert';
+
+// Hook for optimistic updates with React 19's useOptimistic
+import { useOptimistic } from 'react';
 // Define AlertEvent type locally to avoid server imports
 interface AlertEvent {
   type: 'created' | 'acknowledged' | 'resolved' | 'escalated';
@@ -22,9 +25,6 @@ interface AlertEvent {
   userName?: string;
   timestamp: Date;
 }
-
-// Hook for optimistic updates with React 19's useOptimistic
-import { useOptimistic } from 'react';
 
 interface UseAlertSubscriptionOptions {
   hospitalId: string;

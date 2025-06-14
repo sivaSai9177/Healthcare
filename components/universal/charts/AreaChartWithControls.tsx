@@ -2,9 +2,9 @@ import React, { useMemo, useState, useEffect, useCallback, useTransition } from 
 import { ViewStyle, Dimensions } from 'react-native';
 import { AreaChart, AreaChartData } from './AreaChart';
 import { ChartContainer, ChartLegend } from './ChartContainer';
-import { HStack } from '../Stack';
-import { Box } from '../Box';
-import { Button } from '../Button';
+import { HStack } from '@/components/universal/layout/Stack';
+import { Box } from '@/components/universal/layout/Box';
+import { Button } from '@/components/universal/interaction/Button';
 import { SpacingScale } from '@/lib/design';
 import { useTheme } from '@/lib/theme/provider';
 import { useBreakpoint } from '@/hooks/responsive';

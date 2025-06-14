@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, devtools, subscribeWithSelector } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import PlatformStorage from '../core/platform-storage';
 import { Platform, Appearance } from 'react-native';
 import { themes, getTheme, ExtendedTheme } from '../theme/registry';
 
@@ -46,14 +46,14 @@ const storage = Platform.OS === 'web'
     }
   : {
       getItem: async (name: string) => {
-        const value = await AsyncStorage.getItem(name);
+        const value = await PlatformStorage.getItem(name);
         return value ? JSON.parse(value) : null;
       },
       setItem: async (name: string, value: any) => {
-        await AsyncStorage.setItem(name, JSON.stringify(value));
+        await PlatformStorage.setItem(name, JSON.stringify(value));
       },
       removeItem: async (name: string) => {
-        await AsyncStorage.removeItem(name);
+        await PlatformStorage.removeItem(name);
       },
     };
 

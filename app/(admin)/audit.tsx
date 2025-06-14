@@ -10,8 +10,6 @@ import {
   HStack,
   Container,
   Select,
-  SelectValue,
-  SelectItem,
 } from '@/components/universal';
 import { 
   Search, 
@@ -22,7 +20,7 @@ import {
   Info,
   User,
   Activity,
-} from '@/components/universal/Symbols';
+} from '@/components/universal/display/Symbols';
 import { useSpacing } from '@/lib/stores/spacing-store';
 
 export default function AuditScreen() {
@@ -163,15 +161,15 @@ export default function AuditScreen() {
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
-      contentContainerStyle={{ paddingBottom: spacing.xl }}
+      contentContainerStyle={{ paddingBottom: spacing[16] }}
     >
-      <Container size="full" padding="lg">
+      <Container maxWidth="full" padding={6}>
         <VStack spacing="lg">
           {/* Header */}
           <HStack justify="between" align="center">
             <VStack spacing="xs">
-              <Text variant="h3">Audit Logs</Text>
-              <Text variant="body2" className="text-muted-foreground">
+              <Text size="2xl" weight="bold">Audit Logs</Text>
+              <Text size="sm" className="text-muted-foreground">
                 System activity and security events
               </Text>
             </VStack>
@@ -194,14 +192,14 @@ export default function AuditScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               className="w-full"
-              icon={<Search size={16} className="text-muted-foreground" />}
+              leftIcon={<Search size={16} className="text-muted-foreground" />}
             />
             
             <HStack spacing="md">
               <View className="flex-1">
                 <Select 
                   value={actionFilter} 
-                  onValueChange={setActionFilter}
+                  onValueChange={(value) => setActionFilter(typeof value === 'string' ? value : value[0])}
                   placeholder="All actions"
                   options={[
                     { value: "all", label: "All actions" },
@@ -216,7 +214,7 @@ export default function AuditScreen() {
               <View className="flex-1">
                 <Select 
                   value={severityFilter} 
-                  onValueChange={setSeverityFilter}
+                  onValueChange={(value) => setSeverityFilter(typeof value === 'string' ? value : value[0])}
                   placeholder="All severities"
                   options={[
                     { value: "all", label: "All severities" },
@@ -232,20 +230,20 @@ export default function AuditScreen() {
           {/* Log Entries */}
           <VStack spacing="md">
             {filteredLogs.map((log) => (
-              <Card key={log.id} padding="md">
-                <VStack spacing="md">
+              <Card key={log.id}>
+                <VStack spacing="md" className="p-4">
                   {/* Log Header */}
                   <HStack justify="between" align="start">
                     <HStack spacing="sm" align="center">
                       {getSeverityIcon(log.severity)}
                       <VStack spacing="xs">
                         <HStack spacing="sm" align="center">
-                          <Text variant="body1" weight="semibold">
+                          <Text size="base" weight="semibold">
                             {log.action}
                           </Text>
                           {getStatusIcon(log.status)}
                         </HStack>
-                        <Text variant="caption" className="text-muted-foreground">
+                        <Text size="xs" className="text-muted-foreground">
                           {formatTimestamp(log.timestamp)}
                         </Text>
                       </VStack>
@@ -257,23 +255,23 @@ export default function AuditScreen() {
 
                   {/* Log Details */}
                   <VStack spacing="xs">
-                    <Text variant="body2">
+                    <Text size="sm">
                       {log.details}
                     </Text>
                     
                     <HStack spacing="md" className="pt-2">
                       <HStack spacing="xs" align="center">
                         <User size={14} className="text-muted-foreground" />
-                        <Text variant="caption" className="text-muted-foreground">
+                        <Text size="xs" className="text-muted-foreground">
                           {log.user}
                         </Text>
                       </HStack>
                       
-                      <Text variant="caption" className="text-muted-foreground">
+                      <Text size="xs" className="text-muted-foreground">
                         {log.resource}
                       </Text>
                       
-                      <Text variant="caption" className="text-muted-foreground">
+                      <Text size="xs" className="text-muted-foreground">
                         IP: {log.ip}
                       </Text>
                     </HStack>
@@ -285,13 +283,13 @@ export default function AuditScreen() {
 
           {/* Empty State */}
           {filteredLogs.length === 0 && (
-            <Card padding="xl" className="items-center">
-              <VStack spacing="md" align="center">
+            <Card className="items-center">
+              <VStack spacing="md" align="center" className="p-6">
                 <Activity size={48} className="text-muted-foreground" />
-                <Text variant="body1" className="text-muted-foreground">
+                <Text size="base" className="text-muted-foreground">
                   No audit logs found
                 </Text>
-                <Text variant="body2" className="text-muted-foreground text-center">
+                <Text size="sm" className="text-muted-foreground text-center">
                   Try adjusting your search or filters
                 </Text>
               </VStack>

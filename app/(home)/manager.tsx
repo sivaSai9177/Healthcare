@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/lib/theme/provider";
 import { SpacingScale } from "@/lib/design";
-import { useRequireRole } from "@/components/ProtectedRoute";
+import { useRequireRole } from "@/components/blocks/auth/ProtectedRoute";
 import {
   Container,
   Box,

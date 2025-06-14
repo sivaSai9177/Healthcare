@@ -1,266 +1,309 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, RefreshControl, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, ScrollView, RefreshControl } from 'react-native';
 import { useAuthStore } from '@/lib/stores/auth-store';
-import { api } from '@/lib/api/trpc';
 import {
-  Text,
-  Card,
-  Button,
-  Badge,
   VStack,
-  HStack,
-  Heading,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-  EmptyState,
-  Input,
-  Select,
-  SelectValue,
-  SelectItem,
+  Text,
+  Container,
 } from '@/components/universal';
-import { AlertCircle, CheckCircle, Clock, TrendingUp, Filter, Search } from '@/components/universal/Symbols';
 import { useTheme } from '@/lib/theme/provider';
+import { api } from '@/lib/api/trpc';
+import { 
+  HealthcareUserRole,
+  type AlertWithRelations,
+} from '@/types/healthcare';
+import { useResponsive } from '@/hooks/responsive';
+import { showErrorAlert } from '@/lib/core/alert';
+import { getModuleLogger } from '@/lib/core/debug/window-logger';
+import { useAlertSubscription } from '@/hooks/healthcare';
+import { haptic } from '@/lib/ui/haptics';
 import { useSpacing } from '@/lib/stores/spacing-store';
-import { LoadingView } from '@/components/LoadingView';
-import { format } from 'date-fns';
 
-interface Alert {
-  id: string;
-  roomNumber: string;
-  alertType: string;
-  urgencyLevel: number;
-  description?: string;
-  status: string;
-  createdAt: Date;
-  acknowledgedAt?: Date;
-  escalationLevel: number;
-  createdBy: {
-    name: string;
-    role: string;
-  };
-  acknowledgedBy?: {
-    name: string;
-    role: string;
-  };
-}
+// Create module logger for this screen
+const logger = getModuleLogger('Healthcare:Alerts');
+
+// Import block components
+import { 
+  AlertItem,
+  AlertSummary,
+  AlertFilters,
+  AlertActions 
+} from '@/components/blocks/healthcare';
 
 export default function AlertsScreen() {
-  const router = useRouter();
   const { user } = useAuthStore();
   const theme = useTheme();
-  const spacing = useSpacing();
-  const [activeTab, setActiveTab] = useState('active');
+  const { spacing } = useSpacing();
+  const { isMobile } = useResponsive();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState('all');
-
-  // Fetch alerts
-  const { data: alerts = [], isLoading, refetch } = api.healthcare.getAlerts.useQuery({
-    status: activeTab,
-    search: searchQuery,
-    urgencyLevel: urgencyFilter === 'all' ? undefined : parseInt(urgencyFilter),
+  const [statusFilter, setStatusFilter] = useState('active');
+  
+  // Get hospital ID from user context
+  const hospitalId = user?.organizationId || 'default-hospital';
+  const role = user?.role as HealthcareUserRole;
+  
+  // Log component lifecycle
+  useEffect(() => {
+    logger.info('Alerts screen mounted', {
+      user: user?.email,
+      role,
+      hospitalId,
+    });
+    
+    return () => {
+      logger.info('Alerts screen unmounted');
+    };
+  }, []);
+  
+  if (!user) {
+    return (
+      <Container>
+        <VStack gap={spacing[3]} align="center" justify="center" className="flex-1">
+          <Text size="lg">Please log in to view alerts</Text>
+        </VStack>
+      </Container>
+    );
+  }
+  
+  // Subscribe to real-time updates
+  useAlertSubscription({
+    hospitalId,
+    onAlertCreated: (event) => {
+      logger.info('New alert created', event);
+      haptic('success');
+    },
+    onAlertEscalated: (event) => {
+      logger.warn('Alert escalated', event);
+      haptic('warning');
+    },
+    showNotifications: true,
   });
-
-  const onRefresh = async () => {
+  
+  // Fetch active alerts (will be refreshed by subscription)
+  const { data, refetch, isLoading } = api.healthcare.getActiveAlerts.useQuery({
+    hospitalId,
+    limit: 50,
+  }, {
+    refetchInterval: 30000, // Reduced interval since we have subscriptions
+  });
+  
+  // Acknowledge alert mutation
+  const acknowledgeMutation = api.healthcare.acknowledgeAlert.useMutation({
+    onSuccess: (data) => {
+      logger.info('Alert acknowledged successfully', { alertId: data.id });
+      refetch();
+    },
+    onError: (error) => {
+      logger.error('Failed to acknowledge alert', error);
+      showErrorAlert('Failed to Acknowledge', error.message);
+    },
+  });
+  
+  // Resolve alert mutation
+  const resolveMutation = api.healthcare.resolveAlert.useMutation({
+    onSuccess: (data) => {
+      logger.info('Alert resolved successfully', { alertId: data.id });
+      refetch();
+    },
+    onError: (error) => {
+      logger.error('Failed to resolve alert', error);
+      showErrorAlert('Failed to Resolve', error.message);
+    },
+  });
+  
+  // Handle refresh
+  const handleRefresh = async () => {
+    logger.time('refresh-alerts');
+    logger.debug('Refreshing alerts list');
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
+    logger.timeEnd('refresh-alerts');
   };
-
-  const getUrgencyColor = (level: number) => {
-    switch (level) {
-      case 1: return theme.destructive;
-      case 2: return 'theme.destructive';
-      case 3: return 'theme.warning';
-      case 4: return '#74c0fc';
-      case 5: return theme.muted;
-      default: return theme.muted;
+  
+  // Handle acknowledge
+  const handleAcknowledge = (alertId: string, notes?: string) => {
+    logger.debug('Acknowledging alert', { alertId, hasNotes: !!notes });
+    acknowledgeMutation.mutate({
+      alertId,
+      notes,
+    });
+  };
+  
+  // Handle resolve
+  const handleResolve = (alertId: string, resolution: string) => {
+    logger.debug('Resolving alert', { alertId, resolution });
+    resolveMutation.mutate({
+      alertId,
+      resolution,
+    });
+  };
+  
+  // Filter and group alerts
+  const alerts = data?.alerts || [];
+  const filteredAlerts = alerts.filter((alert: AlertWithRelations) => {
+    // Status filter
+    if (statusFilter !== 'all' && alert.status !== statusFilter) {
+      return false;
     }
-  };
-
-  const getAlertIcon = (type: string) => {
-    switch (type) {
-      case 'cardiac_arrest':
-      case 'code_blue':
-        return <AlertCircle size={20} color={theme.destructive} />;
-      case 'fire':
-      case 'security':
-        return <AlertCircle size={20} color="theme.destructive" />;
-      default:
-        return <AlertCircle size={20} color={theme.primary} />;
+    
+    // Urgency filter
+    if (urgencyFilter !== 'all' && alert.urgencyLevel !== parseInt(urgencyFilter)) {
+      return false;
     }
+    
+    // Search filter
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        alert.roomNumber.toLowerCase().includes(searchLower) ||
+        alert.description?.toLowerCase().includes(searchLower) ||
+        alert.alertType.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    return true;
+  });
+  
+  const activeAlerts = filteredAlerts.filter((a: AlertWithRelations) => a.status === 'active');
+  const acknowledgedAlerts = filteredAlerts.filter((a: AlertWithRelations) => a.status === 'acknowledged');
+  
+  // Can the user acknowledge/resolve alerts?
+  const canAcknowledge = ['doctor', 'nurse', 'head_doctor', 'admin'].includes(role);
+  const canResolve = ['doctor', 'head_doctor', 'admin'].includes(role);
+  
+  // Calculate stats for AlertSummary
+  const stats = {
+    totalActive: data?.alerts.filter((a: AlertWithRelations) => a.status === 'active').length || 0,
+    totalAcknowledged: data?.alerts.filter((a: AlertWithRelations) => a.status === 'acknowledged').length || 0,
+    totalResolved: data?.alerts.filter((a: AlertWithRelations) => a.status === 'resolved').length || 0,
+    criticalCount: data?.alerts.filter((a: AlertWithRelations) => a.status === 'active' && a.urgencyLevel <= 2).length || 0,
+    responseTime: 5.2, // This would come from actual data
   };
-
-  const renderAlert = (alert: Alert) => (
-    <Card
-      key={alert.id}
-      style={{ marginBottom: spacing.md }}
-      onPress={() => router.push(`/(modals)/patient-details?alertId=${alert.id}`)}
-    >
-      <VStack space={spacing.sm}>
-        <HStack space={spacing.md} style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <HStack space={spacing.sm} style={{ flex: 1, alignItems: 'center' }}>
-            {getAlertIcon(alert.alertType)}
-            <VStack space={spacing.xs} style={{ flex: 1 }}>
-              <HStack space={spacing.xs} style={{ alignItems: 'center' }}>
-                <Text style={{ fontWeight: '600' }}>Room {alert.roomNumber}</Text>
-                <Badge
-                  variant="outline"
-                  style={{
-                    borderColor: getUrgencyColor(alert.urgencyLevel),
-                    backgroundColor: getUrgencyColor(alert.urgencyLevel) + '20',
-                  }}
-                >
-                  <Text style={{ color: getUrgencyColor(alert.urgencyLevel), fontSize: 12 }}>
-                    Level {alert.urgencyLevel}
-                  </Text>
-                </Badge>
-              </HStack>
-              <Text style={{ color: theme.mutedForeground, fontSize: 14 }}>
-                {alert.alertType.replace(/_/g, ' ').toUpperCase()}
-              </Text>
-            </VStack>
-          </HStack>
-          
-          {alert.status === 'acknowledged' ? (
-            <CheckCircle size={20} color={theme.primary} />
-          ) : alert.escalationLevel > 1 ? (
-            <TrendingUp size={20} color={theme.destructive} />
-          ) : (
-            <Clock size={20} color={theme.mutedForeground} />
-          )}
-        </HStack>
-
-        {alert.description && (
-          <Text style={{ color: theme.mutedForeground, fontSize: 14 }}>
-            {alert.description}
-          </Text>
-        )}
-
-        <HStack space={spacing.md} style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <VStack space={spacing.xs}>
-            <Text style={{ fontSize: 12, color: theme.mutedForeground }}>
-              Created by {alert.createdBy.name}
-            </Text>
-            <Text style={{ fontSize: 12, color: theme.mutedForeground }}>
-              {format(new Date(alert.createdAt), 'MMM d, h:mm a')}
-            </Text>
-          </VStack>
-          
-          {alert.acknowledgedBy && (
-            <VStack space={spacing.xs} style={{ alignItems: 'flex-end' }}>
-              <Text style={{ fontSize: 12, color: theme.primary }}>
-                Ack by {alert.acknowledgedBy.name}
-              </Text>
-              <Text style={{ fontSize: 12, color: theme.mutedForeground }}>
-                {format(new Date(alert.acknowledgedAt!), 'h:mm a')}
-              </Text>
-            </VStack>
-          )}
-        </HStack>
-
-        {alert.escalationLevel > 1 && (
-          <Badge variant="destructive">
-            <Text>Escalated to Level {alert.escalationLevel}</Text>
-          </Badge>
-        )}
-      </VStack>
-    </Card>
-  );
-
-  if (isLoading) {
-    return <LoadingView />;
+  
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setUrgencyFilter('all');
+    setStatusFilter('active');
+  };
+  
+  if (isLoading && !data) {
+    return (
+      <Container>
+        <VStack gap={spacing[4]} align="center" justify="center" className="flex-1" style={{ padding: spacing[4] }}>
+          <Text>Loading alerts...</Text>
+        </VStack>
+      </Container>
+    );
   }
-
+  
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       <ScrollView
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
-        contentContainerStyle={{ padding: spacing.lg }}
       >
-        <VStack space={spacing.lg}>
-          {/* Header */}
-          <VStack space={spacing.md}>
-            <Heading size="lg">Alert Management</Heading>
-            
-            {/* Search and Filter */}
-            <HStack space={spacing.md}>
-              <View style={{ flex: 1 }}>
-                <Input
-                  placeholder="Search alerts..."
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  leftIcon={<Search size={20} />}
-                />
-              </View>
-              <Select 
-                value={urgencyFilter} 
-                onValueChange={setUrgencyFilter}
-                placeholder="Filter"
-                style={{ width: 120 }}
-                options={[
-                  { value: "all", label: "All Levels" },
-                  { value: "1", label: "Level 1" },
-                  { value: "2", label: "Level 2" },
-                  { value: "3", label: "Level 3" },
-                  { value: "4", label: "Level 4" },
-                  { value: "5", label: "Level 5" },
-                ]}
+        <View className="animate-fade-in">
+          <VStack gap={spacing[4]} style={{ padding: spacing[4] }}>
+            {/* Summary Stats */}
+            <View className="animate-scale-in">
+              <AlertSummary
+                totalActive={stats.totalActive}
+                totalAcknowledged={stats.totalAcknowledged}
+                totalResolved={stats.totalResolved}
+                criticalCount={stats.criticalCount}
+                responseTime={stats.responseTime}
+                role={role}
               />
-            </HStack>
+            </View>
+            
+            {/* Filters and Actions */}
+            <VStack gap={spacing[3]}>
+              <AlertFilters
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                urgencyFilter={urgencyFilter}
+                onUrgencyChange={setUrgencyFilter}
+                statusFilter={statusFilter}
+                onStatusChange={setStatusFilter}
+                onReset={handleResetFilters}
+              />
+              
+              <AlertActions
+                role={role}
+                onRefresh={handleRefresh}
+                isRefreshing={refreshing}
+              />
+            </VStack>
+            
+            {/* Active Alerts */}
+            {activeAlerts.length > 0 && (
+              <VStack gap={spacing[3]}>
+                <Text size="lg" weight="semibold">Active Alerts ({activeAlerts.length})</Text>
+                {activeAlerts.map((alertData: AlertWithRelations, index: number) => (
+                  <AlertItem
+                    key={alertData.id}
+                    alertData={alertData}
+                    index={index}
+                    role={role}
+                    canAcknowledge={canAcknowledge}
+                    canResolve={canResolve}
+                    onAcknowledge={handleAcknowledge}
+                    onResolve={handleResolve}
+                    isAcknowledging={acknowledgeMutation.isPending}
+                    isResolving={resolveMutation.isPending}
+                  />
+                ))}
+              </VStack>
+            )}
+            
+            {/* Acknowledged Alerts */}
+            {acknowledgedAlerts.length > 0 && (
+              <VStack gap={spacing[3]}>
+                <Text size="lg" weight="semibold">Acknowledged Alerts ({acknowledgedAlerts.length})</Text>
+                {acknowledgedAlerts.map((alertData: AlertWithRelations, index: number) => (
+                  <AlertItem
+                    key={alertData.id}
+                    alertData={alertData}
+                    index={activeAlerts.length + index}
+                    role={role}
+                    canAcknowledge={canAcknowledge}
+                    canResolve={canResolve}
+                    onAcknowledge={handleAcknowledge}
+                    onResolve={handleResolve}
+                    isAcknowledging={acknowledgeMutation.isPending}
+                    isResolving={resolveMutation.isPending}
+                  />
+                ))}
+              </VStack>
+            )}
+            
+            {/* Empty State */}
+            {filteredAlerts.length === 0 && (
+              <VStack gap={spacing[4]} align="center" justify="center" className="py-12">
+                <Text size="xl">🎉</Text>
+                <Text size="lg" colorTheme="mutedForeground">No alerts found</Text>
+                <Text size="sm" colorTheme="mutedForeground">
+                  {searchQuery || urgencyFilter !== 'all' || statusFilter !== 'all' 
+                    ? 'Try adjusting your filters' 
+                    : 'All clear!'}
+                </Text>
+              </VStack>
+            )}
           </VStack>
-
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              <TabsTrigger value="active">Active</TabsTrigger>
-              <TabsTrigger value="acknowledged">Acknowledged</TabsTrigger>
-              <TabsTrigger value="resolved">Resolved</TabsTrigger>
-              <TabsTrigger value="all">All</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value={activeTab}>
-              {alerts.length === 0 ? (
-                <EmptyState
-                  icon={<AlertCircle size={48} />}
-                  title="No alerts found"
-                  description="There are no alerts matching your criteria"
-                />
-              ) : (
-                <VStack space={spacing.md}>
-                  {alerts.map(renderAlert)}
-                </VStack>
-              )}
-            </TabsContent>
-          </Tabs>
-        </VStack>
-      </ScrollView>
-
-      {/* Create Alert Button (Operator only) */}
-      {user?.role === 'operator' && (
-        <View style={{
-          position: 'absolute',
-          bottom: spacing.xl,
-          right: spacing.xl,
-        }}>
-          <Button
-            size="lg"
-            onPress={() => router.push('/(modals)/create-alert')}
-            style={{
-              ...(Platform.OS === 'web' && {
-                boxShadow: '0 4px 12px theme.mutedForeground + "10"',
-              }),
-            }}
-          >
-            Create Alert
-          </Button>
         </View>
-      )}
+        
+        {/* Floating Action Button for mobile */}
+        {isMobile && (
+          <AlertActions
+            role={role}
+            showFloatingAction
+          />
+        )}
+      </ScrollView>
     </View>
   );
 }

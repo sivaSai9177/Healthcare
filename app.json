@@ -78,6 +78,15 @@
         "projectId": "f155b026-01bd-4212-94f3-e7aedef2801d"
       }
     },
-    "owner": "siva9177"
+    "owner": "siva9177",
+    "cli": {
+      "appVersionSource": "remote"
+    },
+    "build": {
+      "development": {
+        "developmentClient": true,
+        "distribution": "internal"
+      }
+    }
   }
 }

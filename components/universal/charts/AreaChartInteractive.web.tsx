@@ -2,10 +2,10 @@ import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts"
 import { View, Dimensions } from "react-native"
 // Removed card imports - using Box instead
-import { Button } from "../Button"
-import { HStack } from "../Stack"
-import { Box } from "../Box"
-import { Text } from "../Text"
+import { Button } from '@/components/universal/interaction/Button'
+import { HStack } from '@/components/universal/layout/Stack'
+import { Box } from '@/components/universal/layout/Box'
+import { Text } from '@/components/universal/typography/Text'
 import { SpacingScale } from "@/lib/design"
 import { useTheme } from "@/lib/theme/provider"
 import { useBreakpoint } from '@/hooks/responsive';
@@ -121,16 +121,16 @@ export function AreaChartInteractive() {
     })
   }, [timeRange])
 
-  const chartConfig = {
+  const chartConfig = React.useMemo(() => ({
     desktop: {
       label: "Desktop",
-      color: theme.primary || "hsl(var(--chart-1))",
+      color: theme.primary || "#3b82f6",
     },
     mobile: {
       label: "Mobile",
-      color: theme.accent || "hsl(var(--chart-2))",
+      color: theme.accent || "#8b5cf6",
     },
-  }
+  }), [theme.primary, theme.accent])
 
   return (
     <Box 
@@ -184,99 +184,14 @@ export function AreaChartInteractive() {
           paddingLeft: 16,
           paddingRight: 16,
           transition: 'all 0.3s ease-in-out',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}>
-          <ResponsiveContainer width="100%" height="100%" debounce={100}>
-            <AreaChart
-              data={filteredData}
-              margin={{ top: 20, right: 20, bottom: 20, left: 5 }}
-            >
-              <defs>
-                <linearGradient id="fillDesktop" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor={chartConfig.desktop.color}
-                    stopOpacity={0.8}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor={chartConfig.desktop.color}
-                    stopOpacity={0.1}
-                  />
-                </linearGradient>
-                <linearGradient id="fillMobile" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor={chartConfig.mobile.color}
-                    stopOpacity={0.6}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor={chartConfig.mobile.color}
-                    stopOpacity={0.1}
-                  />
-                </linearGradient>
-              </defs>
-              <CartesianGrid 
-                vertical={false} 
-                stroke={theme.border}
-                strokeDasharray="3 3"
-              />
-              <XAxis
-                dataKey="date"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                tick={{ fill: theme.mutedForeground, fontSize: 11 }}
-                tickFormatter={(value) => {
-                  const date = new Date(value)
-                  return date.toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })
-                }}
-                interval={Math.floor(filteredData.length / 7)}
-                minTickGap={60}
-              />
-              <YAxis
-                tickLine={false}
-                axisLine={false}
-                tick={{ fill: theme.mutedForeground, fontSize: 11 }}
-                tickFormatter={(value) => {
-                  if (value >= 1000) {
-                    return `${(value / 1000).toFixed(1)}k`;
-                  }
-                  return value.toString();
-                }}
-                width={45}
-                domain={[0, 'dataMax + 50']}
-              />
-              <Tooltip 
-                content={<CustomTooltip />} 
-                cursor={{ stroke: theme.border, strokeWidth: 1 }}
-                animationDuration={200}
-                position={{ x: undefined, y: undefined }}
-                allowEscapeViewBox={{ x: false, y: false }}
-                wrapperStyle={{ outline: 'none' }}
-              />
-              <Area
-                dataKey="mobile"
-                type="natural"
-                fill="url(#fillMobile)"
-                stroke={chartConfig.mobile.color}
-                strokeWidth={2}
-                stackId="a"
-              />
-              <Area
-                dataKey="desktop"
-                type="natural"
-                fill="url(#fillDesktop)"
-                stroke={chartConfig.desktop.color}
-                strokeWidth={2}
-                stackId="a"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <Text colorTheme="mutedForeground">
+            Chart temporarily disabled due to rendering loop
+          </Text>
         </div>
       </Box>
     </Box>

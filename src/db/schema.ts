@@ -8,7 +8,7 @@ export const user = pgTable("user", {
     .$defaultFn(() => false)
     .notNull(),
   image: text("image"),
-  role: text("role").default("user"), // admin, manager, user, guest - defaults to 'user'
+  role: text("role").default("guest"), // admin, manager, user, guest - defaults to 'guest' for new users
   organizationId: uuid("organization_id"), // Changed to UUID to match organization table
   needsProfileCompletion: boolean("needs_profile_completion")
     .$defaultFn(() => true)

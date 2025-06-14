@@ -21,10 +21,6 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useChartConfig } from './ChartContainer';
-import { useTheme } from '@/lib/theme/provider';
-import { AnimationVariant } from '@/lib/design';
-import { useAnimationVariant } from '@/hooks/useAnimationVariant';
-import { useAnimationStore } from '@/lib/stores/animation-store';
 import { haptic } from '@/lib/ui/haptics';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -53,16 +49,11 @@ export interface PieChartProps {
   
   // Animation props
   animated?: boolean;
-  animationVariant?: AnimationVariant;
   animationType?: PieChartAnimationType;
   animationDuration?: number;
   animationDelay?: number;
   staggerDelay?: number;
   useHaptics?: boolean;
-  animationConfig?: {
-    duration?: number;
-    easing?: typeof Easing.inOut;
-  };
 }
 
 export const PieChart: React.FC<PieChartProps> = ({
@@ -79,25 +70,17 @@ export const PieChart: React.FC<PieChartProps> = ({
   testID,
   // Animation props
   animated = true,
-  animationVariant = 'moderate',
   animationType = 'rotate',
-  animationDuration,
+  animationDuration = 700,
   animationDelay = 0,
   staggerDelay = 50,
   useHaptics = true,
-  animationConfig,
 }) => {
-  const theme = useTheme();
   const chartConfig = useChartConfig();
   const screenWidth = Dimensions.get('window').width;
   const width = propWidth || screenWidth - 32;
-  const { shouldAnimate } = useAnimationStore();
-  const { config, isAnimated } = useAnimationVariant({
-    variant: animationVariant,
-    overrides: animationConfig,
-  });
   
-  const duration = animationDuration ?? config.duration.normal;
+  const duration = animationDuration;
   
   const centerX = width / 2;
   const centerY = height / 2;
@@ -182,8 +165,6 @@ export const PieChart: React.FC<PieChartProps> = ({
             slice={slice}
             index={index}
             animated={animated}
-            isAnimated={isAnimated}
-            shouldAnimate={shouldAnimate}
             animationType={animationType}
             duration={duration}
             animationDelay={animationDelay}
@@ -191,7 +172,6 @@ export const PieChart: React.FC<PieChartProps> = ({
             showLabels={showLabels}
             showValues={showValues}
             labelPosition={labelPosition}
-            theme={theme}
             onPress={() => {
               if (useHaptics) {
                 haptic('impact');
@@ -208,12 +188,12 @@ export const PieChart: React.FC<PieChartProps> = ({
               cx={centerX}
               cy={centerY}
               r={innerRadius - 1}
-              fill={theme.background}
+              fill="#ffffff"
             />
             <SvgText
               x={centerX}
               y={centerY - 8}
-              fill={theme.foreground}
+              fill="#000000"
               fontSize={24}
               fontWeight="bold"
               textAnchor="middle"
@@ -223,7 +203,7 @@ export const PieChart: React.FC<PieChartProps> = ({
             <SvgText
               x={centerX}
               y={centerY + 8}
-              fill={theme.mutedForeground}
+              fill="#6b7280"
               fontSize={12}
               textAnchor="middle"
             >
@@ -241,8 +221,6 @@ interface AnimatedSliceProps {
   slice: any;
   index: number;
   animated: boolean;
-  isAnimated: boolean;
-  shouldAnimate: () => boolean;
   animationType: PieChartAnimationType;
   duration: number;
   animationDelay: number;
@@ -250,7 +228,6 @@ interface AnimatedSliceProps {
   showLabels: boolean;
   showValues: boolean;
   labelPosition: 'inside' | 'outside';
-  theme: any;
   onPress: () => void;
 }
 
@@ -258,8 +235,6 @@ const AnimatedSlice: React.FC<AnimatedSliceProps> = ({
   slice,
   index,
   animated,
-  isAnimated,
-  shouldAnimate,
   animationType,
   duration,
   animationDelay,
@@ -267,7 +242,6 @@ const AnimatedSlice: React.FC<AnimatedSliceProps> = ({
   showLabels,
   showValues,
   labelPosition,
-  theme,
   onPress,
 }) => {
   const animationProgress = useSharedValue(0);
@@ -275,7 +249,7 @@ const AnimatedSlice: React.FC<AnimatedSliceProps> = ({
   const labelOpacity = useSharedValue(0);
   
   useEffect(() => {
-    if (animated && isAnimated && shouldAnimate()) {
+    if (animated) {
       const delay = animationDelay + (index * staggerDelay);
       
       if (animationType === 'rotate') {
@@ -318,7 +292,7 @@ const AnimatedSlice: React.FC<AnimatedSliceProps> = ({
       animationProgress.value = 1;
       labelOpacity.value = 1;
     }
-  }, [animated, isAnimated, shouldAnimate, animationType, duration, animationDelay, staggerDelay, index, animationProgress, labelOpacity]);
+  }, [animated, animationType, duration, animationDelay, staggerDelay, index, animationProgress, labelOpacity]);
   
   const animatedProps = useAnimatedProps(() => {
     let path = slice.path;
@@ -356,18 +330,18 @@ const AnimatedSlice: React.FC<AnimatedSliceProps> = ({
   });
   
   const handlePressIn = () => {
-    if (animated && isAnimated && shouldAnimate()) {
+    if (animated) {
       scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
     }
   };
   
   const handlePressOut = () => {
-    if (animated && isAnimated && shouldAnimate()) {
+    if (animated) {
       scale.value = withSpring(1, { damping: 15, stiffness: 400 });
     }
   };
   
-  if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+  if (animated && animationType !== 'none') {
     return (
       <G>
         <AnimatedPath
@@ -383,7 +357,7 @@ const AnimatedSlice: React.FC<AnimatedSliceProps> = ({
             <SvgText
               x={slice.labelX}
               y={slice.labelY - (showValues ? 8 : 0)}
-              fill={labelPosition === 'inside' ? theme.background : theme.foreground}
+              fill={labelPosition === 'inside' ? '#ffffff' : '#000000'}
               fontSize={12}
               fontWeight="500"
               textAnchor="middle"
@@ -396,7 +370,7 @@ const AnimatedSlice: React.FC<AnimatedSliceProps> = ({
             <SvgText
               x={slice.labelX}
               y={slice.labelY + (showLabels ? 8 : 0)}
-              fill={labelPosition === 'inside' ? theme.background : theme.mutedForeground}
+              fill={labelPosition === 'inside' ? '#ffffff' : '#6b7280'}
               fontSize={11}
               textAnchor="middle"
             >
@@ -420,7 +394,7 @@ const AnimatedSlice: React.FC<AnimatedSliceProps> = ({
         <SvgText
           x={slice.labelX}
           y={slice.labelY - (showValues ? 8 : 0)}
-          fill={labelPosition === 'inside' ? theme.background : theme.foreground}
+          fill={labelPosition === 'inside' ? '#ffffff' : '#000000'}
           fontSize={12}
           fontWeight="500"
           textAnchor="middle"
@@ -433,7 +407,7 @@ const AnimatedSlice: React.FC<AnimatedSliceProps> = ({
         <SvgText
           x={slice.labelX}
           y={slice.labelY + (showLabels ? 8 : 0)}
-          fill={labelPosition === 'inside' ? theme.background : theme.mutedForeground}
+          fill={labelPosition === 'inside' ? '#ffffff' : '#6b7280'}
           fontSize={11}
           textAnchor="middle"
         >

@@ -65,17 +65,31 @@ export function useResponsiveStyle<T extends Record<string, any>>(
   return useResponsiveValue(styles);
 }
 
-// Utility hooks for common breakpoints
-export const useIsMobile = () => !useMediaQuery('md');
-export const useIsTablet = () => useMediaQuery('md') && !useMediaQuery('lg');
-export const useIsDesktop = () => useMediaQuery('lg');
-
 // Unified responsive hook that returns all responsive utilities
 export function useResponsive() {
-  const isMobile = useIsMobile();
-  const isTablet = useIsTablet();
-  const isDesktop = useIsDesktop();
   const breakpoint = useBreakpoint();
+  
+  // Call all media queries at the top level to maintain hook order
+  const isXs = true; // xs is always true (0px and up)
+  const isSm = useMediaQuery('sm');
+  const isMd = useMediaQuery('md');
+  const isLg = useMediaQuery('lg');
+  const isXl = useMediaQuery('xl');
+  const is2xl = useMediaQuery('2xl');
+  
+  // Calculate device type flags based on media queries
+  const isMobile = !isMd;
+  const isTablet = isMd && !isLg;
+  const isDesktop = isLg;
+  
+  const mediaQueries = {
+    xs: isXs,
+    sm: isSm,
+    md: isMd,
+    lg: isLg,
+    xl: isXl,
+    '2xl': is2xl,
+  };
   
   return {
     // Main breakpoint flags
@@ -93,7 +107,7 @@ export function useResponsive() {
     
     // Utility functions
     isBreakpoint: (bp: keyof typeof BREAKPOINTS) => breakpoint === bp,
-    isAtLeast: (bp: keyof typeof BREAKPOINTS) => useMediaQuery(bp),
+    isAtLeast: (bp: keyof typeof BREAKPOINTS) => mediaQueries[bp],
     isAtMost: (bp: keyof typeof BREAKPOINTS) => {
       const breakpoints = ['xs', 'sm', 'md', 'lg', 'xl', '2xl'] as const;
       const currentIndex = breakpoints.indexOf(breakpoint);
@@ -102,3 +116,8 @@ export function useResponsive() {
     },
   };
 }
+
+// Utility hooks for common breakpoints (using the unified hook)
+export const useIsMobile = () => useResponsive().isMobile;
+export const useIsTablet = () => useResponsive().isTablet;
+export const useIsDesktop = () => useResponsive().isDesktop;

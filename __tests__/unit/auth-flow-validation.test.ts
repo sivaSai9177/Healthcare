@@ -4,7 +4,7 @@
  */
 
 import { signUpSchema } from '@/lib/validations/auth';
-import { UserRole } from '@/components/RoleSelector';
+import { UserRole } from '@/components/blocks/forms/RoleSelector/RoleSelector';
 
 describe('Auth Flow Validation Logic Tests', () => {
   describe('Role-Based Organization Validation', () => {

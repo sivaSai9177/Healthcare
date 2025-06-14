@@ -26,14 +26,12 @@ import Animated, {
   interpolate,
   Easing,
 } from 'react-native-reanimated';
-import { AnimationVariant , SpacingScale } from '@/lib/design';
-import { useAnimationVariant } from '@/hooks/useAnimationVariant';
-import { useAnimationStore } from '@/lib/stores/animation-store';
+import { SpacingScale } from '@/lib/design';
 import { haptic } from '@/lib/ui/haptics';
 import { useChartConfig } from './ChartContainer';
-import { Box } from '../Box';
-import { Text } from '../Text';
-import { HStack } from '../Stack';
+import { Box } from '@/components/universal/layout/Box';
+import { Text } from '@/components/universal/typography/Text';
+import { HStack } from '@/components/universal/layout/Stack';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -67,16 +65,11 @@ export interface LineChartProps {
   
   // Animation props
   animated?: boolean;
-  animationVariant?: AnimationVariant;
   animationType?: LineChartAnimationType;
   animationDuration?: number;
   animationDelay?: number;
   staggerDelay?: number;
   useHaptics?: boolean;
-  animationConfig?: {
-    duration?: number;
-    easing?: typeof Easing.inOut;
-  };
 }
 
 export const LineChart: React.FC<LineChartProps> = ({
@@ -93,24 +86,16 @@ export const LineChart: React.FC<LineChartProps> = ({
   testID,
   // Animation props
   animated = true,
-  animationVariant = 'moderate',
   animationType = 'draw',
-  animationDuration,
+  animationDuration = 700,
   animationDelay = 0,
   staggerDelay = 100,
   useHaptics = true,
-  animationConfig,
 }) => {
   const chartConfig = useChartConfig();
   const screenWidth = Dimensions.get('window').width;
   const width = propWidth || screenWidth - 32;
-  const { shouldAnimate } = useAnimationStore();
-  const { config, isAnimated } = useAnimationVariant({
-    variant: animationVariant,
-    overrides: animationConfig,
-  });
-  
-  const duration = animationDuration ?? config.duration.normal;
+  const duration = animationDuration;
   
   // Tooltip state
   const [tooltip, setTooltip] = useState<{
@@ -420,8 +405,6 @@ export const LineChart: React.FC<LineChartProps> = ({
               padding={padding}
               chartHeight={chartHeight}
               animated={animated}
-              isAnimated={isAnimated}
-              shouldAnimate={shouldAnimate}
               animationType={animationType}
               duration={duration}
               animationDelay={animationDelay}
@@ -441,11 +424,11 @@ export const LineChart: React.FC<LineChartProps> = ({
             left: Math.max(10, Math.min(tooltip.x - 75, width - 160)),
             top: Math.max(10, tooltip.y - 80),
             opacity: tooltipOpacity,
-            pointerEvents: 'none',
             ...(Platform.OS === 'web' && {
               transition: 'left 0.15s ease-out, top 0.15s ease-out',
             }),
           }}
+          pointerEvents="none"
         >
           <Box
             bgTheme="popover"
@@ -464,7 +447,7 @@ export const LineChart: React.FC<LineChartProps> = ({
                   width: 8,
                   height: 8,
                   borderRadius: 4,
-                  backgroundColor: tooltip.datasetLabel === 'Desktop' ? 'hsl(var(--chart-1))' : 'hsl(var(--chart-2))',
+                  backgroundColor: tooltip.datasetLabel === 'Desktop' ? '#3b82f6' : '#10b981',
                 }}
               />
               <Text size="xs" weight="medium" colorTheme="foreground">
@@ -494,8 +477,6 @@ interface AnimatedLineProps {
   padding: any;
   chartHeight: number;
   animated: boolean;
-  isAnimated: boolean;
-  shouldAnimate: () => boolean;
   animationType: LineChartAnimationType;
   duration: number;
   animationDelay: number;
@@ -513,8 +494,6 @@ const AnimatedLine: React.FC<AnimatedLineProps> = ({
   padding,
   chartHeight,
   animated,
-  isAnimated,
-  shouldAnimate,
   animationType,
   duration,
   animationDelay,
@@ -526,7 +505,7 @@ const AnimatedLine: React.FC<AnimatedLineProps> = ({
   const opacityAnimation = useSharedValue(0);
   
   useEffect(() => {
-    if (animated && isAnimated && shouldAnimate()) {
+    if (animated) {
       const delay = animationDelay + (datasetIndex * staggerDelay);
       
       if (animationType === 'draw') {
@@ -576,7 +555,7 @@ const AnimatedLine: React.FC<AnimatedLineProps> = ({
       pathAnimation.value = 1;
       opacityAnimation.value = 1;
     }
-  }, [animated, isAnimated, shouldAnimate, animationType, duration, animationDelay, staggerDelay, datasetIndex, pathAnimation, opacityAnimation]);
+  }, [animated, animationType, duration, animationDelay, staggerDelay, datasetIndex, pathAnimation, opacityAnimation]);
   
   const animatedPathProps = useAnimatedProps(() => {
     if (animationType === 'draw') {
@@ -603,8 +582,8 @@ const AnimatedLine: React.FC<AnimatedLineProps> = ({
     opacity: interpolate(opacityAnimation.value, [0, 1], [0, 0.8]),
   }));
   
-  const LineComponent = animated && isAnimated && shouldAnimate() && animationType !== 'none' ? AnimatedPath : Path;
-  const AreaComponent = animated && isAnimated && shouldAnimate() && animationType !== 'none' ? AnimatedPath : Path;
+  const LineComponent = animated && animationType !== 'none' ? AnimatedPath : Path;
+  const AreaComponent = animated && animationType !== 'none' ? AnimatedPath : Path;
   
   return (
     <G>
@@ -613,7 +592,7 @@ const AnimatedLine: React.FC<AnimatedLineProps> = ({
         <AreaComponent
           d={`${path} L ${points[points.length - 1].x} ${padding.top + chartHeight} L ${points[0].x} ${padding.top + chartHeight} Z`}
           fill={`url(#gradient-${datasetIndex})`}
-          animatedProps={animated && isAnimated && shouldAnimate() && animationType !== 'none' ? animatedAreaProps : undefined}
+          animatedProps={animated && animationType !== 'none' ? animatedAreaProps : undefined}
         />
       )}
       
@@ -625,7 +604,7 @@ const AnimatedLine: React.FC<AnimatedLineProps> = ({
         fill="none"
         strokeLinecap="round"
         strokeLinejoin="round"
-        animatedProps={animated && isAnimated && shouldAnimate() && animationType !== 'none' ? animatedPathProps : undefined}
+        animatedProps={animated && animationType !== 'none' ? animatedPathProps : undefined}
       />
       
       {/* Data points */}
@@ -636,8 +615,6 @@ const AnimatedLine: React.FC<AnimatedLineProps> = ({
           index={index}
           color={color}
           animated={animated}
-          isAnimated={isAnimated}
-          shouldAnimate={shouldAnimate}
           animationDelay={animationDelay + (datasetIndex * staggerDelay) + (index * 30)}
           duration={duration}
           tooltip={tooltip}
@@ -654,8 +631,6 @@ interface AnimatedDataPointProps {
   index: number;
   color: string;
   animated: boolean;
-  isAnimated: boolean;
-  shouldAnimate: () => boolean;
   animationDelay: number;
   duration: number;
   tooltip: any;
@@ -667,8 +642,6 @@ const AnimatedDataPoint: React.FC<AnimatedDataPointProps> = ({
   index,
   color,
   animated,
-  isAnimated,
-  shouldAnimate,
   animationDelay,
   duration,
   tooltip,
@@ -678,7 +651,7 @@ const AnimatedDataPoint: React.FC<AnimatedDataPointProps> = ({
   const opacity = useSharedValue(0);
   
   useEffect(() => {
-    if (animated && isAnimated && shouldAnimate()) {
+    if (animated) {
       opacity.value = withDelay(
         animationDelay,
         withTiming(1, { duration: duration / 3 })
@@ -694,7 +667,7 @@ const AnimatedDataPoint: React.FC<AnimatedDataPointProps> = ({
       opacity.value = 1;
       scale.value = 1;
     }
-  }, [animated, isAnimated, shouldAnimate, animationDelay, duration, opacity, scale]);
+  }, [animated, animationDelay, duration, opacity, scale]);
   
   const animatedProps = useAnimatedProps(() => ({
     r: interpolate(scale.value, [0, 1], [0, tooltip?.x === point.x && tooltip?.y === point.y ? 5 : 3]),

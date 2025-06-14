@@ -4,6 +4,8 @@
  */
 
 // Set up Reanimated mocks before any imports to prevent initialization errors
+import { Platform } from 'react-native';
+
 if (typeof globalThis !== 'undefined' && typeof window !== 'undefined') {
   // We're on web - set up mocks immediately
   // Make properties writable so Reanimated can override them
@@ -39,8 +41,6 @@ if (typeof globalThis !== 'undefined' && typeof window !== 'undefined') {
   });
 }
 
-import { Platform } from 'react-native';
-
 // Suppress warnings in development
 if (__DEV__) {
   const originalWarn = console.warn;
@@ -68,6 +68,12 @@ if (__DEV__) {
     'ProgressTransitionRegister',
     'LayoutAnimationRepository',
     'UpdatePropsManager',
+    // Shadow style deprecation warnings
+    '"shadow*" style props are deprecated',
+    'shadowColor',
+    'shadowOffset',
+    'shadowOpacity',
+    'shadowRadius',
   ];
   
   console.warn = (...args: unknown[]) => {

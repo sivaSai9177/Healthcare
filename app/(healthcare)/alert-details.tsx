@@ -14,7 +14,7 @@ import {
   Symbol,
   Skeleton,
 } from '@/components/universal';
-import { AlertTimeline } from '@/components/healthcare/AlertTimeline';
+import { AlertTimeline } from '@/components/blocks/healthcare/AlertTimeline';
 import { useTheme } from '@/lib/theme/provider';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useAuth } from '@/hooks/useAuth';
@@ -122,7 +122,7 @@ export default function AlertDetailsScreen() {
       <Container style={{ flex: 1 }}>
         <Card style={{ margin: spacing.md }}>
           <Stack spacing="md" align="center">
-            <Symbol name="exclamationmark.triangle.fill" size={48} color={theme.destructive} />
+            <Symbols name="exclamationmark.triangle.fill" size={48} color={theme.destructive} />
             <Text size="lg" weight="medium">Alert not found</Text>
             <Button variant="outline" onPress={() => router.back()}>
               Go Back
@@ -179,24 +179,24 @@ export default function AlertDetailsScreen() {
               {/* Alert Details */}
               <VStack spacing="sm">
                 <HStack spacing="sm">
-                  <Symbol name="bed.double.fill" size={16} color={theme.muted} />
+                  <Symbols name="bed.double.fill" size={16} color={theme.muted} />
                   <Text>Room {alert.roomNumber}</Text>
                 </HStack>
                 
                 {alert.patientName && (
                   <HStack spacing="sm">
-                    <Symbol name="person.fill" size={16} color={theme.muted} />
+                    <Symbols name="person.fill" size={16} color={theme.muted} />
                     <Text>{alert.patientName}</Text>
                   </HStack>
                 )}
                 
                 <HStack spacing="sm">
-                  <Symbol name="clock.fill" size={16} color={theme.muted} />
+                  <Symbols name="clock.fill" size={16} color={theme.muted} />
                   <Text>Created {format(new Date(alert.createdAt), 'MMM d, h:mm a')}</Text>
                 </HStack>
                 
                 <HStack spacing="sm">
-                  <Symbol name="person.badge.plus" size={16} color={theme.muted} />
+                  <Symbols name="person.badge.plus" size={16} color={theme.muted} />
                   <Text>By {alert.creatorName || 'Unknown'}</Text>
                 </HStack>
               </VStack>
@@ -217,7 +217,7 @@ export default function AlertDetailsScreen() {
           {escalationStatus && alert.status === 'active' && (
             <Card variant="warning">
               <HStack spacing="sm" align="center">
-                <Symbol name="exclamationmark.triangle.fill" size={20} color={theme.destructive} />
+                <Symbols name="exclamationmark.triangle.fill" size={20} color={theme.destructive} />
                 <VStack spacing="xs" style={{ flex: 1 }}>
                   <Text weight="medium">Escalation Warning</Text>
                   <Text size="sm">
@@ -248,7 +248,7 @@ export default function AlertDetailsScreen() {
                 {canAcknowledge && (
                   <Button onPress={handleAcknowledge} size="lg">
                     <HStack spacing="sm" align="center">
-                      <Symbol name="checkmark.circle.fill" size={20} color={theme.background} />
+                      <Symbols name="checkmark.circle.fill" size={20} color={theme.background} />
                       <Text color={theme.background} weight="medium">Acknowledge Alert</Text>
                     </HStack>
                   </Button>
@@ -257,7 +257,7 @@ export default function AlertDetailsScreen() {
                 {canResolve && (
                   <Button onPress={handleResolve} variant="success" size="lg">
                     <HStack spacing="sm" align="center">
-                      <Symbol name="checkmark.seal.fill" size={20} color={theme.background} />
+                      <Symbols name="checkmark.seal.fill" size={20} color={theme.background} />
                       <Text color={theme.background} weight="medium">Resolve Alert</Text>
                     </HStack>
                   </Button>

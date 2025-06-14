@@ -107,9 +107,8 @@ start_local_db() {
     echo "⏳ Waiting for database to be ready..."
     sleep 3
     
-    # Run migrations if needed
-    echo "📋 Checking database migrations..."
-    APP_ENV=local drizzle-kit push --config=drizzle.config.ts
+    echo "⚡ Skipping database migration checks for faster startup"
+    echo "   Use FORCE_DB_SETUP=true to force setup if needed"
 }
 
 # Function to setup healthcare if requested

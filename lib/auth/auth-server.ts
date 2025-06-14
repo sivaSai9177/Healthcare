@@ -6,12 +6,13 @@
 
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { oAuthProxy, multiSession, organization, admin, magicLink } from "better-auth/plugins";
+import { oAuthProxy, organization, admin, magicLink, twoFactor, passkey } from "better-auth/plugins";
 import { db } from "@/src/db";
 import * as schema from "@/src/db/schema";
 import { eq } from "drizzle-orm";
 import { emailService } from "@/src/server/services/email-index";
 import { notificationService, NotificationType, Priority } from "@/src/server/services/notifications";
+import crypto from "crypto";
 
 // Server-safe logger (no React Native dependencies)
 const log = {
@@ -30,12 +31,23 @@ const log = {
   },
 };
 
-// Server-safe base URL configuration
+// Server-safe base URL configuration with validation
 const getBaseURL = () => {
-  if (process.env.BETTER_AUTH_BASE_URL) {
-    return process.env.BETTER_AUTH_BASE_URL;
+  const url = process.env.BETTER_AUTH_BASE_URL || 'http://localhost:8081/api/auth';
+  
+  // Validate URL format in production
+  if (process.env.NODE_ENV === 'production') {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'https:') {
+        console.warn('[AUTH] Warning: Using non-HTTPS URL in production');
+      }
+    } catch (e) {
+      console.error('[AUTH] Invalid BETTER_AUTH_BASE_URL:', url);
+    }
   }
-  return 'http://localhost:8081/api/auth';
+  
+  return url;
 };
 
 const getTrustedOrigins = () => {
@@ -47,6 +59,11 @@ const getTrustedOrigins = () => {
     "http://127.0.0.1:8082",
     "http://127.0.0.1:3000",
   ];
+  
+  // Add production origins from environment
+  if (process.env.ALLOWED_ORIGINS) {
+    origins.push(...process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()));
+  }
   
   if (process.env.NODE_ENV === "development") {
     origins.push(
@@ -81,14 +98,43 @@ if (process.env.NODE_ENV === 'development') {
   // });
 }
 
+// Security headers middleware
+const securityHeaders = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+  ...(process.env.NODE_ENV === 'production' && {
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https: wss:;",
+  }),
+};
+
 export const auth = betterAuth({
   baseURL: getBaseURL(),
   secret: process.env.BETTER_AUTH_SECRET || "your-secret-key-change-in-production",
   
-  // Disable CSRF in development for tunnel URLs
-  ...(process.env.NODE_ENV === "development" && {
-    disableCsrf: true,
+  // Security configuration
+  ...(process.env.NODE_ENV === "development" ? {
+    // Development-specific settings
+    disableCsrf: true, // Only for tunnel URLs in dev
+  } : {
+    // Production security settings
+    secureCookies: true,
+    cookiePrefix: '__Secure-', // Cookie prefix for secure cookies
   }),
+  
+  // Advanced security options
+  advanced: {
+    generateId: () => crypto.randomUUID(), // Use crypto UUID for session IDs
+    crossSubDomainCookies: {
+      enabled: process.env.ENABLE_CROSS_SUBDOMAIN === 'true',
+      domain: process.env.COOKIE_DOMAIN || '.yourdomain.com',
+    },
+    disableWebAuthnPasswordless: false, // Enable WebAuthn for passwordless
+    disableGeneratedOAuthRedirect: false,
+  },
   
   socialProviders: {
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && {
@@ -105,7 +151,7 @@ export const auth = betterAuth({
       role: {
         type: "string",
         required: false,
-        defaultValue: "user", // Default to 'user' role instead of null
+        defaultValue: "guest", // Changed from "user" to "guest" to match profile completion logic
       },
       organizationId: {
         type: "string",
@@ -114,7 +160,7 @@ export const auth = betterAuth({
       needsProfileCompletion: {
         type: "boolean",
         required: true,
-        defaultValue: true,
+        defaultValue: true, // All new users need profile completion
       },
     },
   },
@@ -169,49 +215,94 @@ export const auth = betterAuth({
   
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // 1 day
+    updateAge: 60 * 60 * 24, // 1 day - refresh session if older than this
     cookieCache: {
       enabled: true,
+      maxAge: 60 * 5, // 5 minutes cache
     },
+    // Session security
+    storeSessionInDatabase: true, // Store sessions in DB for better control
+    // Enable session fingerprinting for additional security
+    enableSessionFingerprinting: process.env.NODE_ENV === 'production',
   },
   
   cookies: {
     sessionToken: {
-      name: "better-auth.session-token",
-      httpOnly: false,
-      sameSite: "lax",
-      secure: false,
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
+      name: process.env.NODE_ENV === 'production' ? '__Secure-better-auth.session_token' : 'better-auth.session_token',
+      httpOnly: process.env.NODE_ENV === 'production', // HttpOnly in production
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // Strict in production
+      secure: process.env.NODE_ENV === 'production', // Secure in production
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      domain: process.env.COOKIE_DOMAIN || (process.env.NODE_ENV === 'production' ? '.yourdomain.com' : undefined),
+      // Additional security attributes
+      ...(process.env.NODE_ENV === 'production' && {
+        priority: 'high', // Cookie priority hint
+        partitioned: true, // CHIPS - Cookies Having Independent Partitioned State
+      }),
+    },
+    sessionRefreshToken: {
+      name: process.env.NODE_ENV === 'production' ? '__Host-better-auth.refresh_token' : 'better-auth.refresh_token',
+      httpOnly: true, // Always HttpOnly
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+      // No domain for __Host- prefixed cookies
+      ...(process.env.NODE_ENV !== 'production' && {
+        domain: undefined,
+      }),
     },
     state: {
-      name: "better-auth.state",
-      httpOnly: false,
-      sameSite: "lax",
-      secure: false,
-      path: "/",
-      maxAge: 60 * 10,
+      name: 'better-auth.state',
+      httpOnly: true, // Make state cookie HttpOnly
+      sameSite: 'lax', // Lax for OAuth redirects
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 10, // 10 minutes
+    },
+    csrf: {
+      name: process.env.NODE_ENV === 'production' ? '__Host-better-auth.csrf' : 'better-auth.csrf',
+      httpOnly: true, // CSRF token should be HttpOnly
+      sameSite: 'strict', // Strict for CSRF protection
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24, // 24 hours
+    },
+    // Additional cookie for remember me functionality
+    rememberMe: {
+      name: 'better-auth.remember',
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 90, // 90 days
     },
   },
   
   plugins: [
     // Note: expo() plugin removed as it causes server-side issues
     oAuthProxy(),
-    multiSession({ maximumSessions: 5 }),
+    // multiSession removed - it was causing cookie naming issues
     organization({
       allowUserToCreateOrganization: true,
       membershipLimits: {
         'free': 5,
         'pro': 50,
         'enterprise': -1,
-      }
+      },
+      // Organization security settings
+      invitationExpiresIn: 60 * 60 * 24 * 7, // 7 days
+      requireEmailVerification: true,
     }),
     admin({
       defaultRole: 'user',
-      adminUserIds: process.env.ADMIN_USER_IDS?.split(',') || []
+      adminUserIds: process.env.ADMIN_USER_IDS?.split(',') || [],
+      // Admin security settings
+      requireTwoFactor: process.env.NODE_ENV === 'production',
     }),
     magicLink({
-      sendMagicLink: async ({ email, url }) => {
+      sendMagicLink: async ({ email, url, token }) => {
         log.auth.info(`Magic link generated`, { email, url });
         
         // Find user by email to get userId
@@ -233,10 +324,51 @@ export const auth = betterAuth({
             name: user?.name || email,
             magicLinkUrl: url,
             expirationTime: '10 minutes',
+            // Add security notice
+            securityNote: 'If you did not request this link, please ignore this email.',
           },
         });
       },
-    })
+      // Magic link security settings
+      expiresIn: 60 * 10, // 10 minutes
+      requestLimit: {
+        window: 60 * 60, // 1 hour
+        max: 5, // 5 requests per hour
+      },
+    }),
+    // Two-factor authentication plugin
+    ...(process.env.ENABLE_TWO_FACTOR === 'true' ? [twoFactor({
+      issuer: process.env.APP_NAME || 'Hospital Alert System',
+      // Custom TOTP settings
+      totpOptions: {
+        period: 30,
+        digits: 6,
+        algorithm: 'SHA1',
+      },
+      // Backup codes
+      backupCodes: {
+        quantity: 10,
+        length: 8,
+      },
+      // Force 2FA for certain roles
+      forceTwoFactor: (user) => {
+        const userRole = (user as any).role;
+        return userRole === 'admin' || userRole === 'manager';
+      },
+    })] : []),
+    // Passkey/WebAuthn support
+    ...(process.env.ENABLE_PASSKEYS === 'true' ? [passkey({
+      rpName: process.env.APP_NAME || 'Hospital Alert System',
+      rpID: process.env.RP_ID || 'localhost',
+      origin: process.env.BETTER_AUTH_BASE_URL || 'http://localhost:8081',
+      // Passkey settings
+      authenticatorSelection: {
+        authenticatorAttachment: 'platform',
+        userVerification: 'preferred',
+        residentKey: 'preferred',
+        requireResidentKey: false,
+      },
+    })] : []),
   ],
   
   // Use static array to avoid the async function issue
@@ -264,9 +396,52 @@ export const auth = betterAuth({
   },
   
   rateLimit: {
-    window: 15 * 60,
-    max: process.env.NODE_ENV === "production" ? 100 : 1000,
-    storage: "memory",
+    enabled: true,
+    window: 15 * 60 * 1000, // 15 minutes in milliseconds
+    max: process.env.NODE_ENV === 'production' ? 100 : 1000,
+    standardHeaders: true, // Return rate limit info in headers
+    legacyHeaders: false, // Disable legacy headers
+    storage: process.env.NODE_ENV === 'production' ? 'database' : 'memory', // Use DB in production
+    // Custom rate limits per endpoint
+    customRules: [
+      {
+        path: '/sign-in',
+        window: 5 * 60 * 1000, // 5 minutes
+        max: 5, // 5 attempts per 5 minutes
+      },
+      {
+        path: '/sign-up',
+        window: 60 * 60 * 1000, // 1 hour
+        max: 3, // 3 signups per hour
+      },
+      {
+        path: '/forgot-password',
+        window: 15 * 60 * 1000, // 15 minutes
+        max: 3, // 3 attempts per 15 minutes
+      },
+      {
+        path: '/verify-email',
+        window: 60 * 60 * 1000, // 1 hour
+        max: 10, // 10 attempts per hour
+      },
+    ],
+    // Skip rate limiting for certain conditions
+    skip: (req) => {
+      // Skip for health checks
+      if (req.url.includes('/health')) return true;
+      // Skip for static assets
+      if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|ico)$/)) return true;
+      return false;
+    },
+    // Custom key generator for rate limiting
+    keyGenerator: (req) => {
+      // Use a combination of IP and user ID if authenticated
+      const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 
+                 req.headers.get('x-real-ip') || 
+                 'unknown';
+      const userId = req.headers.get('x-user-id');
+      return userId ? `${ip}:${userId}` : ip;
+    },
   },
   
   logger: {
@@ -274,36 +449,221 @@ export const auth = betterAuth({
     disabled: false,
   },
   
-  onError: (error: any) => {
+  onError: (error: any, request: Request) => {
     log.auth.error("[AUTH ERROR]", error);
+    
+    // Log additional context for debugging
+    const errorContext = {
+      message: error.message,
+      code: error.code,
+      status: error.status,
+      path: new URL(request.url).pathname,
+      method: request.method,
+      userAgent: request.headers.get('user-agent'),
+      ip: request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip'),
+    };
+    
+    console.error('[AUTH_SERVER] Error details:', errorContext);
+    
+    // Log to monitoring service in production
+    if (process.env.NODE_ENV === 'production' && process.env.SENTRY_DSN) {
+      // Would send to Sentry or similar monitoring service
+      // sentryCapture(error, errorContext);
+    }
+    
+    // Rate limit specific error handling
+    if (error.code === 'RATE_LIMIT_EXCEEDED') {
+      return {
+        message: 'Too many requests. Please try again later.',
+        status: 429,
+        retryAfter: error.retryAfter || 60,
+      };
+    }
+    
+    // Handle specific error types with appropriate messages
+    const errorMessages = {
+      INVALID_CREDENTIALS: 'Invalid email or password',
+      EMAIL_NOT_VERIFIED: 'Please verify your email address',
+      ACCOUNT_LOCKED: 'Account temporarily locked due to suspicious activity',
+      SESSION_EXPIRED: 'Your session has expired. Please sign in again.',
+      INVALID_TOKEN: 'Invalid or expired token',
+    };
     
     if (process.env.NODE_ENV === "production") {
       return {
-        message: "An error occurred during authentication",
-        status: 500,
+        message: errorMessages[error.code] || "An error occurred during authentication",
+        status: error.status || 500,
       };
     }
     
     return {
       message: error.message,
       status: error.status || 500,
+      code: error.code,
     };
   },
   
   callbacks: {
+    session: {
+      async fetchSession({ session, user }) {
+        console.log('[AUTH_SERVER] session.fetchSession callback', {
+          sessionId: session?.id,
+          userId: user?.id,
+          userEmail: user?.email,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Add session security checks
+        if (session && process.env.NODE_ENV === 'production') {
+          // Check session age and force re-authentication if too old
+          const sessionAge = Date.now() - new Date(session.createdAt).getTime();
+          const maxSessionAge = 60 * 60 * 24 * 30 * 1000; // 30 days
+          
+          if (sessionAge > maxSessionAge) {
+            log.auth.info('Session too old, forcing re-authentication', {
+              sessionId: session.id,
+              sessionAge: sessionAge / 1000 / 60 / 60 / 24, // days
+            });
+            return { session: null, user: null };
+          }
+          
+          // Check for suspicious activity
+          const currentIp = session.ipAddress;
+          const lastIp = (session as any).lastIpAddress;
+          if (lastIp && currentIp !== lastIp) {
+            log.auth.info('IP address changed during session', {
+              sessionId: session.id,
+              currentIp,
+              lastIp,
+            });
+            // Could force re-authentication or send security alert
+          }
+        }
+        
+        return { session, user };
+      }
+    },
+    signOut: {
+      async before({ user, session }) {
+        console.log('[AUTH_SERVER] signOut.before callback', {
+          userId: user?.id,
+          sessionId: session?.id,
+          isOAuthSession: !!(session as any)?.provider,
+          provider: (session as any)?.provider,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Clean up OAuth-specific session data to prevent JSON parsing errors
+        if (session && (session as any)?.provider) {
+          log.auth.info('OAuth session sign-out detected', {
+            provider: (session as any).provider,
+            userId: user?.id
+          });
+          
+          // Return clean objects without circular references or non-serializable data
+          return {
+            user: user ? {
+              id: user.id,
+              email: user.email,
+              name: user.name
+            } : undefined,
+            session: session ? {
+              id: session.id,
+              userId: session.userId
+            } : undefined
+          };
+        }
+        
+        return { user, session };
+      },
+      async after({ user }) {
+        console.log('[AUTH_SERVER] signOut.after callback', {
+          userId: user?.id,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Clean user object for OAuth sessions
+        if (user && (user as any)?.accounts?.some((acc: any) => acc.provider === 'google')) {
+          return {
+            user: {
+              id: user.id,
+              email: user.email,
+              name: user.name
+            }
+          };
+        }
+        
+        return { user };
+      }
+    },
     signIn: {
       async before({ user, isNewUser }) {
+        // Enhanced logging for OAuth callback debugging
+        console.log('[AUTH_SERVER] signIn.before callback triggered', {
+          userId: user?.id, 
+          email: user?.email,
+          isNewUser,
+          existingRole: user?.role,
+          existingNeedsProfileCompletion: user?.needsProfileCompletion,
+          userKeys: Object.keys(user || {}),
+          timestamp: new Date().toISOString()
+        });
+        
         log.auth.debug("[AUTH CALLBACK] Sign in before", { 
           userId: user?.id, 
+          email: user?.email,
           isNewUser,
+          existingRole: user?.role,
+          existingNeedsProfileCompletion: user?.needsProfileCompletion
         });
         
         if (isNewUser) {
+          console.log('[AUTH_SERVER] New OAuth user - setting guest role and needsProfileCompletion', {
+            userId: user?.id,
+            email: user?.email,
+            beforeRole: user?.role,
+            beforeNeedsProfileCompletion: user?.needsProfileCompletion
+          });
+          
+          log.auth.info("[AUTH CALLBACK] New OAuth user detected, setting guest role", {
+            userId: user?.id,
+            email: user?.email
+          });
           user.role = 'guest';
           user.needsProfileCompletion = true;
+          
+          console.log('[AUTH_SERVER] After setting guest role', {
+            userId: user?.id,
+            afterRole: user?.role,
+            afterNeedsProfileCompletion: user?.needsProfileCompletion
+          });
         }
+        
+        return { user };
       },
       async after({ user, session, request }) {
+        console.log('[AUTH_SERVER] signIn.after callback triggered', {
+          userId: user?.id,
+          userRole: user?.role,
+          userNeedsProfileCompletion: user?.needsProfileCompletion,
+          sessionId: session?.id,
+          hasSession: !!session,
+          sessionToken: (session as any)?.token ? 'present' : 'missing',
+          requestUrl: request.url,
+          userAgent: request.headers.get('user-agent'),
+          timestamp: new Date().toISOString()
+        });
+        
+        // Log if this is OAuth callback
+        const isOAuthCallback = request.url.includes('/callback/google');
+        if (isOAuthCallback) {
+          console.log('[AUTH_SERVER] OAuth callback detected in signIn.after', {
+            url: request.url,
+            hasUser: !!user,
+            hasSession: !!session
+          });
+        }
+        
         log.auth.info("[AUTH CALLBACK] Sign in after", { userId: user?.id, sessionId: session?.id });
         
         const userAgent = request.headers.get('user-agent') || '';
@@ -316,6 +676,22 @@ export const auth = betterAuth({
           };
         }
         
+        // For web OAuth, redirect to auth-callback page
+        if (!isMobileOAuth && session) {
+          console.log('[AUTH_SERVER] Web OAuth successful, redirecting to auth-callback', {
+            userId: user?.id,
+            needsProfileCompletion: user?.needsProfileCompletion,
+            role: user?.role
+          });
+          
+          // Add a delay parameter to ensure session is properly saved before redirect
+          // This helps with the timing issue where the session might not be immediately available
+          return {
+            redirect: true,
+            url: '/auth-callback?oauth=true&delay=500',
+          };
+        }
+        
         return { user, session };
       },
     },
@@ -323,3 +699,114 @@ export const auth = betterAuth({
 });
 
 export type Auth = typeof auth;
+
+// Helper function to apply security headers to responses
+export function withSecurityHeaders(response: Response): Response {
+  const newResponse = new Response(response.body, response);
+  
+  Object.entries(securityHeaders).forEach(([key, value]) => {
+    newResponse.headers.set(key, value);
+  });
+  
+  return newResponse;
+}
+
+// Session security utilities
+export const sessionSecurity = {
+  // Validate session fingerprint
+  validateFingerprint: (session: any, request: Request): boolean => {
+    if (process.env.NODE_ENV !== 'production') return true;
+    
+    const currentFingerprint = generateFingerprint(request);
+    const sessionFingerprint = session.fingerprint;
+    
+    return currentFingerprint === sessionFingerprint;
+  },
+  
+  // Generate session fingerprint from request
+  generateFingerprint: (request: Request): string => {
+    const userAgent = request.headers.get('user-agent') || '';
+    const acceptLanguage = request.headers.get('accept-language') || '';
+    const acceptEncoding = request.headers.get('accept-encoding') || '';
+    
+    // Create a fingerprint from stable request characteristics
+    const data = `${userAgent}|${acceptLanguage}|${acceptEncoding}`;
+    
+    // Hash the fingerprint data
+    return crypto.createHash('sha256').update(data).digest('hex');
+  },
+  
+  // Check for session anomalies
+  checkAnomalies: (session: any, request: Request): { suspicious: boolean; reasons: string[] } => {
+    const reasons: string[] = [];
+    
+    // Check IP address changes
+    const currentIp = request.headers.get('x-forwarded-for')?.split(',')[0] || 
+                     request.headers.get('x-real-ip') || 'unknown';
+    if (session.ipAddress && session.ipAddress !== currentIp) {
+      reasons.push('IP address changed');
+    }
+    
+    // Check user agent changes
+    const currentUA = request.headers.get('user-agent') || '';
+    if (session.userAgent && session.userAgent !== currentUA) {
+      reasons.push('User agent changed');
+    }
+    
+    // Check for impossible travel (simplified version)
+    if (session.lastActivity) {
+      const timeDiff = Date.now() - new Date(session.lastActivity).getTime();
+      const locationChanged = session.ipAddress !== currentIp;
+      
+      // If location changed in less than 5 minutes, it might be suspicious
+      if (locationChanged && timeDiff < 5 * 60 * 1000) {
+        reasons.push('Impossible travel detected');
+      }
+    }
+    
+    return {
+      suspicious: reasons.length > 0,
+      reasons,
+    };
+  },
+};
+
+// Export helper to generate fingerprint
+const generateFingerprint = sessionSecurity.generateFingerprint;
+
+// Advanced session management hooks
+export const sessionHooks = {
+  // Before creating a session
+  beforeCreate: async (user: any, request: Request) => {
+    // Add session metadata
+    const metadata = {
+      ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0] || 
+                 request.headers.get('x-real-ip') || 'unknown',
+      userAgent: request.headers.get('user-agent') || 'unknown',
+      fingerprint: generateFingerprint(request),
+      createdAt: new Date(),
+      lastActivity: new Date(),
+    };
+    
+    return metadata;
+  },
+  
+  // After session is created
+  afterCreate: async (session: any, user: any) => {
+    // Log session creation for audit
+    log.auth.info('Session created', {
+      sessionId: session.id,
+      userId: user.id,
+      userEmail: user.email,
+    });
+  },
+  
+  // Before destroying a session
+  beforeDestroy: async (session: any) => {
+    // Log session destruction
+    log.auth.info('Session destroyed', {
+      sessionId: session.id,
+      userId: session.userId,
+    });
+  },
+};

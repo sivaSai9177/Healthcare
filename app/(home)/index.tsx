@@ -22,7 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { log } from "@/lib/core/debug/logger";
 import { SpacingScale } from "@/lib/design";
 import { useTheme } from "@/lib/theme/provider";
-import { useRouter } from "expo-router";
+import { useRouter, usePathname } from "expo-router";
 import React, { useState, useCallback, useTransition, useDeferredValue, useMemo } from "react";
 import { Alert, Platform, RefreshControl, ScrollView, Animated, Easing } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -85,16 +85,26 @@ const QuickActions = ({ actions }: { actions: any[] }) => (
 export default function HomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const theme = useTheme();
   
-  // Redirect healthcare users to healthcare dashboard
+  // Redirect healthcare users to appropriate dashboard
   React.useEffect(() => {
-    const healthcareRoles = ['operator', 'doctor', 'nurse', 'head_doctor'];
-    if (user?.role && healthcareRoles.includes(user.role)) {
-// TODO: Replace with structured logging - console.log('[HomeScreen] Redirecting to operator dashboard for role:', user.role);
-      router.replace('/(home)/operator-dashboard');
+    // Only redirect if we're on the home index page
+    if (pathname !== '/(home)' && pathname !== '/(home)/index') {
+      return;
     }
-  }, [user?.role, router]);
+    
+    // Check organizationRole first, then fall back to role
+    const effectiveRole = user?.organizationRole || user?.role;
+    if (effectiveRole) {
+      if (effectiveRole === 'operator') {
+        router.replace('/(home)/operator-dashboard');
+      } else if (['doctor', 'nurse', 'head_doctor'].includes(effectiveRole)) {
+        router.replace('/(healthcare)/dashboard');
+      }
+    }
+  }, [user?.organizationRole, user?.role, router, pathname]);
   const [refreshing, setRefreshing] = useState(false);
   const [, startTransition] = useTransition();
   const [refreshKey, setRefreshKey] = useState(0);

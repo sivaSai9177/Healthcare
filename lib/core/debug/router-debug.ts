@@ -3,7 +3,6 @@
  * Centralized routing debug utilities for Expo Router
  */
 
-import { router } from 'expo-router';
 import { log } from './logger';
 import { useDebugStore } from '@/lib/stores/debug-store';
 
@@ -20,38 +19,60 @@ class RouterDebugger {
   private history: RouteDebugInfo[] = [];
   private maxHistorySize = 50;
   private isEnabled = __DEV__;
+  private isInitialized = false;
+  private originalMethods: {
+    push?: typeof router.push;
+    replace?: typeof router.replace;
+    back?: typeof router.back;
+    setParams?: typeof router.setParams;
+  } = {};
   
   constructor() {
-    if (__DEV__) {
+    // Don't wrap router methods in constructor
+    // Wait for explicit initialization after navigation container is mounted
+  }
+  
+  public initialize() {
+    if (!__DEV__ || this.isInitialized) return;
+    
+    try {
       this.wrapRouterMethods();
+      this.isInitialized = true;
+      log.debug('[RouterDebugger] Initialized successfully', 'NAVIGATION');
+    } catch (error) {
+      log.error('[RouterDebugger] Failed to initialize', error);
     }
   }
   
   private wrapRouterMethods() {
-    // Wrap router methods to log navigation
-    const originalPush = router.push.bind(router);
-    const originalReplace = router.replace.bind(router);
-    const originalBack = router.back.bind(router);
-    const originalSetParams = router.setParams.bind(router);
+    // Lazy import router to avoid accessing it before navigation is ready
+    const { router } = require('expo-router');
     
+    // Store original methods
+    this.originalMethods.push = router.push.bind(router);
+    this.originalMethods.replace = router.replace.bind(router);
+    this.originalMethods.back = router.back.bind(router);
+    this.originalMethods.setParams = router.setParams.bind(router);
+    
+    // Wrap router methods to log navigation
     router.push = (href: any) => {
       this.logNavigation('push', href);
-      return originalPush(href);
+      return this.originalMethods.push!(href);
     };
     
     router.replace = (href: any) => {
       this.logNavigation('replace', href);
-      return originalReplace(href);
+      return this.originalMethods.replace!(href);
     };
     
     router.back = () => {
       this.logNavigation('back', null);
-      return originalBack();
+      return this.originalMethods.back!();
     };
     
     router.setParams = (params: any) => {
       this.logNavigation('setParams', params);
-      return originalSetParams(params);
+      return this.originalMethods.setParams!(params);
     };
   }
   
@@ -129,6 +150,7 @@ class RouterDebugger {
 export const routerDebugger = new RouterDebugger();
 
 // Export convenience functions
+export const initializeRouterDebugger = () => routerDebugger.initialize();
 export const getNavigationHistory = () => routerDebugger.getHistory();
 export const clearNavigationHistory = () => routerDebugger.clearHistory();
 export const setRouterDebugging = (enabled: boolean) => routerDebugger.setEnabled(enabled);

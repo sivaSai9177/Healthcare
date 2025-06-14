@@ -1,10 +1,34 @@
-import { Stack } from 'expo-router';
-import { useThemeColor } from '@/hooks/useThemeColor';
+import { Stack, Redirect } from 'expo-router';
+import { cn } from '@/lib/core/utils';
 import { stackScreenOptions } from '@/lib/navigation/transitions';
+import { useAuth } from '@/hooks/useAuth';
+import { View, ActivityIndicator } from 'react-native';
 
 export default function HealthcareLayout() {
-  const backgroundColor = useThemeColor({}, 'background');
-  const textColor = useThemeColor({}, 'text');
+  const { user, isAuthenticated, hasHydrated } = useAuth();
+
+  // Wait for auth state to be loaded
+  if (!hasHydrated) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  // Check authentication
+  if (!isAuthenticated || !user) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  // Check if user has healthcare role
+  const effectiveRole = user.organizationRole || user.role;
+  const isHealthcareRole = ['doctor', 'nurse', 'head_doctor', 'operator', 'admin'].includes(effectiveRole);
+  
+  if (!isHealthcareRole) {
+    // Redirect non-healthcare users to home
+    return <Redirect href="/(home)" />;
+  }
 
   return (
     <Stack
@@ -12,23 +36,32 @@ export default function HealthcareLayout() {
         ...stackScreenOptions.default,
         headerShown: true,
         headerStyle: {
-          backgroundColor,
+          backgroundColor: '#FFFFFF',
         },
-        headerTintColor: textColor,
+        headerTintColor: '#000000',
         headerTitleStyle: {
           fontWeight: '600',
         },
         contentStyle: {
-          backgroundColor,
+          backgroundColor: '#FFFFFF',
         },
       }}
     >
+      <Stack.Screen
+        name="dashboard"
+        options={{
+          title: 'Healthcare Dashboard',
+          headerLargeTitleStyle: {
+            color: '#000000',
+          },
+        }}
+      />
       <Stack.Screen
         name="alerts"
         options={{
           title: 'Alert Management',
           headerLargeTitleStyle: {
-            color: textColor,
+            color: '#000000',
           },
         }}
       />
@@ -37,7 +70,7 @@ export default function HealthcareLayout() {
         options={{
           title: 'Patients',
           headerLargeTitleStyle: {
-            color: textColor,
+            color: '#000000',
           },
         }}
       />
@@ -46,7 +79,7 @@ export default function HealthcareLayout() {
         options={{
           title: 'Activity Logs',
           headerLargeTitleStyle: {
-            color: textColor,
+            color: '#000000',
           },
         }}
       />
@@ -55,7 +88,7 @@ export default function HealthcareLayout() {
         options={{
           title: 'Alert History',
           headerLargeTitleStyle: {
-            color: textColor,
+            color: '#000000',
           },
         }}
       />
@@ -64,7 +97,7 @@ export default function HealthcareLayout() {
         options={{
           title: 'Escalation Queue',
           headerLargeTitleStyle: {
-            color: textColor,
+            color: '#000000',
           },
         }}
       />
@@ -73,7 +106,7 @@ export default function HealthcareLayout() {
         options={{
           title: 'Response Analytics',
           headerLargeTitleStyle: {
-            color: textColor,
+            color: '#000000',
           },
         }}
       />
@@ -82,7 +115,7 @@ export default function HealthcareLayout() {
         options={{
           title: 'Shift Handover',
           headerLargeTitleStyle: {
-            color: textColor,
+            color: '#000000',
           },
         }}
       />

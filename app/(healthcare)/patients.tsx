@@ -17,11 +17,15 @@ import {
   TabsContent,
   EmptyState,
   Button,
+  Container,
+  LoadingView,
 } from '@/components/universal';
-import { User, Search, AlertCircle, Heart, Activity, Calendar } from '@/components/universal/Symbols';
+import { User, SearchSymbol, Heart, Activity, Calendar, AlertCircle } from '@/components/universal/display/Symbols';
+import { PatientCard, ActivePatients } from '@/components/blocks/healthcare';
 import { useTheme } from '@/lib/theme/provider';
 import { useSpacing } from '@/lib/stores/spacing-store';
-import { LoadingView } from '@/components/LoadingView';
+import { useShadow } from '@/hooks/useShadow';
+import { useResponsive } from '@/hooks/responsive';
 import { format } from 'date-fns';
 
 interface Patient {
@@ -49,7 +53,9 @@ interface Patient {
 export default function PatientsScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const spacing = useSpacing();
+  const { spacing } = useSpacing();
+  const { isMobile } = useResponsive();
+  const shadowMd = useShadow({ size: 'md' });
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
@@ -145,17 +151,17 @@ export default function PatientsScreen() {
       key={patient.id}
       onPress={() => router.push(`/(modals)/patient-details?id=${patient.id}`)}
     >
-      <Card style={{ marginBottom: spacing.md }}>
-        <VStack space={spacing.md}>
-          <HStack space={spacing.md} style={{ alignItems: 'center' }}>
+      <Card style={{ marginBottom: spacing[3], ...shadowMd }} className="animate-fade-in">
+        <VStack gap={spacing[3]}>
+          <HStack gap={spacing[3]} style={{ alignItems: 'center' }}>
             <Avatar size={50}>
               <Text style={{ fontSize: 20, fontWeight: '600' }}>
                 {patient.name.split(' ').map(n => n[0]).join('')}
               </Text>
             </Avatar>
             
-            <VStack space={spacing.xs} style={{ flex: 1 }}>
-              <HStack space={spacing.sm} style={{ alignItems: 'center' }}>
+            <VStack gap={spacing[1]} style={{ flex: 1 }}>
+              <HStack gap={spacing[2]} style={{ alignItems: 'center' }}>
                 <Text style={{ fontWeight: '600', fontSize: 16 }}>{patient.name}</Text>
                 <Badge
                   variant="outline"
@@ -170,7 +176,7 @@ export default function PatientsScreen() {
                 </Badge>
               </HStack>
               
-              <HStack space={spacing.md}>
+              <HStack gap={spacing[3]}>
                 <Text style={{ fontSize: 14, color: theme.mutedForeground }}>
                   {patient.age} yrs • {patient.gender}
                 </Text>
@@ -192,19 +198,19 @@ export default function PatientsScreen() {
             {patient.diagnosis}
           </Text>
 
-          <HStack space={spacing.lg} style={{ justifyContent: 'space-between' }}>
-            <VStack space={spacing.xs}>
-              <HStack space={spacing.xs} style={{ alignItems: 'center' }}>
+          <HStack gap={spacing[4]} style={{ justifyContent: 'space-between' }}>
+            <VStack gap={spacing[1]}>
+              <HStack gap={spacing[1]} style={{ alignItems: 'center' }}>
                 <Heart size={16} color={theme.mutedForeground} />
                 <Text style={{ fontSize: 14 }}>{patient.vitals.heartRate} bpm</Text>
               </HStack>
-              <HStack space={spacing.xs} style={{ alignItems: 'center' }}>
+              <HStack gap={spacing[1]} style={{ alignItems: 'center' }}>
                 <Activity size={16} color={theme.mutedForeground} />
                 <Text style={{ fontSize: 14 }}>{patient.vitals.bloodPressure}</Text>
               </HStack>
             </VStack>
 
-            <VStack space={spacing.xs}>
+            <VStack gap={spacing[1]}>
               <Text style={{ fontSize: 14 }}>
                 Temp: {patient.vitals.temperature}°F
               </Text>
@@ -213,11 +219,11 @@ export default function PatientsScreen() {
               </Text>
             </VStack>
 
-            <VStack space={spacing.xs} style={{ alignItems: 'flex-end' }}>
+            <VStack gap={spacing[1]} style={{ alignItems: 'flex-end' }}>
               <Text style={{ fontSize: 12, color: theme.mutedForeground }}>
                 {patient.assignedDoctor.name}
               </Text>
-              <HStack space={spacing.xs} style={{ alignItems: 'center' }}>
+              <HStack gap={spacing[1]} style={{ alignItems: 'center' }}>
                 <Calendar size={14} color={theme.mutedForeground} />
                 <Text style={{ fontSize: 12, color: theme.mutedForeground }}>
                   {format(patient.admittedAt, 'MMM d')}
@@ -240,11 +246,11 @@ export default function PatientsScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        contentContainerStyle={{ padding: spacing.lg }}
+        contentContainerStyle={{ padding: spacing[4] }}
       >
-        <VStack space={spacing.lg}>
+        <VStack gap={spacing[4]} className="animate-fade-in">
           {/* Header */}
-          <VStack space={spacing.md}>
+          <VStack gap={spacing[3]}>
             <Heading size="lg">Patients</Heading>
             
             {/* Search */}
@@ -256,30 +262,8 @@ export default function PatientsScreen() {
             />
           </VStack>
 
-          {/* Stats Cards */}
-          <HStack space={spacing.md} style={{ flexWrap: 'wrap' }}>
-            <Card style={{ flex: 1, minWidth: 150 }}>
-              <VStack space={spacing.xs} style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: 24, fontWeight: '600' }}>
-                  {filteredPatients.length}
-                </Text>
-                <Text style={{ color: theme.mutedForeground }}>
-                  Total Patients
-                </Text>
-              </VStack>
-            </Card>
-            
-            <Card style={{ flex: 1, minWidth: 150 }}>
-              <VStack space={spacing.xs} style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: 24, fontWeight: '600', color: theme.destructive }}>
-                  {filteredPatients.filter(p => p.status === 'critical').length}
-                </Text>
-                <Text style={{ color: theme.mutedForeground }}>
-                  Critical
-                </Text>
-              </VStack>
-            </Card>
-          </HStack>
+          {/* Active Patients Block */}
+          <ActivePatients />
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -298,7 +282,7 @@ export default function PatientsScreen() {
                   description="No patients match your search criteria"
                 />
               ) : (
-                <VStack space={spacing.md}>
+                <VStack gap={spacing[3]}>
                   {filteredPatients
                     .filter(p => activeTab === 'all' || p.status === activeTab)
                     .map(renderPatient)}

@@ -107,8 +107,12 @@ export function useDensityClasses() {
 
 /**
  * Map numeric gap values to density-aware Tailwind classes
+ * Production-safe version with fallback handling
  */
-export function getGapClass(gap: number, density: SpacingDensity): string {
+export function getGapClass(gap: number, density?: SpacingDensity): string {
+  // Default to medium density if not provided (production safety)
+  const safeDensity = density || 'medium';
+  
   // Map the numeric gap to size categories based on density
   const gapMappings = {
     compact: {
@@ -149,7 +153,13 @@ export function getGapClass(gap: number, density: SpacingDensity): string {
     },
   };
   
-  const mapping = gapMappings[density];
+  const mapping = gapMappings[safeDensity];
+  
+  // Simple fallback if no gap provided
+  if (gap === undefined || gap === null) {
+    return 'gap-4';
+  }
+  
   // Find the closest gap value
   const availableGaps = Object.keys(mapping).map(Number).sort((a, b) => a - b);
   const closest = availableGaps.reduce((prev, curr) => 
@@ -157,6 +167,19 @@ export function getGapClass(gap: number, density: SpacingDensity): string {
   );
   
   return mapping[closest] || 'gap-4';
+}
+
+/**
+ * Hook-safe version of getGapClass that handles density gracefully
+ */
+export function getGapClassSafe(gap: number): string {
+  try {
+    const { density } = useSpacing();
+    return getGapClass(gap, density);
+  } catch {
+    // Fallback if hook fails or is called outside provider
+    return getGapClass(gap, 'medium');
+  }
 }
 
 /**

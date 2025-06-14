@@ -301,7 +301,7 @@ describe('Animation Hooks', () => {
   
   describe('Cross-platform consistency', () => {
     it('should provide consistent API across platforms', () => {
-      const platforms: Array<'ios' | 'android' | 'web'> = ['ios', 'android', 'web'];
+      const platforms: ('ios' | 'android' | 'web')[] = ['ios', 'android', 'web'];
       
       platforms.forEach(platform => {
         setupTest(platform);

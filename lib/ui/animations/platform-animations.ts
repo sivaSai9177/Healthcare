@@ -6,12 +6,12 @@ import { AnimatedStyle } from 'react-native-reanimated';
  */
 
 export interface AnimationStyle {
-  transform?: Array<{
+  transform?: {
     translateX?: number;
     translateY?: number;
     scale?: number;
     rotate?: string;
-  }>;
+  }[];
   opacity?: number;
 }
 

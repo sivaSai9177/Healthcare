@@ -21,9 +21,6 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useChartConfig } from './ChartContainer';
-import { AnimationVariant } from '@/lib/design';
-import { useAnimationVariant } from '@/hooks/useAnimationVariant';
-import { useAnimationStore } from '@/lib/stores/animation-store';
 import { haptic } from '@/lib/ui/haptics';
 
 const AnimatedPolygon = Animated.createAnimatedComponent(Polygon);
@@ -57,16 +54,11 @@ export interface RadarChartProps {
   
   // Animation props
   animated?: boolean;
-  animationVariant?: AnimationVariant;
   animationType?: RadarChartAnimationType;
   animationDuration?: number;
   animationDelay?: number;
   staggerDelay?: number;
   useHaptics?: boolean;
-  animationConfig?: {
-    duration?: number;
-    easing?: typeof Easing.inOut;
-  };
 }
 
 export const RadarChart: React.FC<RadarChartProps> = ({
@@ -82,24 +74,16 @@ export const RadarChart: React.FC<RadarChartProps> = ({
   testID,
   // Animation props
   animated = true,
-  animationVariant = 'moderate',
   animationType = 'expand',
-  animationDuration,
+  animationDuration = 700,
   animationDelay = 0,
   staggerDelay = 100,
   useHaptics = true,
-  animationConfig,
 }) => {
   const chartConfig = useChartConfig();
   const screenWidth = Dimensions.get('window').width;
   const width = propWidth || screenWidth - 32;
-  const { shouldAnimate } = useAnimationStore();
-  const { config, isAnimated } = useAnimationVariant({
-    variant: animationVariant,
-    overrides: animationConfig,
-  });
-  
-  const duration = animationDuration ?? config.duration.normal;
+  const duration = animationDuration;
   
   const centerX = width / 2;
   const centerY = height / 2;
@@ -225,8 +209,6 @@ export const RadarChart: React.FC<RadarChartProps> = ({
             datasetIndex={datasetIndex}
             showPoints={showPoints}
             animated={animated}
-            isAnimated={isAnimated}
-            shouldAnimate={shouldAnimate}
             animationType={animationType}
             duration={duration}
             animationDelay={animationDelay}
@@ -253,8 +235,6 @@ interface AnimatedDatasetProps {
   datasetIndex: number;
   showPoints: boolean;
   animated: boolean;
-  isAnimated: boolean;
-  shouldAnimate: () => boolean;
   animationType: RadarChartAnimationType;
   duration: number;
   animationDelay: number;
@@ -267,8 +247,6 @@ const AnimatedDataset: React.FC<AnimatedDatasetProps> = ({
   datasetIndex,
   showPoints,
   animated,
-  isAnimated,
-  shouldAnimate,
   animationType,
   duration,
   animationDelay,
@@ -280,7 +258,7 @@ const AnimatedDataset: React.FC<AnimatedDatasetProps> = ({
   const pointScale = useSharedValue(0);
   
   useEffect(() => {
-    if (animated && isAnimated && shouldAnimate()) {
+    if (animated) {
       const delay = animationDelay + (datasetIndex * staggerDelay);
       
       if (animationType === 'expand') {
@@ -333,7 +311,7 @@ const AnimatedDataset: React.FC<AnimatedDatasetProps> = ({
       animationProgress.value = 1;
       pointScale.value = 1;
     }
-  }, [animated, isAnimated, shouldAnimate, animationType, duration, animationDelay, staggerDelay, datasetIndex, showPoints, animationProgress, pulseScale, pointScale]);
+  }, [animated, animationType, duration, animationDelay, staggerDelay, datasetIndex, showPoints, animationProgress, pulseScale, pointScale]);
   
   const animatedPolygonProps = useAnimatedProps(() => {
     let scale = 1;
@@ -371,7 +349,7 @@ const AnimatedDataset: React.FC<AnimatedDatasetProps> = ({
     };
   });
   
-  if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+  if (animated && animationType !== 'none') {
     return (
       <G>
         <AnimatedPolygon

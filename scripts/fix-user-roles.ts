@@ -3,7 +3,7 @@ import { user } from '../src/db/schema';
 import { isNull } from 'drizzle-orm';
 
 async function fixUserRoles() {
-  console.log('Checking for users without roles...');
+// TODO: Replace with structured logging - console.log('Checking for users without roles...');
   
   try {
     // Find all users without roles
@@ -11,7 +11,7 @@ async function fixUserRoles() {
       .from(user)
       .where(isNull(user.role));
     
-    console.log(`Found ${usersWithoutRoles.length} users without roles`);
+// TODO: Replace with structured logging - console.log(`Found ${usersWithoutRoles.length} users without roles`);
     
     if (usersWithoutRoles.length > 0) {
       // Update all users without roles to have 'user' role
@@ -22,7 +22,7 @@ async function fixUserRoles() {
         })
         .where(isNull(user.role));
       
-      console.log('Updated users with default role "user"');
+// TODO: Replace with structured logging - console.log('Updated users with default role "user"');
     }
     
     // Verify the update
@@ -33,9 +33,9 @@ async function fixUserRoles() {
     })
     .from(user);
     
-    console.log('\nAll users with roles:');
+// TODO: Replace with structured logging - console.log('\nAll users with roles:');
     verifyUsers.forEach(u => {
-      console.log(`- ${u.email}: ${u.role || 'NO ROLE'}`);
+// TODO: Replace with structured logging - console.log(`- ${u.email}: ${u.role || 'NO ROLE'}`);
     });
     
   } catch (error) {

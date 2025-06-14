@@ -22,7 +22,7 @@ import {
   AlertCircle,
   MoreVertical,
   Activity,
-} from '@/components/universal/Symbols';
+} from '@/components/universal/display/Symbols';
 import { useSpacing } from '@/lib/stores/spacing-store';
 
 export default function TeamScreen() {

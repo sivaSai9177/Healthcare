@@ -43,6 +43,12 @@ export default function OrganizationSettings() {
   // For demo, use a placeholder organization ID
   const organizationId = user.organizationId || 'org-123';
   
+  const handleSaveSettings = (data: any) => {
+    log.info('Saving organization settings', 'ORG_SETTINGS', { organizationId, data });
+    // TODO: Implement API call when updateOrganization endpoint is available
+    // api.organization.updateOrganization.mutate({ organizationId, ...data });
+  };
+  
   const content = (
     <VStack gap={spacing.xl}>
       <Tabs defaultValue="general" orientation={isMobile ? 'horizontal' : 'vertical'}>
@@ -51,7 +57,16 @@ export default function OrganizationSettings() {
         </TabsList>
         
         <TabsContent value="general">
-          <GeneralSettingsBlock organizationId={organizationId} />
+          <GeneralSettingsBlock 
+            organizationId={organizationId} 
+            onSave={handleSaveSettings}
+            initialData={{
+              name: 'Demo Organization',
+              industry: 'healthcare',
+              website: 'https://example.com',
+              description: 'A demo healthcare organization'
+            }}
+          />
         </TabsContent>
       </Tabs>
     </VStack>

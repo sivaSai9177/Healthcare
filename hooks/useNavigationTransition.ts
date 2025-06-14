@@ -125,12 +125,26 @@ export function useNavigationTransition(options: NavigationTransitionOptions = {
     }
   }, [pathname]);
 
+  const startTransition = (callback: () => void) => {
+    if (isActive) {
+      // Start transition animation first
+      onTransitionStart?.();
+      
+      // Small delay to allow animation to start, then execute callback
+      setTimeout(callback, 50);
+    } else {
+      // No animation, execute immediately
+      callback();
+    }
+  };
+
   return {
     opacity,
     translateX,
     translateY,
     scale,
     isTransitioning: pathname !== previousPathname.current,
+    startTransition,
   };
 }
 
@@ -150,7 +164,7 @@ export function useTabTransition(activeTab: string) {
       
       // Tab haptic
       if (Platform.OS !== 'web') {
-        haptics.tabSelect();
+        haptic('selection');
       }
       
       previousTab.current = activeTab;

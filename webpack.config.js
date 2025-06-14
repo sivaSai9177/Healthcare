@@ -8,40 +8,7 @@ module.exports = async function (env, argv) {
   config.resolve.alias = config.resolve.alias || {};
   
   // Mock react-native-reanimated for web
-  config.resolve.alias['react-native-reanimated'] = require.resolve('./lib/core/platform/reanimated-web-mock.ts');
-  
-  // Exclude scripts from resolution
-  config.resolve.modules = config.resolve.modules || [];
-  if (!config.resolve.modules.includes('node_modules')) {
-    config.resolve.modules.push('node_modules');
-  }
-  
-  // Add exclusion for scripts in module resolution
-  config.resolve.fallback = config.resolve.fallback || {};
-  config.resolve.fallback.scripts = false;
-  
-  // Externalize server-only modules
-  config.externals = config.externals || [];
-  if (!Array.isArray(config.externals)) {
-    config.externals = [config.externals];
-  }
-  config.externals.push({
-    'drizzle-orm': 'commonjs drizzle-orm', // Only needed for API routes
-  });
-  
-  // Exclude scripts folder from bundling (matches metro config)
-  config.module = config.module || {};
-  config.module.rules = config.module.rules || [];
-  config.module.rules.push({
-    test: /scripts\/.*/,
-    loader: 'null-loader'
-  });
-  
-  // Exclude .cleanup-archive folder
-  config.module.rules.push({
-    test: /\.cleanup-archive\/.*/,
-    loader: 'null-loader'
-  });
+  config.resolve.alias['react-native-reanimated'] = require.resolve('./lib/core/reanimated-mock.js');
   
   return config;
 };

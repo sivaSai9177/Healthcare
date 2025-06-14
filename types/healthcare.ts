@@ -195,3 +195,6 @@ export type CreateAlertInput = z.infer<typeof CreateAlertSchema>;
 export type AcknowledgeAlertInput = z.infer<typeof AcknowledgeAlertSchema>;
 export type UpdateUserRoleInput = z.infer<typeof UpdateUserRoleSchema>;
 export type HealthcareProfileInput = z.infer<typeof HealthcareProfileSchema>;
+
+// Re-export common types
+export type { Alert, AlertWithRelations } from './common';

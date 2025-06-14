@@ -45,6 +45,7 @@ async function testOrganizationDirect() {
       createdBy: testUser.id,
     }).returning();
 
+    // TODO: Replace with structured logging
 // TODO: Replace with structured logging - console.log('✅ Organization created:', {
       id: newOrg.id,
       name: newOrg.name,

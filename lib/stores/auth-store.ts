@@ -2,10 +2,10 @@
 import React from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage, subscribeWithSelector , devtools } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import PlatformStorage from '../core/platform-storage';
 import { Platform } from 'react-native';
 import type { User, Session } from 'better-auth/types';
-import '@/types/auth'; // Import our type extensions
+import { AppUser, UserRole } from '@/types/auth'; // Import our unified types
 import { log } from '@/lib/core/debug/logger';
 
 // Create a safe storage adapter that works on all platforms
@@ -24,39 +24,61 @@ const storage = Platform.OS === 'web'
         window.localStorage.removeItem(name);
       },
     }
-  : AsyncStorage;
+  : PlatformStorage;
 
-// Types
-export interface AppUser extends User {
-  role: 'admin' | 'manager' | 'user' | 'guest' | 'operator' | 'nurse' | 'doctor' | 'head_doctor';
-  organizationId?: string;
-  organizationName?: string;
-  organizationRole?: 'operator' | 'doctor' | 'nurse' | 'head_doctor';
-  department?: string;
-  needsProfileCompletion?: boolean;
-}
-
-// Helper type to ensure user objects can be converted to AppUser
-export type UserToAppUser<T extends User> = T & {
-  role: 'admin' | 'manager' | 'user' | 'guest' | 'operator' | 'nurse' | 'doctor' | 'head_doctor';
-  organizationId?: string;
-  organizationName?: string;
-  organizationRole?: 'operator' | 'doctor' | 'nurse' | 'head_doctor';
-  department?: string;
-  needsProfileCompletion?: boolean;
-};
+// Re-export AppUser from our unified types
+export type { AppUser } from '@/types/auth';
 
 // Helper function to safely convert any user object to AppUser
-export function toAppUser(user: any, fallbackRole: 'admin' | 'manager' | 'user' | 'guest' | 'operator' | 'nurse' | 'doctor' | 'head_doctor' = 'user'): AppUser {
-  return {
+export function toAppUser(user: any, fallbackRole: UserRole = 'user'): AppUser {
+  // Special handling for OAuth users - if role is guest or needsProfileCompletion is true, ensure it's preserved
+  const needsProfileCompletion = user.needsProfileCompletion === true || 
+                                  user.role === 'guest' || 
+                                  (!user.role && fallbackRole === 'guest');
+  
+  const appUser = {
     ...user,
     role: user.role || fallbackRole,
     organizationId: user.organizationId || undefined,
     organizationName: user.organizationName || undefined,
     organizationRole: user.organizationRole || undefined,
     department: user.department || undefined,
-    needsProfileCompletion: user.needsProfileCompletion || false,
+    needsProfileCompletion: needsProfileCompletion,
+    emailVerified: user.emailVerified !== false, // Default to true if not specified
   } as AppUser;
+  
+  console.log('[AUTH_STORE] toAppUser conversion', {
+    input: {
+      id: user?.id,
+      role: user?.role,
+      needsProfileCompletion: user?.needsProfileCompletion,
+      hasRole: 'role' in user,
+      hasNeedsProfileCompletion: 'needsProfileCompletion' in user
+    },
+    output: {
+      role: appUser.role,
+      needsProfileCompletion: appUser.needsProfileCompletion,
+      fallbackRole
+    },
+    timestamp: new Date().toISOString()
+  });
+  
+  log.store.debug('toAppUser conversion', {
+    input: {
+      id: user?.id,
+      role: user?.role,
+      needsProfileCompletion: user?.needsProfileCompletion,
+      hasRole: 'role' in user,
+      hasNeedsProfileCompletion: 'needsProfileCompletion' in user
+    },
+    output: {
+      role: appUser.role,
+      needsProfileCompletion: appUser.needsProfileCompletion,
+      fallbackRole
+    }
+  });
+  
+  return appUser;
 }
 
 interface AuthState {
@@ -96,6 +118,7 @@ interface AuthActions {
   
   // Session management
   logout: (reason?: string) => Promise<void>;
+  signOut: () => Promise<void>;
   checkSession: () => Promise<void>;
 }
 
@@ -160,18 +183,6 @@ export const useAuthStore = create<AuthStore>()(
             wasAuthenticated: prevState.isAuthenticated
           });
           
-          // Clear session from session manager
-          if (Platform.OS !== 'web') {
-            try {
-              const { sessionManager } = await import('@/lib/auth/auth-session-manager');
-              await sessionManager.clearSession();
-              
-              log.store.update('Session cleared');
-            } catch (error) {
-              log.store.debug('Failed to clear session', error);
-            }
-          }
-          
           set({
             user: null,
             session: null,
@@ -182,21 +193,24 @@ export const useAuthStore = create<AuthStore>()(
         },
 
         logout: async (reason = 'user_initiated') => {
-          log.auth.logout('Initiating logout', { reason });
+          log.info('Initiating logout', 'AUTH', { reason });
           
-          // Clear local state first for immediate UI feedback
+          // Clear local state immediately
           get().clearAuth();
           
+          // Clear session storage
+          const { sessionManager } = await import('@/lib/auth/auth-session-manager');
+          await sessionManager.clearSession();
+        },
+        
+        signOut: async () => {
           try {
-            // For logout, we can call Better Auth directly since we're already clearing local state
-            const { authClient } = await import('@/lib/auth/auth-client');
-            await authClient.signOut();
-            
-            log.auth.logout('Logout completed via Better Auth client');
+            await get().logout('user_initiated');
           } catch (error) {
-            log.auth.error('Logout API error (local state already cleared)', error);
-            // Don't throw since we already cleared local state
-            // The user experience should be that they're logged out regardless
+            log.error('Sign out error', 'AUTH', error);
+            // Clear auth state even if logout fails
+            get().clearAuth();
+            throw error;
           }
         },
 
@@ -222,17 +236,7 @@ export const useAuthStore = create<AuthStore>()(
             authChanged
           });
           
-          // Better Auth's Expo plugin handles session storage automatically
-          // No need to manually store sessions
-          
-          // On mobile, ensure token is stored if session has token
-          if (Platform.OS !== 'web' && session && 'token' in session && session.token) {
-            import('@/lib/auth/session-manager').then(({ sessionManager }) => {
-              sessionManager.storeMobileToken(session.token).catch(err => {
-                log.auth.error('Failed to store mobile token during updateAuth', err);
-              });
-            });
-          }
+          // Better Auth handles session storage automatically
           
           set({
             user,

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+// Jest is globally available, no import needed
 import { organizationRouter } from '@/src/server/routers/organization';
 import { TRPCError } from '@trpc/server';
 import { db } from '@/src/db';
@@ -7,30 +7,30 @@ import { user } from '@/src/db/schema';
 import { orgAccess } from '@/src/server/services/organization-access-control';
 
 // Mock dependencies
-vi.mock('@/src/db', () => ({
+jest.mock('@/src/db', () => ({
   db: {
-    select: vi.fn(),
-    insert: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    transaction: vi.fn(),
+    select: jest.fn(),
+    insert: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    transaction: jest.fn(),
   },
 }));
 
-vi.mock('@/lib/core/logger', () => ({
+jest.mock('@/lib/core/logger', () => ({
   log: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
   },
 }));
 
-vi.mock('@/src/server/services/organization-access-control', () => ({
+jest.mock('@/src/server/services/organization-access-control', () => ({
   orgAccess: {
-    canAccessOrganization: vi.fn(),
-    getUserRole: vi.fn(),
-    requirePermission: vi.fn(),
-    canUpdateMemberRole: vi.fn(),
+    canAccessOrganization: jest.fn(),
+    getUserRole: jest.fn(),
+    requirePermission: jest.fn(),
+    canUpdateMemberRole: jest.fn(),
   },
 }));
 
@@ -62,13 +62,13 @@ describe('Organization Router', () => {
     user: mockUser,
     req: {
       headers: {
-        get: vi.fn(() => '127.0.0.1'),
+        get: jest.fn(() => '127.0.0.1'),
       },
     },
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('create', () => {
@@ -82,11 +82,11 @@ describe('Organization Router', () => {
         currency: 'USD',
       };
 
-      const mockTransaction = vi.fn(async (callback) => {
+      const mockTransaction = jest.fn(async (callback) => {
         const tx = {
-          insert: vi.fn().mockReturnThis(),
-          values: vi.fn().mockReturnThis(),
-          returning: vi.fn().mockResolvedValue([mockOrganization]),
+          insert: jest.fn().mockReturnThis(),
+          values: jest.fn().mockReturnThis(),
+          returning: jest.fn().mockResolvedValue([mockOrganization]),
         };
         
         return callback(tx);
@@ -94,9 +94,9 @@ describe('Organization Router', () => {
 
       (db.transaction as any).mockImplementation(mockTransaction);
       (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([]),
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([]),
       });
 
       const caller = organizationRouter.createCaller(mockContext as any);
@@ -120,9 +120,9 @@ describe('Organization Router', () => {
       };
 
       (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([{ slug: 'existing-slug' }]),
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([{ slug: 'existing-slug' }]),
       });
 
       const caller = organizationRouter.createCaller(mockContext as any);
@@ -137,9 +137,9 @@ describe('Organization Router', () => {
       (orgAccess.getUserRole as any).mockResolvedValue('member');
       
       (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([mockOrganization]),
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([mockOrganization]),
       });
 
       const caller = organizationRouter.createCaller(mockContext as any);
@@ -172,9 +172,9 @@ describe('Organization Router', () => {
       };
 
       (db.update as any).mockReturnValue({
-        set: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        returning: vi.fn().mockResolvedValue([{
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        returning: jest.fn().mockResolvedValue([{
           ...mockOrganization,
           ...updateData,
         }]),
@@ -201,8 +201,8 @@ describe('Organization Router', () => {
       (orgAccess.getUserRole as any).mockResolvedValue('owner');
       
       (db.update as any).mockReturnValue({
-        set: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
       });
 
       const caller = organizationRouter.createCaller(mockContext as any);
@@ -252,12 +252,12 @@ describe('Organization Router', () => {
       ];
 
       (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnThis(),
-        innerJoin: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockReturnThis(),
-        offset: vi.fn().mockResolvedValue(mockMembers),
+        from: jest.fn().mockReturnThis(),
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        offset: jest.fn().mockResolvedValue(mockMembers),
       });
 
       const caller = organizationRouter.createCaller(mockContext as any);
@@ -281,13 +281,13 @@ describe('Organization Router', () => {
       (orgAccess.requirePermission as any).mockResolvedValue(undefined);
       
       (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([]),
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([]),
       });
 
       (db.insert as any).mockReturnValue({
-        values: vi.fn().mockResolvedValue(undefined),
+        values: jest.fn().mockResolvedValue(undefined),
       });
 
       const caller = organizationRouter.createCaller(mockContext as any);
@@ -309,14 +309,14 @@ describe('Organization Router', () => {
       // Mock existing user
       (db.select as any)
         .mockReturnValueOnce({
-          from: vi.fn().mockReturnThis(),
-          where: vi.fn().mockReturnThis(),
-          limit: vi.fn().mockResolvedValue([{ id: 'existingUser' }]),
+          from: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          limit: jest.fn().mockResolvedValue([{ id: 'existingUser' }]),
         })
         .mockReturnValueOnce({
-          from: vi.fn().mockReturnThis(),
-          where: vi.fn().mockReturnThis(),
-          limit: vi.fn().mockResolvedValue([{ id: 'existingMember' }]),
+          from: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          limit: jest.fn().mockResolvedValue([{ id: 'existingMember' }]),
         });
 
       const caller = organizationRouter.createCaller(mockContext as any);
@@ -338,9 +338,9 @@ describe('Organization Router', () => {
       (orgAccess.canUpdateMemberRole as any).mockResolvedValue(true);
       
       (db.update as any).mockReturnValue({
-        set: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        returning: vi.fn().mockResolvedValue([{
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        returning: jest.fn().mockResolvedValue([{
           id: 'member1',
           userId: 'user1',
           role: 'admin',
@@ -348,9 +348,9 @@ describe('Organization Router', () => {
       });
 
       (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([{
+        from: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([{
           id: 'user1',
           name: 'Test User',
           email: 'test@example.com',
@@ -390,21 +390,21 @@ describe('Organization Router', () => {
       };
 
       (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnThis(),
-        innerJoin: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        limit: vi.fn()
+        from: jest.fn().mockReturnThis(),
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn()
           .mockResolvedValueOnce([mockCode]) // Code exists
           .mockResolvedValueOnce([]), // User not already member
       });
 
-      const mockTransaction = vi.fn(async (callback) => {
+      const mockTransaction = jest.fn(async (callback) => {
         const tx = {
-          insert: vi.fn().mockReturnThis(),
-          values: vi.fn().mockReturnThis(),
-          update: vi.fn().mockReturnThis(),
-          set: vi.fn().mockReturnThis(),
-          where: vi.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnThis(),
+          values: jest.fn().mockReturnThis(),
+          update: jest.fn().mockReturnThis(),
+          set: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
         };
         
         return callback(tx);
@@ -435,10 +435,10 @@ describe('Organization Router', () => {
       };
 
       (db.select as any).mockReturnValue({
-        from: vi.fn().mockReturnThis(),
-        innerJoin: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([mockCode]),
+        from: jest.fn().mockReturnThis(),
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([mockCode]),
       });
 
       const caller = organizationRouter.createCaller(mockContext as any);

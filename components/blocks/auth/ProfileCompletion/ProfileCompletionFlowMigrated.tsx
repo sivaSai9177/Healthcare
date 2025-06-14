@@ -1,0 +1,620 @@
+import React, { useState, useCallback, useRef, useEffect, useTransition } from 'react';
+import { View, ScrollView, Alert, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/hooks/useAuth';
+import { api } from '@/lib/api/trpc';
+import { 
+  Button, 
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  Input, 
+  Text, 
+  VStack, 
+  HStack,
+  Checkbox,
+  Progress
+} from '@/components/universal';
+import { RoleSelector } from '@/components/blocks/forms/RoleSelector/RoleSelector';
+import { OrganizationField } from '@/components/blocks/forms/OrganizationField/OrganizationField';
+import { CompleteProfileInputSchema } from '@/lib/validations/profile';
+import { z } from 'zod';
+import { log } from '@/lib/core/debug/logger';
+import { cn } from '@/lib/core/utils';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { useShadow } from '@/hooks/useShadow';
+import { useResponsive } from '@/hooks/responsive';
+import { haptic } from '@/lib/ui/haptics';
+import Animated, { 
+  FadeIn, 
+  FadeOut, 
+  SlideInRight, 
+  SlideOutLeft,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withSequence,
+  withTiming
+} from 'react-native-reanimated';
+import { Symbol } from '@/components/universal/display/Symbols';
+import { MaterialIcons } from '@expo/vector-icons';
+
+const logger = log;
+
+interface ProfileCompletionFlowProps {
+  onComplete?: () => void;
+  showSkip?: boolean;
+}
+
+// Use server validation schema for consistency
+type ProfileCompletionData = z.infer<typeof CompleteProfileInputSchema>;
+
+const AnimatedView = Animated.View;
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+export function ProfileCompletionFlowMigrated({ onComplete, showSkip = false }: ProfileCompletionFlowProps) {
+  const router = useRouter();
+  const { user, updateUserData, isAuthenticated } = useAuth();
+  const utils = api.useUtils();
+  const { spacing } = useSpacing();
+  const { isMobile } = useResponsive();
+  const shadowMd = useShadow({ size: 'md' });
+  
+  const [currentStep, setCurrentStep] = useState(1);
+  const [isPending, startTransition] = useTransition();
+  
+  // Use refs to prevent infinite loops
+  const isSubmittingRef = useRef(false);
+  const hasCompletedRef = useRef(false);
+  
+  const [formData, setFormData] = useState<ProfileCompletionData>({
+    name: user?.name || '',
+    role: user?.role || 'user',
+    organizationId: user?.organizationId || undefined,
+    organizationCode: undefined,
+    organizationName: undefined,
+    acceptTerms: true,
+    acceptPrivacy: true,
+    phoneNumber: undefined,
+    department: undefined,
+    jobTitle: undefined,
+    bio: undefined,
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Dynamic total steps based on role (guest = 3, others = 4)
+  const totalSteps = formData.role === 'guest' ? 3 : 4;
+  
+  // Progress animation
+  const progressValue = useSharedValue(33.33);
+  
+  useEffect(() => {
+    progressValue.value = withSpring((currentStep / totalSteps) * 100, {
+      damping: 15,
+      stiffness: 100,
+    });
+  }, [currentStep]);
+  
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${progressValue.value}%`,
+  }));
+
+  // Stabilized mutation to prevent re-creation on every render
+  const completeProfileMutation = api.auth.completeProfile.useMutation({
+    onSuccess: useCallback((data: { success: true; user: any; organizationId?: string }) => {
+      if (hasCompletedRef.current) {
+        logger.warn('Profile completion already processed, ignoring duplicate success', 'PROFILE_COMPLETION');
+        return;
+      }
+      
+      hasCompletedRef.current = true;
+      logger.info('Profile completed successfully', 'PROFILE_COMPLETION', data);
+      
+      if (data.user) {
+        updateUserData({
+          ...data.user,
+          needsProfileCompletion: false,
+        } as any);
+        
+        if (onComplete) {
+          onComplete();
+        }
+        
+        haptic('success');
+        
+        setTimeout(async () => {
+          try {
+            await utils.auth.getSession.invalidate();
+            const updatedSession = await utils.auth.getSession.fetch();
+            
+            if (updatedSession && !(updatedSession as any).user?.needsProfileCompletion) {
+              router.replace('/(home)');
+            } else {
+              router.replace('/(home)');
+            }
+          } catch (error) {
+            logger.error('Error refreshing session', 'PROFILE_COMPLETION', error);
+            router.replace('/(home)');
+          }
+        }, 100);
+      }
+      
+      if (Platform.OS === 'web') {
+        log.info('Profile Complete! 🎉 Welcome! Your profile has been set up successfully.', 'COMPONENT');
+      } else {
+        setTimeout(() => {
+          Alert.alert(
+            'Profile Complete! 🎉',
+            'Welcome! Your profile has been set up successfully. You now have access to all features.',
+            [{ text: 'OK' }]
+          );
+        }, 100);
+      }
+    }, [updateUserData, router, onComplete, utils]),
+    onError: useCallback((error) => {
+      isSubmittingRef.current = false;
+      hasCompletedRef.current = false;
+      haptic('error');
+      logger.error('Failed to update profile', 'PROFILE_COMPLETION', error);
+      Alert.alert('Error', error.message || 'Failed to update profile');
+    }, []),
+  });
+
+  const validateCurrentStep = () => {
+    const stepErrors: Record<string, string> = {};
+    
+    switch (currentStep) {
+      case 1:
+        if (!formData.name.trim()) {
+          stepErrors.name = 'Name is required';
+        }
+        break;
+      case 2:
+        if (!formData.role) {
+          stepErrors.role = 'Please select a role';
+        }
+        break;
+      case 3:
+        // Organization step validation (skipped for guests)
+        if (formData.role !== 'guest') {
+          if ((formData.role === 'manager' || formData.role === 'admin') && !formData.organizationName?.trim()) {
+            stepErrors.organizationName = 'Organization name is required';
+          }
+        } else {
+          // For guests, step 3 is terms
+          if (!formData.acceptTerms) {
+            stepErrors.acceptTerms = 'You must accept the terms';
+          }
+          if (!formData.acceptPrivacy) {
+            stepErrors.acceptPrivacy = 'You must accept the privacy policy';
+          }
+        }
+        break;
+      case 4:
+        // Terms step (only for non-guests)
+        if (!formData.acceptTerms) {
+          stepErrors.acceptTerms = 'You must accept the terms';
+        }
+        if (!formData.acceptPrivacy) {
+          stepErrors.acceptPrivacy = 'You must accept the privacy policy';
+        }
+        break;
+    }
+    
+    setErrors(stepErrors);
+    return Object.keys(stepErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (validateCurrentStep()) {
+      haptic('light');
+      
+      if (currentStep < totalSteps) {
+        setCurrentStep(currentStep + 1);
+      } else {
+        handleSubmit();
+      }
+    } else {
+      haptic('error');
+    }
+  };
+
+  const handlePrevious = () => {
+    haptic('light');
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleSubmit = useCallback(async () => {
+    if (isSubmittingRef.current || hasCompletedRef.current) {
+      logger.warn('Profile completion already in progress or completed', 'PROFILE_COMPLETION');
+      return;
+    }
+    
+    // Ensure user is authenticated before submitting
+    if (!isAuthenticated || !user) {
+      logger.error('Cannot submit profile - user not authenticated', 'PROFILE_COMPLETION');
+      Alert.alert('Error', 'Please sign in to complete your profile');
+      router.replace('/(auth)/login');
+      return;
+    }
+    
+    isSubmittingRef.current = true;
+    
+    try {
+      const cleanedFormData = Object.entries(formData).reduce((acc, [key, value]) => {
+        if (value === '' || value === null) {
+          if (['organizationCode', 'organizationName', 'organizationId', 'phoneNumber', 'department', 'jobTitle', 'bio'].includes(key)) {
+            acc[key] = undefined;
+          } else {
+            acc[key] = value;
+          }
+        } else {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as any);
+      
+      logger.info('Submitting profile data', 'PROFILE_COMPLETION', cleanedFormData);
+      await completeProfileMutation.mutateAsync(cleanedFormData);
+    } catch (error) {
+      logger.error('Profile submission error', 'PROFILE_COMPLETION', error);
+      isSubmittingRef.current = false;
+      if (error instanceof z.ZodError) {
+        const formErrors: Record<string, string> = {};
+        error.errors.forEach((err) => {
+          if (err.path[0]) {
+            formErrors[err.path[0].toString()] = err.message;
+          }
+        });
+        setErrors(formErrors);
+      }
+    }
+  }, [formData, completeProfileMutation, isAuthenticated, user, router]);
+
+  const renderStep = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <AnimatedView 
+            entering={SlideInRight.springify()} 
+            exiting={SlideOutLeft.springify()}
+            className="space-y-4"
+          >
+            <VStack gap={spacing[4] as any}>
+              <VStack gap={spacing[2] as any} className="items-center">
+                <AnimatedView entering={FadeIn.delay(200).springify()}>
+                  <Symbol name="person" size={48} style={{ marginBottom: 8 }} />
+                </AnimatedView>
+                <Text size="lg" weight="semibold">What should we call you?</Text>
+                <Text size="sm" colorTheme="mutedForeground" className="text-center">
+                  This is how you'll appear to others
+                </Text>
+              </VStack>
+              
+              <Input
+                placeholder="Enter your name"
+                value={formData.name}
+                onChangeText={(text) => {
+                  setFormData({ ...formData, name: text });
+                  if (errors.name) setErrors({ ...errors, name: '' });
+                }}
+                error={errors.name}
+                autoFocus
+                className="animate-fade-in"
+              />
+              
+              <Input
+                placeholder="Phone number (optional)"
+                value={formData.phoneNumber}
+                onChangeText={(text) => setFormData({ ...formData, phoneNumber: text })}
+                keyboardType="phone-pad"
+                className="animate-fade-in delay-100"
+              />
+            </VStack>
+          </AnimatedView>
+        );
+
+      case 2:
+        return (
+          <AnimatedView 
+            entering={SlideInRight.springify()} 
+            exiting={SlideOutLeft.springify()}
+            className="space-y-4"
+          >
+            <VStack gap={spacing[4] as any}>
+              <VStack gap={spacing[2] as any} className="items-center">
+                <AnimatedView entering={FadeIn.delay(200).springify()}>
+                  <Symbol name="building.2" size={48} style={{ marginBottom: 8 }} />
+                </AnimatedView>
+                <Text size="lg" weight="semibold">Select your role</Text>
+                <Text size="sm" colorTheme="mutedForeground" className="text-center">
+                  This helps us personalize your experience
+                </Text>
+              </VStack>
+              
+              <RoleSelector
+                selectedRole={formData.role as any}
+                onRoleSelect={(role) => {
+                  setFormData({ ...formData, role });
+                  if (errors.role) setErrors({ ...errors, role: '' });
+                }}
+                className="animate-fade-in"
+              />
+              
+              <Input
+                placeholder="Department (optional)"
+                value={formData.department}
+                onChangeText={(text) => setFormData({ ...formData, department: text })}
+                className="animate-fade-in delay-100"
+              />
+              
+              <Input
+                placeholder="Job title (optional)"
+                value={formData.jobTitle}
+                onChangeText={(text) => setFormData({ ...formData, jobTitle: text })}
+                className="animate-fade-in delay-150"
+              />
+            </VStack>
+          </AnimatedView>
+        );
+
+      case 3:
+        // For guests: Terms & Privacy
+        // For others: Organization step
+        if (formData.role === 'guest') {
+          return (
+            <AnimatedView 
+              entering={SlideInRight.springify()} 
+              exiting={SlideOutLeft.springify()}
+              className="space-y-4"
+            >
+              <VStack gap={spacing[4] as any}>
+                <VStack gap={spacing[2] as any} className="items-center">
+                  <AnimatedView entering={FadeIn.delay(200).springify()}>
+                    <Symbol name="shield" size={48} style={{ marginBottom: 8 }} />
+                  </AnimatedView>
+                  <Text size="lg" weight="semibold">Terms & Privacy</Text>
+                  <Text size="sm" colorTheme="mutedForeground" className="text-center">
+                    Please review and accept our terms
+                  </Text>
+                </VStack>
+                
+                <VStack gap={spacing[3]}>
+                  <Checkbox
+                    checked={formData.acceptTerms}
+                    onCheckedChange={(checked) => {
+                      setFormData({ ...formData, acceptTerms: checked as boolean });
+                      if (errors.acceptTerms) setErrors({ ...errors, acceptTerms: '' });
+                    }}
+                    label={
+                      <Text size="sm">
+                        I accept the{' '}
+                        <Text size="sm" className="text-primary underline">
+                          Terms and Conditions
+                        </Text>
+                      </Text>
+                    }
+                    error={errors.acceptTerms}
+                    className="animate-fade-in"
+                  />
+                  
+                  <Checkbox
+                    checked={formData.acceptPrivacy}
+                    onCheckedChange={(checked) => {
+                      setFormData({ ...formData, acceptPrivacy: checked as boolean });
+                      if (errors.acceptPrivacy) setErrors({ ...errors, acceptPrivacy: '' });
+                    }}
+                    label={
+                      <Text size="sm">
+                        I accept the{' '}
+                        <Text size="sm" className="text-primary underline">
+                          Privacy Policy
+                        </Text>
+                      </Text>
+                    }
+                    error={errors.acceptPrivacy}
+                    className="animate-fade-in delay-100"
+                  />
+                </VStack>
+              </VStack>
+            </AnimatedView>
+          );
+        }
+        
+        // Organization step for non-guests
+        return (
+          <AnimatedView 
+            entering={SlideInRight.springify()} 
+            exiting={SlideOutLeft.springify()}
+            className="space-y-4"
+          >
+            <VStack gap={spacing[4] as any}>
+              <VStack gap={spacing[2] as any} className="items-center">
+                <AnimatedView entering={FadeIn.delay(200).springify()}>
+                  <Symbol name="building.2" size={48} style={{ marginBottom: 8 }} />
+                </AnimatedView>
+                <Text size="lg" weight="semibold">Organization Details</Text>
+                <Text size="sm" colorTheme="mutedForeground" className="text-center">
+                  {formData.role === 'user' 
+                    ? 'Join an existing organization (optional)' 
+                    : 'Create your organization workspace'}
+                </Text>
+              </VStack>
+              
+              <OrganizationField
+                form={{
+                  watch: (field: string) => formData[field as keyof typeof formData],
+                  setValue: (field: string, value: any) => {
+                    setFormData({ ...formData, [field]: value });
+                    if (errors[field]) setErrors({ ...errors, [field]: '' });
+                  },
+                  formState: { errors }
+                } as any}
+                role={formData.role as any}
+              />
+            </VStack>
+          </AnimatedView>
+        );
+
+      case 4:
+        // Terms & Privacy (only for non-guests)
+        // For guests, this is handled in case 3
+        if (formData.role === 'guest') {
+          return null;
+        }
+        return (
+          <AnimatedView 
+            entering={SlideInRight.springify()} 
+            exiting={SlideOutLeft.springify()}
+            className="space-y-4"
+          >
+            <VStack gap={spacing[4] as any}>
+              <VStack gap={spacing[2] as any} className="items-center">
+                <AnimatedView entering={FadeIn.delay(200).springify()}>
+                  <Symbol name="shield" size={48} style={{ marginBottom: 8 }} />
+                </AnimatedView>
+                <Text size="lg" weight="semibold">Terms & Privacy</Text>
+                <Text size="sm" colorTheme="mutedForeground" className="text-center">
+                  Please review and accept our terms
+                </Text>
+              </VStack>
+              
+              <VStack gap={spacing[3]}>
+                <Checkbox
+                  checked={formData.acceptTerms}
+                  onCheckedChange={(checked) => {
+                    setFormData({ ...formData, acceptTerms: checked as boolean });
+                    if (errors.acceptTerms) setErrors({ ...errors, acceptTerms: '' });
+                  }}
+                  label={
+                    <Text size="sm">
+                      I accept the{' '}
+                      <Text size="sm" className="text-primary underline">
+                        Terms and Conditions
+                      </Text>
+                    </Text>
+                  }
+                  error={errors.acceptTerms}
+                  className="animate-fade-in"
+                />
+                
+                <Checkbox
+                  checked={formData.acceptPrivacy}
+                  onCheckedChange={(checked) => {
+                    setFormData({ ...formData, acceptPrivacy: checked as boolean });
+                    if (errors.acceptPrivacy) setErrors({ ...errors, acceptPrivacy: '' });
+                  }}
+                  label={
+                    <Text size="sm">
+                      I accept the{' '}
+                      <Text size="sm" className="text-primary underline">
+                        Privacy Policy
+                      </Text>
+                    </Text>
+                  }
+                  error={errors.acceptPrivacy}
+                  className="animate-fade-in delay-100"
+                />
+              </VStack>
+            </VStack>
+          </AnimatedView>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView className="flex-1 bg-background" contentContainerStyle={{ flexGrow: 1 }}>
+        <View className="flex-1 justify-center items-center p-4">
+          <Card 
+            className={cn(
+              "w-full max-w-md",
+              "animate-fade-in"
+            )}
+            style={shadowMd}
+          >
+            <CardHeader>
+              <CardTitle>Complete Your Profile</CardTitle>
+              <CardDescription>
+                {user?.email ? `Welcome, ${user.email}!` : 'Welcome!'} Let's set up your profile.
+              </CardDescription>
+              
+              {/* Progress bar */}
+              <View className="mt-4">
+                <View className="h-2 bg-muted rounded-full overflow-hidden">
+                  <AnimatedView 
+                    style={[progressStyle]} 
+                    className="h-full bg-primary rounded-full"
+                  />
+                </View>
+                <Text size="sm" colorTheme="mutedForeground" className="text-center mt-2">
+                  Step {currentStep} of {totalSteps}
+                </Text>
+              </View>
+            </CardHeader>
+            
+            <CardContent>
+              <VStack gap={spacing[4] as any}>
+                {renderStep()}
+                
+                <VStack gap={spacing[2] as any} className="pt-4">
+                  <HStack gap={spacing[2] as any}>
+                    {currentStep > 1 && (
+                      <Button
+                        variant="outline"
+                        onPress={handlePrevious}
+                        leftIcon={<MaterialIcons name="chevron-left" size={16} />}
+                        className="flex-1"
+                      >
+                        Previous
+                      </Button>
+                    )}
+                    
+                    <Button
+                      onPress={handleNext}
+                      isLoading={completeProfileMutation.isPending}
+                      rightIcon={
+                        currentStep === totalSteps ? (
+                          <MaterialIcons name="check" size={16} />
+                        ) : (
+                          <MaterialIcons name="chevron-right" size={16} />
+                        )
+                      }
+                      className="flex-1"
+                    >
+                      {currentStep === totalSteps ? 'Complete' : 'Next'}
+                    </Button>
+                  </HStack>
+                
+                  {showSkip && currentStep === 1 && (
+                    <Button
+                      variant="ghost"
+                      onPress={() => {
+                        haptic('light');
+                        router.replace('/(home)');
+                      }}
+                      fullWidth
+                      className="animate-fade-in"
+                    >
+                      Skip for now
+                    </Button>
+                  )}
+                </VStack>
+              </VStack>
+            </CardContent>
+          </Card>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}

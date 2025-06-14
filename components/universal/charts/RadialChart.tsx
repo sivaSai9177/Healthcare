@@ -21,10 +21,6 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useChartConfig } from './ChartContainer';
-import { useTheme } from '@/lib/theme/provider';
-import { AnimationVariant } from '@/lib/design';
-import { useAnimationVariant } from '@/hooks/useAnimationVariant';
-import { useAnimationStore } from '@/lib/stores/animation-store';
 
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -49,15 +45,10 @@ export interface RadialChartProps {
   
   // Animation props
   animated?: boolean;
-  animationVariant?: AnimationVariant;
   animationType?: RadialChartAnimationType;
   animationDuration?: number;
   animationDelay?: number;
   useHaptics?: boolean;
-  animationConfig?: {
-    duration?: number;
-    easing?: typeof Easing.inOut;
-  };
 }
 
 export const RadialChart: React.FC<RadialChartProps> = ({
@@ -76,24 +67,16 @@ export const RadialChart: React.FC<RadialChartProps> = ({
   testID,
   // Animation props
   animated = true,
-  animationVariant = 'moderate',
   animationType = 'sweep',
-  animationDuration,
+  animationDuration = 700,
   animationDelay = 0,
   useHaptics = true,
-  animationConfig,
 }) => {
-  const theme = useTheme();
   const chartConfig = useChartConfig();
   const screenWidth = Dimensions.get('window').width;
   const size = propSize || Math.min(screenWidth - 64, 200);
-  const { shouldAnimate } = useAnimationStore();
-  const { config, isAnimated } = useAnimationVariant({
-    variant: animationVariant,
-    overrides: animationConfig,
-  });
   
-  const duration = animationDuration ?? config.duration.normal;
+  const duration = animationDuration;
   
   const radius = (size - strokeWidth) / 2;
   const centerX = size / 2;
@@ -127,7 +110,7 @@ export const RadialChart: React.FC<RadialChartProps> = ({
   ].join(' ');
   
   const progressColor = color || chartConfig.colors.primary;
-  const bgColor = backgroundColor || theme.muted;
+  const bgColor = backgroundColor || '#e5e7eb';
   
   // Animation values
   const animationProgress = useSharedValue(0);
@@ -135,7 +118,7 @@ export const RadialChart: React.FC<RadialChartProps> = ({
   const textOpacity = useSharedValue(0);
   
   useEffect(() => {
-    if (animated && isAnimated && shouldAnimate()) {
+    if (animated) {
       if (animationType === 'sweep') {
         animationProgress.value = withDelay(
           animationDelay,
@@ -182,7 +165,7 @@ export const RadialChart: React.FC<RadialChartProps> = ({
       animationProgress.value = 1;
       textOpacity.value = 1;
     }
-  }, [animated, isAnimated, shouldAnimate, animationType, duration, animationDelay, animationProgress, pulseScale, textOpacity]);
+  }, [animated, animationType, duration, animationDelay, animationProgress, pulseScale, textOpacity]);
   
   const animatedProgressProps = useAnimatedProps(() => {
     const progress = animationProgress.value * percentage;
@@ -222,7 +205,7 @@ export const RadialChart: React.FC<RadialChartProps> = ({
     };
   });
   
-  if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+  if (animated && animationType !== 'none') {
     return (
       <View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]} testID={testID}>
         <Svg width={size} height={size} style={{ position: 'absolute' }}>
@@ -252,7 +235,7 @@ export const RadialChart: React.FC<RadialChartProps> = ({
               style={{
                 fontSize: size / 5,
                 fontWeight: 'bold',
-                color: theme.foreground,
+                color: '#000000',
               }}
             >
               {showPercentage ? `${Math.round(percentage * 100)}%` : value}
@@ -262,7 +245,7 @@ export const RadialChart: React.FC<RadialChartProps> = ({
             <Text
               style={{
                 fontSize: size / 12,
-                color: theme.mutedForeground,
+                color: '#6b7280',
                 marginTop: 4,
               }}
             >
@@ -305,7 +288,7 @@ export const RadialChart: React.FC<RadialChartProps> = ({
             style={{
               fontSize: size / 5,
               fontWeight: 'bold',
-              color: theme.foreground,
+              color: '#000000',
             }}
           >
             {showPercentage ? `${Math.round(percentage * 100)}%` : value}
@@ -315,7 +298,7 @@ export const RadialChart: React.FC<RadialChartProps> = ({
           <Text
             style={{
               fontSize: size / 12,
-              color: theme.mutedForeground,
+              color: '#6b7280',
               marginTop: 4,
             }}
           >
@@ -347,16 +330,11 @@ export interface RadialBarChartProps {
   
   // Animation props
   animated?: boolean;
-  animationVariant?: AnimationVariant;
   animationType?: RadialChartAnimationType;
   animationDuration?: number;
   animationDelay?: number;
   staggerDelay?: number;
   useHaptics?: boolean;
-  animationConfig?: {
-    duration?: number;
-    easing?: typeof Easing.inOut;
-  };
 }
 
 export const RadialBarChart: React.FC<RadialBarChartProps> = ({
@@ -371,25 +349,17 @@ export const RadialBarChart: React.FC<RadialBarChartProps> = ({
   testID,
   // Animation props
   animated = true,
-  animationVariant = 'moderate',
   animationType = 'sweep',
-  animationDuration,
+  animationDuration = 700,
   animationDelay = 0,
   staggerDelay = 100,
   useHaptics = true,
-  animationConfig,
 }) => {
-  const theme = useTheme();
   const chartConfig = useChartConfig();
   const screenWidth = Dimensions.get('window').width;
   const size = propSize || Math.min(screenWidth - 64, 250);
-  const { shouldAnimate } = useAnimationStore();
-  const { config, isAnimated } = useAnimationVariant({
-    variant: animationVariant,
-    overrides: animationConfig,
-  });
   
-  const duration = animationDuration ?? config.duration.normal;
+  const duration = animationDuration;
   
   const centerX = size / 2;
   const centerY = size / 2;
@@ -434,12 +404,9 @@ export const RadialBarChart: React.FC<RadialBarChartProps> = ({
             barWidth={barWidth}
             centerX={centerX}
             centerY={centerY}
-            theme={theme}
             showLabels={showLabels}
             showValues={showValues}
             animated={animated}
-            isAnimated={isAnimated}
-            shouldAnimate={shouldAnimate}
             animationType={animationType}
             duration={duration}
             animationDelay={animationDelay}
@@ -458,12 +425,9 @@ interface AnimatedRadialBarProps {
   barWidth: number;
   centerX: number;
   centerY: number;
-  theme: any;
   showLabels: boolean;
   showValues: boolean;
   animated: boolean;
-  isAnimated: boolean;
-  shouldAnimate: () => boolean;
   animationType: RadialChartAnimationType;
   duration: number;
   animationDelay: number;
@@ -476,12 +440,9 @@ const AnimatedRadialBar: React.FC<AnimatedRadialBarProps> = ({
   barWidth,
   centerX,
   centerY,
-  theme,
   showLabels,
   showValues,
   animated,
-  isAnimated,
-  shouldAnimate,
   animationType,
   duration,
   animationDelay,
@@ -491,7 +452,7 @@ const AnimatedRadialBar: React.FC<AnimatedRadialBarProps> = ({
   const textOpacity = useSharedValue(0);
   
   useEffect(() => {
-    if (animated && isAnimated && shouldAnimate()) {
+    if (animated) {
       const delay = animationDelay + (index * staggerDelay);
       
       if (animationType === 'sweep') {
@@ -531,7 +492,7 @@ const AnimatedRadialBar: React.FC<AnimatedRadialBarProps> = ({
       animationProgress.value = 1;
       textOpacity.value = 1;
     }
-  }, [animated, isAnimated, shouldAnimate, animationType, duration, animationDelay, staggerDelay, index, animationProgress, textOpacity]);
+  }, [animated, animationType, duration, animationDelay, staggerDelay, index, animationProgress, textOpacity]);
   
   const animatedProgressProps = useAnimatedProps(() => {
     const progress = animationProgress.value * bar.percentage;
@@ -563,13 +524,13 @@ const AnimatedRadialBar: React.FC<AnimatedRadialBarProps> = ({
     };
   });
   
-  if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+  if (animated && animationType !== 'none') {
     return (
       <G>
         {/* Background */}
         <Path
           d={bar.backgroundPath}
-          stroke={theme.muted}
+          stroke="#e5e7eb"
           strokeWidth={barWidth}
           fill="none"
           strokeLinecap="round"
@@ -587,7 +548,7 @@ const AnimatedRadialBar: React.FC<AnimatedRadialBarProps> = ({
           <AnimatedSvgText
             x={centerX - bar.radius - barWidth}
             y={centerY + 4}
-            fill={theme.mutedForeground}
+            fill="#6b7280"
             fontSize={10}
             textAnchor="end"
             animatedProps={animatedTextProps}
@@ -601,7 +562,7 @@ const AnimatedRadialBar: React.FC<AnimatedRadialBarProps> = ({
           <AnimatedSvgText
             x={centerX + bar.radius + barWidth}
             y={centerY + 4}
-            fill={theme.foreground}
+            fill="#000000"
             fontSize={12}
             fontWeight="bold"
             textAnchor="start"
@@ -619,7 +580,7 @@ const AnimatedRadialBar: React.FC<AnimatedRadialBarProps> = ({
       {/* Background */}
       <Path
         d={bar.backgroundPath}
-        stroke={theme.muted}
+        stroke="#e5e7eb"
         strokeWidth={barWidth}
         fill="none"
         strokeLinecap="round"
@@ -639,7 +600,7 @@ const AnimatedRadialBar: React.FC<AnimatedRadialBarProps> = ({
         <SvgText
           x={centerX - bar.radius - barWidth}
           y={centerY + 4}
-          fill={theme.mutedForeground}
+          fill="#6b7280"
           fontSize={10}
           textAnchor="end"
         >
@@ -652,7 +613,7 @@ const AnimatedRadialBar: React.FC<AnimatedRadialBarProps> = ({
         <SvgText
           x={centerX + bar.radius + barWidth}
           y={centerY + 4}
-          fill={theme.foreground}
+          fill="#000000"
           fontSize={12}
           fontWeight="bold"
           textAnchor="start"

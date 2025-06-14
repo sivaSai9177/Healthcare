@@ -4,8 +4,8 @@ import path from 'path';
 
 // Simple console wrapper for script logging
 const log = {
-  info: (msg: string, context?: string) => log.info('[${context || ', 'COMPONENT');
-  success: (msg: string) => log.info('✅ ${msg}', 'COMPONENT');
+  info: (msg: string, context?: string) => console.log(`[${context || 'COMPONENT'}] ${msg}`),
+  success: (msg: string) => console.log(`✅ ${msg}`),
   error: (msg: string, context?: string, error?: any) => console.error(`❌ [${context || 'SCRIPT'}] ${msg}`, error || ''),
   warn: (msg: string) => console.warn(`⚠️ ${msg}`)
 };
@@ -65,7 +65,7 @@ async function removeConsoleLogs() {
         }
         
         // Check for console.log
-// TODO: Replace with structured logging - if (line.includes('console.log')) {
+        if (line.includes('console.log')) {
           consoleLogLines.push(index + 1);
           totalCount++;
           modified = true;
@@ -152,7 +152,7 @@ async function removeConsoleLogs() {
     results.forEach(({ file, count, lines }) => {
       log.info('\n${file}', 'COMPONENT');
 // TODO: Replace with structured logging - log.info('  - ${count} console.log statements replaced/commented', 'COMPONENT');
-      log.info('  - Lines: ${lines.join(', 'COMPONENT');
+          log.info(`  - Lines: ${lines.join(', ')}`, 'COMPONENT');
     });
   }
 

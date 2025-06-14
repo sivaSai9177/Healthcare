@@ -77,7 +77,7 @@ export const auditMiddleware = {
     next: () => Promise<any>;
     input?: any;
   }) => {
-    const { path, type, ctx, next, input } = opts;
+    const { path, ctx, next, input } = opts;
     const context = auditHelpers.extractContext(ctx.req, ctx.session);
     
     // Determine the audit action based on the path
@@ -209,7 +209,7 @@ export const auditMiddleware = {
     next: () => Promise<any>;
     input?: any;
   }) => {
-    const { path, type, ctx, next, input } = opts;
+    const { path, ctx, next, input } = opts;
     const context = auditHelpers.extractContext(ctx.req, ctx.session);
     
     // Capture before state for update operations
@@ -218,7 +218,7 @@ export const auditMiddleware = {
       try {
         // This would need to be implemented based on your user service
         // beforeState = await getUserById(input.id);
-      } catch (error) {
+      } catch {
         // Continue if we can't get before state
       }
     }
@@ -276,16 +276,16 @@ export const auditMiddleware = {
     next: () => Promise<any>;
     input?: any;
   }) => {
-    const { path, type, ctx, next, input } = opts;
+    const { path, type, ctx, next } = opts;
     const context = auditHelpers.extractContext(ctx.req, ctx.session);
     
-    // Check for suspicious patterns
-    const suspiciousPatterns = [
-      // Multiple failed login attempts from same IP
-      // Unusual access patterns
-      // Privilege escalation attempts
-      // Data export operations
-    ];
+    // Check for suspicious patterns (TODO: implement)
+    // const suspiciousPatterns = [
+    //   // Multiple failed login attempts from same IP
+    //   // Unusual access patterns
+    //   // Privilege escalation attempts
+    //   // Data export operations
+    // ];
     
     // Rate limiting check
     const isRateLimited = await checkRateLimit(context.ipAddress || '', path);
@@ -293,7 +293,7 @@ export const auditMiddleware = {
       await auditService.logSecurityViolation(
         `Rate limit exceeded for ${path}`,
         context,
-        { path, type, attempts: 'exceeded' }
+        { path, operation: type, attempts: 'exceeded' }
       );
       
       throw new TRPCError({
@@ -303,11 +303,11 @@ export const auditMiddleware = {
     }
     
     // Check for unauthorized access patterns
-    if (ctx.session?.user && path.includes('admin') && ctx.session.user.role !== 'admin') {
+    if (ctx.session?.user && path.includes('admin') && (ctx.session.user as any).role !== 'admin') {
       await auditService.logSecurityViolation(
         `Unauthorized admin access attempt: ${path}`,
         context,
-        { path, userRole: ctx.session.user.role }
+        { path, userRole: (ctx.session.user as any).role }
       );
     }
     
@@ -359,4 +359,3 @@ setInterval(() => {
   }
 }, 60000); // Clean up every minute
 
-export default auditMiddleware;

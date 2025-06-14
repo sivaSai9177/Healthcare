@@ -7,15 +7,15 @@ import Animated, {
   withTiming,
   interpolate,
 } from 'react-native-reanimated';
-import { Box } from '@/components/universal/Box';
-import { HStack } from '@/components/universal/Stack';
-import { Text } from '@/components/universal/Text';
+import { Box } from '@/components/universal/layout/Box';
+import { HStack } from '@/components/universal/layout/Stack';
+import { Text } from '@/components/universal/typography/Text';
 import { Symbol as IconSymbol } from '@/components/universal';
-import { useTheme } from '@/lib/theme/provider';
-
 import { DURATIONS } from '@/lib/ui/animations/constants';
 import { getSpringConfig } from '@/lib/ui/animations/utils';
 import { SpacingScale } from '@/lib/design';
+import { cn } from '@/lib/core/utils';
+import { haptic } from '@/lib/ui/haptics';
 
 interface TabItem {
   key: string;
@@ -37,7 +37,6 @@ export function AnimatedTabBar({
   onTabPress,
   style,
 }: AnimatedTabBarProps) {
-  const theme = useTheme();
   const activeIndex = tabs.findIndex(tab => tab.key === activeTab);
   const indicatorPosition = useSharedValue(activeIndex);
   
@@ -64,25 +63,14 @@ export function AnimatedTabBar({
   
   return (
     <Box 
-      bgTheme="card" 
-      borderTopWidth={1} 
-      borderTheme="border"
+      className="bg-card border-t border-border"
       style={style}
     >
       <HStack spacing={0} height={56} position="relative">
         {/* Animated indicator */}
         <Animated.View
-          style={[
-            {
-              position: 'absolute',
-              bottom: 0,
-              height: 3,
-              backgroundColor: theme.primary,
-              borderTopLeftRadius: 3,
-              borderTopRightRadius: 3,
-            },
-            indicatorStyle,
-          ]}
+          className="absolute bottom-0 h-[3px] bg-primary rounded-t-[3px]"
+          style={indicatorStyle}
         />
         
         {/* Tab items */}
@@ -92,7 +80,7 @@ export function AnimatedTabBar({
             tab={tab}
             isActive={tab.key === activeTab}
             onPress={() => {
-              haptics.tabSelect();
+              haptic('selection');
               onTabPress(tab.key);
             }}
             index={index}
@@ -113,7 +101,6 @@ interface TabItemProps {
 }
 
 function TabItem({ tab, isActive, onPress, index, totalTabs }: TabItemProps) {
-  const theme = useTheme();
   const scale = useSharedValue(1);
   const opacity = useSharedValue(isActive ? 1 : 0.7);
   
@@ -156,22 +143,16 @@ function TabItem({ tab, isActive, onPress, index, totalTabs }: TabItemProps) {
           <IconSymbol
             name={tab.icon as any}
             size={24}
-            color={isActive ? theme.primary : theme.mutedForeground}
+            className={isActive ? 'text-primary' : 'text-muted-foreground'}
           />
           {tab.badge && tab.badge > 0 && (
             <Box
               position="absolute"
               top={-4}
               right={-8}
-              bgColor={theme.destructive}
-              borderRadius={10}
-              minWidth={20}
-              height={20}
-              justifyContent="center"
-              alignItems="center"
-              px={1 as SpacingScale}
+              className="bg-destructive rounded-full min-w-[20px] h-5 justify-center items-center px-1"
             >
-              <Text size="xs" colorTheme="destructiveForeground" weight="bold">
+              <Text size="xs" className="text-destructive-foreground" weight="bold">
                 {tab.badge > 99 ? '99+' : tab.badge}
               </Text>
             </Box>
@@ -179,7 +160,7 @@ function TabItem({ tab, isActive, onPress, index, totalTabs }: TabItemProps) {
         </Box>
         <Text
           size="xs"
-          colorTheme={isActive ? 'primary' : 'mutedForeground'}
+          className={isActive ? 'text-primary' : 'text-muted-foreground'}
           weight={isActive ? 'medium' : 'normal'}
           style={{ marginTop: 4 }}
         >

@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { render, waitFor } from '@testing-library/react-native';
-import { List } from '@/components/universal/List';
+import { List } from '@/components/universal/display/List';
 import { animationTestUtils, setupTest } from '../setup';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 

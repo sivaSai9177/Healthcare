@@ -16,12 +16,12 @@ interface AnimationContextValue {
 const AnimationContext = createContext<AnimationContextValue | undefined>(undefined);
 
 export const AnimationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { enabled, reducedMotion, speed } = useAnimationStore();
+  const { enableAnimations, reducedMotion, animationSpeed } = useAnimationStore();
 
   const value: AnimationContextValue = {
-    animationsEnabled: enabled,
+    animationsEnabled: enableAnimations,
     reducedMotion,
-    animationSpeed: speed,
+    animationSpeed,
   };
 
   return (

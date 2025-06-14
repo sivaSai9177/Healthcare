@@ -46,8 +46,8 @@ const categories = {
   utils: ['cn', 'api', 'showErrorAlert', 'showSuccessAlert']
 };
 
-const categorizedImports: { [key: string]: Array<[string, number]> } = {};
-const uncategorized: Array<[string, number]> = [];
+const categorizedImports: { [key: string]: [string, number][] } = {};
+const uncategorized: [string, number][] = [];
 
 // Categorize each import
 for (const [name, count] of sortedImports) {

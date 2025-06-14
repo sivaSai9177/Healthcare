@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { webStorage, mobileStorage } from '@/lib/core/platform/secure-storage';
+import { webStorage, mobileStorage } from '../core/secure-storage';
 import { Session, User } from 'better-auth/types';
 
 // Use underscore notation for consistency with existing storage

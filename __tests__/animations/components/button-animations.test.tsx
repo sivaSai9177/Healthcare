@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Button } from '@/components/universal/Button';
+import { Button } from '@/components/universal/interaction/Button';
 import { animationTestUtils, setupTest } from '../setup';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 

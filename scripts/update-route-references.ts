@@ -32,7 +32,7 @@ function updateFile(filePath: string): boolean {
 
   if (hasChanges) {
     writeFileSync(filePath, content, 'utf8');
-    console.log(`✅ Updated: ${filePath}`);
+// TODO: Replace with structured logging - console.log(`✅ Updated: ${filePath}`);
     return true;
   }
   return false;
@@ -65,7 +65,7 @@ function processDirectory(dir: string): number {
 }
 
 // Run the script
-console.log('🔄 Updating route references from z-prefixed to new names...\n');
+// TODO: Replace with structured logging - console.log('🔄 Updating route references from z-prefixed to new names...\n');
 const projectRoot = join(__dirname, '..');
 const updatedCount = processDirectory(projectRoot);
-console.log(`\n✨ Updated ${updatedCount} files!`);
+// TODO: Replace with structured logging - console.log(`\n✨ Updated ${updatedCount} files!`);

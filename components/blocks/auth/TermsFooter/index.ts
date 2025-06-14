@@ -1,0 +1,1 @@
+export { TermsFooter, CompactTerms } from './TermsFooter';

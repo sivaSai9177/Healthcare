@@ -1,12 +1,23 @@
-import { Stack } from 'expo-router';
-import { useThemeColor } from '@/hooks/useThemeColor';
-import { Platform } from 'react-native';
+import { Stack, Redirect } from 'expo-router';
+import { cn } from '@/lib/core/utils';
+import { Platform, View, ActivityIndicator } from 'react-native';
 import { stackScreenOptions } from '@/lib/navigation/transitions';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function OrganizationLayout() {
-  const backgroundColor = useThemeColor({}, 'background');
-  const textColor = useThemeColor({}, 'text');
-  const borderColor = useThemeColor({}, 'border');
+  const { user, isAuthenticated, hasHydrated } = useAuth();
+
+  // Wait for auth state to be loaded
+  if (!hasHydrated) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  // Note: Role-based access is handled at the root index.tsx level
+  // This layout assumes the user has already been authorized to access organization routes
 
   return (
     <Stack
@@ -14,19 +25,19 @@ export default function OrganizationLayout() {
         ...stackScreenOptions.default,
         headerShown: true,
         headerStyle: {
-          backgroundColor,
+          backgroundColor: '#FFFFFF',
           ...(Platform.OS === 'web' && {
             borderBottomWidth: 1,
-            borderBottomColor: borderColor,
+            borderBottomColor: '#E5E7EB',
           }),
         },
-        headerTintColor: textColor,
+        headerTintColor: '#000000',
         headerTitleStyle: {
           fontWeight: '600',
         },
         headerShadowVisible: Platform.OS !== 'web',
         contentStyle: {
-          backgroundColor,
+          backgroundColor: '#FFFFFF',
         },
       }}
     >

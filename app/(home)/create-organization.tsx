@@ -9,7 +9,7 @@ import {
   SidebarTrigger,
   Separator,
 } from '@/components/universal';
-import { OrganizationCreationWizard } from '@/components/organization/OrganizationCreationWizard';
+import { OrganizationCreationWizard } from '@/components/blocks/organization';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useRouter , Redirect } from 'expo-router';
