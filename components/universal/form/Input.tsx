@@ -27,6 +27,8 @@ import { Symbol } from '@/components/universal/display/Symbols';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 import { haptic } from '@/lib/ui/haptics';
+import { useTheme } from '@/lib/theme/provider';
+import { authStyles } from '@/components/blocks/auth/styles/authStyles';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 const AnimatedView = Animated.View;
@@ -173,9 +175,22 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
 }, ref) => {
   const [isFocused, setIsFocused] = useState(false);
   const [localValue, setLocalValue] = useState(value);
-  const [showPassword, setShowPassword] = useState(false);
+  const [internalShowPassword, setInternalShowPassword] = useState(false);
   const { density } = useSpacing();
   const { enableAnimations } = useAnimationStore();
+  const theme = useTheme();
+  
+  // Define isPasswordField early
+  const isPasswordField = props.secureTextEntry !== undefined;
+  // Check if secureTextEntry is being controlled externally via rightElement
+  const hasCustomPasswordToggle = isPasswordField && rightElement;
+  const showPassword = hasCustomPasswordToggle ? false : internalShowPassword;
+  
+  // Create a local ref that we can use internally
+  const inputRef = useRef<TextInput>(null);
+  
+  // Use imperative handle to expose the ref
+  React.useImperativeHandle(ref, () => inputRef.current as TextInput);
   
   // Animation values
   const labelPosition = useSharedValue(0);
@@ -287,9 +302,9 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
   }, [onChangeText, onClear]);
   
   const togglePasswordVisibility = useCallback(() => {
-    setShowPassword(!showPassword);
+    setInternalShowPassword(prev => !prev);
     haptic('light');
-  }, [showPassword]);
+  }, []);
   
   // Get size classes based on density
   const sizeClass = densitySizeClasses[density]?.[size] || sizeClasses[size];
@@ -301,17 +316,45 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
     containerClassName
   );
   
-  // Build input wrapper classes
+  // Get height based on size  
+  const getHeight = () => {
+    if (!floatingLabel) {
+      switch (size) {
+        case 'sm': return 36;
+        case 'lg': return 52;
+        default: return 44;
+      }
+    }
+    // For floating label, use existing height logic
+    return undefined;
+  };
+
+  // Get border color
+  const getBorderColor = () => {
+    if (!floatingLabel) {
+      if (error) return authStyles.colors.destructive;
+      if (success) return authStyles.colors.success;
+      if (isFocused) return authStyles.colors.primary;
+      return '#e5e7eb'; // gray-200
+    }
+    // For floating label, use the original logic
+    if (error) return theme.destructive;
+    if (success) return theme.success || '#10b981';
+    if (isFocused) return theme.primary;
+    return theme.border;
+  };
+  
+  // Build input wrapper classes for floating label
   const inputWrapperClasses = cn(
     'flex-row items-center',
-    variantClasses[variant],
-    roundedClasses[rounded],
-    sizeClass,
-    error && 'border-destructive',
-    success && 'border-green-500',
-    isFocused && !error && 'border-primary',
+    floatingLabel && variantClasses[variant],
+    floatingLabel && roundedClasses[rounded],
+    floatingLabel && sizeClass,
+    floatingLabel && error && 'border-destructive',
+    floatingLabel && success && 'border-green-500',
+    floatingLabel && isFocused && !error && 'border-primary',
     isDisabled && 'opacity-50',
-    'transition-colors duration-200'
+    floatingLabel && 'transition-colors duration-200'
   );
   
   // Animated styles
@@ -351,7 +394,6 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
     transform: [{ scale: clearButtonScale.value }],
   }));
   
-  const isPasswordField = props.secureTextEntry;
   const characterCount = localValue ? localValue.length : 0;
   
   return (
@@ -378,56 +420,99 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
       
       {/* Static Label */}
       {label && !floatingLabel && (
-        <Text
-          size="sm"
-          weight="medium"
-          color={error ? 'destructive' : 'foreground'}
-          className={cn('mb-1.5', labelClassName)}
-        >
-          {label}
-          {isRequired && <Text color="destructive"> *</Text>}
-        </Text>
+        <View style={{ flexDirection: 'row', marginBottom: 6 }}>
+          <Text 
+            size="sm" 
+            weight="medium" 
+            style={{ color: theme.foreground }}
+            className={labelClassName}
+          >
+            {label}
+          </Text>
+          {isRequired && (
+            <Text 
+              size="sm" 
+              style={{ color: authStyles.colors.destructive, marginLeft: 4 }}
+            >
+              *
+            </Text>
+          )}
+        </View>
       )}
       
       {/* Input Container */}
-      <AnimatedView 
-        className={inputWrapperClasses}
-        style={[animated && borderAnimatedStyle]}
+      <Pressable 
+        onPress={() => inputRef.current?.focus()} 
+        disabled={isDisabled || isLoading}
+        style={Platform.OS === 'web' ? { cursor: isDisabled ? 'not-allowed' : 'text' } as any : undefined}
       >
+        <AnimatedView 
+          className={inputWrapperClasses}
+          style={[
+            !floatingLabel && {
+              borderWidth: 1,
+              borderColor: getBorderColor(),
+              borderRadius: 6,
+              backgroundColor: isDisabled ? theme.muted : theme.background,
+              height: getHeight(),
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 16,
+              ...(Platform.OS === 'web' && {
+                transition: 'all 0.2s ease',
+                cursor: isDisabled ? 'not-allowed' : 'text',
+              } as any),
+            },
+            animated && floatingLabel && borderAnimatedStyle
+          ]}
+          pointerEvents="box-only"
+        >
         {/* Left Icon/Element */}
         {leftIcon && (
-          <View className="pl-3 pr-2">
+          <View className={floatingLabel ? "pl-3 pr-2" : ""}>
             {typeof leftIcon === 'string' ? (
-              <Symbol name={leftIcon as any} size={18} color={isFocused ? 'primary' : 'muted'} />
+              <Symbol name={leftIcon as any} size={floatingLabel ? 18 : 20} color={isFocused ? 'primary' : 'muted'} />
             ) : leftIcon}
           </View>
         )}
-        {leftElement}
+        {leftElement && (
+          <View style={!floatingLabel ? { marginRight: 8 } : undefined}>
+            {leftElement}
+          </View>
+        )}
         
         {/* Text Input */}
         <AnimatedTextInput
-          ref={ref}
+          ref={inputRef}
           value={localValue}
           onChangeText={handleChangeText}
           onFocus={handleFocus}
           onBlur={handleBlur}
           placeholder={floatingLabel && label ? '' : placeholder}
-          placeholderTextColor={cn(
-            'text-muted-foreground',
-            Platform.OS === 'web' && 'placeholder:text-muted-foreground'
-          )}
+          placeholderTextColor={theme.mutedForeground}
           editable={!isDisabled && !isLoading}
-          secureTextEntry={isPasswordField && !showPassword}
+          secureTextEntry={hasCustomPasswordToggle ? props.secureTextEntry : (isPasswordField && !showPassword)}
           maxLength={maxLength}
+          selectionColor={!floatingLabel ? authStyles.colors.primary : undefined}
+          underlineColorAndroid="transparent"
           className={cn(
             'flex-1 bg-transparent text-foreground',
-            Platform.OS === 'web' && 'outline-none',
+            Platform.OS === 'web' && 'outline-none universal-input',
             inputClassName
           )}
           style={[
             {
               fontSize: size === 'sm' ? 14 : size === 'lg' ? 18 : 16,
               paddingVertical: 0,
+              color: theme.foreground,
+              ...(Platform.OS === 'android' && {
+                textAlignVertical: 'center',
+              }),
+              ...(Platform.OS === 'web' && {
+                outline: 'none',
+                boxShadow: 'none',
+                WebkitBoxShadow: 'none',
+              } as any),
             },
             style,
           ]}
@@ -452,18 +537,20 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
               onPress={handleClear}
               className="p-1"
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
             >
               <Symbol name="x.circle.fill" size={18} color="muted" />
             </Pressable>
           </AnimatedView>
         )}
         
-        {/* Password Toggle */}
-        {isPasswordField && (
+        {/* Password Toggle - Only show if no custom rightElement */}
+        {isPasswordField && !rightElement && (
           <Pressable
             onPress={togglePasswordVisibility}
             className="p-1 pr-3"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
           >
             <Symbol 
               name={showPassword ? 'eye.slash' : 'eye'} 
@@ -481,14 +568,18 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
         )}
         
         {/* Right Icon/Element */}
-        {rightIcon && !showClearButton && !isPasswordField && !success && (
+        {rightIcon && !showClearButton && !isPasswordField && !success && !rightElement && (
           <View className="pr-3 pl-2">
             {typeof rightIcon === 'string' ? (
               <Symbol name={rightIcon as any} size={18} color="muted" />
             ) : rightIcon}
           </View>
         )}
-        {rightElement}
+        {rightElement && (
+          <View style={!floatingLabel ? { marginLeft: 8 } : undefined}>
+            {rightElement}
+          </View>
+        )}
         
         {/* Loading Indicator */}
         {isLoading && (
@@ -496,12 +587,17 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
             <LoadingSpinner size={size} />
           </View>
         )}
-      </AnimatedView>
+        </AnimatedView>
+      </Pressable>
       
       {/* Error Message */}
       {error && (
-        <AnimatedView style={errorAnimatedStyle}>
-          <Text size="sm" color="destructive" className="mt-1.5">
+        <AnimatedView style={[floatingLabel && errorAnimatedStyle, !floatingLabel && { marginTop: 4 }]}>
+          <Text 
+            size="sm" 
+            style={{ color: authStyles.colors.destructive }}
+            className={floatingLabel ? "mt-1.5" : ""}
+          >
             {error}
           </Text>
         </AnimatedView>
@@ -509,9 +605,15 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
       
       {/* Hint Text */}
       {hint && !error && (
-        <Text size="sm" color="muted" className="mt-1.5">
-          {hint}
-        </Text>
+        <View style={!floatingLabel ? { marginTop: 4 } : undefined}>
+          <Text 
+            size="sm" 
+            style={{ color: theme.mutedForeground }}
+            className={floatingLabel ? "mt-1.5" : ""}
+          >
+            {hint}
+          </Text>
+        </View>
       )}
     </AnimatedView>
   );

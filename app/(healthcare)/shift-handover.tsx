@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, RefreshControl, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useAuth } from '@/hooks/useAuth';
+import { View, ScrollView, RefreshControl } from 'react-native';
 import {
   Text,
   Card,
@@ -11,27 +9,25 @@ import {
   HStack,
   Container,
   Avatar,
-  Progress,
   Separator,
   Alert,
   Checkbox,
-  Textarea,
+  TextArea,
 } from '@/components/universal';
-import { 
-  Users, 
-  Clock,
-  AlertCircle,
-  CheckCircle,
-  Calendar,
-  MessageSquare,
-  FileText,
-  UserCheck,
-  UserX,
-  Download,
-  Upload,
-} from '@/components/universal/display/Symbols';
+import { Symbol } from '@/components/universal/display/Symbols';
+
+// Icon components as wrappers around Symbol
 import { useSpacing } from '@/lib/stores/spacing-store';
-import { useTheme } from '@/lib/theme/provider';
+
+// Icon components as wrappers around Symbol
+const Clock = (props: any) => <Symbol name="clock.fill" {...props} />;
+const AlertCircle = (props: any) => <Symbol name="exclamationmark.circle.fill" {...props} />;
+const MessageSquare = (props: any) => <Symbol name="message.fill" {...props} />;
+const FileText = (props: any) => <Symbol name="doc.text.fill" {...props} />;
+const UserCheck = (props: any) => <Symbol name="person.badge.checkmark" {...props} />;
+const UserX = (props: any) => <Symbol name="person.badge.xmark" {...props} />;
+const Download = (props: any) => <Symbol name="arrow.down.circle.fill" {...props} />;
+const Upload = (props: any) => <Symbol name="arrow.up.circle.fill" {...props} />;
 
 interface ShiftStaff {
   id: string;
@@ -63,10 +59,7 @@ interface HandoverNote {
 }
 
 export default function ShiftHandoverScreen() {
-  const router = useRouter();
-  const { user } = useAuth();
   const { spacing } = useSpacing();
-  const theme = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [newNote, setNewNote] = useState('');
   const [selectedAlerts, setSelectedAlerts] = useState<string[]>([]);
@@ -181,7 +174,7 @@ export default function ShiftHandoverScreen() {
 
   const handleTransferAlerts = () => {
     // Transfer selected alerts to incoming staff
-// TODO: Replace with structured logging - console.log('Transferring alerts:', selectedAlerts);
+    // Will be implemented with actual API call
   };
 
   const toggleAlertSelection = (alertId: string) => {
@@ -208,13 +201,13 @@ export default function ShiftHandoverScreen() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'online':
-        return 'bg-green-500';
+        return 'bg-success';
       case 'offline':
-        return 'bg-gray-400';
+        return 'bg-muted-foreground';
       case 'break':
-        return 'bg-yellow-500';
+        return 'bg-warning';
       default:
-        return 'bg-gray-400';
+        return 'bg-muted-foreground';
     }
   };
 
@@ -223,38 +216,38 @@ export default function ShiftHandoverScreen() {
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
-      contentContainerStyle={{ paddingBottom: spacing.xl }}
+      contentContainerStyle={{ paddingBottom: spacing[8] }}
     >
-      <Container size="full" padding="lg">
-        <VStack spacing="lg">
+      <Container maxWidth="full" className="p-6">
+        <VStack gap={6}>
           {/* Header */}
-          <VStack spacing="xs">
-            <Text variant="h3">Shift Handover</Text>
-            <Text variant="body2" className="text-muted-foreground">
+          <VStack gap={1}>
+            <Text size="2xl" weight="bold">Shift Handover</Text>
+            <Text size="sm" color="muted">
               Transfer active alerts and important notes to the incoming shift
             </Text>
           </VStack>
 
           {/* Shift Information */}
-          <Card padding="md">
+          <Card className="p-4">
             <HStack justify="between" align="center">
-              <VStack spacing="xs">
-                <Text variant="body2" className="text-muted-foreground">
+              <VStack gap={1}>
+                <Text size="sm" color="muted">
                   Current Shift
                 </Text>
-                <HStack spacing="sm" align="center">
-                  <Clock size={16} className="text-muted-foreground" />
-                  <Text variant="body1" weight="semibold">
+                <HStack gap={2} align="center">
+                  <Clock size={16} color="#6B7280" />
+                  <Text size="base" weight="semibold">
                     {currentShift.name} ({currentShift.start} - {currentShift.end})
                   </Text>
                 </HStack>
               </VStack>
               
-              <VStack spacing="xs" align="end">
-                <Text variant="body2" className="text-muted-foreground">
+              <VStack gap={1} align="end">
+                <Text size="sm" color="muted">
                   Next Shift
                 </Text>
-                <Text variant="body1" weight="semibold">
+                <Text size="base" weight="semibold">
                   {nextShift.name} ({nextShift.start})
                 </Text>
               </VStack>
@@ -264,33 +257,33 @@ export default function ShiftHandoverScreen() {
           {/* Active Alerts Summary */}
           <Alert variant="warning">
             <AlertCircle size={16} />
-            <Text variant="body2">
+            <Text size="sm">
               {activeAlerts.length} active alerts require handover to incoming shift
             </Text>
           </Alert>
 
           {/* Staff Overview */}
-          <VStack spacing="md">
-            <Text variant="h5" weight="semibold">Staff Overview</Text>
+          <VStack gap={4}>
+            <Text size="lg" weight="semibold">Staff Overview</Text>
             
-            <HStack spacing="md">
+            <HStack gap={4}>
               {/* Outgoing Staff */}
-              <Card padding="md" className="flex-1">
-                <VStack spacing="md">
-                  <HStack spacing="sm" align="center">
-                    <UserX size={20} className="text-red-500" />
-                    <Text variant="body1" weight="semibold">
+              <Card className="p-4 flex-1">
+                <VStack gap={4}>
+                  <HStack gap={2} align="center">
+                    <UserX size={20} color="#EF4444" />
+                    <Text size="base" weight="semibold">
                       Outgoing Staff
                     </Text>
                   </HStack>
                   
-                  <VStack spacing="sm">
+                  <VStack gap={2}>
                     {outgoingStaff.map((staff) => (
-                      <HStack key={staff.id} spacing="sm" align="center">
+                      <HStack key={staff.id} gap={2} align="center">
                         <View className="relative">
                           <Avatar
-                            src={staff.avatar}
-                            alt={staff.name}
+                            source={staff.avatar ? { uri: staff.avatar } : undefined}
+                            name={staff.name}
                             size="sm"
                           />
                           <View 
@@ -298,15 +291,15 @@ export default function ShiftHandoverScreen() {
                           />
                         </View>
                         
-                        <VStack spacing="xs" className="flex-1">
-                          <Text variant="body2" weight="medium">
+                        <VStack gap={1} className="flex-1">
+                          <Text size="sm" weight="medium">
                             {staff.name}
                           </Text>
-                          <HStack spacing="xs">
+                          <HStack gap={1}>
                             <Badge variant={getRoleBadgeVariant(staff.role)} size="sm">
                               {staff.role}
                             </Badge>
-                            <Text variant="caption" className="text-muted-foreground">
+                            <Text size="xs" color="muted">
                               {staff.activeAlerts} active • {staff.completedAlerts} completed
                             </Text>
                           </HStack>
@@ -318,22 +311,22 @@ export default function ShiftHandoverScreen() {
               </Card>
 
               {/* Incoming Staff */}
-              <Card padding="md" className="flex-1">
-                <VStack spacing="md">
-                  <HStack spacing="sm" align="center">
-                    <UserCheck size={20} className="text-green-500" />
-                    <Text variant="body1" weight="semibold">
+              <Card className="p-4 flex-1">
+                <VStack gap={4}>
+                  <HStack gap={2} align="center">
+                    <UserCheck size={20} color="#10B981" />
+                    <Text size="base" weight="semibold">
                       Incoming Staff
                     </Text>
                   </HStack>
                   
-                  <VStack spacing="sm">
+                  <VStack gap={2}>
                     {incomingStaff.map((staff) => (
-                      <HStack key={staff.id} spacing="sm" align="center">
+                      <HStack key={staff.id} gap={2} align="center">
                         <View className="relative">
                           <Avatar
-                            src={staff.avatar}
-                            alt={staff.name}
+                            source={staff.avatar ? { uri: staff.avatar } : undefined}
+                            name={staff.name}
                             size="sm"
                           />
                           <View 
@@ -341,8 +334,8 @@ export default function ShiftHandoverScreen() {
                           />
                         </View>
                         
-                        <VStack spacing="xs" className="flex-1">
-                          <Text variant="body2" weight="medium">
+                        <VStack gap={1} className="flex-1">
+                          <Text size="sm" weight="medium">
                             {staff.name}
                           </Text>
                           <Badge variant={getRoleBadgeVariant(staff.role)} size="sm">
@@ -358,9 +351,9 @@ export default function ShiftHandoverScreen() {
           </VStack>
 
           {/* Active Alerts to Transfer */}
-          <VStack spacing="md">
+          <VStack gap={4}>
             <HStack justify="between" align="center">
-              <Text variant="h5" weight="semibold">Active Alerts</Text>
+              <Text size="lg" weight="semibold">Active Alerts</Text>
               <Button
                 variant="outline"
                 size="sm"
@@ -372,33 +365,33 @@ export default function ShiftHandoverScreen() {
               </Button>
             </HStack>
             
-            <VStack spacing="sm">
+            <VStack gap={2}>
               {activeAlerts.map((alert) => (
-                <Card key={alert.id} padding="md">
-                  <HStack spacing="md" align="center">
+                <Card key={alert.id} className="p-4">
+                  <HStack gap={4} align="center">
                     <Checkbox
                       checked={selectedAlerts.includes(alert.id)}
                       onCheckedChange={() => toggleAlertSelection(alert.id)}
                     />
                     
-                    <VStack spacing="xs" className="flex-1">
+                    <VStack gap={1} className="flex-1">
                       <HStack justify="between" align="center">
-                        <Text variant="body1" weight="semibold">
+                        <Text size="base" weight="semibold">
                           {alert.alertType}
                         </Text>
                         <Badge variant="outline" size="sm">
                           Level {alert.urgencyLevel}
                         </Badge>
                       </HStack>
-                      <Text variant="body2" className="text-muted-foreground">
+                      <Text size="sm" color="muted">
                         {alert.patientName} • Room {alert.roomNumber}
                       </Text>
-                      <HStack spacing="md">
-                        <Text variant="caption" className="text-muted-foreground">
+                      <HStack gap={4}>
+                        <Text size="xs" color="muted">
                           Assigned: {alert.assignedTo}
                         </Text>
                         <Badge 
-                          variant={alert.status === 'active' ? 'destructive' : 'default'} 
+                          variant={alert.status === 'active' ? 'error' : 'default'} 
                           size="sm"
                         >
                           {alert.status}
@@ -412,13 +405,13 @@ export default function ShiftHandoverScreen() {
           </VStack>
 
           {/* Handover Notes */}
-          <VStack spacing="md">
-            <Text variant="h5" weight="semibold">Handover Notes</Text>
+          <VStack gap={4}>
+            <Text size="lg" weight="semibold">Handover Notes</Text>
             
             {/* Add Note */}
-            <Card padding="md">
-              <VStack spacing="sm">
-                <Textarea
+            <Card className="p-4">
+              <VStack gap={2}>
+                <TextArea
                   placeholder="Add important information for the incoming shift..."
                   value={newNote}
                   onChangeText={setNewNote}
@@ -438,20 +431,20 @@ export default function ShiftHandoverScreen() {
             </Card>
 
             {/* Existing Notes */}
-            <VStack spacing="sm">
+            <VStack gap={2}>
               {handoverNotes.map((note) => (
-                <Card key={note.id} padding="md">
-                  <VStack spacing="sm">
+                <Card key={note.id} className="p-4">
+                  <VStack gap={2}>
                     <HStack justify="between" align="start">
-                      <HStack spacing="sm" align="center">
-                        <FileText size={16} className="text-muted-foreground" />
-                        <Text variant="body2" weight="medium">
+                      <HStack gap={2} align="center">
+                        <FileText size={16} color="muted" />
+                        <Text size="sm" weight="medium">
                           {note.author}
                         </Text>
                         <Badge 
                           variant={
-                            note.priority === 'high' ? 'destructive' : 
-                            note.priority === 'medium' ? 'secondary' : 
+                            note.priority === 'high' ? 'error' : 
+                            note.priority === 'medium' ? 'warning' : 
                             'outline'
                           } 
                           size="sm"
@@ -459,11 +452,11 @@ export default function ShiftHandoverScreen() {
                           {note.priority}
                         </Badge>
                       </HStack>
-                      <Text variant="caption" className="text-muted-foreground">
+                      <Text size="xs" color="muted">
                         {note.timestamp.toLocaleTimeString()}
                       </Text>
                     </HStack>
-                    <Text variant="body2">
+                    <Text size="sm">
                       {note.content}
                     </Text>
                   </VStack>
@@ -473,38 +466,38 @@ export default function ShiftHandoverScreen() {
           </VStack>
 
           {/* Shift Summary */}
-          <Card padding="lg" className="bg-muted/50">
-            <VStack spacing="md">
-              <Text variant="h6" weight="semibold">Shift Summary</Text>
+          <Card className="p-6 bg-muted/50">
+            <VStack gap={4}>
+              <Text size="base" weight="semibold">Shift Summary</Text>
               <Separator />
               
-              <HStack spacing="xl">
-                <VStack spacing="xs">
-                  <Text variant="caption" className="text-muted-foreground">
+              <HStack gap={8}>
+                <VStack gap={1}>
+                  <Text size="xs" color="muted">
                     Total Alerts
                   </Text>
-                  <Text variant="h6">23</Text>
+                  <Text size="base" weight="semibold">23</Text>
                 </VStack>
                 
-                <VStack spacing="xs">
-                  <Text variant="caption" className="text-muted-foreground">
+                <VStack gap={1}>
+                  <Text size="xs" color="muted">
                     Resolved
                   </Text>
-                  <Text variant="h6" className="text-green-500">18</Text>
+                  <Text size="base" weight="semibold" color="success">18</Text>
                 </VStack>
                 
-                <VStack spacing="xs">
-                  <Text variant="caption" className="text-muted-foreground">
+                <VStack gap={1}>
+                  <Text size="xs" color="muted">
                     Active
                   </Text>
-                  <Text variant="h6" className="text-yellow-500">3</Text>
+                  <Text size="base" weight="semibold" color="warning">3</Text>
                 </VStack>
                 
-                <VStack spacing="xs">
-                  <Text variant="caption" className="text-muted-foreground">
+                <VStack gap={1}>
+                  <Text size="xs" color="muted">
                     Escalated
                   </Text>
-                  <Text variant="h6" className="text-red-500">2</Text>
+                  <Text size="base" weight="semibold" color="destructive">2</Text>
                 </VStack>
               </HStack>
               

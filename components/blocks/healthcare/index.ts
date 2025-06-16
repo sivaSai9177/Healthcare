@@ -14,6 +14,7 @@
 
 // Alert Management Components
 export { AlertCreationForm } from './AlertCreationForm';
+export { AlertCreationFormEnhanced } from './AlertCreationFormEnhanced';
 export { AlertList } from './AlertList';
 export { AlertSummary } from './AlertSummary';
 export { AlertTimeline } from './AlertTimeline';
@@ -30,6 +31,9 @@ export { PatientCardBlock as PatientCard } from './PatientCard';
 
 // Metrics & Analytics
 export { MetricsOverviewBlock as MetricsOverview } from './MetricsOverview';
+
+// Shift Management
+export { ShiftStatus } from './ShiftStatus';
 
 // Type exports for better type safety
 export type { AlertSummaryBlockProps } from './AlertSummary';

@@ -6,7 +6,8 @@ import PlatformStorage from '../core/platform-storage';
 import { Platform } from 'react-native';
 import type { User, Session } from 'better-auth/types';
 import { AppUser, UserRole } from '@/types/auth'; // Import our unified types
-import { log } from '@/lib/core/debug/logger';
+import { logger } from '@/lib/core/debug/unified-logger';
+const log = logger;
 
 // Create a safe storage adapter that works on all platforms
 const storage = Platform.OS === 'web' 
@@ -47,23 +48,7 @@ export function toAppUser(user: any, fallbackRole: UserRole = 'user'): AppUser {
     emailVerified: user.emailVerified !== false, // Default to true if not specified
   } as AppUser;
   
-  console.log('[AUTH_STORE] toAppUser conversion', {
-    input: {
-      id: user?.id,
-      role: user?.role,
-      needsProfileCompletion: user?.needsProfileCompletion,
-      hasRole: 'role' in user,
-      hasNeedsProfileCompletion: 'needsProfileCompletion' in user
-    },
-    output: {
-      role: appUser.role,
-      needsProfileCompletion: appUser.needsProfileCompletion,
-      fallbackRole
-    },
-    timestamp: new Date().toISOString()
-  });
-  
-  log.store.debug('toAppUser conversion', {
+  logger.store.update('authStore', 'toAppUser', {
     input: {
       id: user?.id,
       role: user?.role,
@@ -155,30 +140,30 @@ export const useAuthStore = create<AuthStore>()(
 
         // Hydration
         setHasHydrated: (state) => {
-          log.store.update('Setting hasHydrated', { hasHydrated: state });
+          logger.store.update('authStore', 'setHasHydrated', { hasHydrated: state });
           set({ hasHydrated: state });
         },
 
         // Authentication state management only
         setUser: (user) => {
-          log.store.update('Setting user', { userId: user?.id });
+          logger.store.update('authStore', 'setUser', { userId: user?.id });
           set({ user });
         },
 
         setSession: (session) => {
-          log.store.update('Setting session', { sessionId: session?.id });
+          logger.store.update('authStore', 'setSession', { sessionId: session?.id });
           set({ session });
         },
 
         setAuthenticated: (authenticated) => {
-          log.store.update('Setting authenticated', { authenticated });
+          logger.store.update('authStore', 'setAuthenticated', { authenticated });
           set({ isAuthenticated: authenticated });
         },
 
         clearAuth: async () => {
-          log.store.update('clearAuth called');
+          logger.store.update('authStore', 'clearAuth', {});
           const prevState = get();
-          log.store.debug('Previous state', {
+          logger.store.update('authStore', 'clearAuth.previousState', {
             hadUser: !!prevState.user,
             wasAuthenticated: prevState.isAuthenticated
           });
@@ -228,7 +213,7 @@ export const useAuthStore = create<AuthStore>()(
             return; // Skip update entirely to prevent re-renders
           }
           
-          log.store.update('Updating auth state', { 
+          logger.store.update('authStore', 'updateAuth', { 
             userId: user?.id, 
             role: user?.role,
             isAuth: !!user && !!session,
@@ -255,7 +240,7 @@ export const useAuthStore = create<AuthStore>()(
             return;
           }
           
-          log.store.update('Updating user data', userData);
+          logger.store.update('authStore', 'updateUserData', userData);
           
           set({
             user: {
@@ -278,7 +263,7 @@ export const useAuthStore = create<AuthStore>()(
         checkSession: async () => {
           // This will be called by components after they check session via tRPC
           const state = get();
-          log.store.update('Checking session', {
+          logger.store.update('authStore', 'checkSession', {
             hasUser: !!state.user,
             isAuthenticated: state.isAuthenticated
           });
@@ -325,14 +310,14 @@ export const useAuthStore = create<AuthStore>()(
         storage: createJSONStorage(() => storage),
         skipHydration: Platform.OS === 'web' && typeof window === 'undefined', // Skip on SSR
         onRehydrateStorage: (state) => {
-          log.store.update('onRehydrateStorage called', { hasState: !!state });
+          logger.store.update('authStore', 'onRehydrateStorage', { hasState: !!state });
           
           // Immediately mark as hydrated on web to prevent loading screen hang
           if (Platform.OS === 'web' && typeof window !== 'undefined') {
             setTimeout(() => {
               const currentState = useAuthStore.getState();
               if (!currentState.hasHydrated) {
-                log.store.update('Force hydrating on web');
+                logger.store.update('authStore', 'forceHydrate', {});
                 currentState.setHasHydrated(true);
               }
             }, 100);
@@ -340,7 +325,7 @@ export const useAuthStore = create<AuthStore>()(
           
           return (rehydratedState, error) => {
             if (error) {
-              log.store.error('Rehydration error', error);
+              logger.store.error('authStore', 'rehydrateError', error);
             }
             
             // Always set hasHydrated to true after rehydration attempt
@@ -385,7 +370,7 @@ useAuthStore.subscribe(
     
     if (previousIsAuthenticated && !isAuthenticated) {
       // User logged out - clear any sensitive data
-      log.store.update('User logged out, clearing sensitive data');
+      logger.store.update('authStore', 'logoutClearingSensitiveData', {});
     }
   }
 );
@@ -445,6 +430,9 @@ export const useAuthGuard = (requiredPermission?: string) => {
     isLoading: !hasHydrated,
   };
 };
+
+// Export the store itself for direct access (needed by session timeout manager)
+export const authStore = useAuthStore;
 
 // Legacy exports for backward compatibility during transition
 export const useUser = () => useAuthStore((state) => state.user);

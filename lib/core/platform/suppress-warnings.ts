@@ -6,39 +6,26 @@
 // Set up Reanimated mocks before any imports to prevent initialization errors
 import { Platform } from 'react-native';
 
-if (typeof globalThis !== 'undefined' && typeof window !== 'undefined') {
-  // We're on web - set up mocks immediately
-  // Make properties writable so Reanimated can override them
-  Object.defineProperty(globalThis, '_WORKLET', {
-    value: false,
-    writable: true,
-    configurable: true
-  });
-  Object.defineProperty(globalThis, '__reanimatedWorkletInit', {
-    value: () => {},
-    writable: true,
-    configurable: true
-  });
-  Object.defineProperty(globalThis, '__reanimatedModuleProxy', {
-    value: undefined,
-    writable: true,
-    configurable: true
-  });
-  Object.defineProperty(globalThis, 'ProgressTransitionRegister', {
-    value: undefined,
-    writable: true,
-    configurable: true
-  });
-  Object.defineProperty(globalThis, 'LayoutAnimationRepository', {
-    value: undefined,
-    writable: true,
-    configurable: true
-  });
-  Object.defineProperty(globalThis, 'UpdatePropsManager', {
-    value: undefined,
-    writable: true,
-    configurable: true
-  });
+// Skip all property definitions on native platforms to avoid Hermes errors
+if (Platform.OS === 'web' && typeof globalThis !== 'undefined') {
+  // Only set up mocks on web where they're needed
+  const safeSetGlobal = (name: string, value: any) => {
+    try {
+      // Only set if the property doesn't exist
+      if (!(name in globalThis)) {
+        (globalThis as any)[name] = value;
+      }
+    } catch (error) {
+      // Silently ignore
+    }
+  };
+  
+  safeSetGlobal('_WORKLET', false);
+  safeSetGlobal('__reanimatedWorkletInit', () => {});
+  safeSetGlobal('__reanimatedModuleProxy', undefined);
+  safeSetGlobal('ProgressTransitionRegister', undefined);
+  safeSetGlobal('LayoutAnimationRepository', undefined);
+  safeSetGlobal('UpdatePropsManager', undefined);
 }
 
 // Suppress warnings in development

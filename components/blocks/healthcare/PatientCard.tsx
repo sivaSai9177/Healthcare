@@ -5,18 +5,11 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import {
-  Card,
-  VStack,
-  HStack,
-  Text,
-  Button,
-  Badge,
-  Avatar,
-  Separator,
-  Grid,
-  Skeleton,
-} from '@/components/universal';
+import { Card, Badge, Avatar } from '@/components/universal/display';
+import { VStack, HStack, Separator, Grid } from '@/components/universal/layout';
+import { Text } from '@/components/universal/typography';
+import { Button } from '@/components/universal/interaction';
+import { Skeleton } from '@/components/universal/feedback';
 import { cn } from '@/lib/core/utils';
 import { api } from '@/lib/api/trpc';
 import { create } from 'zustand';

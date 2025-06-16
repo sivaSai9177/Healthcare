@@ -1,29 +1,11 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { 
-  Card, 
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  Text, 
-  Button, 
-  Input, 
-  Stack, 
-  Switch,
-  Form,
-  FormItem,
-  Select,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableCell,
-  Badge,
-  Alert,
-  AlertTitle,
-  AlertDescription,
-} from '@/components/universal';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Table, TableHeader, TableBody, TableRow, TableCell, Badge } from '@/components/universal/display';
+import { Text } from '@/components/universal/typography';
+import { Button } from '@/components/universal/interaction';
+import { Input, Form, FormItem, Select, Switch } from '@/components/universal/form';
+import { Stack } from '@/components/universal/layout';
+import { Alert, AlertTitle, AlertDescription } from '@/components/universal/feedback';
 import { useResponsive } from '@/hooks/responsive';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useForm } from 'react-hook-form';

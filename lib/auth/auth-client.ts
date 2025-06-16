@@ -8,13 +8,13 @@ import { Platform, AppState, AppStateStatus } from "react-native";
 import { webStorage, mobileStorage } from "../core/secure-storage";
 import { getAuthUrl } from "../core/config/unified-env";
 import { sessionManager } from "./auth-session-manager";
-import { log } from "../core/debug/logger";
+import { logger } from "../core/debug/unified-logger";
 
 const BASE_URL = getAuthUrl();
 
 // Log configuration once (only on client side)
 if (typeof window !== 'undefined' || __DEV__) {
-  log.info('Auth client initialized', 'AUTH_CLIENT', {
+  logger.auth.info('Auth client initialized', {
     platform: Platform.OS,
     baseURL: BASE_URL,
     authEndpoint: `${BASE_URL}/api/auth`,
@@ -59,25 +59,8 @@ const baseAuthClient = createAuthClient({
       storage: Platform.OS === 'web' ? webStorage : mobileStorage,
       disableCache: false, // Enable session caching
       // Security settings
-      secureStorage: Platform.OS !== 'web', // Use secure storage on mobile
-      sessionValidation: {
-        // Validate session on app startup
-        validateOnStartup: true,
-        // Re-validate session after app comes to foreground
-        validateOnForeground: true,
-        // Validation interval
-        validationInterval: 5 * 60 * 1000, // 5 minutes
-      },
-      // Token refresh settings
-      tokenRefresh: {
-        // Automatically refresh tokens
-        autoRefresh: true,
-        // Refresh threshold (refresh if expires in less than this)
-        refreshThreshold: 5 * 60 * 1000, // 5 minutes
-        // Retry failed refresh attempts
-        retryFailedRefresh: true,
-        maxRetries: 3,
-      },
+      // secureStorage: Platform.OS !== 'web', // Use secure storage on mobile - not a valid option
+      // sessionValidation and tokenRefresh are not valid options for expoClient plugin
     }),
     inferAdditionalFields({
       user: {
@@ -137,21 +120,21 @@ baseAuthClient.signOut = async function(options?: any) {
       
       // Handle timeout errors
       if (error.name === 'AbortError' || error.message?.includes('signal timed out')) {
-        log.debug('Sign-out request timed out (session cleared locally)', 'AUTH_CLIENT');
+        logger.auth.debug('Sign-out request timed out (session cleared locally)');
         // Return success since local cleanup already happened
         return { success: true };
       }
       
       // Handle Better Auth v1.2.8 500 error
       if (error?.response?.status === 500 || error?.status === 500) {
-        log.debug('Better Auth sign-out returned 500 (known issue, ignoring)', 'AUTH_CLIENT');
+        logger.auth.debug('Better Auth sign-out returned 500 (known issue, ignoring)');
         return { success: true };
       }
       
       throw error;
     }
   } catch (error: any) {
-    log.error('Sign-out error:', 'AUTH_CLIENT', error);
+    logger.auth.error('Sign-out error', error);
     // Don't throw - sign-out should always succeed locally
     return { success: true };
   }
@@ -160,10 +143,20 @@ baseAuthClient.signOut = async function(options?: any) {
 // Export the modified client directly
 export const authClient = baseAuthClient;
 
-// Add a getSession method for compatibility
-// This delegates to the auth store which maintains the session state
-authClient.getSession = async () => {
+// Override getSession to return proper type
+const originalGetSession = authClient.getSession;
+
+// Create a properly typed wrapper
+const getSessionWrapper = async (options?: Parameters<typeof originalGetSession>[0]) => {
   try {
+    // Simply call the original getSession - let Better Auth handle caching
+    const result = await originalGetSession.call(authClient, options);
+    
+    if (result && result.data) {
+      return result.data;
+    }
+    
+    // Fallback to auth store only if Better Auth returns nothing
     const { useAuthStore } = await import('../stores/auth-store');
     const state = useAuthStore.getState();
     
@@ -176,10 +169,13 @@ authClient.getSession = async () => {
     
     return null;
   } catch (error) {
-    log.error('Failed to get session', 'AUTH_CLIENT', error);
+    logger.auth.error('Failed to get session', error);
     return null;
   }
 };
+
+// Type assertion to override with proper return type
+(authClient as any).getSession = getSessionWrapper;
 
 export type AuthClient = typeof authClient;
 
@@ -191,7 +187,7 @@ if (Platform.OS !== 'web') {
   AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
     if (appState.match(/inactive|background/) && nextAppState === 'active') {
       // App has come to foreground
-      log.info('App came to foreground', 'AUTH_CLIENT', {
+      logger.system.info('App came to foreground', {
         lastBackgroundTime,
         timeSinceBackground: lastBackgroundTime ? Date.now() - lastBackgroundTime : null,
       });
@@ -200,13 +196,13 @@ if (Platform.OS !== 'web') {
       if (lastBackgroundTime && Date.now() - lastBackgroundTime > 5 * 60 * 1000) {
         // More than 5 minutes in background, validate session
         authClient.getSession().catch((error) => {
-          log.error('Session validation failed after foreground', 'AUTH_CLIENT', { error });
+          logger.auth.error('Session validation failed after foreground', error);
         });
       }
     } else if (nextAppState.match(/inactive|background/)) {
       // App is going to background
       lastBackgroundTime = Date.now();
-      log.info('App going to background', 'AUTH_CLIENT', { timestamp: lastBackgroundTime });
+      logger.system.info('App going to background', { timestamp: lastBackgroundTime });
     }
     
     appState = nextAppState;
@@ -222,10 +218,11 @@ export const authClientEnhanced = {
     // Check if session is about to expire
     isSessionExpiringSoon: async (thresholdMinutes: number = 30): Promise<boolean> => {
       try {
-        const session = await authClient.getSession();
-        if (!session?.session?.expiresAt) return true;
+        const result = await authClient.getSession();
+        const session = result && 'session' in result ? result : null;
+        if (!session?.session || !(session.session as any).expiresAt) return true;
         
-        const expiresAt = new Date(session.session.expiresAt).getTime();
+        const expiresAt = new Date((session.session as any).expiresAt).getTime();
         const now = Date.now();
         const threshold = thresholdMinutes * 60 * 1000;
         
@@ -244,7 +241,7 @@ export const authClientEnhanced = {
         const session = await authClient.getSession();
         return !!session;
       } catch (error) {
-        log.error('Force refresh failed', 'AUTH_CLIENT', { error });
+        logger.auth.error('Force refresh failed', error);
         return false;
       }
     },
@@ -252,17 +249,18 @@ export const authClientEnhanced = {
     // Validate session integrity
     validateSession: async (): Promise<{ valid: boolean; reason?: string }> => {
       try {
-        const session = await authClient.getSession();
+        const result = await authClient.getSession();
+        const session = result && 'session' in result ? result : null;
         
         if (!session) {
           return { valid: false, reason: 'No session found' };
         }
         
-        if (!session.session?.expiresAt) {
+        if (!session.session || !(session.session as any).expiresAt) {
           return { valid: false, reason: 'Invalid session structure' };
         }
         
-        const expiresAt = new Date(session.session.expiresAt).getTime();
+        const expiresAt = new Date((session.session as any).expiresAt).getTime();
         if (expiresAt < Date.now()) {
           return { valid: false, reason: 'Session expired' };
         }
@@ -271,6 +269,7 @@ export const authClientEnhanced = {
         
         return { valid: true };
       } catch (error) {
+        logger.auth.error('Session validation error', error);
         return { valid: false, reason: 'Validation error' };
       }
     },
@@ -289,10 +288,10 @@ export const authClientEnhanced = {
       if (options?.everywhere) {
         // This would revoke all sessions server-side
         // Requires server implementation
-        log.info('Sign out everywhere requested', 'AUTH_CLIENT');
+        logger.auth.info('Sign out everywhere requested');
       }
     } catch (error) {
-      log.error('Enhanced sign out failed', 'AUTH_CLIENT', { error });
+      logger.auth.error('Enhanced sign out failed', error);
       // Still clear local session even if server sign out fails
       await sessionManager.clearSession();
       throw error;

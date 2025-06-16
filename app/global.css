@@ -69,6 +69,15 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+  
+  /* iOS specific font smoothing */
+  @supports (-webkit-touch-callout: none) {
+    body {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
   }
   
   /* Disable autofill styles on inputs */
@@ -79,6 +88,7 @@
     -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset !important;
     -webkit-text-fill-color: hsl(var(--foreground)) !important;
     transition: background-color 5000s ease-in-out 0s;
+    border: 1px solid hsl(var(--border)) !important;
   }
   
   /* Dark mode autofill styles */
@@ -88,6 +98,7 @@
   .dark input.universal-input:-webkit-autofill:active {
     -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset !important;
     -webkit-text-fill-color: hsl(var(--foreground)) !important;
+    border: 1px solid hsl(var(--border)) !important;
   }
 }
 

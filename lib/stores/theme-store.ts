@@ -81,12 +81,12 @@ export const useThemeStore = create<ThemeState>()(
     subscribeWithSelector(
       persist(
         immer((set, get) => ({
-          // Initial state
+          // Initial state - will be overridden by persisted state
           themeId: 'default',
           colorScheme: 'light',
           systemColorScheme: Appearance.getColorScheme() || 'light',
           useSystemTheme: true,
-          theme: getTheme('default').colors.light,
+          theme: getTheme('default').colors[Appearance.getColorScheme() || 'light'],
           availableThemes: themes,
           
           // Actions
@@ -96,6 +96,7 @@ export const useThemeStore = create<ThemeState>()(
                 state.themeId = themeId;
                 const effectiveScheme = state.useSystemTheme ? state.systemColorScheme : state.colorScheme;
                 state.theme = getTheme(themeId).colors[effectiveScheme];
+                updateAppearance(effectiveScheme);
               }
             });
           },
@@ -145,6 +146,14 @@ export const useThemeStore = create<ThemeState>()(
             colorScheme: state.colorScheme,
             useSystemTheme: state.useSystemTheme,
           }),
+          onRehydrateStorage: () => (state) => {
+            // After rehydration, update the theme object
+            if (state) {
+              const effectiveScheme = state.useSystemTheme ? state.systemColorScheme : state.colorScheme;
+              state.theme = getTheme(state.themeId).colors[effectiveScheme];
+              updateAppearance(effectiveScheme);
+            }
+          },
         }
       )
     ),

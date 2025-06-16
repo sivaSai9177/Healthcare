@@ -1,15 +1,11 @@
 import React, { useTransition, useMemo, useCallback } from 'react';
 import { View, Pressable, ActivityIndicator } from 'react-native';
-import { useThemeContext } from '@/lib/theme/provider';
+import { useThemeStore } from '@/lib/stores/theme-store';
 import { getThemeOptions } from '@/lib/theme/registry';
-import {
-  VStack,
-  HStack,
-  Text,
-  Card,
-  Badge,
-  Select,
-} from '@/components/universal';
+import { VStack, HStack } from '@/components/universal/layout';
+import { Text } from '@/components/universal/typography';
+import { Card, Badge } from '@/components/universal/display';
+import { Select } from '@/components/universal/form';
 import { SpacingScale } from '@/lib/design';
 
 interface ColorSwatchProps {
@@ -41,7 +37,10 @@ const ColorSwatch = React.memo<ColorSwatchProps>(({ color, label }) => {
 ColorSwatch.displayName = 'ColorSwatch';
 
 export const ThemeSelector: React.FC = () => {
-  const { themeId, setThemeId, colorScheme, availableThemes } = useThemeContext();
+  const themeId = useThemeStore((state) => state.themeId);
+  const setThemeId = useThemeStore((state) => state.setThemeId);
+  const colorScheme = useThemeStore((state) => state.getEffectiveColorScheme());
+  const availableThemes = useThemeStore((state) => state.availableThemes);
   const themeOptions = getThemeOptions();
   const [isPending, startTransition] = useTransition();
   
@@ -122,7 +121,8 @@ export const ThemeSelector: React.FC = () => {
 
 // Compact Theme Selector for quick switching
 export const CompactThemeSelector: React.FC = () => {
-  const { themeId, setThemeId } = useThemeContext();
+  const themeId = useThemeStore((state) => state.themeId);
+  const setThemeId = useThemeStore((state) => state.setThemeId);
   const themeOptions = useMemo(() => getThemeOptions(), []);
   const [isPending, startTransition] = useTransition();
   

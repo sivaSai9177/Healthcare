@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from '@/components/universal';
+import { Button } from './Button';
 
 interface PrimaryButtonProps {
   title: string;

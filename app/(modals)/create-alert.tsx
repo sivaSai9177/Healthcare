@@ -1,48 +1,27 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { router } from 'expo-router';
 import {
   Text,
-  Button,
-  Input,
-  Label,
-  Select,
-  Card,
-  Stack,
   Container,
+  VStack,
+  HStack,
+  Button,
 } from '@/components/universal';
-import { cn } from '@/lib/core/utils';
-import { useSpacing } from '@/hooks/core/useSpacing';
-
-type AlertPriority = 'low' | 'medium' | 'high' | 'critical';
-type AlertType = 'medical' | 'operational' | 'emergency' | 'general';
-
-interface AlertFormData {
-  title: string;
-  description: string;
-  priority: AlertPriority;
-  type: AlertType;
-  patientId?: string;
-  assignedTo?: string;
-}
+import { AlertCreationFormEnhanced } from '@/components/blocks/healthcare';
+import { useAuthStore } from '@/lib/stores/auth-store';
+import { useSpacing } from '@/lib/stores/spacing-store';
+import { useShadow } from '@/hooks/useShadow';
 
 export default function CreateAlertModal() {
-  const spacing = useSpacing();
+  const { spacing } = useSpacing();
+  const { user } = useAuthStore();
+  const shadowLg = useShadow({ size: 'lg' });
   
-  const [formData, setFormData] = useState<AlertFormData>({
-    title: '',
-    description: '',
-    priority: 'medium',
-    type: 'general',
-  });
-
-  const handleSubmit = () => {
-    // TODO: Implement alert creation logic
-    // Alert creation logic handled by mutation
-    router.back();
-  };
-
-  const handleCancel = () => {
+  // For demo, use a placeholder hospital ID
+  const hospitalId = 'f155b026-01bd-4212-94f3-e7aedef2801d';
+  
+  const handleClose = () => {
     router.back();
   };
 
@@ -54,130 +33,40 @@ export default function CreateAlertModal() {
       <Container className="flex-1 bg-background">
         <ScrollView
           contentContainerStyle={{
-            padding: spacing.md,
-            paddingBottom: spacing.xl,
+            padding: spacing[6],
+            paddingBottom: spacing[8],
           }}
+          showsVerticalScrollIndicator={false}
         >
-          <Stack spacing="lg">
-            <Stack spacing="sm">
-              <Text variant="h2" style={{ textAlign: 'center' }}>
-                Create Alert
+          <VStack gap={spacing[6]}>
+            {/* Header */}
+            <VStack gap={spacing[3]} alignItems="center">
+              <Text size="2xl" weight="bold">
+                Create Emergency Alert
               </Text>
-              <Text
-                variant="body"
-                style={{ textAlign: 'center', opacity: 0.7 }}
-              >
-                Create a new alert for the healthcare team
+              <Text size="sm" colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
+                Send an alert to medical staff for immediate response
               </Text>
-            </Stack>
+            </VStack>
 
-            <Card>
-              <Stack spacing="md">
-                <Stack spacing="sm">
-                  <Label htmlFor="title">Alert Title</Label>
-                  <Input
-                    id="title"
-                    placeholder="Enter alert title"
-                    value={formData.title}
-                    onChangeText={(text) =>
-                      setFormData({ ...formData, title: text })
-                    }
-                  />
-                </Stack>
+            {/* Alert Creation Form */}
+            <AlertCreationFormEnhanced 
+              hospitalId={hospitalId} 
+              onSuccess={handleClose}
+            />
 
-                <Stack spacing="sm">
-                  <Label htmlFor="description">Description</Label>
-                  <Input
-                    id="description"
-                    placeholder="Describe the alert details"
-                    value={formData.description}
-                    onChangeText={(text) =>
-                      setFormData({ ...formData, description: text })
-                    }
-                    multiline
-                    numberOfLines={4}
-                    style={{ minHeight: 100 }}
-                  />
-                </Stack>
-
-                <Stack spacing="sm">
-                  <Label htmlFor="priority">Priority</Label>
-                  <Select
-                    id="priority"
-                    value={formData.priority}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, priority: value as AlertPriority })
-                    }
-                    placeholder="Select priority"
-                  >
-                    <Select.Item label="Low" value="low" />
-                    <Select.Item label="Medium" value="medium" />
-                    <Select.Item label="High" value="high" />
-                    <Select.Item label="Critical" value="critical" />
-                  </Select>
-                </Stack>
-
-                <Stack spacing="sm">
-                  <Label htmlFor="type">Alert Type</Label>
-                  <Select
-                    id="type"
-                    value={formData.type}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, type: value as AlertType })
-                    }
-                    placeholder="Select type"
-                  >
-                    <Select.Item label="Medical" value="medical" />
-                    <Select.Item label="Operational" value="operational" />
-                    <Select.Item label="Emergency" value="emergency" />
-                    <Select.Item label="General" value="general" />
-                  </Select>
-                </Stack>
-
-                <Stack spacing="sm">
-                  <Label htmlFor="patientId">Patient ID (Optional)</Label>
-                  <Input
-                    id="patientId"
-                    placeholder="Enter patient ID"
-                    value={formData.patientId || ''}
-                    onChangeText={(text) =>
-                      setFormData({ ...formData, patientId: text })
-                    }
-                  />
-                </Stack>
-
-                <Stack spacing="sm">
-                  <Label htmlFor="assignedTo">Assign To (Optional)</Label>
-                  <Input
-                    id="assignedTo"
-                    placeholder="Enter staff member name or ID"
-                    value={formData.assignedTo || ''}
-                    onChangeText={(text) =>
-                      setFormData({ ...formData, assignedTo: text })
-                    }
-                  />
-                </Stack>
-              </Stack>
-            </Card>
-
-            <Stack spacing="sm" direction="row">
+            {/* Close Button */}
+            <HStack justifyContent="center">
               <Button
                 variant="outline"
-                onPress={handleCancel}
-                style={{ flex: 1 }}
+                onPress={handleClose}
+                size="lg"
+                style={{ minWidth: 120 }}
               >
-                Cancel
+                Close
               </Button>
-              <Button
-                variant="default"
-                onPress={handleSubmit}
-                style={{ flex: 1 }}
-                disabled={!formData.title || !formData.description}
-              >
-                Create Alert
-              </Button>
-            </Stack>
-          </Stack>
+            </HStack>
+          </VStack>
         </ScrollView>
       </Container>
     </KeyboardAvoidingView>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, Platform, View } from 'react-native';
-import { Box, Text, VStack, HStack } from '@/components/universal';
+import { Box, VStack, HStack } from '@/components/universal/layout';
+import { Text } from '@/components/universal/typography';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { SpacingDensity } from '@/lib/design/spacing';
 import { useTheme } from '@/lib/theme/provider';

@@ -9,7 +9,7 @@ import {
   SidebarTrigger,
   Separator,
 } from '@/components/universal';
-import { MemberManagementBlock } from '@/components/blocks/organization';
+import { MemberManagementEnhanced } from '@/components/blocks/organization';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { useRouter, Redirect } from 'expo-router';
@@ -44,7 +44,7 @@ export default function OrganizationMembers() {
   
   const content = (
     <VStack gap={spacing.xl}>
-      <MemberManagementBlock 
+      <MemberManagementEnhanced 
         organizationId={organizationId}
         canManageMembers={user.role === 'admin' || user.role === 'manager'}
         onInviteMember={handleInviteMember}

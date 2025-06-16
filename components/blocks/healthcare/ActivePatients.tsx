@@ -11,15 +11,11 @@ import { useResponsive } from '@/hooks/responsive';
 import { useAnimation } from '@/lib/ui/animations/hooks';
 import { haptic } from '@/lib/ui/haptics';
 import { useAuthStore } from '@/lib/stores/auth-store';
-import { 
-  Card, 
-  Text, 
-  Button, 
-  Badge, 
-  Skeleton,
-  HStack,
-  VStack,
-} from '@/components/universal';
+import { Card, Badge } from '@/components/universal/display';
+import { Text } from '@/components/universal/typography';
+import { Button } from '@/components/universal/interaction';
+import { Skeleton } from '@/components/universal/feedback';
+import { HStack, VStack } from '@/components/universal/layout';
 import {
   Users,
   Heart,

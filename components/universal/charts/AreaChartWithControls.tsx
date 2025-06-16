@@ -131,7 +131,7 @@ export const AreaChartWithControls: React.FC<AreaChartWithControlsProps> = ({
               showYAxis
               bezier
               style={{
-                backgroundColor: transparent,
+                backgroundColor: 'transparent',
               }}
             />
           </Box>

@@ -10,7 +10,7 @@ import {
 } from '../trpc';
 import { auth } from '@/lib/auth/auth-server';
 import { TRPCError } from '@trpc/server';
-import { log } from '@/lib/core/debug/logger';
+import { log, logger } from '@/lib/core/debug/logger';
 
 // Import comprehensive server-side validation schemas
 import {
@@ -168,7 +168,7 @@ export const authRouter = router({
           );
         }
         
-        console.error('[AUTH] Sign in error:', error);
+        logger.auth.error('Sign in error', error);
         throw new TRPCError({
           code: 'UNAUTHORIZED',
           message: error.message || 'Failed to sign in',
@@ -232,7 +232,7 @@ export const authRouter = router({
 
         // Immediately update user with role and other fields in database
         const { db } = await import('@/src/db');
-        const { user: userTable } = await import('@/src/db/schema');
+        const { user: userTable, session: sessionTable } = await import('@/src/db/schema');
         const { eq } = await import('drizzle-orm');
         
         await db.update(userTable)
@@ -244,6 +244,24 @@ export const authRouter = router({
             updatedAt: new Date()
           })
           .where(eq(userTable.id, signUpResponse.user.id));
+          
+        // Create a session for the user after signup
+        let token = signUpResponse.token;
+        let session = signUpResponse.session;
+        
+        // If no session/token returned from signUpEmail, sign them in to create one
+        if (!token || !session) {
+          const signInResponse = await auth.api.signInEmail({
+            body: {
+              email: sanitizedEmail,
+              password: input.password,
+            },
+            headers: ctx.req.headers,
+          });
+          
+          token = signInResponse.token;
+          session = signInResponse.session;
+        }
 
         let organization = null;
         
@@ -290,11 +308,11 @@ export const authRouter = router({
         return AuthResponseSchema.parse({
           success: true,
           user: validatedUser,
-          token: signUpResponse.token,
+          token: token || undefined,
         });
       } catch (error: any) {
-        console.error('[AUTH] Sign up error:', error);
-        console.error('[AUTH] Error details:', {
+        logger.auth.error('Sign up error', error);
+        logger.auth.error('Error details', {
           message: error.message,
           stack: error.stack,
           code: error.code,
@@ -303,7 +321,7 @@ export const authRouter = router({
         
         // Check if it's a validation error
         if (error.name === 'ZodError' || error.issues) {
-          console.error('[AUTH] Validation error:', error.issues || error.errors);
+          logger.auth.error('Validation error', error.issues || error.errors);
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: 'Validation failed: ' + (error.message || 'Invalid input data'),
@@ -330,25 +348,26 @@ export const authRouter = router({
   getSession: publicProcedure
     .output(SessionResponseSchema.nullable())
     .query(async ({ ctx }): Promise<z.infer<typeof SessionResponseSchema> | null> => {
-      // Enhanced logging for OAuth debugging
-      console.log('[AUTH_ROUTER] getSession called', {
-        hasSession: !!ctx.session,
-        sessionUserId: ctx.session?.user?.id,
-        sessionUserEmail: ctx.session?.user?.email,
-        sessionKeys: ctx.session ? Object.keys(ctx.session) : [],
-        userKeys: ctx.session?.user ? Object.keys(ctx.session.user) : [],
-        timestamp: new Date().toISOString()
-      });
-      
-      // Return null early if no session exists
-      if (!ctx.session || !ctx.session.user || !ctx.session.session) {
-        console.log('[AUTH_ROUTER] No valid session found, returning null', {
-          hasCtxSession: !!ctx.session,
-          hasUser: !!ctx.session?.user,
-          hasSessionObj: !!ctx.session?.session
+      try {
+        // Enhanced logging for OAuth debugging
+        logger.auth.debug('getSession called', {
+          hasSession: !!ctx.session,
+          sessionUserId: ctx.session?.user?.id,
+          sessionUserEmail: ctx.session?.user?.email,
+          sessionKeys: ctx.session ? Object.keys(ctx.session) : [],
+          userKeys: ctx.session?.user ? Object.keys(ctx.session.user) : [],
+          timestamp: new Date().toISOString()
         });
-        return null;
-      }
+        
+        // Return null early if no session exists
+        if (!ctx.session || !ctx.session.user || !ctx.session.session) {
+          logger.auth.debug('No valid session found, returning null', {
+            hasCtxSession: !!ctx.session,
+            hasUser: !!ctx.session?.user,
+            hasSessionObj: !!ctx.session?.session
+          });
+          return null;
+        }
       
       // Fetch fresh user data from database to ensure we have latest data
       let dbUser = null;
@@ -365,7 +384,7 @@ export const authRouter = router({
         
         dbUser = user;
         
-        console.log('[AUTH_ROUTER] Database user query result', {
+        logger.auth.debug('Database user query result', {
           id: dbUser?.id,
           email: dbUser?.email,
           role: dbUser?.role,
@@ -392,7 +411,7 @@ export const authRouter = router({
         );
         
         if (isIncompleteProfile) {
-          console.log('[AUTH_ROUTER] User has incomplete profile', {
+          logger.auth.debug('User has incomplete profile', {
             id: dbUser.id,
             role: dbUser.role,
             needsProfileCompletion: dbUser.needsProfileCompletion,
@@ -411,7 +430,7 @@ export const authRouter = router({
           
           // If they haven't been marked for profile completion yet, do it now
           if (!dbUser.needsProfileCompletion) {
-            console.log('[AUTH_ROUTER] Marking user for profile completion in DB');
+            logger.auth.debug('Marking user for profile completion in DB');
             log.info('[AUTH] Marking user for profile completion', 'COMPONENT', {});
             
             const [updatedUser] = await db
@@ -424,7 +443,7 @@ export const authRouter = router({
               .returning();
             
             dbUser = updatedUser;
-            console.log('[AUTH_ROUTER] User marked for profile completion', {
+            logger.auth.debug('User marked for profile completion', {
               id: dbUser.id,
               needsProfileCompletion: dbUser.needsProfileCompletion
             });
@@ -438,47 +457,79 @@ export const authRouter = router({
         }
         
       } catch (dbError) {
-        console.warn('[AUTH] Database query failed, using session data only:', dbError);
-        // Continue with session data only
+        logger.auth.error('Database query failed in getSession', dbError);
+        // Log more details about the error
+        logger.auth.error('Database error details', {
+          message: dbError instanceof Error ? dbError.message : 'Unknown error',
+          stack: dbError instanceof Error ? dbError.stack : undefined,
+          userId: ctx.session.user.id
+        });
+        // Continue with session data only, but set dbUser to null explicitly
+        dbUser = null;
       }
       
       try {
+        // Ensure dates are properly handled
+        const parseDate = (date: any): Date => {
+          if (date instanceof Date) return date;
+          if (typeof date === 'string') return new Date(date);
+          return new Date();
+        };
+        
         // Build user data carefully with proper defaults and null safety
         const userData = {
           id: ctx.session.user.id || '',
           email: ctx.session.user.email || '',
           name: ctx.session.user.name || 'Unknown User',
           role: validateUserRole(dbUser?.role || (ctx.session.user as any).role || 'guest'),
-          organizationId: dbUser?.organizationId || (ctx.session.user as any).organizationId,
-          organizationName: dbUser?.organizationName,
-          phoneNumber: dbUser?.phoneNumber,
-          department: dbUser?.department,
-          jobTitle: dbUser?.jobTitle,
-          bio: dbUser?.bio,
+          organizationId: dbUser?.organizationId || (ctx.session.user as any).organizationId || null,
+          organizationName: dbUser?.organizationName || null,
+          phoneNumber: dbUser?.phoneNumber || null,
+          department: dbUser?.department || null,
+          jobTitle: dbUser?.jobTitle || null,
+          bio: dbUser?.bio || null,
           needsProfileCompletion: dbUser?.needsProfileCompletion ?? (ctx.session.user as any).needsProfileCompletion ?? false,
           status: 'active' as const,
-          createdAt: ctx.session.user.createdAt || new Date(),
-          updatedAt: ctx.session.user.updatedAt || new Date(),
+          createdAt: parseDate(ctx.session.user.createdAt),
+          updatedAt: parseDate(ctx.session.user.updatedAt),
           isEmailVerified: dbUser?.emailVerified ?? ctx.session.user.emailVerified ?? false,
           lastLoginAt: new Date(), // Current session indicates recent login
         };
+        
+        // Log the user data before validation
+        logger.auth.debug('User data before validation', {
+          userId: userData.id,
+          role: userData.role,
+          hasOrganizationId: !!userData.organizationId,
+          needsProfileCompletion: userData.needsProfileCompletion,
+          createdAt: userData.createdAt.toISOString(),
+          updatedAt: userData.updatedAt.toISOString()
+        });
 
         // Validate user data with Zod - this will transform date strings if needed
         const validatedUser = UserResponseSchema.parse(userData);
         
-        // Build session response
+        // Build session response with date handling
         const sessionResponse = {
           session: {
             id: ctx.session.session.id,
             userId: ctx.session.session.userId,
-            expiresAt: ctx.session.session.expiresAt,
-            createdAt: ctx.session.session.createdAt,
-            token: (ctx.session.session as any).token, // Include token if available
+            expiresAt: parseDate(ctx.session.session.expiresAt),
+            createdAt: parseDate(ctx.session.session.createdAt),
+            token: (ctx.session.session as any).token || undefined, // Include token if available
           },
           user: validatedUser,
         };
         
-        console.log('[AUTH_ROUTER] Returning session response', {
+        // Log session data before final validation
+        logger.auth.debug('Session response before validation', {
+          sessionId: sessionResponse.session.id,
+          userId: sessionResponse.user.id,
+          expiresAt: sessionResponse.session.expiresAt.toISOString(),
+          createdAt: sessionResponse.session.createdAt.toISOString()
+        });
+        
+        logger.auth.debug('Returning session response', {
           userId: validatedUser.id,
           userRole: validatedUser.role,
           needsProfileCompletion: validatedUser.needsProfileCompletion,
@@ -490,15 +541,35 @@ export const authRouter = router({
         return SessionResponseSchema.parse(sessionResponse);
         
       } catch (error) {
-        console.error('[AUTH] Session validation error:', error);
-        console.error('[AUTH] Session data:', {
+        logger.auth.error('Session validation error in getSession', error);
+        logger.auth.error('Detailed validation error', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
           hasSession: !!ctx.session,
           userId: ctx.session?.user?.id,
           dbUser: !!dbUser,
+          errorType: error?.constructor?.name,
+          zodErrors: (error as any)?.errors || (error as any)?.issues,
         });
         
         // Return null on validation errors to allow graceful fallback
         return null;
+      }
+      } catch (outerError) {
+        // Catch any unexpected errors at the top level
+        logger.auth.error('Unexpected error in getSession endpoint', outerError);
+        logger.auth.error('Outer error details', {
+          message: outerError instanceof Error ? outerError.message : 'Unknown error',
+          stack: outerError instanceof Error ? outerError.stack : undefined,
+          type: outerError?.constructor?.name,
+        });
+        
+        // Throw a proper TRPC error instead of returning null
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to retrieve session',
+          cause: outerError,
+        });
       }
     }),
 
@@ -685,7 +756,7 @@ export const authRouter = router({
           };
 
         } catch (dbError) {
-          console.error('[AUTH] Failed to create OAuth user:', dbError);
+          logger.auth.error('Failed to create OAuth user', dbError);
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
             message: 'Failed to create user account',
@@ -707,7 +778,7 @@ export const authRouter = router({
           severity: AuditSeverity.WARNING,
         }, context);
 
-        console.error('[AUTH] Social sign-in error:', error);
+        logger.auth.error('Social sign-in error', error);
         
         if (error instanceof TRPCError) {
           throw error;
@@ -748,31 +819,164 @@ export const authRouter = router({
         // Update user directly in database to ensure all fields are saved
         const { db } = await import('@/src/db');
         const { user: userTable } = await import('@/src/db/schema');
-        const { eq } = await import('drizzle-orm');
+        const { eq, and, sql } = await import('drizzle-orm');
         
-        // Handle organization logic based on role (same as signup)
+        // Handle organization logic based on role
         let finalOrganizationId = input.organizationId;
         
         if (input.role === 'manager' || input.role === 'admin') {
           if (input.organizationName) {
             // Create new organization
             log.info('[AUTH] Creating new organization:', 'COMPONENT', {});
-            const { randomUUID } = await import('crypto');
-            const orgId = randomUUID();
-            finalOrganizationId = orgId;
+            const { organization, organizationMember, organizationSettings } = await import('@/src/db/organization-schema');
+            
+            // Create slug from name
+            const createSlug = (name: string): string => {
+              return name
+                .toLowerCase()
+                .trim()
+                .replace(/[^a-z0-9\s-]/g, '')
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '')
+                .slice(0, 50);
+            };
+            
+            const slug = createSlug(input.organizationName);
+            
+            // Create organization in transaction
+            const result = await db.transaction(async (tx) => {
+              // Create organization
+              const [newOrg] = await tx
+                .insert(organization)
+                .values({
+                  name: input.organizationName,
+                  slug,
+                  type: 'business',
+                  size: 'small',
+                  createdBy: ctx.user.id,
+                  status: 'active',
+                })
+                .returning();
+              
+              // Add creator as owner
+              await tx.insert(organizationMember).values({
+                organizationId: newOrg.id,
+                userId: ctx.user.id,
+                role: 'owner',
+                status: 'active',
+              });
+              
+              // Create default settings
+              await tx.insert(organizationSettings).values({
+                organizationId: newOrg.id,
+              });
+              
+              return newOrg;
+            });
+            
+            finalOrganizationId = result.id;
+            log.info('[AUTH] Organization created:', 'COMPONENT', { organizationId: result.id });
           }
         } else if (input.role === 'user' && input.organizationCode) {
-          // Look up organization by code
-          log.info('[AUTH] Looking up organization by code:', 'COMPONENT', {});
-          // TODO: Actually look up the organization by code
-          const { randomUUID } = await import('crypto');
-          finalOrganizationId = randomUUID();
+          // Join organization by code
+          log.info('[AUTH] Looking up organization by code:', 'COMPONENT', { code: input.organizationCode });
+          const { organizationCode, organization, organizationMember } = await import('@/src/db/organization-schema');
+          
+          const [codeData] = await db
+            .select({
+              code: organizationCode,
+              org: organization,
+            })
+            .from(organizationCode)
+            .innerJoin(organization, eq(organizationCode.organizationId, organization.id))
+            .where(
+              and(
+                eq(organizationCode.code, input.organizationCode),
+                eq(organizationCode.isActive, true),
+                eq(organization.status, 'active')
+              )
+            )
+            .limit(1);
+          
+          if (codeData) {
+            // Check if code is valid
+            if (codeData.code.expiresAt && codeData.code.expiresAt < new Date()) {
+              throw new TRPCError({
+                code: 'BAD_REQUEST',
+                message: 'Organization code has expired',
+              });
+            }
+            
+            if (codeData.code.maxUses && codeData.code.currentUses >= codeData.code.maxUses) {
+              throw new TRPCError({
+                code: 'BAD_REQUEST',
+                message: 'Organization code usage limit reached',
+              });
+            }
+            
+            // Add user as member
+            await db.transaction(async (tx) => {
+              await tx.insert(organizationMember).values({
+                organizationId: codeData.org.id,
+                userId: ctx.user.id,
+                role: codeData.code.type || 'member',
+                status: 'active',
+              });
+              
+              // Increment usage count
+              await tx
+                .update(organizationCode)
+                .set({
+                  currentUses: sql`${organizationCode.currentUses} + 1`,
+                  updatedAt: new Date(),
+                })
+                .where(eq(organizationCode.id, codeData.code.id));
+            });
+            
+            finalOrganizationId = codeData.org.id;
+            log.info('[AUTH] User joined organization by code:', 'COMPONENT', { organizationId: codeData.org.id });
+          } else {
+            log.warn('[AUTH] Invalid organization code provided:', 'COMPONENT', { code: input.organizationCode });
+            // Don't throw error, just proceed without organization
+          }
         } else if (input.role === 'user' && !input.organizationCode) {
           // Create personal workspace
           log.info('[AUTH] Creating personal workspace for user', 'COMPONENT', {});
-          const { randomUUID } = await import('crypto');
-          const personalOrgId = randomUUID();
-          finalOrganizationId = personalOrgId;
+          const { organization, organizationMember, organizationSettings } = await import('@/src/db/organization-schema');
+          
+          const result = await db.transaction(async (tx) => {
+            // Create personal organization
+            const [newOrg] = await tx
+              .insert(organization)
+              .values({
+                name: `${input.name}'s Workspace`,
+                slug: `${ctx.user.id.slice(0, 8)}-workspace`,
+                type: 'personal',
+                size: 'solo',
+                createdBy: ctx.user.id,
+                status: 'active',
+              })
+              .returning();
+            
+            // Add user as owner
+            await tx.insert(organizationMember).values({
+              organizationId: newOrg.id,
+              userId: ctx.user.id,
+              role: 'owner',
+              status: 'active',
+            });
+            
+            // Create default settings
+            await tx.insert(organizationSettings).values({
+              organizationId: newOrg.id,
+            });
+            
+            return newOrg;
+          });
+          
+          finalOrganizationId = result.id;
+          log.info('[AUTH] Personal workspace created:', 'COMPONENT', { organizationId: result.id });
         }
         
         // Prepare update data
@@ -819,7 +1023,7 @@ export const authRouter = router({
           });
           log.info('[AUTH] Better Auth user updated', 'COMPONENT', {});
         } catch (authError) {
-          console.warn('[AUTH] Better Auth update failed, but database was updated:', authError);
+          logger.auth.warn('Better Auth update failed, but database was updated', authError);
         }
 
         // Log successful profile completion
@@ -856,7 +1060,7 @@ export const authRouter = router({
           null
         );
         
-        console.error('[AUTH] Complete profile error:', error);
+        logger.auth.error('Complete profile error', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: error.message || 'Failed to complete profile',
@@ -935,7 +1139,7 @@ export const authRouter = router({
           });
           log.info('[AUTH] Better Auth user updated', 'COMPONENT', {});
         } catch (authError) {
-          console.warn('[AUTH] Better Auth update failed, but database was updated:', authError);
+          logger.auth.warn('Better Auth update failed, but database was updated', authError);
         }
 
         // Log successful profile update
@@ -963,7 +1167,7 @@ export const authRouter = router({
           null
         );
         
-        console.error('[AUTH] Update profile error:', error);
+        logger.auth.error('Update profile error', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: error.message || 'Failed to update profile',
@@ -1003,7 +1207,7 @@ export const authRouter = router({
           { reason: error instanceof Error ? error.message : 'Unknown error' }
         );
         
-        console.error('[AUTH] Sign out error:', error);
+        logger.auth.error('Sign out error', error);
         
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -1218,7 +1422,7 @@ export const authRouter = router({
             validatedUsers[validatedUsers.length - 1].id : undefined,
         };
       } catch (error) {
-        console.error('[USERS] Failed to list users:', error);
+        logger.error('Failed to list users', 'API', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to retrieve users',
@@ -1288,7 +1492,7 @@ export const authRouter = router({
           user: validatedUser,
         };
       } catch (error) {
-        console.error('[ADMIN] Failed to update user role:', error);
+        logger.error('Failed to update user role', 'API', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to update user role',
@@ -1353,15 +1557,21 @@ export const authRouter = router({
     }),
 
   // Check if email exists in database (for validation)
+  // Using mutation instead of query since it's called imperatively with debounce
   checkEmailExists: publicProcedure
     .input(z.object({
-      email: z.string().email(),
+      email: z.string().min(3).refine((val) => {
+        // Basic email validation - must have @ and .
+        return val.includes('@') && val.includes('.');
+      }, {
+        message: 'Invalid email format'
+      }),
     }))
     .output(z.object({
       exists: z.boolean(),
       isAvailable: z.boolean(),
     }))
-    .query(async ({ input }) => {
+    .mutation(async ({ input }) => {
       try {
         const { db } = await import('@/src/db');
         const { user: userTable } = await import('@/src/db/schema');
@@ -1378,12 +1588,312 @@ export const authRouter = router({
           isAvailable: !existingUser,
         };
       } catch (error) {
-        console.error('[AUTH] Error checking email:', error);
+        logger.auth.error('Error checking email', error);
         // Return safe default on error
         return {
           exists: false,
           isAvailable: true,
         };
+      }
+    }),
+
+  // Change password
+  changePassword: protectedProcedure
+    .input(z.object({
+      currentPassword: z.string().min(1, 'Current password is required'),
+      newPassword: z.string()
+        .min(8, 'Password must be at least 8 characters')
+        .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+        .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+        .regex(/[0-9]/, 'Password must contain at least one number')
+        .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+      const context = auditHelpers.extractContext(ctx.req, ctx.session);
+      
+      try {
+        // Verify current password first
+        const signInResponse = await auth.api.signInEmail({
+          body: {
+            email: ctx.user.email,
+            password: input.currentPassword,
+          },
+        });
+
+        if (!signInResponse) {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Current password is incorrect',
+          });
+        }
+
+        // Change password using Better Auth
+        await auth.api.changePassword({
+          headers: ctx.req.headers,
+          body: {
+            currentPassword: input.currentPassword,
+            newPassword: input.newPassword,
+          },
+        });
+
+        // Log successful password change
+        await auditService.logUserManagement(
+          AuditAction.PASSWORD_CHANGED,
+          AuditOutcome.SUCCESS,
+          ctx.user.id,
+          context,
+          null,
+          { passwordChangedAt: new Date() }
+        );
+
+        log.info('[AUTH] Password changed successfully', 'AUTH', {
+          userId: ctx.user.id,
+          email: ctx.user.email,
+        });
+
+        return {
+          success: true,
+          message: 'Password changed successfully',
+        };
+      } catch (error: any) {
+        // Log failed password change attempt
+        await auditService.logUserManagement(
+          AuditAction.PASSWORD_CHANGED,
+          AuditOutcome.FAILURE,
+          ctx.user.id,
+          context,
+          null,
+          { error: error.message }
+        );
+
+        if (error instanceof TRPCError) throw error;
+
+        log.error('[AUTH] Password change failed', 'AUTH', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to change password',
+        });
+      }
+    }),
+
+  // Get two-factor authentication status
+  getTwoFactorStatus: protectedProcedure
+    .query(async ({ ctx }) => {
+      try {
+        const { db } = await import('@/src/db');
+        const { user: userTable } = await import('@/src/db/schema');
+        const { eq } = await import('drizzle-orm');
+        
+        const [user] = await db
+          .select({
+            twoFactorEnabled: userTable.twoFactorEnabled,
+          })
+          .from(userTable)
+          .where(eq(userTable.id, ctx.user.id))
+          .limit(1);
+        
+        return {
+          enabled: user?.twoFactorEnabled || false,
+        };
+      } catch (error) {
+        log.error('[AUTH] Failed to get 2FA status', 'AUTH', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to get two-factor authentication status',
+        });
+      }
+    }),
+
+  // Send magic link for two-factor authentication
+  sendMagicLink: protectedProcedure
+    .input(z.object({
+      email: z.string().email(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+      const context = auditHelpers.extractContext(ctx.req, ctx.session);
+      
+      try {
+        // Verify email matches user's email
+        if (input.email !== ctx.user.email) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Email does not match your account',
+          });
+        }
+
+        // Send magic link using Better Auth
+        await auth.api.sendMagicLink({
+          body: {
+            email: input.email,
+            callbackURL: `${process.env.BETTER_AUTH_BASE_URL}/verify-2fa`,
+          },
+        });
+
+        // Log magic link sent
+        await auditService.logSecurityEvent(
+          ctx.user.id,
+          'TWO_FACTOR_MAGIC_LINK_SENT',
+          {
+            action: 'TWO_FACTOR_MAGIC_LINK_SENT',
+            entityType: 'user',
+            entityId: ctx.user.id,
+            description: 'Magic link sent for two-factor authentication',
+            metadata: { email: input.email },
+            severity: AuditSeverity.INFO,
+          },
+          context
+        );
+
+        log.info('[AUTH] Magic link sent for 2FA', 'AUTH', {
+          userId: ctx.user.id,
+          email: input.email,
+        });
+
+        return {
+          success: true,
+          message: 'Magic link sent to your email',
+        };
+      } catch (error: any) {
+        // Log failed attempt
+        await auditService.logSecurityEvent(
+          ctx.user.id,
+          'TWO_FACTOR_MAGIC_LINK_FAILED',
+          {
+            action: 'TWO_FACTOR_MAGIC_LINK_FAILED',
+            entityType: 'user',
+            entityId: ctx.user.id,
+            description: 'Failed to send magic link for two-factor authentication',
+            metadata: { error: error.message },
+            severity: AuditSeverity.WARNING,
+          },
+          context
+        );
+
+        if (error instanceof TRPCError) throw error;
+
+        log.error('[AUTH] Failed to send magic link', 'AUTH', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to send magic link',
+        });
+      }
+    }),
+
+  // Enable two-factor authentication
+  enableTwoFactor: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+      const context = auditHelpers.extractContext(ctx.req, ctx.session);
+      
+      try {
+        const { db } = await import('@/src/db');
+        const { user: userTable } = await import('@/src/db/schema');
+        const { eq } = await import('drizzle-orm');
+        
+        // Update user to enable 2FA
+        await db
+          .update(userTable)
+          .set({
+            twoFactorEnabled: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(userTable.id, ctx.user.id));
+
+        // Log 2FA enabled
+        await auditService.logUserManagement(
+          AuditAction.TWO_FACTOR_ENABLED,
+          AuditOutcome.SUCCESS,
+          ctx.user.id,
+          context,
+          null,
+          { twoFactorEnabled: true }
+        );
+
+        log.info('[AUTH] Two-factor authentication enabled', 'AUTH', {
+          userId: ctx.user.id,
+          email: ctx.user.email,
+        });
+
+        return {
+          success: true,
+          message: 'Two-factor authentication enabled',
+        };
+      } catch (error: any) {
+        // Log failed attempt
+        await auditService.logUserManagement(
+          AuditAction.TWO_FACTOR_ENABLED,
+          AuditOutcome.FAILURE,
+          ctx.user.id,
+          context,
+          null,
+          { error: error.message }
+        );
+
+        log.error('[AUTH] Failed to enable 2FA', 'AUTH', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to enable two-factor authentication',
+        });
+      }
+    }),
+
+  // Disable two-factor authentication
+  disableTwoFactor: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+      const context = auditHelpers.extractContext(ctx.req, ctx.session);
+      
+      try {
+        const { db } = await import('@/src/db');
+        const { user: userTable } = await import('@/src/db/schema');
+        const { eq } = await import('drizzle-orm');
+        
+        // Update user to disable 2FA
+        await db
+          .update(userTable)
+          .set({
+            twoFactorEnabled: false,
+            updatedAt: new Date(),
+          })
+          .where(eq(userTable.id, ctx.user.id));
+
+        // Log 2FA disabled
+        await auditService.logUserManagement(
+          AuditAction.TWO_FACTOR_DISABLED,
+          AuditOutcome.SUCCESS,
+          ctx.user.id,
+          context,
+          null,
+          { twoFactorDisabled: true }
+        );
+
+        log.info('[AUTH] Two-factor authentication disabled', 'AUTH', {
+          userId: ctx.user.id,
+          email: ctx.user.email,
+        });
+
+        return {
+          success: true,
+          message: 'Two-factor authentication disabled',
+        };
+      } catch (error: any) {
+        // Log failed attempt
+        await auditService.logUserManagement(
+          AuditAction.TWO_FACTOR_DISABLED,
+          AuditOutcome.FAILURE,
+          ctx.user.id,
+          context,
+          null,
+          { error: error.message }
+        );
+
+        log.error('[AUTH] Failed to disable 2FA', 'AUTH', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to disable two-factor authentication',
+        });
       }
     }),
 

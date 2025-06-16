@@ -1,15 +1,10 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
-import {
-  Text,
-  Card,
-  Grid,
-  VStack,
-  HStack,
-  Progress,
-  Badge,
-} from '@/components/universal';
+import { Text } from '@/components/universal/typography';
+import { Card, Badge } from '@/components/universal/display';
+import { Grid, VStack, HStack } from '@/components/universal/layout';
+import { Progress } from '@/components/universal/feedback';
 import { 
   TrendingUp, 
   TrendingDown,

@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
-import { HStack, Text, Progress } from '@/components/universal';
+import { HStack } from '@/components/universal/layout';
+import { Text } from '@/components/universal/typography';
+import { Progress } from '@/components/universal/feedback';
 import { cn } from '@/lib/core/utils';
 import Animated, { FadeIn } from 'react-native-reanimated';
 

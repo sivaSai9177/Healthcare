@@ -36,6 +36,22 @@ export function useSignIn() {
         };
         updateAuth(appUser, session);
         
+        // For mobile, manually store the token as Better Auth plugin might not be working
+        if (Platform.OS !== 'web' && (data.token || data.sessionToken)) {
+          const { mobileStorage } = require('@/lib/core/secure-storage');
+          const token = data.token || data.sessionToken;
+          
+          // Store in multiple formats to ensure compatibility
+          mobileStorage.setItem('better-auth_session-token', token);
+          mobileStorage.setItem('better-auth.session-token', token);
+          mobileStorage.setItem('better-auth_cookie', `better-auth.session-token=${token}; Path=/`);
+          
+          log.debug('Manually stored session token for mobile', 'SIGN_IN', {
+            tokenPreview: token.substring(0, 20) + '...',
+            storageKeys: ['better-auth_session-token', 'better-auth.session-token', 'better-auth_cookie']
+          });
+        }
+        
         // Debug: Check cookies on web
         if (Platform.OS === 'web') {
           log.debug('Checking cookies after login', 'SIGN_IN', {
@@ -52,8 +68,25 @@ export function useSignIn() {
     },
     onError: (error) => {
       log.auth.error('Sign in failed', error);
-      setError(error.message);
-      showErrorAlert("Login Failed", error.message || "Failed to sign in. Please check your credentials.");
+      
+      // Handle rate limiting and other specific errors
+      let title = "Login Failed";
+      let message = error.message || "Failed to sign in. Please check your credentials.";
+      
+      if (error.message?.includes('Too many requests') || error.message?.includes('Rate limit')) {
+        title = "Too Many Attempts";
+        message = "Please wait a few minutes before trying again.";
+      } else if (error.message?.includes('We encountered an issue')) {
+        // This is the generic Better Auth error - likely a session/cookie issue
+        title = "Session Error";
+        message = "There was an issue with your session. Please clear your browser data or try again in a few moments.";
+      } else if (error.message?.includes('Invalid credentials')) {
+        title = "Invalid Credentials";
+        message = "The email or password you entered is incorrect.";
+      }
+      
+      setError(message);
+      showErrorAlert(title, message);
     },
     onSettled: () => {
       setLoading(false);
@@ -62,6 +95,29 @@ export function useSignIn() {
 
   const signIn = useCallback(async (data: SignInData) => {
     log.auth.debug('Starting login attempt', { email: data.email });
+    
+    // Check for recent logout on web to prevent session conflicts
+    if (Platform.OS === 'web') {
+      try {
+        const lastLogoutStr = localStorage.getItem('last-logout-timestamp');
+        if (lastLogoutStr) {
+          const lastLogout = parseInt(lastLogoutStr, 10);
+          const timeSinceLogout = Date.now() - lastLogout;
+          
+          // If logout was less than 2 seconds ago, wait a bit
+          if (timeSinceLogout < 2000) {
+            log.debug('Recent logout detected, adding delay', 'SIGN_IN', { timeSinceLogout });
+            await new Promise(resolve => setTimeout(resolve, 2000 - timeSinceLogout));
+          }
+          
+          // Clear the timestamp after checking
+          localStorage.removeItem('last-logout-timestamp');
+        }
+      } catch (e) {
+        // Ignore storage errors
+      }
+    }
+    
     setLoading(true);
     setError(null);
     

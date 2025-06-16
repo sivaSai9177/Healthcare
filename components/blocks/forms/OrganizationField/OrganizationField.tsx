@@ -1,6 +1,7 @@
 import React from "react";
 import { z } from 'zod';
-import { Text, Input, VStack, Card } from "@/components/universal";
+import { Text, VStack, Card } from "@/components/universal";
+import { Input } from '@/components/universal/form';
 import { UseFormReturn } from "react-hook-form";
 import { UserRole } from "@/types/auth";
 import { Building2, Sparkles, Info } from "@/components/universal/display/Symbols";
@@ -8,6 +9,8 @@ import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useShadow } from '@/hooks/useShadow';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import { Platform } from 'react-native';
+import { useTheme } from '@/lib/theme/provider';
 
 interface OrganizationFieldProps {
   form: UseFormReturn<any>;
@@ -18,6 +21,7 @@ const AnimatedView = Animated.View;
 
 export function OrganizationField({ form, role }: OrganizationFieldProps) {
   const { spacing } = useSpacing();
+  const theme = useTheme();
   const shadowSm = useShadow({ size: 'sm' });
   
   if (role === 'guest') {
@@ -36,11 +40,12 @@ export function OrganizationField({ form, role }: OrganizationFieldProps) {
             placeholder="ACME2024"
             autoCapitalize="characters"
             value={organizationCode || ''}
-            onChangeText={(text) => form.setValue('organizationCode', text.toUpperCase())}
-            error={error as string}
+            onChangeText={(text) => form.setValue('organizationCode', text.toUpperCase(), { shouldValidate: true })}
+            onBlur={() => form.trigger('organizationCode')}
+            error={error}
             hint="Enter your organization's code to join their workspace"
-            leftIcon={<Building2 size={20} className="text-muted-foreground" />}
-            className="animate-fade-in"
+            leftElement={<Building2 size={20} color={theme.mutedForeground} />}
+            floatingLabel={false}
           />
           
           <AnimatedView entering={SlideInDown.delay(200).springify()}>
@@ -69,17 +74,20 @@ export function OrganizationField({ form, role }: OrganizationFieldProps) {
     const error = form.formState.errors.organizationName?.message;
 
     return (
-      <AnimatedView entering={FadeIn.springify()}>
+      <AnimatedView entering={FadeIn.springify()} style={{ width: '100%' }}>
         <VStack gap={spacing[3] as any}>
           <Input
             label="Organization Name"
             placeholder="Acme Corporation"
             value={organizationName || ''}
-            onChangeText={(text) => form.setValue('organizationName', text)}
-            error={error as string}
+            onChangeText={(text) => form.setValue('organizationName', text, { shouldValidate: true })}
+            onBlur={() => form.trigger('organizationName')}
+            error={error}
             hint="This will create a new organization workspace"
-            leftIcon={<Building2 size={20} className="text-muted-foreground" />}
-            className="animate-fade-in"
+            leftElement={<Building2 size={20} color={theme.mutedForeground} />}
+            autoComplete="off"
+            autoCorrect={false}
+            floatingLabel={false}
           />
           
           <AnimatedView entering={SlideInDown.delay(200).springify()}>

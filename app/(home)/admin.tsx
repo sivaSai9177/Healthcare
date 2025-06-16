@@ -34,13 +34,38 @@ import {
   Platform,
   ScrollView,
   TouchableOpacity,
+  View,
+  Text as RNText,
 } from "react-native";
 
 export default function AdminDashboard() {
   const theme = useTheme();
   // const router = useRouter();
-  const { hasAccess, isLoading } = useRequireRole(["admin"], "/(home)");
-  const { user, hasHydrated } = useAuth();
+  const { user, hasHydrated, isAuthenticated } = useAuth();
+  
+  // Manual role check instead of useRequireRole
+  const hasAccess = user?.role === 'admin';
+  const isLoading = !hasHydrated;
+  
+  // Debug logging
+  React.useEffect(() => {
+    console.log('[AdminDashboard] Mounted and rendering');
+    console.log('[AdminDashboard] Auth state:', {
+      user: user?.email,
+      role: user?.role,
+      hasAccess,
+      isLoading,
+      hasHydrated,
+      isAuthenticated
+    });
+    
+    // Log visibility every second to debug
+    const interval = setInterval(() => {
+      console.log('[AdminDashboard] Still visible, user role:', user?.role);
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [user, hasAccess, isLoading, hasHydrated, isAuthenticated]);
 
   // State
   const [activeView, setActiveView] = useState("overview");
@@ -114,7 +139,7 @@ export default function AdminDashboard() {
           alignItems="center"
           minHeight={400}
         >
-          <ActivityIndicator size="large" color={theme.primary} />
+          <ActivityIndicator size="large" />
           <Text mt={2 as SpacingScale} colorTheme="mutedForeground">
             Loading admin dashboard...
           </Text>
@@ -123,9 +148,28 @@ export default function AdminDashboard() {
     );
   }
 
-  // Authorization check
+  // Authorization check - show access denied message if needed
   if (!user || !hasAccess) {
-    return null; // useRequireRole handles redirect
+    return (
+      <ScrollContainer safe>
+        <Box
+          flex={1}
+          justifyContent="center"
+          alignItems="center"
+          minHeight={400}
+        >
+          <Text size="lg" colorTheme="mutedForeground">
+            {!user ? 'Not authenticated' : 'Access denied - admin role required'}
+          </Text>
+          <Text size="sm" colorTheme="mutedForeground" mt={2}>
+            Current role: {user?.role || 'none'}
+          </Text>
+          <Text size="sm" colorTheme="mutedForeground" mt={2}>
+            Required role: admin
+          </Text>
+        </Box>
+      </ScrollContainer>
+    );
   }
 
   // Render content based on active view
@@ -174,7 +218,7 @@ export default function AdminDashboard() {
           </Box>
         )}
 
-        <VStack p={4 as SpacingScale}>
+        <VStack p={4 as SpacingScale} style={{ backgroundColor: 'transparent', minHeight: '100%' }}>
           {/* Header */}
           <VStack mb={6 as SpacingScale}>
             <HStack justifyContent="space-between" alignItems="center">

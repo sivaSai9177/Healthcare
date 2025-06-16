@@ -1,20 +1,10 @@
 import React, { useState } from 'react';
 import { View, Platform } from 'react-native';
-import { 
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-  Text, 
-  Button, 
-  Input, 
-  Select, 
-  Stepper, 
-  Form,
-  FormItem,
-} from '@/components/universal';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/universal/display';
+import { Text } from '@/components/universal/typography';
+import { Button } from '@/components/universal/interaction';
+import { Input, Select, Form } from '@/components/universal/form';
+import { Stepper } from '@/components/universal/navigation';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';

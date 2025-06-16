@@ -44,11 +44,11 @@ function createQueryClient() {
         retry: false,
         // Global error handling for mutations
         onError: (error) => {
-          log.api.error('Mutation failed', error);
+          log.error('Mutation failed', 'TRPC', error);
         },
         // Global success handling
         onSuccess: () => {
-          log.api.response('Mutation completed successfully');
+          log.debug('Mutation completed successfully', 'TRPC');
         },
         // Prevent mutation caching issues
         gcTime: 0,
@@ -58,7 +58,7 @@ function createQueryClient() {
 }
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
-  log.api.request('TRPC Provider mounting');
+  log.debug('TRPC Provider mounting', 'TRPC');
   
   const [queryClient] = useState(() => createQueryClient());
   const [error, setError] = useState<string | null>(null);
@@ -68,11 +68,11 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
     try {
       const apiUrl = getApiUrl();
       const url = `${apiUrl}/api/trpc`;
-      log.api.request('TRPC URL configured', { url });
+      log.debug('TRPC URL configured', 'TRPC', { url });
       return url;
     } catch (err) {
       const errorMsg = 'Failed to configure tRPC URL';
-      log.api.error(errorMsg, err);
+      log.error(errorMsg, 'TRPC', err);
       setError(errorMsg);
       return 'http://localhost:3000/api/trpc'; // fallback
     }
@@ -85,7 +85,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
       // Create HTTP link configuration
       const httpLink = httpBatchLink({
         url: trpcUrl,
-        headers() {
+        async headers() {
           const baseHeaders = {
             'Content-Type': 'application/json',
           };
@@ -95,11 +95,12 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           // On mobile, add the Authorization header with Bearer token
           if (Platform.OS !== 'web') {
             try {
-              // Use the session manager to get token synchronously
-              const { sessionManager } = require('../auth/auth-session-manager');
+              // Import session manager dynamically to avoid circular dependencies
+              const authSessionModule = await import('../auth/auth-session-manager');
+              const sessionManager = authSessionModule.sessionManager;
               
               // Get token synchronously
-              const token = sessionManager.getSessionToken();
+              const token = sessionManager?.getSessionToken();
               
               if (token) {
                 log.debug('Adding Bearer token', 'TRPC', {
@@ -116,7 +117,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
                 log.debug('No session token available', 'TRPC');
               }
             } catch (error) {
-              log.api.error('Failed to add auth headers', error);
+              log.error('Failed to add auth headers', 'TRPC', error);
             }
             log.debug('Returning base headers without auth', 'TRPC');
             return baseHeaders;
@@ -139,7 +140,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => {
             controller.abort();
-            log.api.error('tRPC request timeout', { url: url.toString() });
+            log.error('tRPC request timeout', 'TRPC', { url: url.toString() });
           }, 30000);
           
           try {
@@ -157,9 +158,9 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           } catch (error) {
             clearTimeout(timeoutId);
             if ((error as any).name === 'AbortError') {
-              log.api.error('tRPC request aborted', { url: url.toString() });
+              log.error('tRPC request aborted', 'TRPC', { url: url.toString() });
             } else {
-              log.api.error('tRPC request failed', { 
+              log.error('tRPC request failed', 'TRPC', { 
                 error: (error as any).message,
                 url: url.toString(),
                 platform: Platform.OS,
@@ -179,7 +180,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
       if (enableWebSocket) {
         try {
           const wsUrl = getWebSocketUrl();
-          log.api.request('WebSocket URL configured', { wsUrl });
+          log.debug('WebSocket URL configured', 'TRPC', { wsUrl });
           
           // Create WebSocket client
           const wsClient = createWSClient({
@@ -200,13 +201,13 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
             },
             // Add error handling
             onOpen: () => {
-              log.api.request('WebSocket connected', {});
+              log.debug('WebSocket connected', 'TRPC', {});
             },
             onClose: () => {
-              log.api.request('WebSocket disconnected', {});
+              log.debug('WebSocket disconnected', 'TRPC', {});
             },
             onError: (error: any) => {
-              log.api.error('WebSocket error', error);
+              log.error('WebSocket error', 'TRPC', error);
             },
             // Lazy mode - don't connect until first subscription
             lazy: {
@@ -231,7 +232,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
             links: [link],
           });
         } catch (wsError) {
-          log.api.error('Failed to create WebSocket link, falling back to HTTP only', wsError);
+          log.error('Failed to create WebSocket link, falling back to HTTP only', 'TRPC', wsError);
           // Fall back to HTTP-only mode
           return api.createClient({
             links: [httpLink],
@@ -240,12 +241,12 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Default to HTTP-only when WebSocket is disabled
-      log.api.request('WebSocket disabled, using HTTP-only mode');
+      log.debug('WebSocket disabled, using HTTP-only mode', 'TRPC');
       return api.createClient({
         links: [httpLink],
       });
     } catch (err) {
-      log.api.error('Failed to create tRPC client', err);
+      log.error('Failed to create tRPC client', 'TRPC', err);
       setError('Failed to initialize tRPC client');
       // Return a minimal client that will fail gracefully
       return api.createClient({
@@ -260,7 +261,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
 
   // Show error state if tRPC initialization failed
   if (error) {
-    log.api.error('tRPC Provider error state', { error });
+    log.error('tRPC Provider error state', 'TRPC', { error });
     return (
       <QueryClientProvider client={queryClient}>
         {children}
@@ -304,7 +305,7 @@ export function useOptimisticMutation<TOutput>(
       await utils.invalidate();
     },
     onError: (error: any) => {
-      log.api.error('Optimistic mutation failed', error);
+      log.error('Optimistic mutation failed', 'TRPC', error);
       options?.onError?.(error);
     },
     onSuccess: (data: TOutput) => {

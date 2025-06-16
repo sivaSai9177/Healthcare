@@ -1,9 +1,6 @@
-import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
-import { Platform } from 'react-native';
-import { useColorScheme } from '@/contexts/ColorSchemeContext';
-import { themes, getTheme, ThemeDefinition, ExtendedTheme } from './registry';
-import { useThemeStore, useTheme as useZustandTheme } from '@/lib/stores/theme-store';
-import { log } from '@/lib/core/debug/logger';
+import React, { createContext, useContext, useMemo } from 'react';
+import { themes, ExtendedTheme } from './registry';
+import { useThemeStore } from '@/lib/stores/theme-store';
 
 export type Theme = ExtendedTheme;
 
@@ -18,14 +15,10 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-const THEME_STORAGE_KEY = '@app/selected-theme';
-
 export function useTheme() {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within EnhancedThemeProvider');
-  }
-  return context.theme;
+  // Always get the current theme from the store
+  const theme = useThemeStore((state) => state.getCurrentTheme());
+  return theme;
 }
 
 export function useThemeContext() {
@@ -37,76 +30,20 @@ export function useThemeContext() {
 }
 
 export function EnhancedThemeProvider({ children }: { children: React.ReactNode }) {
-  const colorScheme = useColorScheme();
-  const [themeId, setThemeIdState] = useState<string>('default');
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Load saved theme preference
-  useEffect(() => {
-    loadThemePreference();
-  }, []);
-
-  const loadThemePreference = async () => {
-    try {
-      // Conditionally import AsyncStorage to avoid globalThis issues
-      if (Platform.OS !== 'web') {
-        const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-        const savedThemeId = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-        if (savedThemeId && themes[savedThemeId]) {
-          setThemeIdState(savedThemeId);
-        }
-      } else {
-        // Use localStorage on web
-        const savedThemeId = localStorage.getItem(THEME_STORAGE_KEY);
-        if (savedThemeId && themes[savedThemeId]) {
-          setThemeIdState(savedThemeId);
-        }
-      }
-    } catch (error) {
-      log.error('Error loading theme preference', 'THEME', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const setThemeId = async (newThemeId: string) => {
-    if (themes[newThemeId]) {
-      setThemeIdState(newThemeId);
-      try {
-        if (Platform.OS !== 'web') {
-          const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-          await AsyncStorage.setItem(THEME_STORAGE_KEY, newThemeId);
-        } else {
-          localStorage.setItem(THEME_STORAGE_KEY, newThemeId);
-        }
-      } catch (error) {
-        log.error('Error saving theme preference', 'THEME', error);
-      }
-    }
-  };
-
-  const theme = useMemo(() => {
-    const selectedTheme = getTheme(themeId);
-    return colorScheme === 'dark' 
-      ? selectedTheme.colors.dark 
-      : selectedTheme.colors.light;
-  }, [themeId, colorScheme]);
-
-  // Always provide a theme, even during loading
-  const defaultTheme = useMemo(() => {
-    const defaultThemeDefinition = getTheme('default');
-    return colorScheme === 'dark' 
-      ? defaultThemeDefinition.colors.dark 
-      : defaultThemeDefinition.colors.light;
-  }, [colorScheme]);
+  // Get all values from the theme store
+  const theme = useThemeStore((state) => state.theme);
+  const themeId = useThemeStore((state) => state.themeId);
+  const setThemeId = useThemeStore((state) => state.setThemeId);
+  const colorScheme = useThemeStore((state) => state.getEffectiveColorScheme());
+  const availableThemes = useThemeStore((state) => state.availableThemes);
 
   const value = useMemo(() => ({
-    theme: isLoading ? defaultTheme : theme,
-    themeId: isLoading ? 'default' : themeId,
+    theme,
+    themeId,
     setThemeId,
-    colorScheme: colorScheme || 'light',
-    availableThemes: themes,
-  }), [theme, themeId, colorScheme, isLoading, defaultTheme]);
+    colorScheme,
+    availableThemes,
+  }), [theme, themeId, setThemeId, colorScheme, availableThemes]);
 
   return (
     <ThemeContext.Provider value={value}>
@@ -122,9 +59,9 @@ export const ShadcnThemeProvider = EnhancedThemeProvider;
 export const getContrastColor = (backgroundColor: string): string => {
   // Simple contrast calculation
   const hex = backgroundColor.replace('#', '');
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
   const brightness = (r * 299 + g * 587 + b * 114) / 1000;
   return brightness > 128 ? 'theme.foreground' : 'theme.background';
 };

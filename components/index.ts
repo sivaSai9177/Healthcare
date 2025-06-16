@@ -51,7 +51,7 @@ export { OrganizationCreationWizard as OrganizationCreation } from './blocks/org
 
 // Navigation Blocks
 export * from './blocks/navigation/AppSidebar';
-export * from './blocks/navigation/Navigation';
+export { NavigationBlock as Navigation, type NavigationBlockProps } from './blocks/navigation/Navigation';
 export * from './blocks/navigation/TeamSwitcher';
 export * from './blocks/navigation/UserMenu';
 
@@ -86,7 +86,7 @@ export { SyncProvider } from './providers/SyncProvider';
 // ============================================
 // 4. UI Utilities
 // ============================================
-export { default as TabBarBackground, useBottomTabOverflow } from './universal/navigation/TabBarBackground';
+export { default as TabBarBackground } from './universal/navigation/TabBarBackground';
 
 // ============================================
 // Legacy Exports (for backward compatibility)

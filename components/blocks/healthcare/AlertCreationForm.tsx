@@ -1,14 +1,10 @@
 import React, { useState, useTransition, useOptimistic } from 'react';
-import { View } from 'react-native';
-import { 
-  Card, 
-  VStack, 
-  HStack, 
-  Text, 
-  Input, 
-  Button, 
-  Grid,
-} from '@/components/universal';
+import { View, Platform } from 'react-native';
+import { Card } from '@/components/universal/display';
+import { VStack, HStack, Grid } from '@/components/universal/layout';
+import { Text } from '@/components/universal/typography';
+import { Input } from '@/components/universal/form';
+import { Button } from '@/components/universal/interaction';
 import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useShadow } from '@/hooks/useShadow';
@@ -104,47 +100,42 @@ interface AlertCreationState {
   applyTemplate: (templateId: string) => void;
 }
 
+// Create store without persistence to avoid AsyncStorage issues
 const useAlertCreationStore = create<AlertCreationState>()(
   devtools(
-    persist(
-      immer((set) => ({
-        formData: {},
-        isVoiceRecording: false,
-        templates: defaultTemplates,
+    immer((set) => ({
+      formData: {},
+      isVoiceRecording: false,
+      templates: defaultTemplates,
+      
+      updateFormData: (data) =>
+        set((state) => {
+          Object.assign(state.formData, data);
+        }),
         
-        updateFormData: (data) =>
-          set((state) => {
-            Object.assign(state.formData, data);
-          }),
-          
-        resetForm: () =>
-          set((state) => {
-            state.formData = {};
-          }),
-          
-        setVoiceRecording: (recording) =>
-          set((state) => {
-            state.isVoiceRecording = recording;
-          }),
-          
-        applyTemplate: (templateId) =>
-          set((state) => {
-            const template = state.templates.find(t => t.id === templateId);
-            if (template) {
-              state.formData = {
-                ...state.formData,
-                alertType: template.type,
-                urgencyLevel: template.defaultUrgency as 1 | 2 | 3 | 4 | 5,
-                description: template.defaultDescription,
-              };
-            }
-          }),
-      })),
-      {
-        name: 'alert-creation',
-        partialize: (state) => ({ formData: state.formData }),
-      }
-    )
+      resetForm: () =>
+        set((state) => {
+          state.formData = {};
+        }),
+        
+      setVoiceRecording: (recording) =>
+        set((state) => {
+          state.isVoiceRecording = recording;
+        }),
+        
+      applyTemplate: (templateId) =>
+        set((state) => {
+          const template = state.templates.find(t => t.id === templateId);
+          if (template) {
+            state.formData = {
+              ...state.formData,
+              alertType: template.type,
+              urgencyLevel: template.defaultUrgency as 1 | 2 | 3 | 4 | 5,
+              description: template.defaultDescription,
+            };
+          }
+        }),
+    }))
   )
 );
 
@@ -299,7 +290,7 @@ export const AlertCreationForm = ({ hospitalId }: { hospitalId: string }) => {
   
   
   return (
-    <View className="animate-fade-in">
+    <View>
     <Card
       className="bg-card"
       style={[
@@ -347,8 +338,8 @@ export const AlertCreationForm = ({ hospitalId }: { hospitalId: string }) => {
               selected={optimisticTemplate === template.type}
               onPress={() => {
                 haptic('light');
-                setOptimisticTemplate(template.type);
                 startTransition(() => {
+                  setOptimisticTemplate(template.type);
                   applyTemplate(template.id);
                 });
               }}

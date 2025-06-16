@@ -6,15 +6,11 @@ import { useShadow } from '@/hooks/useShadow';
 import { useResponsive } from '@/hooks/responsive';
 // Animation will be handled with Tailwind classes
 import { haptic } from '@/lib/ui/haptics';
-import {
-  Text,
-  Card,
-  Badge,
-  VStack,
-  HStack,
-  Progress,
-  Button,
-} from '@/components/universal';
+import { Text } from '@/components/universal/typography';
+import { Card, Badge } from '@/components/universal/display';
+import { VStack, HStack } from '@/components/universal/layout';
+import { Progress } from '@/components/universal/feedback';
+import { Button } from '@/components/universal/interaction';
 import { 
   AlertCircle, 
   Clock,
@@ -127,8 +123,7 @@ export function AlertSummary({
   };
 
   return (
-    <View className="animate-fade-in">
-      <Card className="p-6" style={shadowMd}>
+    <Card className="p-6" style={shadowMd}>
         <VStack gap={4}>
           {/* Header */}
           <HStack justify="between" align="center">
@@ -150,8 +145,7 @@ export function AlertSummary({
           </HStack>
 
           {/* Stats Grid */}
-          <View className="animate-scale-in">
-            <HStack gap={4} className={cn(isMobile && "flex-wrap")}>
+          <HStack gap={4} className={cn(isMobile && "flex-wrap")}>
               <VStack gap={1} className="flex-1">
                 <Text size="2xl" weight="bold" className="text-destructive">
                   {stats.active}
@@ -188,7 +182,6 @@ export function AlertSummary({
                 </Text>
               </VStack>
             </HStack>
-          </View>
 
           {/* Response Rate */}
           <VStack gap={2}>
@@ -209,58 +202,54 @@ export function AlertSummary({
                 const staggerDelay = Math.min(index + 1, 6);
                 
                 return (
-                  <View key={alert.id} className={cn(
-                    "animate-slide-in-up",
-                    `delay-stagger-${staggerDelay}`
-                  )}>
-                    <Pressable
-                      onPress={() => {
-                        haptic('light');
-                        router.push(`/(modals)/patient-details?id=${alert.id}`);
-                      }}
+                  <Pressable
+                    key={alert.id}
+                    onPress={() => {
+                      haptic('light');
+                      router.push(`/(modals)/patient-details?id=${alert.id}`);
+                    }}
+                  >
+                    <Card 
+                      className="p-3 active:scale-[0.98]"
+                      style={shadowSm}
                     >
-                      <Card 
-                        className="p-3 active:scale-[0.98]"
-                        style={shadowSm}
-                      >
-                        <HStack gap={3} align="center">
-                          {getAlertIcon(alert.alertType)}
+                      <HStack gap={3} align="center">
+                        {getAlertIcon(alert.alertType)}
+                        
+                        <VStack gap={1} className="flex-1">
+                          <HStack justify="between" align="center">
+                            <Text size="sm" weight="medium">
+                              {alert.patientName} - Room {alert.roomNumber}
+                            </Text>
+                            {getStatusBadge(alert.status)}
+                          </HStack>
                           
-                          <VStack gap={1} className="flex-1">
-                            <HStack justify="between" align="center">
-                              <Text size="sm" weight="medium">
-                                {alert.patientName} - Room {alert.roomNumber}
-                              </Text>
-                              {getStatusBadge(alert.status)}
-                            </HStack>
+                          <HStack gap={4}>
+                            <Text size="xs" className="text-muted-foreground">
+                              {getTimeSince(alert.createdAt)}
+                            </Text>
                             
-                            <HStack gap={4}>
+                            {alert.acknowledgedBy && (
                               <Text size="xs" className="text-muted-foreground">
-                                {getTimeSince(alert.createdAt)}
+                                • {alert.acknowledgedBy}
                               </Text>
-                              
-                              {alert.acknowledgedBy && (
-                                <Text size="xs" className="text-muted-foreground">
-                                  • {alert.acknowledgedBy}
+                            )}
+                            
+                            {alert.escalationLevel > 0 && (
+                              <HStack gap={1} align="center">
+                                <TrendingUp size={12} className="text-warning" />
+                                <Text size="xs" className="text-warning">
+                                  L{alert.escalationLevel}
                                 </Text>
-                              )}
-                              
-                              {alert.escalationLevel > 0 && (
-                                <HStack gap={1} align="center">
-                                  <TrendingUp size={12} className="text-warning" />
-                                  <Text size="xs" className="text-warning">
-                                    L{alert.escalationLevel}
-                                  </Text>
-                                </HStack>
-                              )}
-                            </HStack>
-                          </VStack>
-                          
-                          <ChevronRight size={16} className="text-muted-foreground" />
-                        </HStack>
-                      </Card>
-                    </Pressable>
-                  </View>
+                              </HStack>
+                            )}
+                          </HStack>
+                        </VStack>
+                        
+                        <ChevronRight size={16} className="text-muted-foreground" />
+                      </HStack>
+                    </Card>
+                  </Pressable>
                 );
               })}
             </VStack>
@@ -280,6 +269,5 @@ export function AlertSummary({
           )}
         </VStack>
       </Card>
-    </View>
   );
 }

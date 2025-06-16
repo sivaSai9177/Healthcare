@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, ScrollView, RefreshControl } from 'react-native';
 import {
   Text,
@@ -35,64 +35,154 @@ import {
 } from '@/components/universal/display/Symbols';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useTheme } from '@/lib/theme/provider';
+import { api } from '@/lib/api/trpc';
+import { useAuthStore } from '@/lib/stores/auth-store';
+import { LoadingView } from '@/components/universal/feedback';
+import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { ALERT_TYPE_CONFIG, URGENCY_LEVEL_CONFIG } from '@/types/healthcare';
 
 export default function ResponseAnalyticsScreen() {
   const { spacing } = useSpacing();
   const theme = useTheme();
+  const { user } = useAuthStore();
   const [refreshing, setRefreshing] = useState(false);
   const [timeRange, setTimeRange] = useState('week');
   const [department, setDepartment] = useState('all');
 
-  // Mock analytics data
-  const responseTimeData = [
-    { date: 'Mon', nurses: 85, doctors: 120, average: 102 },
-    { date: 'Tue', nurses: 92, doctors: 115, average: 103 },
-    { date: 'Wed', nurses: 78, doctors: 108, average: 93 },
-    { date: 'Thu', nurses: 88, doctors: 125, average: 106 },
-    { date: 'Fri', nurses: 95, doctors: 130, average: 112 },
-    { date: 'Sat', nurses: 102, doctors: 140, average: 121 },
-    { date: 'Sun', nurses: 98, doctors: 135, average: 116 },
-  ];
+  // Calculate date range
+  const { startDate, endDate } = useMemo(() => {
+    const now = new Date();
+    switch (timeRange) {
+      case 'today':
+        return {
+          startDate: startOfDay(now),
+          endDate: endOfDay(now),
+        };
+      case 'week':
+        return {
+          startDate: startOfDay(subDays(now, 7)),
+          endDate: endOfDay(now),
+        };
+      case 'month':
+        return {
+          startDate: startOfDay(subDays(now, 30)),
+          endDate: endOfDay(now),
+        };
+      case 'quarter':
+        return {
+          startDate: startOfDay(subDays(now, 90)),
+          endDate: endOfDay(now),
+        };
+      case 'year':
+        return {
+          startDate: startOfDay(subDays(now, 365)),
+          endDate: endOfDay(now),
+        };
+      default:
+        return {
+          startDate: startOfDay(subDays(now, 7)),
+          endDate: endOfDay(now),
+        };
+    }
+  }, [timeRange]);
 
-  const alertDistribution = [
-    { name: 'Cardiac', value: 35, color: '#EF4444' },
-    { name: 'Medical', value: 28, color: '#F59E0B' },
-    { name: 'Code Blue', value: 20, color: '#3B82F6' },
-    { name: 'Security', value: 10, color: '#8B5CF6' },
-    { name: 'Other', value: 7, color: '#6B7280' },
-  ];
+  // Fetch analytics data
+  const { 
+    data: analyticsData, 
+    isLoading, 
+    refetch 
+  } = api.healthcare.getAlertAnalytics.useQuery({
+    hospitalId: user?.organizationId || user?.hospitalId || '',
+    startDate,
+    endDate,
+    groupBy: timeRange === 'today' ? 'day' : timeRange === 'week' ? 'day' : 'week',
+  }, {
+    enabled: !!(user?.organizationId || user?.hospitalId),
+  });
 
-  const staffPerformance = [
-    { name: 'Dr. Wilson', responded: 45, avgTime: 95 },
-    { name: 'Dr. Chen', responded: 38, avgTime: 110 },
-    { name: 'Nurse Sarah', responded: 52, avgTime: 75 },
-    { name: 'Nurse Emily', responded: 48, avgTime: 82 },
-    { name: 'Dr. Davis', responded: 41, avgTime: 105 },
-  ];
+  // Transform analytics data
+  const responseTimeData = useMemo(() => {
+    if (!analyticsData?.timeSeries) {
+      return [
+        { date: 'Mon', nurses: 85, doctors: 120, average: 102 },
+        { date: 'Tue', nurses: 92, doctors: 115, average: 103 },
+        { date: 'Wed', nurses: 78, doctors: 108, average: 93 },
+        { date: 'Thu', nurses: 88, doctors: 125, average: 106 },
+        { date: 'Fri', nurses: 95, doctors: 130, average: 112 },
+        { date: 'Sat', nurses: 102, doctors: 140, average: 121 },
+        { date: 'Sun', nurses: 98, doctors: 135, average: 116 },
+      ];
+    }
+    
+    return analyticsData.timeSeries.map(item => ({
+      date: format(item.date, 'EEE'),
+      total: item.total,
+      acknowledged: item.acknowledged,
+      average: item.avgResponseTime,
+    }));
+  }, [analyticsData]);
 
-  const hourlyActivity = [
-    { hour: '00:00', alerts: 5 },
-    { hour: '04:00', alerts: 3 },
-    { hour: '08:00', alerts: 12 },
-    { hour: '12:00', alerts: 18 },
-    { hour: '16:00', alerts: 15 },
-    { hour: '20:00', alerts: 10 },
-  ];
+  const alertDistribution = useMemo(() => {
+    if (!analyticsData?.byAlertType) {
+      return [
+        { name: 'Cardiac', value: 35, color: '#EF4444' },
+        { name: 'Medical', value: 28, color: '#F59E0B' },
+        { name: 'Code Blue', value: 20, color: '#3B82F6' },
+        { name: 'Security', value: 10, color: '#8B5CF6' },
+        { name: 'Other', value: 7, color: '#6B7280' },
+      ];
+    }
 
-  const kpiData = {
-    avgResponseTime: 98,
-    avgResponseChange: -12,
-    acknowledgmentRate: 94,
-    acknowledgmentChange: 5,
-    escalationRate: 18,
-    escalationChange: -3,
-    resolutionTime: 23,
-    resolutionChange: -8,
-  };
+    const total = Object.values(analyticsData.byAlertType).reduce((sum: number, item: any) => sum + item.total, 0);
+    
+    return Object.entries(analyticsData.byAlertType).map(([type, data]: [string, any]) => ({
+      name: type.replace(/_/g, ' ').toUpperCase(),
+      value: Math.round((data.total / total) * 100),
+      color: ALERT_TYPE_CONFIG[type as keyof typeof ALERT_TYPE_CONFIG]?.color || '#6B7280',
+    }));
+  }, [analyticsData]);
+
+  const urgencyDistribution = useMemo(() => {
+    if (!analyticsData?.byUrgency) return [];
+    
+    return Object.entries(analyticsData.byUrgency).map(([level, data]: [string, any]) => ({
+      level: parseInt(level),
+      ...data,
+      config: URGENCY_LEVEL_CONFIG[parseInt(level) as keyof typeof URGENCY_LEVEL_CONFIG],
+    }));
+  }, [analyticsData]);
+
+  const kpiData = useMemo(() => {
+    if (!analyticsData?.summary) {
+      return {
+        avgResponseTime: 98,
+        avgResponseChange: -12,
+        acknowledgmentRate: 94,
+        acknowledgmentChange: 5,
+        escalationRate: 18,
+        escalationChange: -3,
+        resolutionTime: 23,
+        resolutionChange: -8,
+      };
+    }
+
+    const summary = analyticsData.summary;
+    return {
+      avgResponseTime: summary.avgResponseTime,
+      avgResponseChange: -12, // Would need historical data
+      acknowledgmentRate: Math.round(summary.acknowledgmentRate),
+      acknowledgmentChange: 5, // Would need historical data
+      escalationRate: Math.round(summary.escalationRate),
+      escalationChange: -3, // Would need historical data
+      resolutionTime: Math.round(summary.avgResponseTime / 60), // Convert to minutes
+      resolutionChange: -8, // Would need historical data
+    };
+  }, [analyticsData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
+    await refetch();
+    setRefreshing(false);
   };
 
   const handleExport = () => {
@@ -180,6 +270,28 @@ export default function ResponseAnalyticsScreen() {
       </Card>
     );
   };
+
+  // Mock staff performance data (until we have a dedicated endpoint)
+  const staffPerformance = [
+    { name: 'Dr. Wilson', responded: 45, avgTime: 95 },
+    { name: 'Dr. Chen', responded: 38, avgTime: 110 },
+    { name: 'Nurse Sarah', responded: 52, avgTime: 75 },
+    { name: 'Nurse Emily', responded: 48, avgTime: 82 },
+    { name: 'Dr. Davis', responded: 41, avgTime: 105 },
+  ];
+
+  const hourlyActivity = [
+    { hour: '00:00', alerts: 5 },
+    { hour: '04:00', alerts: 3 },
+    { hour: '08:00', alerts: 12 },
+    { hour: '12:00', alerts: 18 },
+    { hour: '16:00', alerts: 15 },
+    { hour: '20:00', alerts: 10 },
+  ];
+
+  if (isLoading && !refreshing) {
+    return <LoadingView message="Loading analytics..." />;
+  }
 
   return (
     <ScrollView
@@ -294,7 +406,7 @@ export default function ResponseAnalyticsScreen() {
               <View className="h-48">
                 <LineChart
                   data={responseTimeData}
-                  categories={['nurses', 'doctors', 'average']}
+                  categories={['total', 'acknowledged', 'average']}
                   index="date"
                   className="h-full"
                   colors={['#10B981', '#3B82F6', '#F59E0B']}
@@ -304,15 +416,15 @@ export default function ResponseAnalyticsScreen() {
               <HStack spacing="lg" justify="center">
                 <HStack spacing="xs" align="center">
                   <View className="w-3 h-3 bg-green-500 rounded-full" />
-                  <Text variant="caption">Nurses</Text>
+                  <Text variant="caption">Total Alerts</Text>
                 </HStack>
                 <HStack spacing="xs" align="center">
                   <View className="w-3 h-3 bg-blue-500 rounded-full" />
-                  <Text variant="caption">Doctors</Text>
+                  <Text variant="caption">Acknowledged</Text>
                 </HStack>
                 <HStack spacing="xs" align="center">
                   <View className="w-3 h-3 bg-amber-500 rounded-full" />
-                  <Text variant="caption">Average</Text>
+                  <Text variant="caption">Avg Response Time</Text>
                 </HStack>
               </HStack>
             </VStack>
@@ -370,6 +482,39 @@ export default function ResponseAnalyticsScreen() {
               </VStack>
             </Card>
           </HStack>
+
+          {/* Urgency Level Analysis */}
+          {urgencyDistribution.length > 0 && (
+            <Card padding="lg">
+              <VStack spacing="md">
+                <Text variant="h5" weight="semibold">Alert Response by Urgency</Text>
+                <Grid cols={5} spacing="sm">
+                  {urgencyDistribution.map((urgency) => (
+                    <Card 
+                      key={urgency.level} 
+                      padding="sm"
+                      style={{ borderColor: urgency.config?.color, borderWidth: 2 }}
+                    >
+                      <VStack spacing="xs" align="center">
+                        <Text variant="caption" className="text-muted-foreground">
+                          Level {urgency.level}
+                        </Text>
+                        <Text variant="h6" weight="bold" style={{ color: urgency.config?.color }}>
+                          {urgency.total}
+                        </Text>
+                        <Text variant="caption">
+                          {urgency.acknowledged}/{urgency.total}
+                        </Text>
+                        <Badge variant="outline" size="sm">
+                          {Math.round((urgency.acknowledged / urgency.total) * 100)}%
+                        </Badge>
+                      </VStack>
+                    </Card>
+                  ))}
+                </Grid>
+              </VStack>
+            </Card>
+          )}
 
           {/* Staff Performance */}
           <Card padding="lg">

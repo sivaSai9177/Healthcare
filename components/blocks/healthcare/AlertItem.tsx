@@ -1,17 +1,11 @@
 import React, { useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { 
-  VStack, 
-  HStack,
-  Text, 
-  Button, 
-  Card,
-  Badge,
-  Box,
-  Separator,
-  Alert,
-} from '@/components/universal';
+import { VStack, HStack, Box, Separator } from '@/components/universal/layout';
+import { Text } from '@/components/universal/typography';
+import { Button } from '@/components/universal/interaction';
+import { Card, Badge } from '@/components/universal/display';
+import { Alert } from '@/components/universal/feedback';
 import { 
   HealthcareUserRole,
   ALERT_TYPE_CONFIG, 

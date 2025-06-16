@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Pressable } from 'react-native';
-import { Card, Text, VStack } from '@/components/universal';
+import { Card, CardContent } from '@/components/universal/display';
+import { Text } from '@/components/universal/typography';
+import { VStack } from '@/components/universal/layout';
 import { cn } from '@/lib/core/utils';
 import { useShadow } from '@/hooks/useShadow';
 import { useResponsive } from '@/hooks/responsive';
@@ -55,7 +57,7 @@ export function QuickActionsBlock({
         minHeight: goldenHeight,
       }}
     >
-      <Card.Content style={{ padding: spacing[2] }}>
+      <CardContent style={{ padding: spacing[2] }}>
         <View 
           className="flex-row flex-wrap justify-center"
           style={{ 
@@ -72,7 +74,7 @@ export function QuickActionsBlock({
             />
           ))}
         </View>
-      </Card.Content>
+      </CardContent>
     </Card>
   );
 }

@@ -63,7 +63,7 @@ const PrimaryMetricCard = ({
   label, 
   trend, 
   capacity, 
-  color,
+  variant,
   icon 
 }: { 
   value: number;
@@ -207,7 +207,7 @@ const SecondaryMetricCard = ({
         !status && "border-l-border"
       )}
       style={[{
-        height: componentSizes.button.lg.height * 2,
+        height: 104, // componentSizes.button.lg.height * 2
       }, shadowStyle]}
     >
       <Text size="xs" colorTheme="mutedForeground">{label}</Text>
@@ -244,7 +244,7 @@ const MiniStat = ({ label, value, variant, index }: { label: string; value: numb
         variant === 'default' && "bg-primary/10"
       )}
       style={{
-        height: componentSizes.button.sm.height,
+        height: 36, // componentSizes.button.sm.height
       }}
     >
       <Box
@@ -286,7 +286,7 @@ const MetricsSkeleton = () => {
           <Card
             className="p-8 bg-muted opacity-50"
             style={{
-              height: componentSizes.button.lg.height * 3,
+              height: 156, // componentSizes.button.lg.height * 3
             }}
           />
         </Animated.View>
@@ -300,19 +300,19 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
   const { spacing } = useSpacing();
   const { timeRange, department, refreshInterval, setTimeRange } = useMetricsStore();
   const [isPending, startTransition] = useTransition();
-  const { user } = useAuthStore();
+  const { user, isAuthenticated, hasHydrated } = useAuthStore();
   
   // Deferred values for smooth interactions
   const deferredTimeRange = useDeferredValue(timeRange);
   const deferredDepartment = useDeferredValue(department);
   
-  // Early return if no user
-  if (!user) {
+  // Early return if auth is not ready
+  if (!hasHydrated || !isAuthenticated || !user) {
     return <MetricsSkeleton />;
   }
   
   // Fetch metrics data
-  const { data: metrics } = api.healthcare.getMetrics.useQuery(
+  const { data: metrics, error } = api.healthcare.getMetrics.useQuery(
     {
       timeRange: deferredTimeRange,
       department: deferredDepartment,
@@ -320,21 +320,43 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
     {
       refetchInterval: refreshInterval,
       refetchIntervalInBackground: true,
-      suspense: true, // Enable suspense for this query
-      enabled: !!user, // Only fetch if user is authenticated
+      suspense: false, // Disable suspense to handle errors gracefully
+      enabled: !!user && isAuthenticated, // Only fetch if user is authenticated
+      retry: 1, // Limit retries
+      retryDelay: 1000,
     }
   );
   
-  // Real-time subscription
+  // Real-time subscription (only if WebSocket is enabled)
+  const wsEnabled = process.env.EXPO_PUBLIC_ENABLE_WS === 'true';
+  
   api.healthcare.subscribeToMetrics.useSubscription(
     undefined,
     {
-      enabled: !!user, // Only subscribe if user is authenticated
+      enabled: wsEnabled && isAuthenticated && !!user, // Only subscribe if WebSocket is enabled and user is authenticated
       onData: (update) => {
         log.info('Metrics update received', 'METRICS', update);
       },
+      onError: (err) => {
+        log.error('Metrics subscription error', 'METRICS', err);
+      },
     }
   );
+  
+  // Handle error state
+  if (error) {
+    log.error('Failed to fetch metrics', 'METRICS', error);
+    return (
+      <Card>
+        <Box p={spacing[4]}>
+          <VStack gap={spacing[3]} alignItems="center">
+            <Text size="lg" colorTheme="destructive">Unable to load metrics</Text>
+            <Text size="sm" colorTheme="mutedForeground">Please check your connection and try again</Text>
+          </VStack>
+        </Box>
+      </Card>
+    );
+  }
   
   if (!metrics) {
     return <MetricsSkeleton />;
@@ -366,7 +388,7 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
       <Grid
         columns={Platform.OS === 'web' ? "1.618fr 1fr 0.618fr" : "1fr"}
         gap={spacing[6]}
-        style={{ minHeight: componentSizes.button.xl.height * 3 }}
+        style={{ minHeight: 180 }} // componentSizes.button.xl.height * 3
       >
         {/* Primary Metric */}
         <PrimaryMetricCard
@@ -436,14 +458,14 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
 export const MetricsOverviewBlock = ({ hospitalId }: { hospitalId: string }) => {
   const { spacing } = useSpacing();
   const { animatedStyle: blockFadeStyle, fadeIn } = useFadeAnimation({ duration: 500 });
-  const { user } = useAuthStore();
+  const { user, isAuthenticated, hasHydrated } = useAuthStore();
   
   useEffect(() => {
     fadeIn();
   }, [fadeIn]);
   
-  // Don't render if no user
-  if (!user) {
+  // Don't render if auth is not ready
+  if (!hasHydrated || !isAuthenticated || !user) {
     return null;
   }
   

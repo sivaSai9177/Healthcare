@@ -4,8 +4,7 @@ import { Button, Text, VStack, Card, CardContent, CardHeader, CardTitle } from '
 import { useAuth } from '@/hooks/useAuth';
 import { authClient } from '@/lib/auth/auth-client';
 import { sessionManager } from '@/lib/auth/auth-session-manager';
-import { testSignOut } from '@/lib/auth/test-signout';
-import { log } from '@/lib/core/debug/logger';
+import { logger } from '@/lib/core/debug/unified-logger';
 import { api } from '@/lib/api/trpc';
 
 export default function DebugSignOutScreen() {
@@ -42,8 +41,7 @@ export default function DebugSignOutScreen() {
       // Debug storage
       info.storage = await sessionManager.debugTokenStorage();
       
-      // Test signout
-      await testSignOut();
+      // Sign out functionality is tested via the buttons below
       
     } catch (error) {
       info.error = error.message;
@@ -54,7 +52,7 @@ export default function DebugSignOutScreen() {
   };
 
   const testDirectSignOut = async () => {
-    console.log('Testing direct sign out...');
+    logger.auth.debug('Testing direct sign out...');
     
     try {
       // Method 1: Direct API call with empty body
@@ -67,7 +65,7 @@ export default function DebugSignOutScreen() {
         body: JSON.stringify({}), // Add empty JSON body
       });
       
-      console.log('Direct API response:', {
+      logger.auth.debug('Direct API response', {
         status: response.status,
         statusText: response.statusText,
         headers: Object.fromEntries(response.headers.entries()),
@@ -75,23 +73,23 @@ export default function DebugSignOutScreen() {
       
       if (!response.ok) {
         const text = await response.text();
-        console.log('Error response body:', text);
+        logger.auth.error('Error response body', { text });
       } else {
-        console.log('Sign out successful!');
+        logger.auth.info('Sign out successful!');
       }
     } catch (error) {
-      console.error('Direct sign out error:', error);
+      logger.auth.error('Direct sign out error', error);
     }
   };
   
   const testAuthClientSignOut = async () => {
-    console.log('Testing authClient.signOut()...');
+    logger.auth.debug('Testing authClient.signOut()...');
     
     try {
       const result = await authClient.signOut();
-      console.log('authClient.signOut result:', result);
+      logger.auth.info('authClient.signOut result', result);
     } catch (error) {
-      console.error('authClient.signOut error:', error);
+      logger.auth.error('authClient.signOut error', error);
     }
   };
 

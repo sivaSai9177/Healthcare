@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View } from 'react-native';
 import { AlertCircle } from '@/components/universal/display/Symbols';
-import { Button, Text, VStack, Progress } from '@/components/universal';
+import { Button } from '@/components/universal/interaction';
+import { Text } from '@/components/universal/typography';
+import { VStack } from '@/components/universal/layout';
+import { Progress } from '@/components/universal/feedback';
 import { 
   Dialog, 
   DialogContent, 

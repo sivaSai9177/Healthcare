@@ -25,6 +25,7 @@ export const user = pgTable("user", {
   passwordChangedAt: timestamp("password_changed_at"),
   failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
   lockedUntil: timestamp("locked_until"),
+  twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
   
   // Audit trail
   createdAt: timestamp("created_at")
@@ -35,6 +36,7 @@ export const user = pgTable("user", {
     .notNull(),
   createdBy: text("created_by"),
   updatedBy: text("updated_by"),
+  deletedAt: timestamp("deleted_at"), // For soft delete
 });
 
 export const session = pgTable("session", {
@@ -173,6 +175,23 @@ export const twoFactorToken = pgTable("two_factor_token", {
   secret: text("secret").notNull(),
   backupCodes: text("backup_codes"), // JSON array of backup codes
   isVerified: boolean("is_verified").notNull().default(false),
+  createdAt: timestamp("created_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .$defaultFn(() => new Date())
+    .notNull(),
+});
+
+// User preferences table
+export const userPreferences = pgTable("user_preferences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id")
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: "cascade" }),
+  emailPreferences: text("email_preferences"), // JSON object with email preferences
+  notificationPreferences: text("notification_preferences"), // JSON object with push notification preferences
   createdAt: timestamp("created_at")
     .$defaultFn(() => new Date())
     .notNull(),

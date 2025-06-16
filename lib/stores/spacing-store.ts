@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import PlatformStorage from '@/lib/core/platform-storage';
+import { Platform } from 'react-native';
 import { 
   SpacingDensity, 
   spacingTheme, 
@@ -65,18 +66,31 @@ export const useSpacingStore = create<SpacingStore>()(
       })),
       {
         name: 'spacing-preferences',
-        storage: {
-          getItem: async (name) => {
-            const value = await AsyncStorage.getItem(name);
-            return value ? JSON.parse(value) : null;
-          },
-          setItem: async (name, value) => {
-            await AsyncStorage.setItem(name, JSON.stringify(value));
-          },
-          removeItem: async (name) => {
-            await AsyncStorage.removeItem(name);
-          },
-        },
+        storage: Platform.OS === 'web' 
+          ? {
+              getItem: (name: string) => {
+                const value = localStorage.getItem(name);
+                return value ? JSON.parse(value) : null;
+              },
+              setItem: (name: string, value: any) => {
+                localStorage.setItem(name, JSON.stringify(value));
+              },
+              removeItem: (name: string) => {
+                localStorage.removeItem(name);
+              },
+            }
+          : {
+              getItem: async (name: string) => {
+                const value = await PlatformStorage.getItem(name);
+                return value ? JSON.parse(value) : null;
+              },
+              setItem: async (name: string, value: any) => {
+                await PlatformStorage.setItem(name, JSON.stringify(value));
+              },
+              removeItem: async (name: string) => {
+                await PlatformStorage.removeItem(name);
+              },
+            },
         partialize: (state) => {
           return { density: state.density };
         },

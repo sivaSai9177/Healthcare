@@ -124,7 +124,7 @@ export const Box = React.forwardRef<View, BoxProps>(({
         ref={ref as any}
         entering={entering}
         exiting={exiting}
-        className={boxClasses}
+        className={Platform.OS === 'web' ? boxClasses : undefined}
         style={combinedStyle}
         {...props}
       >

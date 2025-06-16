@@ -1,11 +1,9 @@
 import React from 'react';
 import { View, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { 
-  HStack,
-  Button,
-  Text,
-} from '@/components/universal';
+import { HStack } from '@/components/universal/layout';
+import { Button } from '@/components/universal/interaction';
+import { Text } from '@/components/universal/typography';
 import { 
   PlusIcon,
   Download,
@@ -118,7 +116,7 @@ export function AlertActions({
           onPress={handleRefresh}
           disabled={isRefreshing}
         >
-          <RefreshCw size={isMobile ? 16 : 20} className={cn(isRefreshing && "animate-spin")} />
+          <RefreshCw size={isMobile ? 16 : 20} />
           <Text>{isRefreshing ? 'Refreshing...' : 'Refresh'}</Text>
         </Button>
       )}

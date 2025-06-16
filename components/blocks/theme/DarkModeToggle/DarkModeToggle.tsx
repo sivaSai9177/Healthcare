@@ -1,11 +1,15 @@
 import React from 'react';
-import { Box, Text, Switch } from '@/components/universal';
-import { useColorScheme, useColorSchemeContext } from '@/contexts/ColorSchemeContext';
+import { Box } from '@/components/universal/layout';
+import { Text } from '@/components/universal/typography';
+import { Switch } from '@/components/universal/form';
+import { useThemeStore } from '@/lib/stores/theme-store';
 import { SpacingScale } from '@/lib/design';
 
 export function DarkModeToggle() {
-  const colorScheme = useColorScheme();
-  const { toggleColorScheme } = useColorSchemeContext();
+  const colorScheme = useThemeStore((state) => state.getEffectiveColorScheme());
+  const toggleColorScheme = useThemeStore((state) => state.toggleColorScheme);
+  const useSystemTheme = useThemeStore((state) => state.useSystemTheme);
+  const setUseSystemTheme = useThemeStore((state) => state.setUseSystemTheme);
 
   return (
     <Box 
@@ -28,7 +32,6 @@ export function DarkModeToggle() {
       <Switch
         checked={colorScheme === 'dark'}
         onCheckedChange={toggleColorScheme}
-        colorScheme="accent"
       />
     </Box>
   );

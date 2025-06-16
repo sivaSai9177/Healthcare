@@ -1,0 +1,1 @@
+export { PasswordChangeBlock } from './PasswordChangeBlock';

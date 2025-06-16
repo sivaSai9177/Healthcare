@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, RefreshControl, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Container,
   Stack,
@@ -18,6 +18,11 @@ import {
 import { useTheme } from '@/lib/theme/provider';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { format } from 'date-fns';
+import { api } from '@/lib/api/trpc';
+import { useAuthStore } from '@/lib/stores/auth-store';
+import { LoadingView } from '@/components/universal/feedback';
+import { showSuccessAlert, showErrorAlert } from '@/lib/core/alert';
+import { haptic } from '@/lib/ui/haptics';
 
 interface EscalationTier {
   tier: number;
@@ -45,14 +50,46 @@ interface EscalationEvent {
 
 export default function EscalationDetailsModal() {
   const { alertId } = useLocalSearchParams<{ alertId: string }>();
+  const router = useRouter();
   const theme = useTheme();
   const spacing = useSpacing();
+  const { user } = useAuthStore();
   const [refreshing, setRefreshing] = React.useState(false);
 
-  // Mock data - replace with API call
-  const currentTier = 2;
-  const timeToNextEscalation = 180; // 3 minutes in seconds
-  const totalEscalationTime = 300; // 5 minutes
+  // Fetch escalation status
+  const { data: escalationStatus, refetch: refetchStatus } = api.healthcare.getEscalationStatus.useQuery({
+    alertId: alertId || '',
+  }, {
+    enabled: !!alertId,
+  });
+
+  // Fetch escalation history
+  const { data: escalationHistoryData, isLoading, refetch: refetchHistory } = api.healthcare.getEscalationHistory.useQuery({
+    alertId: alertId || '',
+  }, {
+    enabled: !!alertId,
+  });
+
+  // Trigger manual escalation mutation
+  const triggerEscalationMutation = api.healthcare.triggerEscalation.useMutation({
+    onSuccess: () => {
+      haptic('success');
+      showSuccessAlert('Escalation Triggered', 'Alert has been escalated to the next tier.');
+      refetchStatus();
+      refetchHistory();
+    },
+    onError: (error) => {
+      haptic('error');
+      showErrorAlert('Escalation Failed', error.message || 'Failed to trigger escalation.');
+    },
+  });
+
+  // Get current tier and timing from escalation status
+  const currentTier = escalationStatus?.currentTier || 1;
+  const timeToNextEscalation = escalationStatus?.timeToNextEscalation 
+    ? Math.max(0, Math.floor(escalationStatus.timeToNextEscalation / 1000)) 
+    : 180;
+  const totalEscalationTime = 300; // 5 minutes default
 
   const escalationTiers: EscalationTier[] = [
     {
@@ -92,33 +129,40 @@ export default function EscalationDetailsModal() {
     },
   ];
 
-  const escalationHistory: EscalationEvent[] = [
-    {
-      id: '1',
-      timestamp: new Date(Date.now() - 10 * 60 * 1000),
-      fromTier: 0,
-      toTier: 1,
-      reason: 'Alert created',
-      automatic: false,
-    },
-    {
-      id: '2',
-      timestamp: new Date(Date.now() - 5 * 60 * 1000),
-      fromTier: 1,
-      toTier: 2,
-      reason: 'No response within 5 minutes',
-      automatic: true,
-    },
-  ];
+  // Transform escalation history data
+  const escalationHistory: EscalationEvent[] = React.useMemo(() => {
+    if (!escalationHistoryData?.escalations) {
+      return [
+        {
+          id: '1',
+          timestamp: new Date(Date.now() - 10 * 60 * 1000),
+          fromTier: 0,
+          toTier: 1,
+          reason: 'Alert created',
+          automatic: false,
+        },
+      ];
+    }
 
-  const onRefresh = React.useCallback(() => {
+    return escalationHistoryData.escalations.map((esc) => ({
+      id: esc.escalation.id,
+      timestamp: new Date(esc.escalation.escalatedAt),
+      fromTier: esc.escalation.from_tier || 0,
+      toTier: esc.escalation.to_tier,
+      reason: esc.escalation.reason || 'No response received',
+      automatic: !esc.escalation.manual,
+    }));
+  }, [escalationHistoryData]);
+
+  const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  }, []);
+    await Promise.all([refetchStatus(), refetchHistory()]);
+    setRefreshing(false);
+  }, [refetchStatus, refetchHistory]);
 
   const handleManualEscalate = () => {
-    // TODO: Implement manual escalation
-// TODO: Replace with structured logging - console.log('Manual escalation to tier', currentTier + 1);
+    if (!alertId) return;
+    triggerEscalationMutation.mutate({ alertId });
   };
 
   const getStatusColor = (status: 'available' | 'busy' | 'offline') => {
@@ -133,6 +177,10 @@ export default function EscalationDetailsModal() {
   };
 
   const progress = (totalEscalationTime - timeToNextEscalation) / totalEscalationTime;
+
+  if (isLoading && !refreshing) {
+    return <LoadingView message="Loading escalation details..." />;
+  }
 
   return (
     <Container style={{ flex: 1 }}>
@@ -169,6 +217,8 @@ export default function EscalationDetailsModal() {
                 onPress={handleManualEscalate}
                 variant="destructive"
                 size="sm"
+                isLoading={triggerEscalationMutation.isPending}
+                disabled={triggerEscalationMutation.isPending || currentTier >= 3}
               >
                 <HStack spacing="xs" align="center">
                   <Symbol name="arrow.up.circle.fill" size={16} color={theme.background} />

@@ -7,6 +7,7 @@ import { BREAKPOINTS } from '@/lib/design/responsive';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 import { useAnimationVariant } from '@/hooks/useAnimationVariant';
 import { cn } from '@/lib/core/utils';
+import { useTheme } from '@/lib/theme/provider';
 
 interface ScrollContainerProps extends Omit<BoxProps, 'maxWidth'> {
   safe?: boolean;
@@ -45,6 +46,7 @@ export const ScrollContainer = React.forwardRef<any, ScrollContainerProps>(({
     variant: animationVariant,
     overrides: animationConfig,
   });
+  const theme = useTheme();
   
   const duration = animationDuration ?? config.duration.normal;
   
@@ -115,7 +117,7 @@ export const ScrollContainer = React.forwardRef<any, ScrollContainerProps>(({
   );
   
   const scrollContent = (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
       {headerTitle && (
         <ScrollHeader 
           title={headerTitle} 
@@ -126,10 +128,11 @@ export const ScrollContainer = React.forwardRef<any, ScrollContainerProps>(({
       )}
       <Animated.ScrollView
         ref={ref}
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: 'transparent' }}
         contentContainerStyle={{ 
           flexGrow: 1,
           paddingTop: totalHeaderHeight,
+          backgroundColor: 'transparent',
         }}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
@@ -147,8 +150,8 @@ export const ScrollContainer = React.forwardRef<any, ScrollContainerProps>(({
   if (safe) {
     return (
       <SafeAreaView
-        className={cn("flex-1 bg-background", props.className)}
-        style={style}
+        className={cn("flex-1", props.className)}
+        style={[{ flex: 1, backgroundColor: theme.background }, style]}
         edges={headerTitle ? ['left', 'right', 'bottom'] : undefined}
       >
         {scrollContent}

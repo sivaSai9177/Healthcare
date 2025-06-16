@@ -54,3 +54,6 @@ export { SessionTimeoutWarning } from './SessionTimeoutWarning';
 // Sign Out
 export { SignOutButton } from './SignOutButton';
 export type { SignOutButtonProps } from './SignOutButton';
+
+// Auth Screen Wrapper
+export { AuthScreenWrapper } from './AuthScreenWrapper';

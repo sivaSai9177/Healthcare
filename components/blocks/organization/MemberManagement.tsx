@@ -1,18 +1,11 @@
 import React, { useState } from 'react';
 import { View, ScrollView } from 'react-native';
-import { 
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  Text, 
-  Input, 
-  Button, 
-  Badge, 
-  Avatar, 
-  DropdownMenu, 
-  Stack
-} from '@/components/universal';
+import { Card, CardHeader, CardTitle, CardContent, Badge, Avatar } from '@/components/universal/display';
+import { Text } from '@/components/universal/typography';
+import { Input } from '@/components/universal/form';
+import { Button } from '@/components/universal/interaction';
+import { DropdownMenu } from '@/components/universal/overlay';
+import { Stack } from '@/components/universal/layout';
 import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { SearchSymbol, UserPlus, MoreVertical } from '@/components/universal/display/Symbols';
@@ -122,7 +115,7 @@ export function MemberManagementBlock({
             placeholder="Search members..."
             value={searchQuery}
             onChangeText={setSearchQuery}
-            leftIcon={<Search size={16} />}
+            leftIcon={<SearchSymbol size={16} />}
             style={{ marginBottom: spacing[4] }}
           />
           

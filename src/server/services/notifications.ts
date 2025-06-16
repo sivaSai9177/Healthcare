@@ -12,7 +12,7 @@ import { eq, and, or, lte } from 'drizzle-orm';
 import { emailService } from './email-index';
 import type { EmailOptions } from './email-mock';
 import { smsService, SMSOptions } from './sms';
-import { notificationService as pushService } from '@/lib/ui/notifications/service';
+import { expoPushService } from './push-notifications';
 import { generateUUID } from '@/lib/core/crypto';
 
 // Notification types enum
@@ -738,28 +738,45 @@ class NotificationService {
       const title = this.getPushTitle(notification);
       const body = this.getPushBody(notification);
       
-      // Send to all tokens
-      const results = await Promise.allSettled(
-        notification.recipient.pushTokens.map(token => 
-          pushService.scheduleLocalNotification(title, body, {
-            ...notification.data,
-            notificationId: notification.id,
-            type: notification.type,
-          })
-        )
-      );
-      
-      const successCount = results.filter(r => r.status === 'fulfilled').length;
+      // Send via Expo push service
+      const result = await expoPushService.send({
+        to: notification.recipient.pushTokens,
+        title,
+        body,
+        data: {
+          ...notification.data,
+          notificationId: notification.id,
+          type: notification.type,
+        },
+        priority: notification.priority === Priority.CRITICAL ? 'high' : 'default',
+        sound: 'default',
+        badge: notification.type === NotificationType.ALERT_CREATED ? 1 : undefined,
+        categoryId: this.getCategoryId(notification.type),
+        ttl: CHANNEL_CONFIG[notification.type]?.ttl,
+      });
       
       return {
         channel: Channel.PUSH,
-        success: successCount > 0,
+        success: result.success,
         messageId: notification.id,
+        error: result.errors.length > 0 ? result.errors[0].message : undefined,
         timestamp: new Date(),
       };
     } catch (error) {
       throw error;
     }
+  }
+
+  // Get category ID for interactive notifications
+  private getCategoryId(type: NotificationType): string | undefined {
+    const categoryMap: Record<NotificationType, string> = {
+      [NotificationType.ALERT_CREATED]: 'alert',
+      [NotificationType.ALERT_ESCALATED]: 'alert',
+      [NotificationType.ORG_INVITATION]: 'invitation',
+      // Add more as needed
+    } as any;
+    
+    return categoryMap[type];
   }
 
   // Send in-app notification

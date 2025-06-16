@@ -1,12 +1,9 @@
 import React from 'react';
 import { View } from 'react-native';
-import { 
-  HStack,
-  Input,
-  Select,
-  Button,
-  Text,
-} from '@/components/universal';
+import { HStack } from '@/components/universal/layout';
+import { Input, Select } from '@/components/universal/form';
+import { Button } from '@/components/universal/interaction';
+import { Text } from '@/components/universal/typography';
 import { 
   Search, 
   Filter,

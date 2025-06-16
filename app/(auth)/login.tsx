@@ -1,38 +1,37 @@
 import React from 'react';
-import { View, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SignIn, useSignIn, AuthCard, ContinueWithSocial } from '@/components/blocks/auth';
-import { Button } from '@/components/universal';
+import { SignIn, useSignIn, AuthScreenWrapper } from '@/components/blocks/auth';
+import { logger } from '@/lib/core/debug/unified-logger';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn, checkEmail, isLoading, error } = useSignIn();
+  
+  React.useEffect(() => {
+    logger.auth.debug('LoginScreen mounted');
+    return () => {
+      logger.auth.debug('LoginScreen unmounted');
+    };
+  }, []);
 
   const handleSignIn = async (data: { email: string; password: string; rememberMe?: boolean }) => {
+    logger.auth.info('Sign in attempt', { email: data.email, rememberMe: data.rememberMe });
     try {
       await signIn(data);
       // Navigation is handled by useSignIn hook based on user state
     } catch (error) {
       // Error is already handled by useSignIn hook
-      // TODO: Replace with structured logging
-      // console.error('Sign in error:', error);
+      logger.auth.error('Sign in error', error);
     }
   };
 
-  // Social sign in will be implemented later
-  // const handleSocialSignIn = async (provider: 'google' | 'apple' | 'facebook') => {
-  //   try {
-  //     await signInWithProvider(provider);
-  //   } catch (error) {
-  //     showErrorAlert('Social Sign In Failed', 'Please try again or use email/password');
-  //   }
-  // };
-
   const handleForgotPassword = () => {
+    logger.auth.info('Navigating to forgot password');
     router.push('/(auth)/forgot-password');
   };
 
   const handleSignUp = () => {
+    logger.auth.info('Navigating to register');
     router.push('/(auth)/register');
   };
 
@@ -41,42 +40,18 @@ export default function LoginScreen() {
   };
 
   return (
-    <AuthCard
+    <AuthScreenWrapper
       title="Welcome Back"
       subtitle="Sign in to your account"
     >
-      <View className="space-y-6">
-        <ContinueWithSocial
-          onProviderSelect={async (provider) => {
-            // Social sign-in is now handled directly in SocialLoginButtons
-// TODO: Replace with structured logging - console.log('Social sign-in:', provider);
-          }}
-          providers={['google']}
-          dividerText="Or sign in with email"
-        />
-        
-        <SignIn
-          onSubmit={handleSignIn}
-          onForgotPassword={handleForgotPassword}
-          onSignUp={handleSignUp}
-          onCheckEmail={handleCheckEmail}
-          isLoading={isLoading}
-          error={error}
-        />
-      </View>
-      
-      {/* Temporary button for debugging authentication issues */}
-      {Platform.OS === 'web' && process.env.NODE_ENV === 'development' && (
-        <View className="absolute bottom-4 left-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onPress={() => router.push('/(modals)/clear-session')}
-          >
-            Clear Session (Debug)
-          </Button>
-        </View>
-      )}
-    </AuthCard>
+      <SignIn
+        onSubmit={handleSignIn}
+        onForgotPassword={handleForgotPassword}
+        onSignUp={handleSignUp}
+        onCheckEmail={handleCheckEmail}
+        isLoading={isLoading}
+        error={error}
+      />
+    </AuthScreenWrapper>
   );
 }

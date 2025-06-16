@@ -131,7 +131,7 @@ export function AreaChartInteractive() {
         </Box>
       </Box>
       <Box px={0 as SpacingScale} pb={4 as SpacingScale}>
-        <View style={{ height: 250, width: '100%', paddingHorizontal: 16, backgroundColor: transparent }}>
+        <View style={{ height: 250, width: '100%', paddingHorizontal: 16, backgroundColor: 'transparent' }}>
           <NativeAreaChart
             data={{
               labels: filteredData.map((d, index) => {

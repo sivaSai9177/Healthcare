@@ -33,21 +33,30 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   
   // Handle state updates with useEffect (TanStack Query v5 pattern)
   useEffect(() => {
-    // Only update if we have actual data
-    if (data && (data as any).user) {
-      // Ensure the session has the token field if it exists
-      const session = (data as any).session;
-      if (session && session.token) {
-        // Store token for web platform
-        updateAuth((data as any).user, session);
-      } else {
-        // If no token in session response, preserve existing session token
-        updateAuth((data as any).user, session);
-      }
+    // Log the response for debugging
+    log.debug('SyncProvider getSession response', 'AUTH_SYNC', {
+      hasData: !!data,
+      dataKeys: data ? Object.keys(data) : [],
+      hasUser: !!(data as any)?.user,
+      hasSession: !!(data as any)?.session,
+    });
+    
+    // Only update if we have actual data with both user and session
+    if (data && (data as any).user && (data as any).session) {
+      const { user, session } = data as any;
+      log.debug('Updating auth from server session', 'AUTH_SYNC', {
+        userId: user.id,
+        userRole: user.role,
+        sessionId: session.id,
+      });
+      updateAuth(user, session);
+    } else if (data === null) {
+      // Server explicitly returned null (no session)
+      log.debug('Server returned null session, clearing auth', 'AUTH_SYNC');
+      clearAuth();
     }
-    // Don&apos;t clear auth just because the query returned null
-    // Let the error handler deal with actual auth failures
-  }, [data, updateAuth]);
+    // Don't clear auth if data is undefined (loading state)
+  }, [data, updateAuth, clearAuth]);
   
   // Handle auth errors
   useEffect(() => {

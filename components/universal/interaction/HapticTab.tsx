@@ -9,7 +9,11 @@ export interface HapticTabProps extends PressableProps {
 export function HapticTab({ children, onPress, ...rest }: HapticTabProps) {
   const handlePress = (event: any) => {
     // Trigger haptic feedback
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (error) {
+      // Silently ignore haptic errors (e.g., on web)
+    }
     onPress?.(event);
   };
 

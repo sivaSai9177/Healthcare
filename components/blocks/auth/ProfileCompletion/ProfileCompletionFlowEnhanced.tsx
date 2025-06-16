@@ -3,8 +3,11 @@ import { View, Text, ScrollView, Alert, KeyboardAvoidingView, Platform, Pressabl
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api/trpc';
-import { Button as PrimaryButton, Card, CardContent, CardDescription, CardHeader, CardTitle, Input } from '@/components/universal';
+import { Button as PrimaryButton } from '@/components/universal/interaction';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/universal/display';
+import { Input } from '@/components/universal/form';
 import { RoleSelector } from '@/components/blocks/forms/RoleSelector/RoleSelector';
+import { HealthcareRoleSelector } from '@/components/blocks/forms/RoleSelector/HealthcareRoleSelector';
 import { CompleteProfileInputSchema } from '@/lib/validations/profile';
 import { z } from 'zod';
 import { log } from '@/lib/core/debug/logger';
@@ -289,8 +292,9 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
 
             <View className="space-y-2">
               <Text className="text-sm font-medium">Role *</Text>
-              <RoleSelector
-                selectedRole={formData.role}
+              {/* Use HealthcareRoleSelector for healthcare context */}
+              <HealthcareRoleSelector
+                selectedRole={formData.role as any}
                 onRoleSelect={(role) => handleInputChange('role', role)}
               />
               {errors.role && (

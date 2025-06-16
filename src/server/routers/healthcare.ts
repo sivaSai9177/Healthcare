@@ -30,6 +30,7 @@ import {
   trackedHospitalAlerts,
   subscribeToHospitalAlerts
 } from '../services/alert-subscriptions';
+import { observable } from '@trpc/server/observable';
 
 // Create permission-based procedures for healthcare roles
 const operatorProcedure = createPermissionProcedure('create_alerts');
@@ -76,6 +77,56 @@ export const healthcareRouter = router({
         // Emit alert created event
         await alertEventHelpers.emitAlertCreated(newAlert);
 
+        // Send push notifications to relevant healthcare staff
+        try {
+          const { notificationService, NotificationType, Priority } = await import('../services/notifications');
+          
+          // Get on-duty healthcare staff (doctors and nurses)
+          const onDutyStaff = await db
+            .select({
+              userId: healthcareUsers.userId,
+              role: users.role,
+            })
+            .from(healthcareUsers)
+            .innerJoin(users, eq(healthcareUsers.userId, users.id))
+            .where(
+              and(
+                eq(healthcareUsers.hospitalId, hospitalId),
+                eq(healthcareUsers.isOnDuty, true),
+                or(
+                  eq(users.role, 'doctor'),
+                  eq(users.role, 'nurse'),
+                  eq(users.role, 'head_doctor')
+                )
+              )
+            );
+
+          if (onDutyStaff.length > 0) {
+            // Send notification to all on-duty staff
+            await notificationService.sendBatch(
+              onDutyStaff.map(staff => ({
+                id: `alert-${newAlert.id}-${staff.userId}`,
+                type: NotificationType.ALERT_CREATED,
+                recipient: {
+                  userId: staff.userId,
+                },
+                priority: urgencyLevel === 'critical' ? Priority.CRITICAL : Priority.HIGH,
+                data: {
+                  alertId: newAlert.id,
+                  roomNumber,
+                  alertType,
+                  urgencyLevel,
+                  description,
+                },
+                organizationId: hospitalId,
+              }))
+            );
+          }
+        } catch (notificationError) {
+          // Don't fail the alert creation if notifications fail
+          log.error('Failed to send push notifications for alert', 'HEALTHCARE', notificationError);
+        }
+
         log.info('Alert created', 'HEALTHCARE', {
           alertId: newAlert.id,
           alertType,
@@ -108,21 +159,24 @@ export const healthcareRouter = router({
         // Get active alerts for the hospital
         const activeAlerts = await db
           .select({
-            alert: alerts,
-            creator: {
-              id: users.id,
-              name: users.name,
-              email: users.email,
-            },
-            acknowledgedBy: {
-              id: users.id,
-              name: users.name,
-              email: users.email,
-            },
+            id: alerts.id,
+            alertType: alerts.alertType,
+            urgencyLevel: alerts.urgencyLevel,
+            roomNumber: alerts.roomNumber,
+            patientId: alerts.patientId,
+            description: alerts.description,
+            status: alerts.status,
+            hospitalId: alerts.hospitalId,
+            createdAt: alerts.createdAt,
+            createdBy: alerts.createdBy,
+            acknowledgedBy: alerts.acknowledgedBy,
+            acknowledgedAt: alerts.acknowledgedAt,
+            currentEscalationTier: alerts.currentEscalationTier,
+            nextEscalationAt: alerts.nextEscalationAt,
+            escalationLevel: alerts.escalationLevel,
+            resolvedAt: alerts.resolvedAt,
           })
           .from(alerts)
-          .leftJoin(users, eq(alerts.createdBy, users.id))
-          .leftJoin(users, eq(alerts.acknowledgedBy, users.id))
           .where(
             and(
               eq(alerts.hospitalId, hospitalId),
@@ -136,9 +190,19 @@ export const healthcareRouter = router({
           .limit(limit)
           .offset(offset);
 
+        // Map the alerts to include additional fields
+        const mappedAlerts = activeAlerts.map(alert => ({
+          ...alert,
+          patientName: null, // We don't have patient names in the database yet
+          createdBy: alert.createdBy || '',
+          acknowledgedBy: alert.acknowledgedBy || null,
+          currentEscalationTier: alert.currentEscalationTier || 1,
+          escalationLevel: alert.escalationLevel || 1,
+        }));
+
         return {
-          alerts: activeAlerts,
-          total: activeAlerts.length,
+          alerts: mappedAlerts,
+          total: mappedAlerts.length,
         };
       } catch (error) {
         log.error('Failed to fetch active alerts', 'HEALTHCARE', error);
@@ -274,6 +338,32 @@ export const healthcareRouter = router({
           alert.hospitalId,
           ctx.user.id
         );
+
+        // Send push notification to alert creator
+        try {
+          const { notificationService, NotificationType, Priority } = await import('../services/notifications');
+          
+          // Notify the alert creator that their alert has been acknowledged
+          await notificationService.send({
+            id: `ack-${alertId}-${alert.createdBy}`,
+            type: NotificationType.ALERT_ACKNOWLEDGED,
+            recipient: {
+              userId: alert.createdBy,
+            },
+            priority: Priority.MEDIUM,
+            data: {
+              alertId,
+              roomNumber: alert.roomNumber,
+              alertType: alert.alertType,
+              acknowledgedBy: ctx.user.name || ctx.user.email,
+              responseAction,
+              estimatedResponseTime,
+            },
+            organizationId: alert.hospitalId,
+          });
+        } catch (notificationError) {
+          log.error('Failed to send acknowledgment notification', 'HEALTHCARE', notificationError);
+        }
 
         log.info('Alert acknowledged', 'HEALTHCARE', {
           alertId,
@@ -479,6 +569,28 @@ export const healthcareRouter = router({
           .where(eq(healthcareUsers.userId, ctx.user.id))
           .limit(1);
 
+        // If no healthcare user profile exists, auto-create one for healthcare roles
+        if (!healthcareUser && ['doctor', 'nurse', 'head_doctor', 'operator'].includes(ctx.user.role)) {
+          const hospitalId = ctx.user.organizationId || 'f155b026-01bd-4212-94f3-e7aedef2801d'; // Demo hospital
+          
+          try {
+            await db.insert(healthcareUsers).values({
+              userId: ctx.user.id,
+              hospitalId,
+              department: 'General',
+              isOnDuty: false,
+            });
+            
+            log.info('Auto-created healthcare user profile', 'HEALTHCARE', { 
+              userId: ctx.user.id,
+              role: ctx.user.role,
+              hospitalId
+            });
+          } catch (insertError) {
+            log.error('Failed to auto-create healthcare profile', 'HEALTHCARE', insertError);
+          }
+        }
+
         return {
           isOnDuty: healthcareUser?.isOnDuty || false,
           shiftStartTime: healthcareUser?.shiftStartTime,
@@ -494,27 +606,102 @@ export const healthcareRouter = router({
   toggleOnDuty: protectedProcedure
     .input(z.object({
       isOnDuty: z.boolean(),
+      handoverNotes: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       try {
         const now = new Date();
         
+        // Get current healthcare user data
+        const [currentUser] = await db
+          .select()
+          .from(healthcareUsers)
+          .where(eq(healthcareUsers.userId, ctx.user.id))
+          .limit(1);
+        
+        // Update duty status
         await db
           .update(healthcareUsers)
           .set({
             isOnDuty: input.isOnDuty,
-            shiftStartTime: input.isOnDuty ? now : null,
+            shiftStartTime: input.isOnDuty ? now : currentUser?.shiftStartTime,
             shiftEndTime: input.isOnDuty ? null : now,
           })
           .where(eq(healthcareUsers.userId, ctx.user.id));
 
+        // Log audit event
+        await db.insert(healthcareAuditLogs).values({
+          userId: ctx.user.id,
+          action: input.isOnDuty ? 'shift_started' : 'shift_ended',
+          entityType: 'user',
+          entityId: ctx.user.id,
+          hospitalId: currentUser?.hospitalId,
+          metadata: {
+            shiftStartTime: input.isOnDuty ? now : currentUser?.shiftStartTime,
+            shiftEndTime: input.isOnDuty ? null : now,
+            handoverNotes: input.handoverNotes,
+            duration: !input.isOnDuty && currentUser?.shiftStartTime 
+              ? Math.floor((now.getTime() - new Date(currentUser.shiftStartTime).getTime()) / 1000 / 60) // duration in minutes
+              : null,
+          },
+          success: true,
+        });
+        
+        log.info('Shift toggled with audit logging', 'HEALTHCARE', {
+          userId: ctx.user.id,
+          isOnDuty: input.isOnDuty,
+          hospitalId: currentUser?.hospitalId,
+          action: input.isOnDuty ? 'shift_started' : 'shift_ended',
+        });
+
         return {
           success: true,
           isOnDuty: input.isOnDuty,
+          shiftDuration: !input.isOnDuty && currentUser?.shiftStartTime 
+            ? Math.floor((now.getTime() - new Date(currentUser.shiftStartTime).getTime()) / 1000 / 60)
+            : null,
         };
       } catch (error) {
         log.error('Failed to toggle on-duty status', 'HEALTHCARE', error);
         throw new Error('Failed to toggle on-duty status');
+      }
+    }),
+
+  // Get on-duty staff for a department
+  getOnDutyStaff: viewAlertsProcedure
+    .input(z.object({
+      department: z.string().optional(),
+    }))
+    .query(async ({ input, ctx }) => {
+      try {
+        const query = db
+          .select({
+            id: users.id,
+            name: users.name,
+            email: users.email,
+            role: users.role,
+            image: users.image,
+            department: healthcareUsers.department,
+            specialization: healthcareUsers.specialization,
+            shiftStartTime: healthcareUsers.shiftStartTime,
+          })
+          .from(healthcareUsers)
+          .innerJoin(users, eq(healthcareUsers.userId, users.id))
+          .where(eq(healthcareUsers.isOnDuty, true));
+        
+        if (input.department) {
+          query.where(eq(healthcareUsers.department, input.department));
+        }
+        
+        const onDutyStaff = await query;
+        
+        return {
+          staff: onDutyStaff,
+          total: onDutyStaff.length,
+        };
+      } catch (error) {
+        log.error('Failed to get on-duty staff', 'HEALTHCARE', error);
+        throw new Error('Failed to get on-duty staff');
       }
     }),
 
@@ -1467,6 +1654,125 @@ export const healthcareRouter = router({
         log.error('Failed to acknowledge patient alert', 'HEALTHCARE', error);
         throw new Error('Failed to acknowledge patient alert');
       }
+    }),
+
+  // Real-time subscriptions for alerts
+  subscribeToAlerts: viewAlertsProcedure
+    .input(z.object({
+      hospitalId: z.string().uuid(),
+      lastEventId: z.string().optional(),
+    }))
+    .subscription(async ({ input, ctx }) => {
+      const { hospitalId, lastEventId } = input;
+      
+      log.info('Client subscribing to alerts', 'HEALTHCARE', {
+        userId: ctx.user.id,
+        hospitalId,
+        lastEventId,
+      });
+      
+      // Return the subscription observable
+      return subscribeToHospitalAlerts(hospitalId);
+    }),
+
+  // Subscribe to real-time metrics updates
+  subscribeToMetrics: viewAlertsProcedure
+    .input(z.object({
+      hospitalId: z.string().uuid(),
+      interval: z.number().min(10000).default(30000), // Min 10 seconds
+    }))
+    .subscription(async ({ input, ctx }) => {
+      const { hospitalId, interval } = input;
+      
+      return observable<{
+        timestamp: Date;
+        activeAlerts: number;
+        criticalAlerts: number;
+        staffOnline: number;
+        responseRate: number;
+        avgResponseTime: number;
+      }>((subscriber) => {
+        let intervalId: NodeJS.Timeout | null = null;
+        
+        const sendMetrics = async () => {
+          try {
+            // Get current metrics
+            const [active, critical, staff] = await Promise.all([
+              // Count active alerts
+              db.select({ count: sql<number>`count(*)` })
+                .from(alerts)
+                .where(and(
+                  eq(alerts.hospitalId, hospitalId),
+                  eq(alerts.status, 'active')
+                ))
+                .then(r => r[0]?.count || 0),
+                
+              // Count critical alerts
+              db.select({ count: sql<number>`count(*)` })
+                .from(alerts)
+                .where(and(
+                  eq(alerts.hospitalId, hospitalId),
+                  eq(alerts.status, 'active'),
+                  gte(alerts.urgencyLevel, 4)
+                ))
+                .then(r => r[0]?.count || 0),
+                
+              // Count online staff
+              db.select({ count: sql<number>`count(*)` })
+                .from(healthcareUsers)
+                .where(and(
+                  eq(healthcareUsers.hospitalId, hospitalId),
+                  eq(healthcareUsers.isOnDuty, true)
+                ))
+                .then(r => r[0]?.count || 0),
+            ]);
+            
+            // Calculate response rate (last 24 hours)
+            const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const responseStats = await db
+              .select({
+                total: sql<number>`count(*)`,
+                acknowledged: sql<number>`count(acknowledged_at)`,
+              })
+              .from(alerts)
+              .where(and(
+                eq(alerts.hospitalId, hospitalId),
+                gte(alerts.createdAt, yesterday)
+              ))
+              .then(r => r[0]);
+            
+            const responseRate = responseStats?.total 
+              ? Math.round((responseStats.acknowledged / responseStats.total) * 100)
+              : 0;
+              
+            const avgResponseTime = await calculateAvgResponseTime(hospitalId, yesterday);
+            
+            subscriber.next({
+              timestamp: new Date(),
+              activeAlerts: active,
+              criticalAlerts: critical,
+              staffOnline: staff,
+              responseRate,
+              avgResponseTime,
+            });
+          } catch (error) {
+            log.error('Failed to send metrics update', 'HEALTHCARE', error);
+          }
+        };
+        
+        // Send initial metrics
+        sendMetrics();
+        
+        // Set up interval
+        intervalId = setInterval(sendMetrics, interval);
+        
+        // Cleanup
+        return () => {
+          if (intervalId) {
+            clearInterval(intervalId);
+          }
+        };
+      });
     }),
 });
 

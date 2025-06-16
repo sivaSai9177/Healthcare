@@ -10,6 +10,32 @@ export default {
   presets: [require("nativewind/preset")],
   theme: {
   	extend: {
+  		fontFamily: {
+  			sans: [
+  				'system-ui',
+  				'-apple-system',
+  				'BlinkMacSystemFont',
+  				'SF Pro Text',
+  				'SF Pro Display',
+  				'Segoe UI',
+  				'Roboto',
+  				'Helvetica Neue',
+  				'Arial',
+  				'sans-serif'
+  			],
+  			serif: [
+  				'Georgia',
+  				'Times New Roman',
+  				'serif'
+  			],
+  			mono: [
+  				'SF Mono',
+  				'Monaco',
+  				'Menlo',
+  				'Courier New',
+  				'monospace'
+  			]
+  		},
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',

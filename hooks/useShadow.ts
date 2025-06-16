@@ -110,9 +110,15 @@ const shadowColors = {
  * const coloredShadow = useShadow({ size: 'lg', color: 'primary' });
  * const insetShadow = useShadow({ size: 'sm', inset: true });
  */
-export function useShadow(options: ShadowOptions = {}): ShadowStyle {
+export function useShadow(options: ShadowOptions | ShadowSize | undefined = {}): ShadowStyle {
   const { density } = useSpacing();
-  const { isDark } = useThemeStore();
+  const { colorScheme } = useThemeStore();
+  const isDark = colorScheme === 'dark';
+  
+  // Handle string input (legacy support)
+  const normalizedOptions: ShadowOptions = typeof options === 'string' 
+    ? { size: options } 
+    : (options || {});
   
   const {
     size = 'md',
@@ -120,15 +126,20 @@ export function useShadow(options: ShadowOptions = {}): ShadowStyle {
     density: customDensity,
     inset = false,
     animated = false,
-  } = options;
+  } = normalizedOptions;
   
   const effectiveDensity = customDensity || density;
   
   const shadowStyle = useMemo(() => {
-    // Base configuration
-    const config = shadowConfigs[effectiveDensity][size];
-    const offset = shadowOffsets[size];
-    const shadowColor = shadowColors[color];
+    // Return empty style for undefined or 'none'
+    if (!size || size === 'none') {
+      return {};
+    }
+    
+    // Base configuration with fallbacks
+    const config = shadowConfigs[effectiveDensity]?.[size] || shadowConfigs.medium.md;
+    const offset = shadowOffsets[size] || shadowOffsets.md;
+    const shadowColor = shadowColors[color] || shadowColors.default;
     
     // Adjust opacity for dark mode
     const opacityMultiplier = isDark ? 1.5 : 1;
@@ -196,7 +207,8 @@ export function useShadow(options: ShadowOptions = {}): ShadowStyle {
  */
 export function useShadowClass(options: ShadowOptions = {}): string {
   const { density } = useSpacing();
-  const { isDark } = useThemeStore();
+  const { colorScheme } = useThemeStore();
+  const isDark = colorScheme === 'dark';
   
   const {
     size = 'md',

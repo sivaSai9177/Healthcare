@@ -1,13 +1,17 @@
 import React from 'react';
 import { View, Pressable } from 'react-native';
-import { HStack, Button, Text } from '@/components/universal';
-import { Mail } from '@/components/universal/display/Symbols';
+import { HStack } from '@/components/universal/layout';
+import { Button } from '@/components/universal/interaction';
+import { Text } from '@/components/universal/typography';
+import { Symbol } from '@/components/universal/display/Symbols';
 import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { haptic } from '@/lib/ui/haptics';
 import { showErrorAlert } from '@/lib/core/alert';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useGoogleSignIn } from '../GoogleSignIn/useGoogleSignIn';
+import { authStyles } from '../styles/authStyles';
+import { useTheme } from '@/lib/theme/provider';
 
 const AnimatedView = Animated.View;
 
@@ -24,37 +28,56 @@ interface SocialLoginButtonsProps {
   iconOnly?: boolean;
 }
 
+// Get social provider icons
+const getProviderIcon = (provider: SocialProvider, size: number = 20, variant: 'outline' | 'default' = 'outline') => {
+  const color = variant === 'outline' ? undefined : '#ffffff';
+  
+  switch (provider) {
+    case 'google':
+      // Google icon with brand colors
+      return (
+        <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ flexDirection: 'row', gap: 1 }}>
+            <Text size="sm" weight="bold" style={{ color: '#4285F4' }}>G</Text>
+          </View>
+        </View>
+      );
+    case 'apple':
+      return <Symbol name="logo-apple" size={size} color={color || '#000000'} />;
+    case 'facebook':
+      return <Text size="lg" weight="bold" style={{ color: '#1877f2' }}>f</Text>;
+    case 'github':
+      return <Symbol name="logo-github" size={size} color={color || '#000000'} />;
+    case 'twitter':
+      return <Text size="lg" weight="bold" style={{ color: '#000000' }}>𝕏</Text>;
+  }
+};
+
 // Social provider configurations
 const providerConfigs: Record<SocialProvider, {
-  icon: React.ReactNode;
   label: string;
   bgColor?: string;
   textColor?: string;
 }> = {
   google: {
-    icon: <Text size="lg" weight="bold">G</Text>,
     label: 'Google',
   },
   apple: {
-    icon: <Text size="lg" weight="bold"></Text>,
     label: 'Apple',
   },
   facebook: {
-    icon: <Text size="lg" weight="bold" className="text-blue-600">f</Text>,
     label: 'Facebook',
   },
   github: {
-    icon: <Text size="lg" weight="bold">GH</Text>,
     label: 'GitHub',
   },
   twitter: {
-    icon: <Text size="lg" weight="bold">𝕏</Text>,
     label: 'Twitter',
   },
 };
 
 export function SocialLoginButtons({
-  providers = ['google', 'apple', 'facebook'],
+  providers = ['google'],
   onProviderSelect,
   isLoading = false,
   className,
@@ -64,6 +87,7 @@ export function SocialLoginButtons({
   iconOnly = false,
 }: SocialLoginButtonsProps) {
   const { spacing } = useSpacing();
+  const theme = useTheme();
   const { handleGoogleSignIn, isLoading: isGoogleLoading } = useGoogleSignIn();
 
   const handleProviderClick = async (provider: SocialProvider) => {
@@ -105,19 +129,19 @@ export function SocialLoginButtons({
                 size={buttonSize}
                 onPress={() => handleProviderClick(provider)}
                 disabled={isLoading || (provider === 'google' && isGoogleLoading)}
-                className={cn(
-                  "transition-all duration-200",
-                  config.bgColor && `bg-${config.bgColor}`,
-                  fullWidth && "w-full"
-                )}
+                fullWidth={fullWidth}
+                style={{
+                  borderWidth: variant === 'outline' ? 1 : 0,
+                  borderColor: authStyles.colors.border,
+                }}
               >
-                <HStack gap={2} align="center">
-                  {config.icon}
+                <HStack gap={spacing[2]} align="center">
+                  {getProviderIcon(provider, buttonSize === 'sm' ? 16 : buttonSize === 'lg' ? 24 : 20, variant)}
                   {!iconOnly && (
                     <Text 
                       size={buttonSize === 'sm' ? 'xs' : buttonSize === 'lg' ? 'base' : 'sm'}
                       weight="medium"
-                      className={config.textColor}
+                      style={{ color: variant === 'outline' ? theme.foreground : '#ffffff' }}
                     >
                       {config.label}
                     </Text>
@@ -145,19 +169,7 @@ export function ContinueWithSocial({
 
   return (
     <View className="w-full">
-      {/* Divider with text */}
-      <View className="relative my-6">
-        <View className="absolute inset-0 flex-row items-center">
-          <View className="w-full h-px bg-border" />
-        </View>
-        <View className="relative flex-row justify-center">
-          <View className="bg-background px-4">
-            <Text size="sm" colorTheme="mutedForeground">
-              {dividerText}
-            </Text>
-          </View>
-        </View>
-      </View>
+      {/* This component should not render divider - parent component handles it */}
 
       {/* Social buttons */}
       <SocialLoginButtons

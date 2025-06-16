@@ -3,7 +3,6 @@ import {
   View,
   Pressable,
   Platform,
-  StyleSheet,
   Dimensions,
   ScrollView,
 } from 'react-native';
@@ -13,11 +12,9 @@ import Animated, {
   withSpring,
   withTiming,
   withDelay,
-  interpolate,
   FadeIn,
   FadeOut,
   SlideInLeft,
-  SlideInRight,
 } from 'react-native-reanimated';
 import { useRouter, usePathname } from 'expo-router';
 import { useSpacing } from '@/lib/stores/spacing-store';
@@ -95,7 +92,7 @@ const WebTabBarVariant: React.FC<NavbarProps> = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { spacing } = useSpacing();
+  // Removed unused spacing destructuring
   const { shouldAnimate } = useAnimationStore();
 
   const handleNavigation = (item: NavItem) => {
@@ -145,7 +142,8 @@ const WebTabBarVariant: React.FC<NavbarProps> = ({
         opacity.value = 1;
         translateY.value = 0;
       }
-    }, [index, animated, shouldAnimate, animationType, animationDuration]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, animationType, animationDuration]);
     
     const handlePressIn = () => {
       if (animated && shouldAnimate() && animationType === 'scale') {
@@ -161,8 +159,8 @@ const WebTabBarVariant: React.FC<NavbarProps> = ({
     
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [
-        { scale: scale.value },
-        { translateY: translateY.value },
+        { scale: scale.value } as any,
+        { translateY: translateY.value } as any,
       ],
       opacity: opacity.value,
     }));
@@ -287,7 +285,7 @@ const SidebarVariant: React.FC<NavbarProps & { isOpen?: boolean; onToggle?: () =
 }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { spacing, componentSpacing } = useSpacing();
+  const { spacing } = useSpacing();
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const { shouldAnimate } = useAnimationStore();
   
@@ -307,7 +305,8 @@ const SidebarVariant: React.FC<NavbarProps & { isOpen?: boolean; onToggle?: () =
       sidebarWidth.value = withSpring(isOpen ? 240 : 60, springConfig);
       contentOpacity.value = withTiming(isOpen ? 1 : 0, { duration: animationDuration });
     }
-  }, [isOpen, animated, shouldAnimate, animationDuration]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, animationDuration]);
   
   const contentAnimatedStyle = useAnimatedStyle(() => ({ 
     opacity: contentOpacity.value 
@@ -347,42 +346,56 @@ const SidebarVariant: React.FC<NavbarProps & { isOpen?: boolean; onToggle?: () =
     const translateX = useSharedValue(-20);
     const chevronRotation = useSharedValue(isExpanded ? 90 : 0);
     
+    // Animation config
+    const animationConfig = {
+      duration: {
+        normal: 300,
+        fast: 150,
+      },
+      spring: {
+        damping: 20,
+        stiffness: 300,
+      },
+    };
+    
     // Stagger animation on mount
     useEffect(() => {
-      if (animated && isAnimated && shouldAnimate() && animationType !== 'none') {
+      if (animated && shouldAnimate() && animationType !== 'none') {
         const delay = index * 50;
         
-        opacity.value = withDelay(delay, withTiming(1, { duration: config.duration.normal }));
-        translateX.value = withDelay(delay, withSpring(0, config.spring));
+        opacity.value = withDelay(delay, withTiming(1, { duration: animationConfig.duration.normal }));
+        translateX.value = withDelay(delay, withSpring(0, animationConfig.spring));
       } else {
         opacity.value = 1;
         translateX.value = 0;
       }
-    }, [index, animated, isAnimated, shouldAnimate, animationType, config]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [index, animationType]);
     
     // Update chevron rotation
     useEffect(() => {
-      if (animated && isAnimated && shouldAnimate()) {
-        chevronRotation.value = withSpring(isExpanded ? 90 : 0, config.spring);
+      if (animated && shouldAnimate()) {
+        chevronRotation.value = withSpring(isExpanded ? 90 : 0, animationConfig.spring);
       }
-    }, [isExpanded, animated, isAnimated, shouldAnimate, config]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isExpanded]);
     
     const handlePressIn = () => {
-      if (animated && isAnimated && shouldAnimate() && animationType === 'scale') {
+      if (animated && shouldAnimate() && animationType === 'scale') {
         scale.value = withSpring(0.98, { damping: 15, stiffness: 400 });
       }
     };
     
     const handlePressOut = () => {
-      if (animated && isAnimated && shouldAnimate() && animationType === 'scale') {
-        scale.value = withSpring(1, config.spring);
+      if (animated && shouldAnimate() && animationType === 'scale') {
+        scale.value = withSpring(1, animationConfig.spring);
       }
     };
     
     const animatedStyle = useAnimatedStyle(() => ({
       transform: [
-        { scale: scale.value },
-        { translateX: translateX.value }
+        { scale: scale.value } as any,
+        { translateX: translateX.value } as any
       ],
       opacity: opacity.value,
     }));
@@ -440,7 +453,7 @@ const SidebarVariant: React.FC<NavbarProps & { isOpen?: boolean; onToggle?: () =
               )}
               {item.badge && isOpen && (
                 <Animated.View style={contentAnimatedStyle}>
-                  <Badge size="sm" variant="secondary" ml="auto">
+                  <Badge size="sm" variant="secondary">
                     {item.badge}
                   </Badge>
                 </Animated.View>
@@ -451,12 +464,7 @@ const SidebarVariant: React.FC<NavbarProps & { isOpen?: boolean; onToggle?: () =
                 name="chevron.forward"
                 size={16}
                 className="text-muted-foreground"
-                style={[
-                  Platform.OS !== 'web' && animated && shouldAnimate() ? chevronStyle : {},
-                  Platform.OS === 'web' && animated && shouldAnimate() 
-                    ? { transform: [{ rotate: isExpanded ? '90deg' : '0deg' }], transition: 'transform 0.2s ease' } as any
-                    : {},
-                ]}
+                style={Platform.OS !== 'web' && animated && shouldAnimate() ? chevronStyle : undefined}
               />
             )}
           </HStack>
@@ -510,7 +518,7 @@ const SidebarVariant: React.FC<NavbarProps & { isOpen?: boolean; onToggle?: () =
               {logo || <Text weight="semibold" size="lg">App Name</Text>}
             </Animated.View>
           ) : (
-            <Symbol name="apps" size={24} className="text-primary" />
+            <Symbol name="app" size={24} className="text-primary" />
           )}
           {onToggle && (
             <Button
@@ -518,7 +526,7 @@ const SidebarVariant: React.FC<NavbarProps & { isOpen?: boolean; onToggle?: () =
               size="sm"
               onPress={() => {
                 if (useHaptics && Platform.OS !== 'web') {
-                  haptic('impact');
+                  haptic('medium');
                 }
                 onToggle();
               }}

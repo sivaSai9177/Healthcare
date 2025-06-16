@@ -291,7 +291,7 @@ export const Card = React.forwardRef<View, CardProps>(({
   return (
     <Component
       ref={ref}
-      className={cardClasses}
+      className={Platform.OS === 'web' ? cardClasses : undefined}
       style={[
         shadowStyle,
         animated && animatedCardStyle,

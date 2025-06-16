@@ -88,6 +88,9 @@ export default function HomeScreen() {
   const pathname = usePathname();
   const theme = useTheme();
   
+  // Check user role
+  const isAdmin = user?.role === 'admin';
+  
   // Redirect healthcare users to appropriate dashboard
   React.useEffect(() => {
     // Only redirect if we're on the home index page
@@ -95,12 +98,11 @@ export default function HomeScreen() {
       return;
     }
     
-    // Check organizationRole first, then fall back to role
-    const effectiveRole = user?.organizationRole || user?.role;
-    if (effectiveRole) {
-      if (effectiveRole === 'operator') {
+    // Check user role for healthcare staff
+    if (user?.role) {
+      if (user.role === 'operator') {
         router.replace('/(home)/operator-dashboard');
-      } else if (['doctor', 'nurse', 'head_doctor'].includes(effectiveRole)) {
+      } else if (['doctor', 'nurse', 'head_doctor'].includes(user.role)) {
         router.replace('/(healthcare)/dashboard');
       }
     }
@@ -196,6 +198,28 @@ export default function HomeScreen() {
           { label: "System Health", value: "98%" },
           { label: "Daily Events", value: "3.2k" },
         ];
+      case "operator":
+        return [
+          { label: "Active Alerts", value: "5" },
+          { label: "Avg Response", value: "2.3m" },
+          { label: "Staff Online", value: "24" },
+          { label: "Today's Alerts", value: "47" },
+        ];
+      case "doctor":
+      case "head_doctor":
+        return [
+          { label: "Active Patients", value: "12" },
+          { label: "Pending Alerts", value: "3" },
+          { label: "Rounds Done", value: "8/10" },
+          { label: "On Call", value: "Yes" },
+        ];
+      case "nurse":
+        return [
+          { label: "Assigned Patients", value: "8" },
+          { label: "Tasks Pending", value: "5" },
+          { label: "Medications Due", value: "3" },
+          { label: "Shift Progress", value: "65%" },
+        ];
       case "manager":
         return [
           { label: "Team Members", value: "12" },
@@ -224,6 +248,14 @@ export default function HomeScreen() {
         label: "Browse Features",
         onPress: () => router.push("/(home)/explore"),
       },
+      {
+        label: "Browse Organizations",
+        onPress: () => router.push("/(home)/browse-organizations"),
+      },
+      {
+        label: "My Join Requests",
+        onPress: () => router.push("/(home)/my-join-requests"),
+      },
     ];
 
     switch (user?.role) {
@@ -246,6 +278,39 @@ export default function HomeScreen() {
                 "System logs will be available in the next update."
               );
             },
+          },
+          ...commonActions,
+        ];
+      case "operator":
+        return [
+          {
+            label: "Operator Dashboard",
+            onPress: () => {
+              log.info("Operator dashboard clicked", "HOME");
+              router.push("/(home)/operator-dashboard");
+            },
+            variant: "solid" as const,
+          },
+          {
+            label: "Healthcare Dashboard",
+            onPress: () => {
+              log.info("Healthcare dashboard clicked", "HOME");
+              router.push("/(home)/healthcare-dashboard");
+            },
+          },
+          ...commonActions,
+        ];
+      case "doctor":
+      case "nurse":
+      case "head_doctor":
+        return [
+          {
+            label: "Healthcare Dashboard",
+            onPress: () => {
+              log.info("Healthcare dashboard clicked", "HOME");
+              router.push("/(home)/healthcare-dashboard");
+            },
+            variant: "solid" as const,
           },
           ...commonActions,
         ];
@@ -404,6 +469,43 @@ export default function HomeScreen() {
               </VStack>
             </CardContent>
           </Card>
+
+          {/* Debug Navigation Panel - Remove in production */}
+          {user?.role === 'admin' && (
+            <Card mb={4 as SpacingScale}>
+              <CardHeader>
+                <CardTitle>Debug Navigation</CardTitle>
+                <CardDescription>Direct navigation for testing</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <VStack spacing={2}>
+                  <Button
+                    variant="solid"
+                    onPress={() => {
+                      console.log('[Home] Navigating to admin screen');
+                      router.push('/(home)/admin');
+                    }}
+                    fullWidth
+                  >
+                    Go to Admin Screen
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onPress={() => {
+                      console.log('[Home] Navigating to settings screen');
+                      router.push('/(home)/settings');
+                    }}
+                    fullWidth
+                  >
+                    Go to Settings Screen
+                  </Button>
+                  <Text size="xs" colorTheme="mutedForeground" align="center" mt={2}>
+                    Current path: {pathname}
+                  </Text>
+                </VStack>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Recent Activity */}
           <Card>

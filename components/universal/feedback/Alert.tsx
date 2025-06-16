@@ -51,11 +51,11 @@ export interface AlertProps {
 }
 
 const variantIcons: Record<AlertVariant, keyof typeof any> = {
-  info: 'information-circle',
-  success: 'checkmark-circle',
-  warning: 'warning',
-  error: 'close-circle',
-  default: 'information-circle',
+  info: 'info.circle',
+  success: 'checkmark.circle',
+  warning: 'exclamationmark.triangle',
+  error: 'xmark.circle',
+  default: 'info.circle',
 };
 
 // Alert variant styles

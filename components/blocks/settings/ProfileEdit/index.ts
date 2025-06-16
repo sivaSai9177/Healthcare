@@ -1,0 +1,1 @@
+export { ProfileEditBlock } from './ProfileEditBlock';

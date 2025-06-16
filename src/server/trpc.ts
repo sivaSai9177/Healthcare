@@ -1,7 +1,9 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import { auth } from '@/lib/auth/auth-server';
+import { getSessionWithBearer } from '@/lib/auth/get-session-with-bearer';
 import type { Session, User } from 'better-auth';
-import { log , trpcLogger } from '@/lib/core';
+import { logger } from '@/lib/core/debug/unified-logger';
+import { trpcLogger } from '@/lib/core/debug/trpc-logger';
 import { rateLimitMiddleware as createRateLimitMiddleware } from './middleware/rate-limit';
 
 // Base context type for tRPC procedures
@@ -27,39 +29,24 @@ export interface AuthenticatedContext extends Context {
 // Create context function
 export async function createContext(req: Request): Promise<Context> {
   try {
-    // console.log('[TRPC CONTEXT] Creating context for:', {
-    //   url: req.url,
-    //   method: req.method,
-    //   hasAuthHeader: !!req.headers.get('authorization'),
-    //   hasCookieHeader: !!req.headers.get('cookie'),
-    //   cookie: req.headers.get('cookie')?.substring(0, 100) + '...',
-    // });
-    
-    // Use better-auth's universal session handling
-    const sessionData = await auth.api.getSession({
-      headers: req.headers
-    });
+    // Use enhanced session retrieval that handles Bearer tokens
+    const sessionData = await getSessionWithBearer(req.headers);
 
     // Log session status for debugging
     if (sessionData) {
-      log.auth.debug('Session found in tRPC context', {
+      logger.auth.debug('Session found in tRPC context', {
         userId: sessionData.user?.id,
         sessionId: sessionData.session?.id,
         userAgent: req.headers.get('user-agent'),
         authMethod: req.headers.get('authorization') ? 'bearer' : 'cookie',
       });
-      // console.log('[TRPC CONTEXT] Session found:', {
-      //   userId: sessionData.user?.id,
-      //   sessionId: sessionData.session?.id,
-      // });
     } else {
-      log.auth.debug('No session found in tRPC context', {
+      logger.auth.debug('No session found in tRPC context', {
         hasAuthHeader: !!req.headers.get('authorization'),
         hasCookieHeader: !!req.headers.get('cookie'),
         userAgent: req.headers.get('user-agent'),
         url: req.url,
       });
-      // console.log('[TRPC CONTEXT] No session found');
     }
 
     return {
@@ -68,8 +55,7 @@ export async function createContext(req: Request): Promise<Context> {
     };
   } catch (err) {
     // If session fetch fails, return null session
-    log.auth.error('Session fetch error in tRPC context', err);
-    console.error('[TRPC CONTEXT] Error:', err);
+    logger.auth.error('Session fetch error in tRPC context', err);
     return {
       session: null,
       req,
@@ -178,7 +164,7 @@ const performanceMiddleware = t.middleware(async ({ path, type, next }) => {
     
     // Log slow requests (over 1 second)
     if (duration > 1000) {
-      log.warn('Slow tRPC request detected', 'PERFORMANCE', {
+      logger.warn('Slow tRPC request detected', 'SYSTEM', {
         path,
         type,
         duration: Math.round(duration),
@@ -191,7 +177,7 @@ const performanceMiddleware = t.middleware(async ({ path, type, next }) => {
     const duration = performance.now() - start;
     
     // Log performance data even for failed requests
-    log.debug('tRPC request performance', 'PERFORMANCE', {
+    logger.debug('tRPC request performance', 'SYSTEM', {
       path,
       type,
       duration: Math.round(duration),
@@ -236,6 +222,11 @@ const authMiddleware = t.middleware(async ({ ctx, next, path }) => {
           manager: ['manage_users', 'view_analytics', 'manage_content'],
           user: ['view_content', 'edit_profile'],
           guest: ['view_content'],
+          // Healthcare roles
+          operator: ['create_alerts', 'view_alerts', 'view_logs'],
+          doctor: ['view_patients', 'acknowledge_alerts', 'view_alerts'],
+          nurse: ['acknowledge_alerts', 'view_alerts', 'view_tasks'],
+          head_doctor: ['view_patients', 'acknowledge_alerts', 'view_analytics', 'manage_users', 'manage_departments'],
         };
         const permissions = rolePermissions[userRole] || [];
         return permissions.includes('*') || permissions.includes(permission);

@@ -1,19 +1,33 @@
 import React from 'react';
-import { View, Text } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Register, useRegister, AuthCard, ContinueWithSocial } from '@/components/blocks/auth';
+import { Register, useRegister, AuthScreenWrapper } from '@/components/blocks/auth';
+import { logger } from '@/lib/core/debug/unified-logger';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { register, checkEmail, isLoading, error } = useRegister();
+  
+  React.useEffect(() => {
+    logger.auth.debug('RegisterScreen mounted');
+    return () => {
+      logger.auth.debug('RegisterScreen unmounted');
+    };
+  }, []);
 
   const handleRegister = async (data: any) => {
+    logger.auth.info('Registration attempt', { 
+      email: data.email, 
+      name: data.name,
+      role: data.role,
+      hasOrganizationCode: !!data.organizationCode,
+      hasOrganizationName: !!data.organizationName
+    });
     try {
       await register(data);
-      // Navigation is handled by useRegister hook based on user state
+      // Navigation is handled by useRegister hook
     } catch (error) {
       // Error is already handled by useRegister hook
-      console.error('Registration error:', error);
+      logger.auth.error('Registration error', error);
     }
   };
 
@@ -22,42 +36,23 @@ export default function RegisterScreen() {
   };
 
   const handleSignIn = () => {
+    logger.auth.info('Navigating to login');
     router.push('/(auth)/login');
   };
 
-  try {
-    return (
-      <AuthCard
-        title="Create Account"
-        subtitle="Get started with your healthcare platform"
-      >
-        <View className="space-y-6">
-          <ContinueWithSocial
-            onProviderSelect={async (provider) => {
-              // Social sign-in is now handled directly in SocialLoginButtons
-// TODO: Replace with structured logging - console.log('Social sign-up:', provider);
-            }}
-            providers={['google']}
-            dividerText="Or register with email"
-          />
-          
-          <Register
-            onSubmit={handleRegister}
-            onCheckEmail={handleCheckEmail}
-            onSignIn={handleSignIn}
-            isLoading={isLoading}
-            error={error}
-          />
-        </View>
-      </AuthCard>
-    );
-  } catch (err) {
-    console.error('RegisterScreen render error:', err);
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <Text>Error loading register screen</Text>
-        <Text style={{ marginTop: 10, color: 'red' }}>{err?.toString()}</Text>
-      </View>
-    );
-  }
+  return (
+    <AuthScreenWrapper
+      title="Create Account"
+      subtitle="Join our platform"
+      wideLayout
+    >
+      <Register
+        onSubmit={handleRegister}
+        onCheckEmail={handleCheckEmail}
+        onSignIn={handleSignIn}
+        isLoading={isLoading}
+        error={error}
+      />
+    </AuthScreenWrapper>
+  );
 }

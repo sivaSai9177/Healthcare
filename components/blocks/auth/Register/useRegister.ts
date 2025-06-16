@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
+import { Platform } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
-import { api } from '@/lib/api/trpc';
+import { api } from '@/lib/trpc';
 import { showErrorAlert, showSuccessAlert } from '@/lib/core/alert';
-import { log } from '@/lib/core/debug/logger';
+import { logger } from '@/lib/core/debug/unified-logger';
 import { generateUUID } from '@/lib/core/crypto';
 import { toAppUser } from '@/lib/stores/auth-store';
 
@@ -24,7 +25,7 @@ export function useRegister() {
   // Sign up mutation
   const signUpMutation = api.auth.signUp.useMutation({
     onSuccess: (data) => {
-      log.auth.signup('Sign up successful via tRPC', { userId: data.user?.id });
+      logger.auth.info('Sign up successful via tRPC', { userId: data.user?.id });
       setLoading(false);
       
       if (data.user && data.token) {
@@ -40,14 +41,30 @@ export function useRegister() {
         };
         
         updateAuth(appUser, session);
+        
+        // For mobile, manually store the token as Better Auth plugin might not be working
+        if (Platform.OS !== 'web' && data.token) {
+          const { mobileStorage } = require('@/lib/core/secure-storage');
+          
+          // Store in multiple formats to ensure compatibility
+          mobileStorage.setItem('better-auth_session-token', data.token);
+          mobileStorage.setItem('better-auth.session-token', data.token);
+          mobileStorage.setItem('better-auth_cookie', `better-auth.session-token=${data.token}; Path=/`);
+          
+          logger.auth.debug('Manually stored session token for mobile after signup', {
+            tokenPreview: data.token.substring(0, 20) + '...',
+            storageKeys: ['better-auth_session-token', 'better-auth.session-token', 'better-auth_cookie']
+          });
+        }
+        
         showSuccessAlert("Account Created", "Welcome to the app!");
       } else {
-        console.error('[Register] No user or token in response');
+        logger.auth.error('No user or token in response');
         showErrorAlert("Registration Error", "Account created but login failed. Please login manually.");
       }
     },
     onError: (error) => {
-      log.auth.error('Sign up failed', error);
+      logger.auth.error('Sign up failed', error);
       setLoading(false);
       setError(error.message);
       showErrorAlert("Signup Failed", error.message || "Failed to create account. Please try again.");
@@ -58,10 +75,9 @@ export function useRegister() {
   });
 
   // Check if email exists
-  const checkEmailMutation = api.auth.checkEmailExists.useMutation();
 
   const register = useCallback(async (data: RegisterData) => {
-    log.auth.debug('Starting registration', { email: data.email, role: data.role });
+    logger.auth.debug('Starting registration', { email: data.email, role: data.role });
     setLoading(true);
     setError(null);
     
@@ -88,19 +104,38 @@ export function useRegister() {
       }
 
       await signUpMutation.mutateAsync(signupData);
-      log.auth.signup('Registration process completed successfully');
+      logger.auth.info('Registration process completed successfully');
     } catch (error: any) {
-      log.auth.error('Registration process failed', error);
+      logger.auth.error('Registration process failed', error);
       throw error;
     }
   }, [signUpMutation, setLoading, setError]);
 
+  // Check email mutation - used imperatively with debounce
+  const checkEmailMutation = api.auth.checkEmailExists.useMutation();
+  
   const checkEmail = useCallback(async (email: string) => {
+    // Validate email before making the request
+    if (!email || email.length < 3) {
+      return { exists: false };
+    }
+    
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return { exists: false };
+    }
+    
+    // Prevent multiple simultaneous checks
+    if (checkEmailMutation.isPending) {
+      return { exists: false };
+    }
+    
     try {
       const result = await checkEmailMutation.mutateAsync({ email });
       return { exists: result.exists };
     } catch (error) {
-      log.error('Email check failed', 'AUTH', error);
+      logger.auth.error('Email check failed', error);
       return { exists: false }; // Default to false on error
     }
   }, [checkEmailMutation]);

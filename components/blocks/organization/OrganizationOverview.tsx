@@ -1,6 +1,9 @@
 import React from 'react';
 import { View } from 'react-native';
-import { Card, CardHeader, CardContent, CardFooter, CardTitle, Text, Badge, Button, Grid, Avatar, HStack, VStack } from '@/components/universal';
+import { Card, CardHeader, CardContent, CardFooter, CardTitle, Badge, Avatar } from '@/components/universal/display';
+import { Text } from '@/components/universal/typography';
+import { Button } from '@/components/universal/interaction';
+import { Grid, HStack, VStack } from '@/components/universal/layout';
 import { cn } from '@/lib/core/utils';
 import { haptic } from '@/lib/ui/haptics';
 import { useSpacing } from '@/lib/stores/spacing-store';

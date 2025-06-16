@@ -4,9 +4,11 @@
  * No React Native or browser dependencies
  */
 
+// Ensure environment variables are loaded
+import 'dotenv/config';
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { oAuthProxy, organization, admin, magicLink, twoFactor, passkey } from "better-auth/plugins";
+import { oAuthProxy, organization, admin, magicLink, twoFactor, passkey, bearer } from "better-auth/plugins";
 import { db } from "@/src/db";
 import * as schema from "@/src/db/schema";
 import { eq } from "drizzle-orm";
@@ -14,22 +16,8 @@ import { emailService } from "@/src/server/services/email-index";
 import { notificationService, NotificationType, Priority } from "@/src/server/services/notifications";
 import crypto from "crypto";
 
-// Server-safe logger (no React Native dependencies)
-const log = {
-  auth: {
-    info: (message: string, data?: any) => {
-      if (process.env.NODE_ENV === 'development') {
-// TODO: Replace with structured logging - console.log(`[AUTH] ${message}`, data);
-      }
-    },
-    debug: (message: string, data?: any) => {
-      if (process.env.NODE_ENV === 'development') {
-// TODO: Replace with structured logging - console.log(`[AUTH DEBUG] ${message}`, data);
-      }
-    },
-    error: (message: string, error?: any) => console.error(`[AUTH ERROR] ${message}`, error),
-  },
-};
+// Import unified logger
+import { logger } from '@/lib/core/debug/unified-logger';
 
 // Server-safe base URL configuration with validation
 const getBaseURL = () => {
@@ -40,10 +28,10 @@ const getBaseURL = () => {
     try {
       const parsed = new URL(url);
       if (parsed.protocol !== 'https:') {
-        console.warn('[AUTH] Warning: Using non-HTTPS URL in production');
+        logger.auth.warn('Using non-HTTPS URL in production');
       }
     } catch (e) {
-      console.error('[AUTH] Invalid BETTER_AUTH_BASE_URL:', url);
+      logger.auth.error('Invalid BETTER_AUTH_BASE_URL', { url });
     }
   }
   
@@ -89,13 +77,24 @@ const getTrustedOrigins = () => {
 
 // Debug environment variables on load
 if (process.env.NODE_ENV === 'development') {
-  // TODO: Replace with structured logging
-  // console.log("[AUTH SERVER] Environment variables:", {
-  //   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? `${process.env.GOOGLE_CLIENT_ID.substring(0, 10)}...` : 'NOT SET',
-  //   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT SET',
-  //   BETTER_AUTH_BASE_URL: process.env.BETTER_AUTH_BASE_URL || 'NOT SET',
-  //   DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
-  // });
+  logger.system.info('Auth server environment variables', {
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? `${process.env.GOOGLE_CLIENT_ID.substring(0, 10)}...` : 'NOT SET',
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT SET',
+    BETTER_AUTH_BASE_URL: process.env.BETTER_AUTH_BASE_URL || 'NOT SET',
+    DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
+  });
+  
+  // Validate OAuth configuration
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+    logger.auth.info('Google OAuth configured', {
+      redirectURI: `${process.env.BETTER_AUTH_BASE_URL || "http://localhost:8081/api/auth"}/callback/google`
+    });
+    
+    // Check if client ID looks valid
+    if (!process.env.GOOGLE_CLIENT_ID.endsWith('.apps.googleusercontent.com')) {
+      logger.auth.warn('Google Client ID doesn\'t match expected format');
+    }
+  }
 }
 
 // Security headers middleware
@@ -113,7 +112,12 @@ const securityHeaders = {
 
 export const auth = betterAuth({
   baseURL: getBaseURL(),
-  secret: process.env.BETTER_AUTH_SECRET || "your-secret-key-change-in-production",
+  secret: process.env.BETTER_AUTH_SECRET || (() => {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('BETTER_AUTH_SECRET is required in production');
+    }
+    return "dev-secret-key-not-for-production";
+  })(),
   
   // Security configuration
   ...(process.env.NODE_ENV === "development" ? {
@@ -169,7 +173,7 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: process.env.EXPO_PUBLIC_REQUIRE_EMAIL_VERIFICATION === 'true',
     sendResetPassword: async ({ user, url }) => {
-      log.auth.info(`Password reset link generated`, { email: user.email, url });
+      logger.auth.info('Password reset link generated', { email: user.email, url });
       
       // Send password reset email using our notification service
       await notificationService.send({
@@ -189,7 +193,7 @@ export const auth = betterAuth({
       });
     },
     sendVerificationEmail: async ({ user, url }) => {
-      log.auth.info(`Email verification link generated`, { email: user.email, url });
+      logger.auth.info('Email verification link generated', { email: user.email, url });
       
       // Send verification email using our notification service
       await notificationService.send({
@@ -216,9 +220,9 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24, // 1 day - refresh session if older than this
+    // Disable cookie cache to avoid issues with OAuth
     cookieCache: {
-      enabled: true,
-      maxAge: 60 * 5, // 5 minutes cache
+      enabled: false,
     },
     // Session security
     storeSessionInDatabase: true, // Store sessions in DB for better control
@@ -229,7 +233,7 @@ export const auth = betterAuth({
   cookies: {
     sessionToken: {
       name: process.env.NODE_ENV === 'production' ? '__Secure-better-auth.session_token' : 'better-auth.session_token',
-      httpOnly: process.env.NODE_ENV === 'production', // HttpOnly in production
+      httpOnly: true, // Always httpOnly for security
       sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // Strict in production
       secure: process.env.NODE_ENV === 'production', // Secure in production
       path: '/',
@@ -282,6 +286,7 @@ export const auth = betterAuth({
   
   plugins: [
     // Note: expo() plugin removed as it causes server-side issues
+    bearer(), // Enable Bearer token authentication for mobile
     oAuthProxy(),
     // multiSession removed - it was causing cookie naming issues
     organization({
@@ -303,7 +308,7 @@ export const auth = betterAuth({
     }),
     magicLink({
       sendMagicLink: async ({ email, url, token }) => {
-        log.auth.info(`Magic link generated`, { email, url });
+        logger.auth.info('Magic link generated', { email, url });
         
         // Find user by email to get userId
         const [user] = await db
@@ -407,7 +412,8 @@ export const auth = betterAuth({
       {
         path: '/sign-in',
         window: 5 * 60 * 1000, // 5 minutes
-        max: 5, // 5 attempts per 5 minutes
+        max: 10, // 10 attempts per 5 minutes - increased to handle logout-login flow
+        skipSuccessfulRequests: true, // Don't count successful logins toward limit
       },
       {
         path: '/sign-up',
@@ -423,6 +429,12 @@ export const auth = betterAuth({
         path: '/verify-email',
         window: 60 * 60 * 1000, // 1 hour
         max: 10, // 10 attempts per hour
+      },
+      {
+        path: '/sign-out',
+        window: 60 * 1000, // 1 minute
+        max: 20, // 20 signouts per minute - generous limit
+        clearOnSuccess: true, // Clear rate limit counters after successful signout
       },
     ],
     // Skip rate limiting for certain conditions
@@ -450,7 +462,7 @@ export const auth = betterAuth({
   },
   
   onError: (error: any, request: Request) => {
-    log.auth.error("[AUTH ERROR]", error);
+    logger.auth.error('Authentication error', error);
     
     // Log additional context for debugging
     const errorContext = {
@@ -463,7 +475,7 @@ export const auth = betterAuth({
       ip: request.headers.get('x-forwarded-for')?.split(',')[0] || request.headers.get('x-real-ip'),
     };
     
-    console.error('[AUTH_SERVER] Error details:', errorContext);
+    logger.auth.error('Auth error details', errorContext);
     
     // Log to monitoring service in production
     if (process.env.NODE_ENV === 'production' && process.env.SENTRY_DSN) {
@@ -506,11 +518,10 @@ export const auth = betterAuth({
   callbacks: {
     session: {
       async fetchSession({ session, user }) {
-        console.log('[AUTH_SERVER] session.fetchSession callback', {
+        logger.auth.debug('Fetching session', {
           sessionId: session?.id,
           userId: user?.id,
           userEmail: user?.email,
-          timestamp: new Date().toISOString()
         });
         
         // Add session security checks
@@ -520,7 +531,7 @@ export const auth = betterAuth({
           const maxSessionAge = 60 * 60 * 24 * 30 * 1000; // 30 days
           
           if (sessionAge > maxSessionAge) {
-            log.auth.info('Session too old, forcing re-authentication', {
+            logger.auth.info('Session too old, forcing re-authentication', {
               sessionId: session.id,
               sessionAge: sessionAge / 1000 / 60 / 60 / 24, // days
             });
@@ -531,7 +542,7 @@ export const auth = betterAuth({
           const currentIp = session.ipAddress;
           const lastIp = (session as any).lastIpAddress;
           if (lastIp && currentIp !== lastIp) {
-            log.auth.info('IP address changed during session', {
+            logger.auth.info('IP address changed during session', {
               sessionId: session.id,
               currentIp,
               lastIp,
@@ -545,17 +556,16 @@ export const auth = betterAuth({
     },
     signOut: {
       async before({ user, session }) {
-        console.log('[AUTH_SERVER] signOut.before callback', {
+        logger.auth.debug('Sign-out initiated', {
           userId: user?.id,
           sessionId: session?.id,
           isOAuthSession: !!(session as any)?.provider,
           provider: (session as any)?.provider,
-          timestamp: new Date().toISOString()
         });
         
         // Clean up OAuth-specific session data to prevent JSON parsing errors
         if (session && (session as any)?.provider) {
-          log.auth.info('OAuth session sign-out detected', {
+          logger.auth.info('OAuth session sign-out detected', {
             provider: (session as any).provider,
             userId: user?.id
           });
@@ -577,9 +587,8 @@ export const auth = betterAuth({
         return { user, session };
       },
       async after({ user }) {
-        console.log('[AUTH_SERVER] signOut.after callback', {
+        logger.auth.info('Sign-out completed', {
           userId: user?.id,
-          timestamp: new Date().toISOString()
         });
         
         // Clean user object for OAuth sessions
@@ -599,40 +608,26 @@ export const auth = betterAuth({
     signIn: {
       async before({ user, isNewUser }) {
         // Enhanced logging for OAuth callback debugging
-        console.log('[AUTH_SERVER] signIn.before callback triggered', {
+        logger.auth.debug('Sign-in initiated', {
           userId: user?.id, 
           email: user?.email,
           isNewUser,
           existingRole: user?.role,
           existingNeedsProfileCompletion: user?.needsProfileCompletion,
-          userKeys: Object.keys(user || {}),
-          timestamp: new Date().toISOString()
-        });
-        
-        log.auth.debug("[AUTH CALLBACK] Sign in before", { 
-          userId: user?.id, 
-          email: user?.email,
-          isNewUser,
-          existingRole: user?.role,
-          existingNeedsProfileCompletion: user?.needsProfileCompletion
         });
         
         if (isNewUser) {
-          console.log('[AUTH_SERVER] New OAuth user - setting guest role and needsProfileCompletion', {
+          logger.auth.info('New OAuth user detected, setting guest role', {
             userId: user?.id,
             email: user?.email,
             beforeRole: user?.role,
             beforeNeedsProfileCompletion: user?.needsProfileCompletion
           });
           
-          log.auth.info("[AUTH CALLBACK] New OAuth user detected, setting guest role", {
-            userId: user?.id,
-            email: user?.email
-          });
           user.role = 'guest';
           user.needsProfileCompletion = true;
           
-          console.log('[AUTH_SERVER] After setting guest role', {
+          logger.auth.debug('Guest role applied', {
             userId: user?.id,
             afterRole: user?.role,
             afterNeedsProfileCompletion: user?.needsProfileCompletion
@@ -642,29 +637,15 @@ export const auth = betterAuth({
         return { user };
       },
       async after({ user, session, request }) {
-        console.log('[AUTH_SERVER] signIn.after callback triggered', {
+        const isOAuthCallback = request.url.includes('/callback/google');
+        
+        logger.auth.info('Sign-in completed', {
           userId: user?.id,
           userRole: user?.role,
           userNeedsProfileCompletion: user?.needsProfileCompletion,
           sessionId: session?.id,
-          hasSession: !!session,
-          sessionToken: (session as any)?.token ? 'present' : 'missing',
-          requestUrl: request.url,
-          userAgent: request.headers.get('user-agent'),
-          timestamp: new Date().toISOString()
+          isOAuthCallback,
         });
-        
-        // Log if this is OAuth callback
-        const isOAuthCallback = request.url.includes('/callback/google');
-        if (isOAuthCallback) {
-          console.log('[AUTH_SERVER] OAuth callback detected in signIn.after', {
-            url: request.url,
-            hasUser: !!user,
-            hasSession: !!session
-          });
-        }
-        
-        log.auth.info("[AUTH CALLBACK] Sign in after", { userId: user?.id, sessionId: session?.id });
         
         const userAgent = request.headers.get('user-agent') || '';
         const isMobileOAuth = userAgent.includes('Expo') || userAgent.includes('okhttp');
@@ -678,7 +659,7 @@ export const auth = betterAuth({
         
         // For web OAuth, redirect to auth-callback page
         if (!isMobileOAuth && session) {
-          console.log('[AUTH_SERVER] Web OAuth successful, redirecting to auth-callback', {
+          logger.auth.info('Web OAuth successful, redirecting to auth-callback', {
             userId: user?.id,
             needsProfileCompletion: user?.needsProfileCompletion,
             role: user?.role
@@ -794,7 +775,7 @@ export const sessionHooks = {
   // After session is created
   afterCreate: async (session: any, user: any) => {
     // Log session creation for audit
-    log.auth.info('Session created', {
+    logger.auth.info('Session created', {
       sessionId: session.id,
       userId: user.id,
       userEmail: user.email,
@@ -804,7 +785,7 @@ export const sessionHooks = {
   // Before destroying a session
   beforeDestroy: async (session: any) => {
     // Log session destruction
-    log.auth.info('Session destroyed', {
+    logger.auth.info('Session destroyed', {
       sessionId: session.id,
       userId: session.userId,
     });

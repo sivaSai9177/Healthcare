@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Pressable } from 'react-native';
-import { HStack, VStack, Text, Checkbox } from '@/components/universal';
+import { HStack, VStack } from '@/components/universal/layout';
+import { Text } from '@/components/universal/typography';
+import { Checkbox } from '@/components/universal/form';
 import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { haptic } from '@/lib/ui/haptics';

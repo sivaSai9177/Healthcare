@@ -1,0 +1,1 @@
+export { EmailPreferencesBlock } from './EmailPreferencesBlock';

@@ -20,18 +20,13 @@ import {
   Grid,
 } from '@/components/universal';
 import { 
-  AlertCreationForm,
   AlertList,
   AlertSummary,
   MetricsOverview,
-  PatientCard,
   ActivePatients,
 } from '@/components/blocks/healthcare';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useShadow } from '@/hooks/useShadow';
-import { useResponsive } from '@/hooks/responsive';
-import { haptic } from '@/lib/ui/haptics';
-
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { useThemeStore } from '@/lib/stores/theme-store';
 import { HealthcareUserRole } from '@/types/healthcare';
@@ -44,11 +39,17 @@ export default function HealthcareDashboard() {
   const router = useRouter();
   const { theme } = useThemeStore();
   const { spacing } = useSpacing();
-  const { isMobile, isTablet } = useResponsive();
   const shadowMd = useShadow({ size: 'md' });
-  const shadowLg = useShadow({ size: 'lg' });
   const [refreshing, setRefreshing] = React.useState(false);
   const [isPending, startTransition] = useTransition();
+  
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    startTransition(() => {
+      // Refresh data here
+      setTimeout(() => setRefreshing(false), 1500);
+    });
+  }, []);
   
 // TODO: Replace with structured logging - console.log('[HealthcareDashboard] User:', user?.email, 'Role:', user?.role);
 // TODO: Replace with structured logging - console.log('[HealthcareDashboard] Theme background:', theme.background);
@@ -77,14 +78,6 @@ export default function HealthcareDashboard() {
     },
   });
   
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    startTransition(() => {
-      // Refresh data here
-      setTimeout(() => setRefreshing(false), 1500);
-    });
-  }, []);
-  
   // Get role-specific content
   const getRoleContent = () => {
     const role = user?.role as HealthcareUserRole;
@@ -93,8 +86,8 @@ export default function HealthcareDashboard() {
     if (!role) {
       return (
         <Card>
-          <Box p={spacing[5]}>
-            <VStack gap={spacing[3]} alignItems="center">
+          <Box p={5}>
+            <VStack gap={3} alignItems="center">
               <Text size="lg" colorTheme="mutedForeground">
               Loading user role...
             </Text>
@@ -107,7 +100,7 @@ export default function HealthcareDashboard() {
     switch (role) {
       case 'operator':
         return (
-          <VStack gap={spacing[5]}>
+          <VStack gap={5}>
             {/* Alert Summary */}
             <Suspense fallback={<Skeleton height={200} />}>
               <AlertSummary 
@@ -118,10 +111,10 @@ export default function HealthcareDashboard() {
             
             {/* Quick Actions */}
             <Card style={shadowMd}>
-              <Box p={spacing[4]}>
-                <VStack gap={spacing[3]}>
+              <Box p={4}>
+                <VStack gap={3}>
                   <Text size="lg" weight="bold">Quick Actions</Text>
-                  <HStack gap={spacing[2]}>
+                  <HStack gap={2}>
                     <Button
                       onPress={() => router.push('/(modals)/create-alert')}
                       variant="destructive"
@@ -142,7 +135,7 @@ export default function HealthcareDashboard() {
             </Card>
             
             {/* Recent Activity */}
-            <VStack gap={spacing[3]}>
+            <VStack gap={3}>
               <HStack align="center" justify="between">
                 <Text size="lg" weight="bold">Recent Alerts</Text>
                 <Button
@@ -157,8 +150,6 @@ export default function HealthcareDashboard() {
                 <AlertList 
                   hospitalId={hospitalId} 
                   role={role}
-                  showResolved={false}
-                  maxItems={5}
                 />
               </Suspense>
             </VStack>
@@ -169,12 +160,12 @@ export default function HealthcareDashboard() {
       case 'nurse':
       case 'head_doctor':
         return (
-          <VStack gap={spacing[5]}>
+          <VStack gap={5}>
             {/* On-Duty Status Card */}
             <Card style={shadowMd}>
-              <Box p={spacing[4]}>
+              <Box p={4}>
                 <HStack justifyContent="space-between" alignItems="center">
-                <VStack gap={spacing[1]}>
+                <VStack gap={1}>
                   <Text weight="semibold">Duty Status</Text>
                   <Text size="sm" colorTheme="mutedForeground">
                     {onDutyStatus?.isOnDuty ? 'Currently on duty' : 'Off duty'}
@@ -213,8 +204,8 @@ export default function HealthcareDashboard() {
             
             {/* Quick Navigation */}
             <Card style={shadowMd}>
-              <Box p={spacing[3]}>
-                <HStack gap={spacing[2]}>
+              <Box p={3}>
+                <HStack gap={2}>
                   <Button
                     onPress={() => router.push('/(healthcare)/alerts')}
                     variant="outline"
@@ -244,7 +235,7 @@ export default function HealthcareDashboard() {
         
       case 'admin':
         return (
-          <VStack gap={spacing[5]}>
+          <VStack gap={5}>
             {/* System Metrics Overview */}
             <Suspense fallback={<Skeleton height={400} />}>
               <MetricsOverview hospitalId={hospitalId} />
@@ -252,10 +243,10 @@ export default function HealthcareDashboard() {
             
             {/* Admin Actions */}
             <Card style={shadowMd}>
-              <Box p={spacing[5]}>
-                <VStack gap={spacing[3]}>
+              <Box p={5}>
+                <VStack gap={3}>
                 <Text weight="bold" size="lg">System Actions</Text>
-                <Grid columns={Platform.OS === 'web' ? 2 : 1} gap={spacing[3]}>
+                <Grid columns={Platform.OS === 'web' ? 2 : 1} gap={3}>
                   <Button
                     onPress={() => router.push('/(home)/admin')}
                     variant="outline"
@@ -302,7 +293,7 @@ export default function HealthcareDashboard() {
             </Card>
             
             {/* System Overview */}
-            <VStack gap={spacing[3]}>
+            <VStack gap={3}>
               <HStack align="center" justify="between">
                 <Text size="lg" weight="bold">System Overview</Text>
                 <Button
@@ -326,7 +317,7 @@ export default function HealthcareDashboard() {
       default:
         return (
           <Card>
-            <VStack gap={spacing[3]} alignItems="center" p={spacing[4]}>
+            <VStack gap={3} alignItems="center" p={4}>
               <Text size="4xl">👋</Text>
               <Text size="lg" weight="bold">Welcome to Hospital Alert System</Text>
               <Text colorTheme="mutedForeground" align="center">
@@ -345,7 +336,7 @@ export default function HealthcareDashboard() {
   };
   
   const content = (
-    <VStack gap={spacing[5]}>
+    <VStack gap={5}>
         {/* Header */}
         <HStack justifyContent="space-between" alignItems="center">
         <Box flex={1}>
@@ -412,7 +403,7 @@ export default function HealthcareDashboard() {
             />
           }
         >
-          <VStack p={spacing[4]} gap={spacing[4]} className="animate-fade-in">
+          <VStack p={4} gap={4} className="animate-fade-in">
             {content}
           </VStack>
         </ScrollView>
@@ -426,12 +417,12 @@ export default function HealthcareDashboard() {
       <VStack p={0} gap={0}>
         {/* Header with Toggle and Breadcrumbs */}
         <Box
-          px={spacing[4]}
-          py={spacing[3]}
+          px={4}
+          py={3}
           borderBottomWidth={1}
           borderTheme="border"
         >
-          <HStack alignItems="center" gap={spacing[2]} mb={spacing[2]}>
+          <HStack alignItems="center" gap={2} mb={2}>
             <SidebarTrigger />
             <Separator orientation="vertical" style={{ height: 24 }} />
             <SimpleBreadcrumb
@@ -442,7 +433,7 @@ export default function HealthcareDashboard() {
         </Box>
         
         <ScrollView>
-          <VStack p={spacing[4]} gap={spacing[4]} className="animate-fade-in">
+          <VStack p={4} gap={4} className="animate-fade-in">
             {content}
           </VStack>
         </ScrollView>

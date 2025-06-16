@@ -2,7 +2,10 @@ import React from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AlertCircle } from '@/components/universal/display/Symbols';
-import { Button, Card, Text, VStack } from '@/components/universal';
+import { Button } from '@/components/universal/interaction';
+import { Card, CardContent } from '@/components/universal/display';
+import { Text } from '@/components/universal/typography';
+import { VStack } from '@/components/universal/layout';
 import { log } from '@/lib/core/debug/logger';
 
 export interface OAuthError {
@@ -76,7 +79,7 @@ export function OAuthErrorHandler({ error, onRetry, onDismiss }: OAuthErrorHandl
   return (
     <View className="flex-1 justify-center items-center p-4 bg-background">
       <Card className="w-full max-w-md">
-        <Card.Content>
+        <CardContent>
           <VStack gap={16}>
             <View className="items-center">
               <AlertCircle
@@ -112,7 +115,7 @@ export function OAuthErrorHandler({ error, onRetry, onDismiss }: OAuthErrorHandl
               </Button>
             </VStack>
           </VStack>
-        </Card.Content>
+        </CardContent>
       </Card>
     </View>
   );

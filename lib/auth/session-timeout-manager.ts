@@ -171,13 +171,27 @@ class SessionTimeoutManager {
       clearTimeout(this.timeoutTimer);
       this.timeoutTimer = null;
     }
+    
+    if (this.checkTimer) {
+      clearTimeout(this.checkTimer);
+      this.checkTimer = null;
+    }
   }
 
   /**
    * Check if session is still valid
    */
   private async checkSession() {
+    // Don't check if not active
+    if (!this.isActive) return;
+    
     try {
+      // Ensure authClient is available
+      if (!authClient || typeof authClient.getSession !== 'function') {
+        log.warn('Auth client not available for session check', 'AUTH');
+        return;
+      }
+      
       const session = await authClient.getSession();
       
       if (!session?.session) {
@@ -193,7 +207,10 @@ class SessionTimeoutManager {
         this.handleTimeout();
       }
     } catch (error) {
-      log.error('Failed to check session', 'AUTH', error);
+      // Only log error if we're still active
+      if (this.isActive) {
+        log.error('Failed to check session', 'AUTH', error);
+      }
     }
   }
 
@@ -203,8 +220,14 @@ class SessionTimeoutManager {
   private async handleTimeout() {
     log.warn('Session timeout reached', 'AUTH');
     
-    // Clear auth state
-    authStore.getState().clearAuth();
+    // Clear auth state - check if authStore is available
+    try {
+      if (authStore && typeof authStore.getState === 'function') {
+        authStore.getState().clearAuth();
+      }
+    } catch (error) {
+      log.error('Failed to clear auth state', 'AUTH', error);
+    }
     
     // Call custom timeout callback
     if (this.timeoutCallback) {

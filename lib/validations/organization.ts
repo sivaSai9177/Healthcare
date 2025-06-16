@@ -398,6 +398,9 @@ export const ActivityLogActionSchema = z.enum([
   'member.removed',
   'member.role_changed',
   'member.suspended',
+  'member.join_request_sent',
+  'member.join_request_approved',
+  'member.join_request_rejected',
   'settings.updated',
   'settings.security_changed',
   'organization.created',
@@ -515,6 +518,114 @@ export const ActivityLogResponseSchema = z.object({
 });
 
 // ========================================
+// Organization Join Request Schemas
+// ========================================
+
+// Join request status enum
+export const JoinRequestStatusSchema = z.enum(
+  ['pending', 'approved', 'rejected', 'cancelled'],
+  {
+    errorMap: () => ({ message: 'Invalid join request status' })
+  }
+);
+
+// Send join request input
+export const SendJoinRequestSchema = z.object({
+  organizationId: z.string().uuid('Invalid organization ID'),
+  requestedRole: OrganizationRoleSchema.default('member'),
+  message: z.string()
+    .min(10, 'Message must be at least 10 characters')
+    .max(1000, 'Message cannot exceed 1000 characters')
+    .trim()
+    .optional(),
+}).strict();
+
+// List join requests input (for admins)
+export const ListJoinRequestsSchema = z.object({
+  organizationId: z.string().uuid('Invalid organization ID'),
+  status: JoinRequestStatusSchema.optional(),
+  search: z.string().max(100).trim().optional(),
+  ...paginationSchema.shape,
+}).strict();
+
+// List user's join requests
+export const ListUserJoinRequestsSchema = z.object({
+  status: JoinRequestStatusSchema.optional(),
+  ...paginationSchema.shape,
+}).strict();
+
+// Review join request input
+export const ReviewJoinRequestSchema = z.object({
+  requestId: z.string().uuid('Invalid request ID'),
+  action: z.enum(['approve', 'reject']),
+  reviewNote: z.string()
+    .max(500, 'Review note cannot exceed 500 characters')
+    .trim()
+    .optional(),
+  approvedRole: OrganizationRoleSchema.optional(), // Can override requested role
+}).strict();
+
+// Cancel join request input
+export const CancelJoinRequestSchema = z.object({
+  requestId: z.string().uuid('Invalid request ID'),
+}).strict();
+
+// Search organizations input
+export const SearchOrganizationsSchema = z.object({
+  query: z.string()
+    .min(2, 'Search query must be at least 2 characters')
+    .max(100, 'Search query too long')
+    .trim()
+    .optional(),
+  type: OrganizationTypeSchema.optional(),
+  size: OrganizationSizeSchema.optional(),
+  industry: z.string().max(100).trim().optional(),
+  hasOpenRequests: z.boolean().optional(), // Filter orgs with open join requests
+  ...paginationSchema.shape,
+}).strict();
+
+// Join request response
+export const JoinRequestResponseSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  userId: z.string(),
+  
+  // User details
+  user: z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string(),
+    image: z.string().nullable(),
+  }),
+  
+  // Organization details
+  organization: z.object({
+    id: z.string(),
+    name: z.string(),
+    slug: z.string().nullable(),
+    logo: z.string().nullable(),
+  }),
+  
+  requestedRole: OrganizationRoleSchema,
+  message: z.string().nullable(),
+  status: JoinRequestStatusSchema,
+  
+  // Review details
+  reviewedBy: z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string(),
+  }).nullable(),
+  reviewedAt: z.date().nullable(),
+  reviewNote: z.string().nullable(),
+  
+  autoApproved: z.boolean(),
+  
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+// ========================================
 // Type Exports
 // ========================================
 
@@ -527,3 +638,7 @@ export type InviteMembersInput = z.infer<typeof InviteMembersSchema>;
 export type OrganizationResponse = z.infer<typeof OrganizationResponseSchema>;
 export type OrganizationMemberResponse = z.infer<typeof OrganizationMemberResponseSchema>;
 export type ActivityLogResponse = z.infer<typeof ActivityLogResponseSchema>;
+export type JoinRequestStatus = z.infer<typeof JoinRequestStatusSchema>;
+export type SendJoinRequestInput = z.infer<typeof SendJoinRequestSchema>;
+export type ReviewJoinRequestInput = z.infer<typeof ReviewJoinRequestSchema>;
+export type JoinRequestResponse = z.infer<typeof JoinRequestResponseSchema>;

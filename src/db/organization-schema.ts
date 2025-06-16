@@ -233,6 +233,41 @@ export const organizationInvitation = pgTable("organization_invitation", {
   };
 });
 
+// Organization join requests - Track user requests to join organizations
+export const organizationJoinRequest = pgTable("organization_join_request", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id").notNull().references(() => organization.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  
+  // Request details
+  requestedRole: varchar("requested_role", { length: 50 }).notNull().default("member"),
+  message: text("message"), // Why they want to join
+  
+  // Status tracking
+  status: varchar("status", { length: 50 }).notNull().default("pending"), // pending, approved, rejected, cancelled
+  
+  // Review details
+  reviewedBy: text("reviewed_by").references(() => user.id),
+  reviewedAt: timestamp("reviewed_at"),
+  reviewNote: text("review_note"), // Admin's note on approval/rejection
+  
+  // Auto-approval settings
+  autoApproved: boolean("auto_approved").notNull().default(false),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    // Ensure one active request per user per org
+    uniqueRequestIdx: uniqueIndex("idx_unique_join_request").on(table.organizationId, table.userId),
+    orgIdx: index("idx_request_org_id").on(table.organizationId),
+    userIdx: index("idx_request_user_id").on(table.userId),
+    statusIdx: index("idx_request_status").on(table.status),
+    createdAtIdx: index("idx_request_created_at").on(table.createdAt.desc()),
+  };
+});
+
 // Type exports for TypeScript
 export type Organization = typeof organization.$inferSelect;
 export type NewOrganization = typeof organization.$inferInsert;
@@ -246,3 +281,5 @@ export type OrganizationActivityLog = typeof organizationActivityLog.$inferSelec
 export type NewOrganizationActivityLog = typeof organizationActivityLog.$inferInsert;
 export type OrganizationInvitation = typeof organizationInvitation.$inferSelect;
 export type NewOrganizationInvitation = typeof organizationInvitation.$inferInsert;
+export type OrganizationJoinRequest = typeof organizationJoinRequest.$inferSelect;
+export type NewOrganizationJoinRequest = typeof organizationJoinRequest.$inferInsert;

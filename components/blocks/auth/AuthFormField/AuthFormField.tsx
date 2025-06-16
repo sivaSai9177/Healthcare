@@ -1,5 +1,7 @@
 import React from 'react';
-import { Input, Text, VStack } from '@/components/universal';
+import { Input } from '@/components/universal/form';
+import { Text } from '@/components/universal/typography';
+import { VStack } from '@/components/universal/layout';
 import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import Animated, { FadeIn } from 'react-native-reanimated';

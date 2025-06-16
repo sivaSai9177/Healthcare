@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Platform } from 'react-native';
-import { Button, ButtonProps } from '@/components/universal';
+import { Button } from '@/components/universal/interaction';
 import { useAuth } from '@/hooks/useAuth';
 import { log } from '@/lib/core/debug/logger';
 import { haptic } from '@/lib/ui/haptics';

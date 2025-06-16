@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator } from 'react-native';
-import { Box, Text } from '@/components/universal';
+import { Box } from '@/components/universal/layout/Box';
+import { Text } from '@/components/universal/typography/Text';
 import { SpacingScale } from '@/lib/design';
 import { cn } from '@/lib/core/utils';
 

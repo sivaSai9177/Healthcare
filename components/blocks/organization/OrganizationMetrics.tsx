@@ -1,6 +1,8 @@
 import React from 'react';
 import { View } from 'react-native';
-import { Card, Text, VStack, HStack } from '@/components/universal';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/universal/display';
+import { Text } from '@/components/universal/typography';
+import { VStack, HStack } from '@/components/universal/layout';
 import { cn } from '@/lib/core/utils';
 import { useShadow } from '@/hooks/useShadow';
 import { useResponsive } from '@/hooks/responsive';
@@ -74,11 +76,11 @@ export function OrganizationMetricsBlock({
         minHeight: goldenHeight,
       }}
     >
-      <Card.Header style={{ paddingBottom: spacing[1] }}>
-        <Card.Title>{title}</Card.Title>
-      </Card.Header>
+      <CardHeader style={{ paddingBottom: spacing[1] }}>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
       
-      <Card.Content style={{ flex: 1 }}>
+      <CardContent style={{ flex: 1 }}>
         <VStack gap={spacing[2] as any} className="flex-1">
           {metrics.map((metric, index) => (
             <Animated.View
@@ -136,7 +138,7 @@ export function OrganizationMetricsBlock({
             </Animated.View>
           ))}
         </VStack>
-      </Card.Content>
+      </CardContent>
     </Card>
   );
 }

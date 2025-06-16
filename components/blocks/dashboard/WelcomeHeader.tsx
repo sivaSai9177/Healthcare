@@ -1,15 +1,10 @@
 import React from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'expo-router';
-import {
-  Text,
-  Card,
-  Button,
-  Avatar,
-  HStack,
-  VStack,
-  Badge,
-} from '@/components/universal';
+import { Text } from '@/components/universal/typography';
+import { Card, Avatar, Badge } from '@/components/universal/display';
+import { Button } from '@/components/universal/interaction';
+import { HStack, VStack } from '@/components/universal/layout';
 import { Bell, Settings, LogOut } from '@/components/universal/display/Symbols';
 import { cn } from '@/lib/core/utils';
 import { useResponsive } from '@/hooks/responsive';

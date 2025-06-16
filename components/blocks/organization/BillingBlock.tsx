@@ -1,32 +1,11 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { 
-  Card, 
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-  Text, 
-  Button, 
-  Badge, 
-  Stack, 
-  Grid,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableCell,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  Alert,
-  AlertTitle,
-  AlertDescription,
-} from '@/components/universal';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, Badge, Table, TableHeader, TableBody, TableRow, TableCell } from '@/components/universal/display';
+import { Text } from '@/components/universal/typography';
+import { Button } from '@/components/universal/interaction';
+import { Stack, Grid } from '@/components/universal/layout';
+import { Dialog } from '@/components/universal/overlay';
+import { Alert } from '@/components/universal/feedback';
 import { cn } from '@/lib/core/utils';
 import { useResponsive } from '@/hooks/responsive';
 import { useSpacing } from '@/lib/stores/spacing-store';

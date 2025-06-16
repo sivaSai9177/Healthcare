@@ -100,7 +100,7 @@ export const healthcareAuditLogs = pgTable('healthcare_audit_logs', {
   userAgent: text('user_agent'),
   hospitalId: uuid('hospital_id').references(() => hospitals.id),
 }, (table) => ({
-  actionCheck: check('action_check', sql`${table.action} IN ('alert_created', 'alert_acknowledged', 'alert_escalated', 'alert_resolved', 'alert_transferred', 'bulk_alert_acknowledged', 'user_login', 'user_logout', 'permission_changed', 'role_changed', 'patient_created', 'patient_updated', 'patient_discharged', 'vitals_recorded', 'care_team_assigned')`),
+  actionCheck: check('action_check', sql`${table.action} IN ('alert_created', 'alert_acknowledged', 'alert_escalated', 'alert_resolved', 'alert_transferred', 'bulk_alert_acknowledged', 'user_login', 'user_logout', 'permission_changed', 'role_changed', 'patient_created', 'patient_updated', 'patient_discharged', 'vitals_recorded', 'care_team_assigned', 'shift_started', 'shift_ended')`),
   entityTypeCheck: check('entity_type_check', sql`${table.entityType} IN ('alert', 'user', 'system', 'permission', 'patient')`),
 }));
 

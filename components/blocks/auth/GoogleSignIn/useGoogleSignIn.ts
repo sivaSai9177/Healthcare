@@ -4,15 +4,15 @@ import Constants from 'expo-constants';
 import { showErrorAlert } from "@/lib/core/alert";
 import { useRouter } from "expo-router";
 import { useAuthStore, toAppUser } from "@/lib/stores/auth-store";
-import { log } from "@/lib/core";
+import { logger } from "@/lib/core/debug/unified-logger";
 import { authClient as defaultAuthClient } from "@/lib/auth/auth-client";
-import { trpc } from "@/lib/api/trpc";
+import { api } from "@/lib/api/trpc";
 
 export function useGoogleSignIn() {
   const [isLoading, setIsLoading] = React.useState(false);
   const router = useRouter();
   const { updateAuth } = useAuthStore();
-  const utils = trpc.useUtils();
+  const utils = api.useUtils();
   const loadingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   
   // Clean up timeout on unmount
@@ -26,16 +26,16 @@ export function useGoogleSignIn() {
 
   const handleGoogleSignIn = async () => {
     if (isLoading) {
-      log.auth.debug('Already loading, ignoring click');
+      logger.auth.debug('Already loading, ignoring click');
       return;
     }
     
     setIsLoading(true);
-    log.auth.oauth('Starting OAuth flow with google', { platform: Platform.OS });
+    logger.auth.info('Starting OAuth flow with google', { platform: Platform.OS });
     
     // Set a timeout to reset loading state if OAuth takes too long
     loadingTimeoutRef.current = setTimeout(() => {
-      log.warn('OAuth timeout - resetting loading state', 'AUTH', { platform: Platform.OS });
+      logger.warn('OAuth timeout - resetting loading state', 'AUTH', { platform: Platform.OS });
       setIsLoading(false);
     }, 30000) as any; // 30 second timeout
     
@@ -49,16 +49,16 @@ export function useGoogleSignIn() {
         ? `${window.location.origin}/auth-callback`
         : '/auth-callback';
       
-      log.auth.debug('OAuth parameters', { callbackURL, platform: Platform.OS });
+      logger.auth.debug('OAuth parameters', { callbackURL, platform: Platform.OS });
       
       // Use Better Auth client for OAuth initiation only
       // Then rely on tRPC + TanStack Query for session management
       try {
-        log.auth.debug('Starting OAuth with Better Auth client', { platform: Platform.OS });
+        logger.auth.debug('Starting OAuth with Better Auth client', { platform: Platform.OS });
         
         if (Platform.OS === 'web') {
           // For web, use direct navigation to avoid the API error
-          log.auth.debug('Starting web OAuth flow with direct navigation', { 
+          logger.auth.debug('Starting web OAuth flow with direct navigation', { 
             provider: 'google',
             callbackURL,
             platform: Platform.OS 
@@ -84,7 +84,7 @@ export function useGoogleSignIn() {
             }
             
             const result = await response.json();
-            log.auth.debug('OAuth initiated for web', { hasResult: !!result, result });
+            logger.auth.debug('OAuth initiated for web', { hasResult: !!result, result });
             
             // If we get a redirect URL, navigate to it
             if (result?.url) {
@@ -92,7 +92,7 @@ export function useGoogleSignIn() {
             }
             return;
           } catch (webError: any) {
-            log.auth.error('Web OAuth error', { 
+            logger.auth.error('Web OAuth error', { 
               error: webError,
               message: webError?.message,
               response: webError?.response,
@@ -103,9 +103,9 @@ export function useGoogleSignIn() {
             if (webError?.response) {
               try {
                 const errorData = await webError.response.json();
-                log.auth.error('OAuth error response data', errorData);
+                logger.auth.error('OAuth error response data', errorData);
               } catch (e) {
-                log.auth.error('Could not parse error response');
+                logger.auth.error('Could not parse error response');
               }
             }
             
@@ -118,20 +118,20 @@ export function useGoogleSignIn() {
             callbackURL
           });
           
-          log.auth.debug('OAuth initiated for mobile', { hasResult: !!result, platform: Platform.OS });
+          logger.auth.debug('OAuth initiated for mobile', { hasResult: !!result, platform: Platform.OS });
         }
         
         // For mobile, wait a moment then fetch session via tRPC
         const isMobile = Platform.OS === 'ios' || Platform.OS === 'android';
         if (isMobile) {
           // Use TanStack Query to fetch fresh session data
-          log.auth.debug('Fetching session via tRPC after OAuth');
+          logger.auth.debug('Fetching session via tRPC after OAuth');
           
           // Use utils to fetch fresh session - this will use TanStack Query caching
           const sessionData = await utils.auth.getSession.fetch() as any;
           
           if (sessionData?.user) {
-            log.auth.oauth('OAuth success, updating auth state via tRPC', { userId: sessionData.user.id });
+            logger.auth.info('OAuth success, updating auth state via tRPC', { userId: sessionData.user.id });
             
             // Convert to AppUser and update Zustand store with tRPC data
             const appUser = toAppUser(sessionData.user, 'user');
@@ -139,10 +139,10 @@ export function useGoogleSignIn() {
             
             // Navigate based on profile completion status from tRPC
             if (appUser.needsProfileCompletion) {
-              log.auth.debug('Navigating to profile completion');
+              logger.auth.debug('Navigating to profile completion');
               router.replace('/(auth)/complete-profile');
             } else {
-              log.auth.debug('Navigating to home');
+              logger.auth.debug('Navigating to home');
               router.replace('/(home)');
             }
           } else {
@@ -150,7 +150,7 @@ export function useGoogleSignIn() {
           }
         }
       } catch (oauthError: any) {
-        log.auth.error('OAuth flow failed', oauthError);
+        logger.auth.error('OAuth flow failed', oauthError);
         throw oauthError;
       }
       
@@ -164,14 +164,14 @@ export function useGoogleSignIn() {
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
       }
-      log.auth.error('Sign-in error', { 
+      logger.auth.error('Sign-in error', { 
         error,
         errorType: typeof error,
         errorMessage: error?.message || 'Unknown error',
         errorStack: error?.stack || 'No stack trace'
       });
       
-      log.auth.oauth('OAuth callback failed', { provider: 'google', error: error?.message });
+      logger.auth.error('OAuth callback failed', { provider: 'google', error: error?.message });
       
       // Safely extract error message with better handling for TypeErrors
       let errorMessage = '';
@@ -179,7 +179,7 @@ export function useGoogleSignIn() {
         if (error instanceof TypeError) {
           // Handle TypeError specifically (like the "Cannot read properties of undefined" error)
           errorMessage = 'Authentication service error. Please try again.';
-          log.auth.error('TypeError in OAuth flow', { 
+          logger.auth.error('TypeError in OAuth flow', { 
             message: error.message,
             stack: error.stack,
             name: error.name
@@ -203,11 +203,11 @@ export function useGoogleSignIn() {
           errorMessage = 'An unknown error occurred';
         }
       } catch (extractError) {
-        log.auth.error('Error extracting error message', { extractError });
+        logger.auth.error('Error extracting error message', { extractError });
         errorMessage = 'Authentication service error. Please try again.';
       }
       
-      log.auth.debug('Extracted error message', { errorMessage });
+      logger.auth.debug('Extracted error message', { errorMessage });
       
       // Enhanced error handling for OAuth and backend errors
       const isExpoGo = (Platform.OS === 'ios' || Platform.OS === 'android') && Constants.executionEnvironment === 'storeClient';

@@ -4,29 +4,29 @@ import { Platform, View, ActivityIndicator, Text } from "react-native";
 import { useTheme } from "@/lib/theme/provider";
 import React from "react";
 import { stackScreenOptions } from "@/lib/navigation/transitions";
+import { logger } from '@/lib/core/debug/unified-logger';
 
 export default function AuthLayout() {
-  // TODO: Replace with structured logging
-  // console.log('[AuthLayout] Component rendering');
   const { isAuthenticated, user, hasHydrated } = useAuth();
   const theme = useTheme();
   const router = useRouter();
   const pathname = usePathname();
   
-// TODO: Replace with structured logging
-  // console.log('[AuthLayout] Auth state:', {
-  //   isAuthenticated, 
-  //   hasHydrated, 
-  //   user: !!user,
-  //   needsProfileCompletion: user?.needsProfileCompletion,
-  //   role: user?.role,
-  //   platform: Platform.OS
-  // });
+  // Move logging to useEffect to avoid state updates during render
+  React.useEffect(() => {
+    logger.debug('AuthLayout rendering', 'ROUTER');
+    logger.auth.debug('Auth layout state', {
+      isAuthenticated, 
+      hasHydrated, 
+      user: !!user,
+      needsProfileCompletion: user?.needsProfileCompletion,
+      role: user?.role,
+      platform: Platform.OS
+    });
+  }, [isAuthenticated, hasHydrated, user]);
   
   // Wait for auth state to be ready
   if (!hasHydrated) {
-    // TODO: Replace with structured logging
-    // console.log('[AuthLayout] Waiting for auth hydration...');
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
         <ActivityIndicator size="large" color={theme.foreground} />
@@ -43,21 +43,14 @@ export default function AuthLayout() {
     
     // Allow access to specific auth pages if needed
     if (needsProfileCompletion && pathname === '/complete-profile') {
-      // TODO: Replace with structured logging
-      // console.log('[AuthLayout] User needs profile completion, allowing complete-profile access');
+      // User needs profile completion, allow access
     } else if (needsEmailVerification && pathname === '/verify-email') {
-      // TODO: Replace with structured logging
-      // console.log('[AuthLayout] User needs email verification, allowing verify-email access');
+      // User needs email verification, allow access
     } else if (!needsProfileCompletion && !needsEmailVerification) {
       // User is fully authenticated and doesn't need any auth pages
-      // TODO: Replace with structured logging
-      // console.log('[AuthLayout] User is fully authenticated, redirecting to home');
       return <Redirect href="/(home)" />;
     }
   }
-  
-  // TODO: Replace with structured logging
-  // console.log('[AuthLayout] Rendering auth stack');
   
   return (
     <View 
@@ -72,7 +65,7 @@ export default function AuthLayout() {
           ...stackScreenOptions.default,
           headerShown: Platform.OS !== 'web',
           contentStyle: {
-            backgroundColor: theme.background,
+            backgroundColor: 'transparent',
           },
           headerStyle: {
             backgroundColor: theme.card,

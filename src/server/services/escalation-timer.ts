@@ -238,8 +238,40 @@ export class EscalationTimerService {
         toTier
       );
 
-      // TODO: Send actual notifications (push, SMS, etc.)
-      // This would integrate with your notification service
+      // Send push notifications for escalation
+      try {
+        const { notificationService, NotificationType, Priority } = await import('./notifications');
+        
+        // Get users to notify
+        const usersToNotify = await this.getUsersToNotify(alert.hospitalId, 
+          toRole === 'all_staff' ? ['nurse', 'doctor', 'head_doctor'] : [toRole]
+        );
+        
+        if (usersToNotify.length > 0) {
+          await notificationService.sendBatch(
+            usersToNotify.map(user => ({
+              id: `escalation-${alert.id}-${user.id}-${toTier}`,
+              type: NotificationType.ALERT_ESCALATED,
+              recipient: {
+                userId: user.id,
+              },
+              priority: Priority.CRITICAL,
+              data: {
+                alertId: alert.id,
+                roomNumber: alert.roomNumber,
+                alertType: alert.alertType,
+                urgencyLevel: alert.urgencyLevel,
+                escalationLevel: toTier,
+                fromRole,
+                toRole,
+              },
+              organizationId: alert.hospitalId,
+            }))
+          );
+        }
+      } catch (notificationError) {
+        log.error('Failed to send escalation notifications', 'ESCALATION', notificationError);
+      }
 
       log.info(`Alert ${alert.id} escalated from tier ${fromTier} to ${toTier}`, 'ESCALATION', {
         alertId: alert.id,

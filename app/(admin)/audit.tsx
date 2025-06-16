@@ -11,16 +11,7 @@ import {
   Container,
   Select,
 } from '@/components/universal';
-import { 
-  Search, 
-  Download,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-  Info,
-  User,
-  Activity,
-} from '@/components/universal/display/Symbols';
+import { Symbol } from '@/components/universal/display/Symbols';
 import { useSpacing } from '@/lib/stores/spacing-store';
 
 export default function AuditScreen() {
@@ -98,24 +89,24 @@ export default function AuditScreen() {
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
       case 'info':
-        return <Info size={16} className="text-blue-500" />;
+        return <Symbol name="info.circle" size={16} className="text-blue-500" />;
       case 'warning':
-        return <AlertCircle size={16} className="text-yellow-500" />;
+        return <Symbol name="exclamationmark.triangle" size={16} className="text-yellow-500" />;
       case 'critical':
-        return <AlertCircle size={16} className="text-red-500" />;
+        return <Symbol name="exclamationmark.triangle" size={16} className="text-red-500" />;
       default:
-        return <Info size={16} className="text-muted-foreground" />;
+        return <Symbol name="info.circle" size={16} className="text-muted-foreground" />;
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'success':
-        return <CheckCircle size={16} className="text-green-500" />;
+        return <Symbol name="checkmark.circle" size={16} className="text-green-500" />;
       case 'failed':
-        return <XCircle size={16} className="text-red-500" />;
+        return <Symbol name="xmark.circle" size={16} className="text-red-500" />;
       default:
-        return <Activity size={16} className="text-muted-foreground" />;
+        return <Symbol name="waveform" size={16} className="text-muted-foreground" />;
     }
   };
 
@@ -180,7 +171,7 @@ export default function AuditScreen() {
                 // Export logs
               }}
             >
-              <Download size={16} />
+              <Symbol name="arrow.down.circle" size={16} />
               <Text>Export</Text>
             </Button>
           </HStack>
@@ -192,7 +183,7 @@ export default function AuditScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               className="w-full"
-              leftIcon={<Search size={16} className="text-muted-foreground" />}
+              leftIcon={<Symbol name="magnifyingglass" size={16} className="text-muted-foreground" />}
             />
             
             <HStack spacing="md">
@@ -261,7 +252,7 @@ export default function AuditScreen() {
                     
                     <HStack spacing="md" className="pt-2">
                       <HStack spacing="xs" align="center">
-                        <User size={14} className="text-muted-foreground" />
+                        <Symbol name="person" size={14} className="text-muted-foreground" />
                         <Text size="xs" className="text-muted-foreground">
                           {log.user}
                         </Text>
@@ -285,7 +276,7 @@ export default function AuditScreen() {
           {filteredLogs.length === 0 && (
             <Card className="items-center">
               <VStack spacing="md" align="center" className="p-6">
-                <Activity size={48} className="text-muted-foreground" />
+                <Symbol name="waveform" size={48} className="text-muted-foreground" />
                 <Text size="base" className="text-muted-foreground">
                   No audit logs found
                 </Text>

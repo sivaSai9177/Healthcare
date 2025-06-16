@@ -105,9 +105,9 @@ const colorClasses = {
 };
 
 const fontClasses = {
-  sans: 'font-sans',
-  serif: 'font-serif',
-  mono: 'font-mono',
+  sans: Platform.OS === 'web' ? 'font-sans' : '',
+  serif: Platform.OS === 'web' ? 'font-serif' : '',
+  mono: Platform.OS === 'web' ? 'font-mono' : '',
 };
 
 const letterSpacingClasses = {
@@ -141,12 +141,12 @@ const fontSizeMap = {
   '5xl': 48,
 };
 
-// Font weight mapping for native
+// Font weight mapping for native - iOS specific weights for SF Pro
 const fontWeightMap = {
-  normal: '400',
-  medium: '500',
-  semibold: '600',
-  bold: '700',
+  normal: Platform.OS === 'ios' ? '400' : '400',
+  medium: Platform.OS === 'ios' ? '500' : '500', 
+  semibold: Platform.OS === 'ios' ? '600' : '600',
+  bold: Platform.OS === 'ios' ? '700' : '700',
 };
 
 export const Text = React.forwardRef<RNText, TextProps>(({
@@ -227,6 +227,21 @@ export const Text = React.forwardRef<RNText, TextProps>(({
     className
   );
   
+  // Get platform-specific font family
+  const getFontFamily = () => {
+    if (Platform.OS === 'ios') {
+      // Use SF Pro on iOS
+      const baseFont = font === 'mono' ? 'Menlo' : font === 'serif' ? 'Georgia' : 'System';
+      return baseFont;
+    } else if (Platform.OS === 'android') {
+      // Use system font on Android
+      const baseFont = font === 'mono' ? 'monospace' : font === 'serif' ? 'serif' : 'sans-serif';
+      return baseFont;
+    }
+    // Web uses CSS classes
+    return undefined;
+  };
+
   // Native style override for properties not supported by NativeWind
   const nativeStyle: TextStyle = {
     ...((responsiveAlign || align) && { textAlign: responsiveAlign || align }),
@@ -236,6 +251,7 @@ export const Text = React.forwardRef<RNText, TextProps>(({
     ...(Platform.OS !== 'web' && {
       fontSize: fontSizeMap[responsiveSize || size] || fontSizeMap.base,
       fontWeight: fontWeightMap[responsiveWeight || weight] as TextStyle['fontWeight'],
+      fontFamily: getFontFamily(),
     }),
   };
   

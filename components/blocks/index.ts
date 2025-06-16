@@ -9,3 +9,4 @@ export * from './navigation';
 export * from './dashboard';
 export * from './healthcare';
 export * from './organization';
+export * from './admin';

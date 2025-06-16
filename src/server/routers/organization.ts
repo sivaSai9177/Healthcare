@@ -11,6 +11,7 @@ import {
   organizationSettings,
   organizationActivityLog,
   organizationInvitation,
+  organizationJoinRequest,
 } from '../../db/organization-schema';
 import { user } from '../../db/schema';
 import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
@@ -34,7 +35,15 @@ import {
   GetOrganizationMetricsSchema,
   GetActivityLogSchema,
   OrganizationResponseSchema,
+  SendJoinRequestSchema,
+  ListJoinRequestsSchema,
+  ListUserJoinRequestsSchema,
+  ReviewJoinRequestSchema,
+  CancelJoinRequestSchema,
+  SearchOrganizationsSchema,
+  JoinRequestResponseSchema,
   type OrganizationRole,
+  type JoinRequestStatus,
 } from '../../../lib/validations/organization';
 
 // Rate limiting store (use Redis in production)
@@ -1092,7 +1101,7 @@ export const organizationRouter = router({
         );
       
       // Return comprehensive metrics
-      if (!input.metric || input.metric === 'all') {
+      if (!input.metric) {
         // Return all metrics
         return {
           memberCount: memberStats[0]?.total || 0,
@@ -1217,5 +1226,648 @@ export const organizationRouter = router({
         activities: formattedActivities,
         total: Number(countResult[0]?.count || 0),
       };
+    }),
+
+  // ==========================================
+  // Organization Join Requests
+  // ==========================================
+
+  // Search organizations (public endpoint for browsing)
+  searchOrganizations: protectedProcedure
+    .input(SearchOrganizationsSchema)
+    .query(async ({ input, ctx }) => {
+      const { limit = 20, page = 1, query, type, size, industry, hasOpenRequests } = input;
+      const offset = (page - 1) * limit;
+      
+      const conditions = [
+        eq(organization.status, 'active'), // Only show active organizations
+      ];
+      
+      if (query) {
+        conditions.push(
+          sql`${organization.name} ILIKE ${`%${query}%`} OR ${organization.description} ILIKE ${`%${query}%`}`
+        );
+      }
+      
+      if (type) {
+        conditions.push(eq(organization.type, type));
+      }
+      
+      if (size) {
+        conditions.push(eq(organization.size, size));
+      }
+      
+      if (industry) {
+        conditions.push(eq(organization.industry, industry));
+      }
+      
+      // Get organizations
+      const orgs = await db
+        .select({
+          organization: organization,
+          memberCount: sql<number>`(
+            SELECT COUNT(*) FROM ${organizationMember} 
+            WHERE organization_id = ${organization.id} 
+            AND status = 'active'
+          )`,
+        })
+        .from(organization)
+        .where(and(...conditions))
+        .orderBy(desc(organization.createdAt))
+        .limit(limit)
+        .offset(offset);
+      
+      // Get user's existing memberships and pending requests
+      const userMemberships = await db
+        .select({ organizationId: organizationMember.organizationId })
+        .from(organizationMember)
+        .where(
+          and(
+            eq(organizationMember.userId, ctx.user.id),
+            eq(organizationMember.status, 'active')
+          )
+        );
+      
+      const userRequests = await db
+        .select({ 
+          organizationId: organizationJoinRequest.organizationId,
+          status: organizationJoinRequest.status,
+        })
+        .from(organizationJoinRequest)
+        .where(eq(organizationJoinRequest.userId, ctx.user.id));
+      
+      const membershipSet = new Set(userMemberships.map(m => m.organizationId));
+      const requestMap = new Map(userRequests.map(r => [r.organizationId, r.status]));
+      
+      // Format response
+      const formattedOrgs = orgs.map(({ organization: org, memberCount }) => ({
+        ...org,
+        memberCount: Number(memberCount),
+        isMember: membershipSet.has(org.id),
+        joinRequestStatus: requestMap.get(org.id) || null,
+      }));
+      
+      // Get total count
+      const countResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(organization)
+        .where(and(...conditions));
+      
+      return {
+        organizations: formattedOrgs,
+        total: Number(countResult[0]?.count || 0),
+      };
+    }),
+
+  // Send join request
+  sendJoinRequest: protectedProcedure
+    .input(SendJoinRequestSchema)
+    .output(JoinRequestResponseSchema)
+    .mutation(async ({ input, ctx }) => {
+      // Check if user is already a member
+      const [existingMember] = await db
+        .select()
+        .from(organizationMember)
+        .where(
+          and(
+            eq(organizationMember.organizationId, input.organizationId),
+            eq(organizationMember.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+      
+      if (existingMember) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'You are already a member of this organization',
+        });
+      }
+      
+      // Check if there's already a pending request
+      const [existingRequest] = await db
+        .select()
+        .from(organizationJoinRequest)
+        .where(
+          and(
+            eq(organizationJoinRequest.organizationId, input.organizationId),
+            eq(organizationJoinRequest.userId, ctx.user.id),
+            eq(organizationJoinRequest.status, 'pending')
+          )
+        )
+        .limit(1);
+      
+      if (existingRequest) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'You already have a pending join request for this organization',
+        });
+      }
+      
+      // Check organization settings for auto-approval
+      const [orgSettings] = await db
+        .select()
+        .from(organizationSettings)
+        .where(eq(organizationSettings.organizationId, input.organizationId))
+        .limit(1);
+      
+      const [userData] = await db
+        .select({ email: user.email })
+        .from(user)
+        .where(eq(user.id, ctx.user.id))
+        .limit(1);
+      
+      // Check if user's email domain is in allowed domains
+      let autoApprove = orgSettings?.autoApproveMembers || false;
+      if (orgSettings?.allowedDomains && userData?.email) {
+        const emailDomain = userData.email.split('@')[1];
+        const allowedDomains = orgSettings.allowedDomains as string[];
+        if (allowedDomains.includes(emailDomain)) {
+          autoApprove = true;
+        }
+      }
+      
+      // Create join request
+      const [joinRequest] = await db
+        .insert(organizationJoinRequest)
+        .values({
+          organizationId: input.organizationId,
+          userId: ctx.user.id,
+          requestedRole: input.requestedRole,
+          message: input.message,
+          status: autoApprove ? 'approved' : 'pending',
+          autoApproved: autoApprove,
+          reviewedBy: autoApprove ? 'system' : null,
+          reviewedAt: autoApprove ? new Date() : null,
+        })
+        .returning();
+      
+      // If auto-approved, add as member
+      if (autoApprove) {
+        await db.insert(organizationMember).values({
+          organizationId: input.organizationId,
+          userId: ctx.user.id,
+          role: input.requestedRole,
+          status: 'active',
+        });
+        
+        await logActivity(
+          input.organizationId,
+          ctx.user.id,
+          'member.joined',
+          'member',
+          'user',
+          ctx.user.id,
+          { method: 'auto_approved_request' }
+        );
+      } else {
+        await logActivity(
+          input.organizationId,
+          ctx.user.id,
+          'member.join_request_sent',
+          'member',
+          'join_request',
+          joinRequest.id,
+          { requestedRole: input.requestedRole }
+        );
+      }
+      
+      // Get full data for response
+      const [fullRequest] = await db
+        .select({
+          request: organizationJoinRequest,
+          user: user,
+          organization: organization,
+        })
+        .from(organizationJoinRequest)
+        .innerJoin(user, eq(organizationJoinRequest.userId, user.id))
+        .innerJoin(organization, eq(organizationJoinRequest.organizationId, organization.id))
+        .where(eq(organizationJoinRequest.id, joinRequest.id))
+        .limit(1);
+      
+      return {
+        id: fullRequest.request.id,
+        organizationId: fullRequest.request.organizationId,
+        userId: fullRequest.request.userId,
+        user: {
+          id: fullRequest.user.id,
+          name: fullRequest.user.name || '',
+          email: fullRequest.user.email || '',
+          image: fullRequest.user.image,
+        },
+        organization: {
+          id: fullRequest.organization.id,
+          name: fullRequest.organization.name,
+          slug: fullRequest.organization.slug,
+          logo: fullRequest.organization.logo,
+        },
+        requestedRole: fullRequest.request.requestedRole as OrganizationRole,
+        message: fullRequest.request.message,
+        status: fullRequest.request.status as JoinRequestStatus,
+        reviewedBy: null,
+        reviewedAt: fullRequest.request.reviewedAt,
+        reviewNote: fullRequest.request.reviewNote,
+        autoApproved: fullRequest.request.autoApproved,
+        createdAt: fullRequest.request.createdAt!,
+        updatedAt: fullRequest.request.updatedAt!,
+      };
+    }),
+
+  // List join requests for an organization (admin view)
+  listJoinRequests: protectedProcedure
+    .input(ListJoinRequestsSchema)
+    .query(async ({ input, ctx }) => {
+      // Check permission
+      await orgAccess.requirePermission(
+        ctx.user.id,
+        input.organizationId,
+        'members.manage'
+      );
+      
+      const { limit = 20, page = 1, status, search } = input;
+      const offset = (page - 1) * limit;
+      
+      const conditions = [
+        eq(organizationJoinRequest.organizationId, input.organizationId),
+      ];
+      
+      if (status) {
+        conditions.push(eq(organizationJoinRequest.status, status));
+      }
+      
+      // Get requests with user data
+      const requests = await db
+        .select({
+          request: organizationJoinRequest,
+          user: user,
+        })
+        .from(organizationJoinRequest)
+        .innerJoin(user, eq(organizationJoinRequest.userId, user.id))
+        .where(and(...conditions))
+        .orderBy(desc(organizationJoinRequest.createdAt))
+        .limit(limit)
+        .offset(offset);
+      
+      // Apply search filter if provided
+      if (search) {
+        // Create a new query with search conditions
+        const searchConditions = and(
+          ...conditions,
+          sql`${user.name} ILIKE ${`%${search}%`} OR ${user.email} ILIKE ${`%${search}%`}`
+        );
+        
+        const searchRequests = await db
+          .select({
+            request: organizationJoinRequest,
+            user: user,
+          })
+          .from(organizationJoinRequest)
+          .innerJoin(user, eq(organizationJoinRequest.userId, user.id))
+          .where(searchConditions)
+          .orderBy(desc(organizationJoinRequest.createdAt))
+          .limit(limit)
+          .offset(offset);
+          
+        requests.length = 0;
+        requests.push(...searchRequests);
+      }
+      
+      // Get organization data
+      const [org] = await db
+        .select()
+        .from(organization)
+        .where(eq(organization.id, input.organizationId))
+        .limit(1);
+      
+      // Get reviewer data for requests
+      const reviewerIds = requests
+        .map(r => r.request.reviewedBy)
+        .filter(Boolean) as string[];
+      
+      const reviewers = reviewerIds.length > 0 ? await db
+        .select({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        })
+        .from(user)
+        .where(sql`${user.id} IN (${sql.join(reviewerIds, sql`, `)})`) : [];
+      
+      const reviewerMap = new Map(reviewers.map(r => [r.id, r]));
+      
+      // Format response
+      const formattedRequests = requests.map(({ request, user: userData }) => ({
+        id: request.id,
+        organizationId: request.organizationId,
+        userId: request.userId,
+        user: {
+          id: userData.id,
+          name: userData.name || '',
+          email: userData.email || '',
+          image: userData.image,
+        },
+        organization: {
+          id: org.id,
+          name: org.name,
+          slug: org.slug,
+          logo: org.logo,
+        },
+        requestedRole: request.requestedRole as OrganizationRole,
+        message: request.message,
+        status: request.status as JoinRequestStatus,
+        reviewedBy: request.reviewedBy ? reviewerMap.get(request.reviewedBy) || null : null,
+        reviewedAt: request.reviewedAt,
+        reviewNote: request.reviewNote,
+        autoApproved: request.autoApproved,
+        createdAt: request.createdAt!,
+        updatedAt: request.updatedAt!,
+      }));
+      
+      // Get total count
+      const countResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(organizationJoinRequest)
+        .where(and(...conditions));
+      
+      return {
+        requests: formattedRequests,
+        total: Number(countResult[0]?.count || 0),
+      };
+    }),
+
+  // List user's join requests
+  listUserJoinRequests: protectedProcedure
+    .input(ListUserJoinRequestsSchema)
+    .query(async ({ input, ctx }) => {
+      const { limit = 20, page = 1, status } = input;
+      const offset = (page - 1) * limit;
+      
+      const conditions = [
+        eq(organizationJoinRequest.userId, ctx.user.id),
+      ];
+      
+      if (status) {
+        conditions.push(eq(organizationJoinRequest.status, status));
+      }
+      
+      const requests = await db
+        .select({
+          request: organizationJoinRequest,
+          organization: organization,
+        })
+        .from(organizationJoinRequest)
+        .innerJoin(organization, eq(organizationJoinRequest.organizationId, organization.id))
+        .where(and(...conditions))
+        .orderBy(desc(organizationJoinRequest.createdAt))
+        .limit(limit)
+        .offset(offset);
+      
+      // Get user data
+      const [userData] = await db
+        .select()
+        .from(user)
+        .where(eq(user.id, ctx.user.id))
+        .limit(1);
+      
+      // Get reviewer data for requests
+      const reviewerIds = requests
+        .map(r => r.request.reviewedBy)
+        .filter(Boolean) as string[];
+      
+      const reviewers = reviewerIds.length > 0 ? await db
+        .select({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        })
+        .from(user)
+        .where(sql`${user.id} IN (${sql.join(reviewerIds, sql`, `)})`) : [];
+      
+      const reviewerMap = new Map(reviewers.map(r => [r.id, r]));
+      
+      // Format response
+      const formattedRequests = requests.map(({ request, organization: org }) => ({
+        id: request.id,
+        organizationId: request.organizationId,
+        userId: request.userId,
+        user: {
+          id: userData.id,
+          name: userData.name || '',
+          email: userData.email || '',
+          image: userData.image,
+        },
+        organization: {
+          id: org.id,
+          name: org.name,
+          slug: org.slug,
+          logo: org.logo,
+        },
+        requestedRole: request.requestedRole as OrganizationRole,
+        message: request.message,
+        status: request.status as JoinRequestStatus,
+        reviewedBy: request.reviewedBy ? reviewerMap.get(request.reviewedBy) || null : null,
+        reviewedAt: request.reviewedAt,
+        reviewNote: request.reviewNote,
+        autoApproved: request.autoApproved,
+        createdAt: request.createdAt!,
+        updatedAt: request.updatedAt!,
+      }));
+      
+      // Get total count
+      const countResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(organizationJoinRequest)
+        .where(and(...conditions));
+      
+      return {
+        requests: formattedRequests,
+        total: Number(countResult[0]?.count || 0),
+      };
+    }),
+
+  // Review join request (approve/reject)
+  reviewJoinRequest: protectedProcedure
+    .input(ReviewJoinRequestSchema)
+    .output(JoinRequestResponseSchema)
+    .mutation(async ({ input, ctx }) => {
+      // Get the request
+      const [request] = await db
+        .select()
+        .from(organizationJoinRequest)
+        .where(eq(organizationJoinRequest.id, input.requestId))
+        .limit(1);
+      
+      if (!request) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Join request not found',
+        });
+      }
+      
+      if (request.status !== 'pending') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'This request has already been reviewed',
+        });
+      }
+      
+      // Check permission
+      await orgAccess.requirePermission(
+        ctx.user.id,
+        request.organizationId,
+        'members.manage'
+      );
+      
+      const newStatus = input.action === 'approve' ? 'approved' : 'rejected';
+      const approvedRole = input.approvedRole || request.requestedRole;
+      
+      // Update request
+      const [updatedRequest] = await db
+        .update(organizationJoinRequest)
+        .set({
+          status: newStatus,
+          reviewedBy: ctx.user.id,
+          reviewedAt: new Date(),
+          reviewNote: input.reviewNote,
+          updatedAt: new Date(),
+        })
+        .where(eq(organizationJoinRequest.id, input.requestId))
+        .returning();
+      
+      // If approved, add as member
+      if (input.action === 'approve') {
+        await db.insert(organizationMember).values({
+          organizationId: request.organizationId,
+          userId: request.userId,
+          role: approvedRole,
+          status: 'active',
+        });
+        
+        await logActivity(
+          request.organizationId,
+          ctx.user.id,
+          'member.join_request_approved',
+          'member',
+          'join_request',
+          request.id,
+          { 
+            approvedRole,
+            requestedUserId: request.userId,
+          }
+        );
+      } else {
+        await logActivity(
+          request.organizationId,
+          ctx.user.id,
+          'member.join_request_rejected',
+          'member',
+          'join_request',
+          request.id,
+          { 
+            requestedUserId: request.userId,
+            reason: input.reviewNote,
+          }
+        );
+      }
+      
+      // Get full data for response
+      const [fullRequest] = await db
+        .select({
+          request: organizationJoinRequest,
+          user: user,
+          organization: organization,
+        })
+        .from(organizationJoinRequest)
+        .innerJoin(user, eq(organizationJoinRequest.userId, user.id))
+        .innerJoin(organization, eq(organizationJoinRequest.organizationId, organization.id))
+        .where(eq(organizationJoinRequest.id, input.requestId))
+        .limit(1);
+      
+      const [reviewer] = await db
+        .select()
+        .from(user)
+        .where(eq(user.id, ctx.user.id))
+        .limit(1);
+      
+      return {
+        id: fullRequest.request.id,
+        organizationId: fullRequest.request.organizationId,
+        userId: fullRequest.request.userId,
+        user: {
+          id: fullRequest.user.id,
+          name: fullRequest.user.name || '',
+          email: fullRequest.user.email || '',
+          image: fullRequest.user.image,
+        },
+        organization: {
+          id: fullRequest.organization.id,
+          name: fullRequest.organization.name,
+          slug: fullRequest.organization.slug,
+          logo: fullRequest.organization.logo,
+        },
+        requestedRole: fullRequest.request.requestedRole as OrganizationRole,
+        message: fullRequest.request.message,
+        status: fullRequest.request.status as JoinRequestStatus,
+        reviewedBy: {
+          id: reviewer.id,
+          name: reviewer.name || '',
+          email: reviewer.email || '',
+        },
+        reviewedAt: fullRequest.request.reviewedAt,
+        reviewNote: fullRequest.request.reviewNote,
+        autoApproved: fullRequest.request.autoApproved,
+        createdAt: fullRequest.request.createdAt!,
+        updatedAt: fullRequest.request.updatedAt!,
+      };
+    }),
+
+  // Cancel join request
+  cancelJoinRequest: protectedProcedure
+    .input(CancelJoinRequestSchema)
+    .mutation(async ({ input, ctx }) => {
+      // Get the request
+      const [request] = await db
+        .select()
+        .from(organizationJoinRequest)
+        .where(
+          and(
+            eq(organizationJoinRequest.id, input.requestId),
+            eq(organizationJoinRequest.userId, ctx.user.id)
+          )
+        )
+        .limit(1);
+      
+      if (!request) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Join request not found',
+        });
+      }
+      
+      if (request.status !== 'pending') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Only pending requests can be cancelled',
+        });
+      }
+      
+      // Update request
+      await db
+        .update(organizationJoinRequest)
+        .set({
+          status: 'cancelled',
+          updatedAt: new Date(),
+        })
+        .where(eq(organizationJoinRequest.id, input.requestId));
+      
+      await logActivity(
+        request.organizationId,
+        ctx.user.id,
+        'member.join_request_sent',
+        'member',
+        'join_request',
+        request.id
+      );
+      
+      return { success: true };
     }),
 });

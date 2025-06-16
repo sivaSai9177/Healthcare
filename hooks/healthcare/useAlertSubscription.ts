@@ -1,16 +1,20 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api/trpc';
 import { log } from '@/lib/core/debug/logger';
 import { showSuccessAlert } from '@/lib/core/alert';
 
 // Hook for optimistic updates with React 19's useOptimistic
-import { useOptimistic } from 'react';
+// import { useOptimistic } from 'react';
 // Define AlertEvent type locally to avoid server imports
 interface AlertEvent {
-  type: 'created' | 'acknowledged' | 'resolved' | 'escalated';
+  type: 'alert.created' | 'alert.acknowledged' | 'alert.resolved' | 'alert.escalated';
   alertId: string;
-  alert: {
+  data: {
+    roomNumber?: string;
+    toTier?: number;
+    [key: string]: any;
+  };
+  alert?: {
     id: string;
     patientName: string;
     roomNumber: string;
@@ -105,45 +109,20 @@ export function useAlertSubscription({
 
     log.info('Starting alert subscription', 'ALERT_SUBSCRIPTION', { hospitalId });
 
-    // Use the real WebSocket subscription
-    const subscription = api.healthcare.subscribeToAlerts.subscribe(
-      { hospitalId },
-      {
-        onData: (event) => {
-          handleEvent(event);
-        },
-        onError: (error) => {
-          log.error('Alert subscription error', 'ALERT_SUBSCRIPTION', error);
-          
-          // Fall back to polling on error
-          const pollInterval = setInterval(() => {
-            queryClient.invalidateQueries({
-              queryKey: [['healthcare', 'getActiveAlerts'], { input: { hospitalId } }],
-            });
-          }, 5000);
-          
-          subscriptionRef.current = { type: 'polling', interval: pollInterval };
-        },
-        onStarted: () => {
-          log.info('Alert subscription connected', 'ALERT_SUBSCRIPTION');
-          subscriptionRef.current = { type: 'websocket' };
-        },
-        onStopped: () => {
-          log.info('Alert subscription disconnected', 'ALERT_SUBSCRIPTION');
-          subscriptionRef.current = null;
-        },
-      }
-    );
-
-    // Store subscription reference
-    subscriptionRef.current = { type: 'websocket', subscription };
+    // Fall back to polling for now since WebSocket subscription requires special handling
+    const pollInterval = setInterval(() => {
+      queryClient.invalidateQueries({
+        queryKey: [['healthcare', 'getActiveAlerts'], { input: { hospitalId } }],
+      });
+    }, 5000);
+    
+    subscriptionRef.current = { type: 'polling', interval: pollInterval };
+    log.info('Using polling for alert updates', 'ALERT_SUBSCRIPTION');
 
     // Cleanup on unmount
     return () => {
       if (subscriptionRef.current?.type === 'polling') {
         clearInterval(subscriptionRef.current.interval);
-      } else if (subscriptionRef.current?.subscription) {
-        subscriptionRef.current.subscription.unsubscribe();
       }
       subscriptionRef.current = null;
     };
@@ -161,29 +140,19 @@ export function useAlertDetailSubscription(alertId: string | null) {
   useEffect(() => {
     if (!alertId) return;
 
-    const subscription = api.healthcare.subscribeToAlert.subscribe(
-      { alertId },
-      {
-        onData: (event) => {
-          log.info('Alert detail event received', 'ALERT_DETAIL_SUBSCRIPTION', event);
-
-          // Invalidate alert-specific queries
-          queryClient.invalidateQueries({
-            queryKey: [['healthcare', 'getEscalationStatus'], { input: { alertId } }],
-          });
-          
-          queryClient.invalidateQueries({
-            queryKey: [['healthcare', 'getEscalationHistory'], { input: { alertId } }],
-          });
-        },
-        onError: (error) => {
-          log.error('Alert detail subscription error', 'ALERT_DETAIL_SUBSCRIPTION', error);
-        },
-      }
-    );
+    // Fall back to polling for alert details
+    const pollInterval = setInterval(() => {
+      queryClient.invalidateQueries({
+        queryKey: [['healthcare', 'getEscalationStatus'], { input: { alertId } }],
+      });
+      
+      queryClient.invalidateQueries({
+        queryKey: [['healthcare', 'getEscalationHistory'], { input: { alertId } }],
+      });
+    }, 5000);
 
     return () => {
-      subscription.unsubscribe();
+      clearInterval(pollInterval);
     };
   }, [alertId, queryClient]);
 }

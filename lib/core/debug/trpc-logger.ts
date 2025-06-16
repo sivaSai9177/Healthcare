@@ -1,58 +1,48 @@
 /**
  * tRPC Logging Middleware
- * Simple implementation for development
+ * Uses unified logger for consistent logging
  */
 
-import { log } from './logger';
+import { logger } from './logger';
 
 export const trpcLogger = {
   // Basic logging methods
   logRequest: (path: string, input: any) => {
-    log.api.request(`tRPC ${path}`, { input });
+    logger.trpc.request(path, 'query', input);
   },
   
   logResponse: (path: string, result: any, duration: number) => {
-    log.api.response(`tRPC ${path} completed`, { 
-      duration: `${duration}ms`,
-      hasResult: !!result 
-    });
+    logger.trpc.success(path, 'query', duration);
   },
   
   logError: (path: string, error: any) => {
-    log.api.error(`tRPC ${path} failed`, error);
+    logger.trpc.error(path, 'query', error);
   },
 
   // Enhanced logging methods expected by middleware
   logRequestStart: (path: string, type: string, ctx: any, input: any, requestId: string) => {
-    log.api.request(`tRPC ${type.toUpperCase()} ${path} started`, { 
-      requestId,
-      hasInput: !!input,
-      userId: ctx.session?.user?.id,
-      userAgent: ctx.req?.headers?.get?.('user-agent')?.substring(0, 100)
-    });
+    logger.trpc.request(path, type, input, requestId);
+    
+    // Log auth context if available
+    if (ctx.session?.user?.id) {
+      logger.debug(`TRPC request with auth context`, 'TRPC', {
+        userId: ctx.session.user.id,
+        userRole: (ctx.session.user as any)?.role,
+      });
+    }
   },
 
   logRequestSuccess: (path: string, type: string, result: any, durationMs: number, requestId: string) => {
-    log.api.response(`tRPC ${type.toUpperCase()} ${path} completed`, { 
-      requestId,
-      durationMs,
-      hasResult: !!result,
-      resultSize: typeof result === 'object' ? JSON.stringify(result).length : 0
-    });
+    logger.trpc.success(path, type, durationMs, requestId);
   },
 
   logRequestError: (path: string, type: string, error: any, durationMs: number, requestId: string) => {
-    log.api.error(`tRPC ${type.toUpperCase()} ${path} failed`, {
-      requestId,
-      durationMs,
-      error: error instanceof Error ? error.message : String(error),
-      errorCode: error?.code || 'UNKNOWN'
-    });
+    logger.trpc.error(path, type, error, durationMs, requestId);
   },
 
   // Auth event logging
   logAuthEvent: (event: string, path: string, ctx: any, details?: any) => {
-    log.auth.debug(`Auth event: ${event}`, {
+    logger.auth.debug(`Auth event: ${event}`, {
       path,
       event,
       userId: ctx.session?.user?.id,

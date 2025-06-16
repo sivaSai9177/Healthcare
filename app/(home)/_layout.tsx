@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/lib/theme/provider";
 import { Redirect, Slot, Tabs, usePathname } from "expo-router";
 import React from "react";
+import { logger } from "@/lib/core/debug/unified-logger";
 import { ActivityIndicator, Dimensions, Platform, View } from "react-native";
 import { Symbol } from '@/components/universal/display/Symbols';
 import { tabAnimationConfig } from "@/lib/navigation/transitions";
@@ -27,6 +28,36 @@ export default function TabLayout() {
   const theme = useTheme();
   const { user, isAuthenticated, hasHydrated } = useAuth();
   const pathname = usePathname();
+  
+  // Check if user has admin/manager role
+  const isAdmin = user?.role === "admin";
+  const isManager = user?.role === "manager";
+  const isHealthcareStaff = user?.role === "doctor" || 
+                           user?.role === "nurse" || 
+                           user?.role === "operator" ||
+                           user?.role === "head_doctor";
+  
+  // Log authentication state and tab visibility
+  React.useEffect(() => {
+    logger.auth.debug('TabLayout auth state', {
+      hasHydrated,
+      isAuthenticated,
+      userId: user?.id,
+      userRole: user?.role,
+      pathname,
+      isAdmin,
+      isManager,
+      isHealthcareStaff,
+      platform: Platform.OS
+    });
+    
+    // Count visible tabs
+    let visibleTabs = ['home', 'explore', 'settings']; // Always visible
+    if (isAdmin) visibleTabs.push('admin');
+    if (isManager || isAdmin) visibleTabs.push('manager');
+    if (user?.role === "operator") visibleTabs.push('operator');
+    logger.auth.debug('[TabLayout] Visible tabs', { count: visibleTabs.length, tabs: visibleTabs });
+  }, [hasHydrated, isAuthenticated, user, pathname, isAdmin, isManager, isHealthcareStaff]);
 
   // Wait for auth state to be loaded
   if (!hasHydrated) {
@@ -37,12 +68,10 @@ export default function TabLayout() {
     );
   }
 
-  // Check if user has admin/manager role
-  const isAdmin = user?.role === "admin";
-  const isManager = user?.role === "manager";
-  const isHealthcareStaff = user?.organizationRole === "doctor" || 
-                           user?.organizationRole === "nurse" || 
-                           user?.organizationRole === "operator";
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
   // Define navigation items
   const navItems = [
@@ -98,7 +127,7 @@ export default function TabLayout() {
     });
     
     // Add operator dashboard for operators
-    if (user?.organizationRole === "operator") {
+    if (user?.role === "operator") {
       navItems.push({
         id: "operator",
         title: "Alerts",
@@ -166,7 +195,7 @@ export default function TabLayout() {
       icon: "stethoscope",
     });
     
-    if (user?.organizationRole === "operator") {
+    if (user?.role === "operator") {
       sidebarItems.push({
         title: "Alert Center",
         url: "/(home)/operator-dashboard",
@@ -248,11 +277,9 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        ...tabAnimationConfig,
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.mutedForeground,
         tabBarStyle: {
-          ...tabAnimationConfig.tabBarStyle,
           backgroundColor: theme.background,
           borderTopColor: theme.border,
         },
@@ -262,6 +289,7 @@ export default function TabLayout() {
         animation: 'shift',
       }}
     >
+      {/* Always visible tabs first */}
       <Tabs.Screen
         name="index"
         options={{
@@ -280,7 +308,8 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* Admin Dashboard - Only visible for admin users */}
+      
+      {/* Conditionally visible tabs */}
       <Tabs.Screen
         name="admin"
         options={{
@@ -288,11 +317,9 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <Symbol size={24} name="shield.fill" color={color} />
           ),
-          // Hide tab for non-admin users
           href: isAdmin ? undefined : null,
         }}
       />
-      {/* Manager Dashboard - Only visible for manager or admin users */}
       <Tabs.Screen
         name="manager"
         options={{
@@ -300,34 +327,23 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <Symbol size={24} name="person.2.circle" color={color} />
           ),
-          // Hide tab for non-manager/admin users
           href: (isManager || isAdmin) ? undefined : null,
         }}
       />
-      {/* Redirects for moved routes */}
-      <Tabs.Screen
-        name="organization-dashboard"
-        options={{
-          href: null, // Hidden from tab bar
-        }}
-      />
+      
+      {/* Healthcare tab - visible for healthcare staff */}
       <Tabs.Screen
         name="healthcare-dashboard"
         options={{
-          href: null, // Hidden from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="operator-dashboard"
-        options={{
-          title: "Alerts",
+          title: "Healthcare",
           tabBarIcon: ({ color }) => (
-            <Symbol size={24} name="bell.badge.fill" color={color} />
+            <IconSymbol size={28} name="stethoscope" color={color} />
           ),
-          // Show only for operators
-          href: user?.organizationRole === "operator" ? undefined : null,
+          href: isHealthcareStaff ? undefined : null,
         }}
       />
+      
+      {/* Settings - always visible */}
       <Tabs.Screen
         name="settings"
         options={{
@@ -337,41 +353,31 @@ export default function TabLayout() {
           ),
         }}
       />
+      
+      {/* Hidden screens - grouped at the end */}
+      <Tabs.Screen
+        name="organization-dashboard"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="operator-dashboard"
+        options={{
+          href: null,
+        }}
+      />
       {/* Hidden screens */}
       <Tabs.Screen
         name="create-organization"
         options={{
-          href: null, // Always hidden from tab bar
+          href: null,
         }}
       />
       <Tabs.Screen
         name="organization-settings"
         options={{
-          href: null, // Always hidden from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="blocks-responsive-test"
-        options={{
-          href: null, // Always hidden from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="organization-test"
-        options={{
-          href: null, // Always hidden from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="responsive-test"
-        options={{
-          href: null, // Always hidden from tab bar
-        }}
-      />
-      <Tabs.Screen
-        name="operator-dashboard-simple"
-        options={{
-          href: null, // Always hidden from tab bar
+          href: null,
         }}
       />
     </Tabs>

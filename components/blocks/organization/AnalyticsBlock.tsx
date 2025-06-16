@@ -1,17 +1,9 @@
 import React from 'react';
 import { View } from 'react-native';
-import { 
-  Card, 
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  Text, 
-  Stack, 
-  Grid,
-  Badge,
-  Button,
-} from '@/components/universal';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge } from '@/components/universal/display';
+import { Text } from '@/components/universal/typography';
+import { Stack, Grid } from '@/components/universal/layout';
+import { Button } from '@/components/universal/interaction';
 import { useResponsive } from '@/hooks/responsive';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { TrendingUp, TrendingDown, Activity, Filter } from '@/components/universal/display/Symbols';

@@ -18,8 +18,12 @@ import { useSpacingStore } from '@/lib/stores/spacing-store';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 import { useDebugStore } from '@/lib/stores/debug-store';
 import { cn } from '@/lib/core/utils';
-import { Text, VStack, HStack, Button, Card, Switch } from '@/components/universal';
-import { Download, Trash2, Info } from '@/components/universal/display/Symbols';
+import { Text } from '@/components/universal/typography';
+import { VStack, HStack } from '@/components/universal/layout';
+import { Button } from '@/components/universal/interaction';
+import { Card } from '@/components/universal/display';
+import { Switch } from '@/components/universal/form';
+import { Symbol } from '@/components/universal/display/Symbols';
 import { useShadow } from '@/hooks/useShadow';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { debugLog, type LogLevel, type DebugLog, exportLogs } from '../utils/logger';
@@ -392,7 +396,7 @@ Environment: ${process.env.EXPO_PUBLIC_ENVIRONMENT || 'dev'}`;
                         className="flex-1"
                       >
                         <HStack gap={1} align="center">
-                          <Download size={16} />
+                          <Symbol name="arrow.down.circle" size={16} />
                           <Text>Export</Text>
                         </HStack>
                       </Button>
@@ -404,7 +408,7 @@ Environment: ${process.env.EXPO_PUBLIC_ENVIRONMENT || 'dev'}`;
                         className="flex-1"
                       >
                         <HStack gap={1} align="center">
-                          <Trash2 size={16} />
+                          <Symbol name="trash" size={16} />
                           <Text>Clear</Text>
                         </HStack>
                       </Button>
@@ -429,7 +433,7 @@ Environment: ${process.env.EXPO_PUBLIC_ENVIRONMENT || 'dev'}`;
                   
                   {filteredLogs.length === 0 ? (
                     <Card className="p-8 items-center">
-                      <Info size={48} className="text-muted-foreground mb-2" />
+                      <Symbol name="info.circle" size={48} className="text-muted-foreground mb-2" />
                       <Text colorTheme="mutedForeground">No logs to display</Text>
                     </Card>
                   ) : (

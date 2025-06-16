@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { VerifyEmail, useVerifyEmail, AuthCard } from '@/components/blocks/auth';
 import { View, Text } from 'react-native';
 import { Button } from '@/components/universal';
+import { logger } from '@/lib/core/debug/unified-logger';
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
@@ -10,6 +11,13 @@ export default function VerifyEmailScreen() {
   const { verify, resend, goBack, isLoading, isResending, error, email } = useVerifyEmail({
     email: params.email,
   });
+  
+  React.useEffect(() => {
+    logger.auth.debug('VerifyEmailScreen mounted', { email: params.email });
+    return () => {
+      logger.auth.debug('VerifyEmailScreen unmounted');
+    };
+  }, [params.email]);
 
   // If no email is available, show error
   if (!email) {

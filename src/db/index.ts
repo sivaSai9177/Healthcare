@@ -18,7 +18,31 @@ let db: any;
 const pool = new Pool({
   connectionString: DATABASE_URL,
   ssl: !isLocal && process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  // Connection pool configuration
+  max: 20, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
+  connectionTimeoutMillis: 10000, // How long to wait for a connection
+  // Add statement timeout to prevent long-running queries
+  statement_timeout: 30000, // 30 seconds
 });
+
+// Handle pool errors
+pool.on('error', (err) => {
+  console.error('[DB] Unexpected error on idle client', err);
+  // Don't exit the process, just log the error
+});
+
+// Handle graceful shutdown
+process.on('SIGINT', async () => {
+  await pool.end();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  await pool.end();
+  process.exit(0);
+});
+
 db = drizzlePg(pool);
 
 export { db };

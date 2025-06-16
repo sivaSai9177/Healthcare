@@ -10,15 +10,7 @@ import {
   HStack,
   Badge,
 } from '@/components/universal';
-import { 
-  Users, 
-  FileText, 
-  AlertCircle,
-  Settings,
-  Building2,
-  Shield,
-  Heart,
-} from '@/components/universal/display/Symbols';
+import { Symbol } from '@/components/universal/display/Symbols';
 import { cn } from '@/lib/core/utils';
 import { haptic } from '@/lib/ui/haptics';
 
@@ -53,7 +45,7 @@ export function QuickActionsBlock({
       id: 'profile',
       title: 'My Profile',
       description: 'View and edit profile',
-      icon: <Users size={24} />,
+      icon: <Symbol name="person.2" size={24} />,
       route: '/(modals)/profile-edit',
       color: 'primary',
     },
@@ -61,7 +53,7 @@ export function QuickActionsBlock({
       id: 'notifications',
       title: 'Notifications',
       description: 'View all alerts',
-      icon: <AlertCircle size={24} />,
+      icon: <Symbol name="exclamationmark.circle" size={24} />,
       route: '/(modals)/notification-center',
       badge: '3',
       color: 'destructive',
@@ -72,7 +64,7 @@ export function QuickActionsBlock({
       id: 'admin-users',
       title: 'Manage Users',
       description: 'User administration',
-      icon: <Shield size={24} />,
+      icon: <Symbol name="shield" size={24} />,
       route: '/(admin)/users',
       color: 'secondary',
       roles: ['admin'],
@@ -81,7 +73,7 @@ export function QuickActionsBlock({
       id: 'admin-system',
       title: 'System Settings',
       description: 'Configure system',
-      icon: <Settings size={24} />,
+      icon: <Symbol name="gearshape" size={24} />,
       route: '/(admin)/system',
       color: 'muted',
       roles: ['admin'],
@@ -92,7 +84,7 @@ export function QuickActionsBlock({
       id: 'manager-team',
       title: 'My Team',
       description: 'View team members',
-      icon: <Users size={24} />,
+      icon: <Symbol name="person.2" size={24} />,
       route: '/(manager)/team',
       color: 'primary',
       roles: ['manager', 'admin'],
@@ -101,7 +93,7 @@ export function QuickActionsBlock({
       id: 'manager-tasks',
       title: 'Tasks',
       description: 'Manage team tasks',
-      icon: <FileText size={24} />,
+      icon: <Symbol name="doc.text" size={24} />,
       route: '/(manager)/tasks',
       badge: '5',
       color: 'secondary',
@@ -111,7 +103,7 @@ export function QuickActionsBlock({
       id: 'manager-reports',
       title: 'Reports',
       description: 'View analytics',
-      icon: <Shield size={24} />,  // Changed from BarChart
+      icon: <Symbol name="shield" size={24} />,  // Changed from BarChart
       route: '/(manager)/reports',
       color: 'accent',
       roles: ['manager', 'admin'],
@@ -122,7 +114,7 @@ export function QuickActionsBlock({
       id: 'healthcare-alerts',
       title: 'Active Alerts',
       description: 'View all alerts',
-      icon: <AlertCircle size={24} />,
+      icon: <Symbol name="exclamationmark.circle" size={24} />,
       route: '/(healthcare)/alerts',
       badge: '2',
       color: 'destructive',
@@ -132,7 +124,7 @@ export function QuickActionsBlock({
       id: 'healthcare-patients',
       title: 'Patients',
       description: 'Patient list',
-      icon: <Heart size={24} />,
+      icon: <Symbol name="heart" size={24} />,
       route: '/(healthcare)/patients',
       color: 'primary',
       organizationRoles: ['doctor', 'nurse', 'head_doctor'],
@@ -141,7 +133,7 @@ export function QuickActionsBlock({
       id: 'operator-create',
       title: 'Create Alert',
       description: 'New emergency',
-      icon: <AlertCircle size={24} />,  // Changed from Plus
+      icon: <Symbol name="exclamationmark.circle" size={24} />,  // Changed from Plus
       route: '/(modals)/create-alert',
       color: 'destructive',
       organizationRoles: ['operator'],
@@ -152,7 +144,7 @@ export function QuickActionsBlock({
       id: 'org-members',
       title: 'Members',
       description: 'Team members',
-      icon: <Users size={24} />,
+      icon: <Symbol name="person.2" size={24} />,
       route: '/(organization)/members',
       color: 'primary',
       roles: ['manager', 'admin'],
@@ -161,7 +153,7 @@ export function QuickActionsBlock({
       id: 'org-settings',
       title: 'Organization',
       description: 'Org settings',
-      icon: <Building2 size={24} />,
+      icon: <Symbol name="building.2" size={24} />,
       route: '/(home)/organization-settings',
       color: 'secondary',
       roles: ['manager', 'admin'],
@@ -189,7 +181,7 @@ export function QuickActionsBlock({
   };
 
   return (
-    <VStack gap={4}>
+    <VStack spacing={4}>
       <Text size="xl" weight="semibold">Quick Actions</Text>
       
       <Grid columns={columns} gap={4} className="animate-stagger-in">
@@ -206,7 +198,7 @@ export function QuickActionsBlock({
                 "animate-fade-in"
               )}
             >
-              <VStack gap={3} align="center" className="h-full">
+              <VStack spacing={3} align="center" className="h-full">
                 <View 
                   className={cn(
                     "w-12 h-12 rounded-full items-center justify-center",
@@ -232,8 +224,8 @@ export function QuickActionsBlock({
                   </View>
                 </View>
                 
-                <VStack gap={1} align="center" className="flex-1">
-                  <HStack gap={1} align="center">
+                <VStack spacing={1} align="center" className="flex-1">
+                  <HStack spacing={1} align="center">
                     <Text size="sm" weight="semibold" className="text-center">
                       {action.title}
                     </Text>

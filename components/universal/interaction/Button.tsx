@@ -60,12 +60,22 @@ export interface ButtonProps extends Omit<PressableProps, 'style'> {
 
 // Button variant styles using Tailwind classes
 const buttonVariants = {
-  default: 'bg-primary text-primary-foreground',
-  destructive: 'bg-destructive text-destructive-foreground',
-  outline: 'border border-input bg-background',
-  secondary: 'bg-secondary text-secondary-foreground',
+  default: 'bg-primary text-primary-foreground hover:bg-primary/90',
+  destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+  outline: 'border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground',
+  secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
   ghost: 'hover:bg-accent hover:text-accent-foreground',
   link: 'text-primary underline-offset-4 hover:underline',
+};
+
+// Disabled variants for better visual feedback
+const disabledVariants = {
+  default: 'bg-primary/50 text-primary-foreground/70',
+  destructive: 'bg-destructive/50 text-destructive-foreground/70',
+  outline: 'border-input/50 bg-background/50 text-foreground/50',
+  secondary: 'bg-secondary/50 text-secondary-foreground/70',
+  ghost: 'text-foreground/50',
+  link: 'text-primary/50',
 };
 
 const buttonSizes = {
@@ -205,18 +215,22 @@ export const Button = React.forwardRef<View, ButtonProps>(({
 
   // Handle hover (web)
   const handleHoverIn = useCallback((event: any) => {
-    if (Platform.OS === 'web' && animated && shouldAnimate()) {
-      isHovered.value = withTiming(1, { duration: 200 });
+    if (Platform.OS === 'web' && !isDisabled && !isLoading) {
+      if (animated && shouldAnimate()) {
+        isHovered.value = withTiming(1, { duration: 200 });
+      }
+      onHoverIn?.(event);
     }
-    onHoverIn?.(event);
-  }, [animated, shouldAnimate, isHovered, onHoverIn]);
+  }, [animated, shouldAnimate, isHovered, isDisabled, isLoading, onHoverIn]);
 
   const handleHoverOut = useCallback((event: any) => {
-    if (Platform.OS === 'web' && animated && shouldAnimate()) {
-      isHovered.value = withTiming(0, { duration: 200 });
+    if (Platform.OS === 'web' && !isDisabled && !isLoading) {
+      if (animated && shouldAnimate()) {
+        isHovered.value = withTiming(0, { duration: 200 });
+      }
+      onHoverOut?.(event);
     }
-    onHoverOut?.(event);
-  }, [animated, shouldAnimate, isHovered, onHoverOut]);
+  }, [animated, shouldAnimate, isHovered, isDisabled, isLoading, onHoverOut]);
 
   // Handle press with haptics
   const handlePress = useCallback((event: any) => {
@@ -238,16 +252,10 @@ export const Button = React.forwardRef<View, ButtonProps>(({
 
   // Animated button style
   const animatedButtonStyle = useAnimatedStyle(() => {
-    const hoverScale = interpolate(
-      isHovered.value,
-      [0, 1],
-      [1, 1.02],
-      Extrapolation.CLAMP
-    );
-    
+    // Remove scale on hover for cleaner effect
     return {
       transform: [
-        { scale: scale.value * hoverScale } as any,
+        { scale: scale.value } as any,
         { translateY: translateY.value } as any,
       ],
       opacity: opacity.value,
@@ -295,10 +303,16 @@ export const Button = React.forwardRef<View, ButtonProps>(({
 
   // Create button classes
   const buttonClasses = cn(
-    'inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
-    buttonVariants[variant],
+    'inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+    (isDisabled || isLoading) ? disabledVariants[variant] : buttonVariants[variant],
     buttonSizes[responsiveSize],
     fullWidth && 'w-full',
+    (isDisabled || isLoading) && 'pointer-events-none',
+    // Web-specific cursor styles
+    Platform.OS === 'web' && [
+      (isDisabled || isLoading) ? 'cursor-not-allowed' : 'cursor-pointer',
+      'transition-all duration-200 ease-in-out'
+    ],
     className
   );
 

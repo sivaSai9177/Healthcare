@@ -1,5 +1,6 @@
 // Suppress common Expo Go warnings - MUST be first import
-import "@/lib/core/platform/suppress-warnings";
+// Temporarily disabled to fix Hermes errors
+// import "@/lib/core/platform/suppress-warnings";
 // Import crypto polyfill early for React Native
 import "@/lib/core/crypto";
 // Setup window debugger for browser console access
@@ -16,12 +17,15 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Platform } from "react-native";
 import { stackScreenOptions } from "@/lib/navigation/transitions";
 import { AnimationProvider } from "@/lib/ui/animations/AnimationContext";
+import { logger } from '@/lib/core/debug/unified-logger';
+import { useThemeStore } from '@/lib/stores/theme-store';
 
 import { ErrorBoundary } from "@/components/providers/ErrorBoundary";
 import { ConsolidatedDebugPanel } from "@/components/blocks/debug/DebugPanel/DebugPanel";
 import { SyncProvider } from "@/components/providers/SyncProvider";
 import { SessionProvider } from "@/components/providers/SessionProvider";
-import { ColorSchemeProvider } from "@/contexts/ColorSchemeContext";
+import { ThemeStyleInjector } from "@/components/providers/ThemeStyleInjector";
+import { ThemeSync } from "@/components/providers/ThemeSync";
 // SpacingProvider removed - now using Zustand store
 import { EnhancedThemeProvider } from "@/lib/theme/provider";
 import { TRPCProvider } from "@/lib/api/trpc";
@@ -38,8 +42,7 @@ if (Platform.OS !== 'web') {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     require("react-native-reanimated");
   } catch {
-    // TODO: Replace with structured logging
-    // console.debug('[Reanimated] Failed to load on native platform');
+    logger.debug('[Reanimated] Failed to load on native platform', 'SYSTEM');
   }
 }
 
@@ -51,18 +54,26 @@ const LayoutDebugger = () => {
   return null;
 };
 
+// StatusBar component that responds to theme changes
+const ThemedStatusBar = () => {
+  const colorScheme = useThemeStore((state) => state.getEffectiveColorScheme());
+  return <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />;
+};
+
 
 
 export default function RootLayout() {
-// TODO: Replace with structured logging - console.log('[RootLayout] Rendering, Platform:', Platform.OS);
-// TODO: Replace with structured logging - console.log('[RootLayout] Current time:', new Date().toISOString());
+  logger.system.info('RootLayout rendering', {
+    platform: Platform.OS,
+    timestamp: new Date().toISOString()
+  });
   
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
   const [storageReady, setStorageReady] = useState(Platform.OS === 'web');
   
-// TODO: Replace with structured logging - console.log('[RootLayout] Font loaded:', loaded, 'Storage ready:', storageReady);
+  logger.system.info('RootLayout state', { fontLoaded: loaded, storageReady });
 
   useEffect(() => {
     // Initialize storage on mobile
@@ -97,12 +108,13 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider style={{ flex: 1 }}>
       <ErrorBoundary>
-        <ColorSchemeProvider>
-          <TRPCProvider>
-            <SyncProvider>
-              <SessionProvider>
-                <EnhancedThemeProvider>
-                  <AnimationProvider>
+        <TRPCProvider>
+          <SyncProvider>
+            <SessionProvider>
+              <EnhancedThemeProvider>
+                <ThemeSync />
+                <AnimationProvider>
+                  <ThemeStyleInjector>
                     <Stack 
                     screenOptions={{
                       ...stackScreenOptions.default,
@@ -180,15 +192,15 @@ export default function RootLayout() {
                       }} 
                     />
                   </Stack>
-                  <StatusBar style="auto" />
+                  <ThemedStatusBar />
                   <ConsolidatedDebugPanel />
                   <LayoutDebugger />
-                  </AnimationProvider>
-                </EnhancedThemeProvider>
+                  </ThemeStyleInjector>
+                </AnimationProvider>
+              </EnhancedThemeProvider>
               </SessionProvider>
             </SyncProvider>
           </TRPCProvider>
-        </ColorSchemeProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

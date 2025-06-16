@@ -1,4 +1,15 @@
+// Load environment variables for API routes
+import 'dotenv/config';
 import { auth } from "@/lib/auth/auth-server";
+import { logger } from '@/lib/core/debug/unified-logger';
+
+// Validate critical environment variables
+if (!process.env.BETTER_AUTH_SECRET) {
+  logger.error('BETTER_AUTH_SECRET is not set', 'AUTH');
+}
+if (!process.env.DATABASE_URL) {
+  logger.error('DATABASE_URL is not set', 'AUTH');
+}
 
 // Simple Better Auth handler with proper CORS
 async function handler(request: Request) {
@@ -22,24 +33,36 @@ async function handler(request: Request) {
 
   try {
     // Debug logging
-    // TODO: Replace with structured logging
-    // console.log('[AUTH API] Request received:', {
-    //   url: request.url,
-    //   method: request.method,
-    //   headers: Object.fromEntries(request.headers.entries()),
-    // });
+    logger.api.request(request.method, new URL(request.url).pathname, {
+      headers: Object.fromEntries(request.headers.entries()),
+    });
     
     // Don't read request body - let Better Auth handle it
     // Reading the body consumes it and causes issues with Better Auth
     
     // Check if auth handler exists
     if (!auth || typeof auth.handler !== 'function') {
-      console.error('[AUTH API ERROR]: auth.handler is not a function', {
-        authExists: !!auth,
-        handlerType: typeof auth?.handler
+      logger.api.error('GET', '/api/auth', new Error('auth.handler is not a function'), undefined);
+      logger.api.error('Auth initialization issue', {
+        hasAuth: !!auth,
+        authKeys: auth ? Object.keys(auth) : [],
+        envVarsSet: {
+          BETTER_AUTH_SECRET: !!process.env.BETTER_AUTH_SECRET,
+          DATABASE_URL: !!process.env.DATABASE_URL,
+          BETTER_AUTH_BASE_URL: !!process.env.BETTER_AUTH_BASE_URL,
+        }
       });
       return new Response(
-        JSON.stringify({ error: 'Auth handler not properly initialized' }), 
+        JSON.stringify({ 
+          error: 'Auth handler not properly initialized',
+          details: process.env.NODE_ENV === 'development' ? {
+            hasAuth: !!auth,
+            envVarsSet: {
+              BETTER_AUTH_SECRET: !!process.env.BETTER_AUTH_SECRET,
+              DATABASE_URL: !!process.env.DATABASE_URL,
+            }
+          } : undefined
+        }), 
         {
           status: 500,
           headers: {
@@ -55,7 +78,7 @@ async function handler(request: Request) {
     
     // Special handling for sign-out endpoint with OAuth sessions
     if (url.pathname.includes('/sign-out') && request.method === 'POST') {
-      console.log('[AUTH API] Sign-out request detected');
+      logger.auth.debug('Sign-out request detected');
       
       try {
         // For OAuth sessions, Better Auth v1.2.8 has a known issue with JSON parsing
@@ -64,7 +87,7 @@ async function handler(request: Request) {
         
         // If we get a response, return it
         if (response) {
-          console.log('[AUTH API] Sign-out response:', {
+          logger.auth.debug('Sign-out response', {
             status: response.status,
             statusText: response.statusText
           });
@@ -80,7 +103,7 @@ async function handler(request: Request) {
         // Check if this is the known JSON parsing error with OAuth sessions
         if (error?.message?.includes('[object Object]') || 
             error?.message?.includes('is not valid JSON')) {
-          console.log('[AUTH API] Known OAuth sign-out issue detected, returning success');
+          logger.auth.debug('Known OAuth sign-out issue detected, returning success');
           
           // Return a successful response since the sign-out actually worked
           return new Response(
@@ -221,31 +244,38 @@ async function handler(request: Request) {
     }
     
     // Call Better Auth handler for normal requests
-    console.log('[AUTH API] Request details:', {
+    logger.auth.debug('Request details', {
       method: request.method,
       pathname: url.pathname,
       isSignOut: url.pathname.includes('sign-out'),
+      isOAuth: url.pathname.includes('callback') || url.pathname.includes('oauth'),
       headers: {
         cookie: request.headers.get('cookie'),
         authorization: request.headers.get('authorization'),
+        origin: request.headers.get('origin'),
+        referer: request.headers.get('referer'),
       }
     });
     
     const response = await auth.handler(request);
-    console.log('[AUTH API] Response from auth.handler:', {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries())
-    });
+    logger.api.response(request.method, url.pathname, response.status);
     
     // Log response body for errors
     if (response.status >= 400) {
       const clonedResponse = response.clone();
       try {
         const responseBody = await clonedResponse.text();
-        console.log('[AUTH API] Error response body:', responseBody);
+        logger.api.error(request.method, url.pathname, responseBody);
+        
+        // Try to parse as JSON for better error details
+        try {
+          const errorJson = JSON.parse(responseBody);
+          logger.api.error(request.method, url.pathname, errorJson);
+        } catch {
+          // Not JSON, that's ok
+        }
       } catch (e) {
-        console.log('[AUTH API] Could not read error response body');
+        logger.debug('Could not read error response body', 'API');
       }
     }
     
@@ -258,12 +288,7 @@ async function handler(request: Request) {
 
     return response;
   } catch (error) {
-    console.error('[AUTH API ERROR]:', error);
-    console.error('[AUTH API ERROR] Full error:', {
-      message: (error as Error).message,
-      stack: (error as Error).stack,
-      name: (error as Error).name,
-    });
+    logger.api.error(request.method, new URL(request.url).pathname, error);
     
     // Return more detailed error in development
     const errorMessage = process.env.NODE_ENV === 'development' 

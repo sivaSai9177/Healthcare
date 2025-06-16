@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ScrollView, RefreshControl, Pressable } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, ScrollView, RefreshControl, Pressable, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Text,
@@ -26,6 +26,12 @@ import {
 } from '@/components/universal/display/Symbols';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useTheme } from '@/lib/theme/provider';
+import { api } from '@/lib/api/trpc';
+import { useAuthStore } from '@/lib/stores/auth-store';
+import { LoadingView } from '@/components/universal/feedback';
+import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { ALERT_TYPE_CONFIG, URGENCY_LEVEL_CONFIG } from '@/types/healthcare';
+import { DatePicker } from '@/components/universal/form';
 
 interface AlertHistoryItem {
   id: string;
@@ -46,14 +52,71 @@ export default function AlertHistoryScreen() {
   const router = useRouter();
   const { spacing } = useSpacing();
   const theme = useTheme();
+  const { user } = useAuthStore();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState('today');
   const [statusFilter, setStatusFilter] = useState('all');
   const [urgencyFilter, setUrgencyFilter] = useState('all');
+  const [customStartDate, setCustomStartDate] = useState<Date | null>(null);
+  const [customEndDate, setCustomEndDate] = useState<Date | null>(null);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
-  // Mock data - replace with tRPC query
-  const [alerts] = useState<AlertHistoryItem[]>([
+  // Calculate date range based on selection
+  const { startDate, endDate } = useMemo(() => {
+    const now = new Date();
+    switch (dateRange) {
+      case 'today':
+        return {
+          startDate: startOfDay(now),
+          endDate: endOfDay(now),
+        };
+      case 'yesterday':
+        return {
+          startDate: startOfDay(subDays(now, 1)),
+          endDate: endOfDay(subDays(now, 1)),
+        };
+      case 'week':
+        return {
+          startDate: startOfDay(subDays(now, 7)),
+          endDate: endOfDay(now),
+        };
+      case 'month':
+        return {
+          startDate: startOfDay(subDays(now, 30)),
+          endDate: endOfDay(now),
+        };
+      case 'custom':
+        return {
+          startDate: customStartDate || startOfDay(subDays(now, 7)),
+          endDate: customEndDate || endOfDay(now),
+        };
+      default:
+        return {
+          startDate: startOfDay(now),
+          endDate: endOfDay(now),
+        };
+    }
+  }, [dateRange, customStartDate, customEndDate]);
+
+  // Fetch alert history using tRPC
+  const { 
+    data: alertHistoryData, 
+    isLoading, 
+    refetch 
+  } = api.healthcare.getAlertHistory.useQuery({
+    hospitalId: user?.organizationId || user?.hospitalId || '',
+    startDate,
+    endDate,
+    limit: 100,
+    offset: 0,
+  }, {
+    enabled: !!(user?.organizationId || user?.hospitalId),
+  });
+
+  // Mock data for fallback if needed
+  const mockAlerts: AlertHistoryItem[] = [
     {
       id: '1',
       patientName: 'John Doe',
@@ -92,12 +155,34 @@ export default function AlertHistoryScreen() {
       acknowledgedBy: ['Nurse Davis'],
       escalationCount: 2,
     },
-  ]);
+  ];
+
+  // Transform API data to match our interface
+  const alerts: AlertHistoryItem[] = useMemo(() => {
+    if (!alertHistoryData?.alerts) return mockAlerts;
+    
+    return alertHistoryData.alerts.map(alert => ({
+      id: alert.id,
+      patientName: alert.patientName || 'Unknown Patient',
+      roomNumber: alert.roomNumber,
+      alertType: alert.alertType,
+      urgencyLevel: alert.urgencyLevel,
+      status: alert.status as 'resolved' | 'acknowledged' | 'escalated' | 'expired',
+      createdAt: new Date(alert.createdAt),
+      resolvedAt: alert.resolvedAt ? new Date(alert.resolvedAt) : undefined,
+      responseTime: alert.acknowledgedAt 
+        ? Math.floor((new Date(alert.acknowledgedAt).getTime() - new Date(alert.createdAt).getTime()) / 1000)
+        : 0,
+      acknowledgedBy: alert.acknowledgedBy ? [alert.acknowledgedBy] : [],
+      escalationCount: alert.currentEscalationTier || 0,
+      resolutionNote: alert.description,
+    }));
+  }, [alertHistoryData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    // Refresh history
-    setTimeout(() => setRefreshing(false), 1000);
+    await refetch();
+    setRefreshing(false);
   };
 
   const handleExport = () => {
@@ -167,6 +252,10 @@ export default function AlertHistoryScreen() {
     
     return matchesSearch && matchesStatus && matchesUrgency;
   });
+
+  if (isLoading && !refreshing) {
+    return <LoadingView message="Loading alert history..." />;
+  }
 
   return (
     <ScrollView
@@ -299,6 +388,35 @@ export default function AlertHistoryScreen() {
                 />
               </View>
             </HStack>
+
+            {/* Custom Date Range Pickers */}
+            {dateRange === 'custom' && (
+              <HStack spacing="md" align="center">
+                <View className="flex-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onPress={() => setShowStartDatePicker(true)}
+                  >
+                    <Symbol name="calendar" size={16} />
+                    <Text>{customStartDate ? format(customStartDate, 'MMM dd, yyyy') : 'Start Date'}</Text>
+                  </Button>
+                </View>
+                
+                <Text variant="caption" className="text-muted-foreground">to</Text>
+                
+                <View className="flex-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onPress={() => setShowEndDatePicker(true)}
+                  >
+                    <Symbol name="calendar" size={16} />
+                    <Text>{customEndDate ? format(customEndDate, 'MMM dd, yyyy') : 'End Date'}</Text>
+                  </Button>
+                </View>
+              </HStack>
+            )}
           </VStack>
 
           {/* Alert History List */}
@@ -428,6 +546,33 @@ export default function AlertHistoryScreen() {
           )}
         </VStack>
       </Container>
+
+      {/* Date Pickers */}
+      {showStartDatePicker && (
+        <DatePicker
+          value={customStartDate || new Date()}
+          onChange={(date) => {
+            setShowStartDatePicker(false);
+            if (date) {
+              setCustomStartDate(date);
+            }
+          }}
+          onClose={() => setShowStartDatePicker(false)}
+        />
+      )}
+
+      {showEndDatePicker && (
+        <DatePicker
+          value={customEndDate || new Date()}
+          onChange={(date) => {
+            setShowEndDatePicker(false);
+            if (date) {
+              setCustomEndDate(date);
+            }
+          }}
+          onClose={() => setShowEndDatePicker(false)}
+        />
+      )}
     </ScrollView>
   );
 }

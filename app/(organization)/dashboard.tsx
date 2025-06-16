@@ -19,11 +19,10 @@ import {
 } from '@/components/blocks/organization';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { useRouter , Redirect } from 'expo-router';
-import { useTheme } from '@/lib/theme/provider';
 import { useResponsive } from '@/hooks/responsive';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { log } from '@/lib/core/debug/logger';
-import { Users, Settings, FileText, CreditCard } from '@/components/universal/display/Symbols';
+import { Symbol } from '@/components/universal/display/Symbols';
 
 // Loading skeleton for suspense
 const DashboardSkeleton = () => {
@@ -42,8 +41,6 @@ const DashboardSkeleton = () => {
 export default function OrganizationDashboard() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const { colors } = useTheme();
-  const theme = useTheme();
   const { isMobile, isTablet, isDesktop } = useResponsive();
   const { spacing } = useSpacing();
   
@@ -94,30 +91,30 @@ export default function OrganizationDashboard() {
     {
       id: 'invite',
       label: 'Invite',
-      icon: <Users size={20} color={colors.primaryForeground} />,
+      icon: <Symbol name="person.2" size={20} className="text-primary-foreground" />,
       onPress: () => router.push('/(home)/organization-settings'),
-      color: colors.primary,
+      color: 'primary',
     },
     {
       id: 'settings',
       label: 'Settings',
-      icon: <Settings size={20} color={colors.primaryForeground} />,
+      icon: <Symbol name="gearshape" size={20} className="text-primary-foreground" />,
       onPress: () => router.push('/(home)/organization-settings'),
-      color: colors.primary,
+      color: 'primary',
     },
     {
       id: 'reports',
       label: 'Reports',
-      icon: <FileText size={20} color={colors.primaryForeground} />,
+      icon: <Symbol name="doc.text" size={20} className="text-primary-foreground" />,
       onPress: () => {},
-      color: colors.primary,
+      color: 'primary',
     },
     {
       id: 'billing',
       label: 'Billing',
-      icon: <CreditCard size={20} color={colors.primaryForeground} />,
+      icon: <Symbol name="creditcard" size={20} className="text-primary-foreground" />,
       onPress: () => {},
-      color: colors.primary,
+      color: 'primary',
     },
   ];
   
@@ -190,7 +187,7 @@ export default function OrganizationDashboard() {
               onUpgradePlan={() => {}}
               onSettings={() => router.push('/(home)/organization-settings')}
             />
-            <QuickActionsBlock actions={quickActions} columns={2} />
+            <OrganizationQuickActionsBlock actions={quickActions} columns={2} />
             <HStack gap={spacing.md} style={{ overflowX: 'scroll' }}>
               <OrganizationMetricsBlock metrics={activityMetrics} title="Activity" />
               <OrganizationMetricsBlock metrics={growthMetrics} title="Growth" />
@@ -211,7 +208,7 @@ export default function OrganizationDashboard() {
     const SafeAreaView = require('react-native-safe-area-context').SafeAreaView;
     
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+      <SafeAreaView style={{ flex: 1 }} className="bg-background">
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ flexGrow: 1 }}

@@ -16,10 +16,12 @@ import {
   Separator,
   SidebarTrigger
 } from "@/components/universal";
-import { ScrollView, Platform } from "react-native";
+import { ScrollView, Platform, View, Text as RNText } from "react-native";
 import { useAuth } from "@/hooks/useAuth";
 import { log } from "@/lib/core/debug/logger";
 import { SpacingScale } from '@/lib/design';
+import { useTheme } from '@/lib/theme/provider';
+import { useThemeStore } from '@/lib/stores/theme-store';
 
 // Feature card component
 const FeatureCard = ({ 
@@ -66,6 +68,14 @@ const FeatureCard = ({
 
 export default function ExploreScreen() {
   const { user } = useAuth();
+  const theme = useTheme();
+  const themeId = useThemeStore((state) => state.themeId);
+  
+  // Debug logging
+  React.useEffect(() => {
+    console.log('[ExploreScreen] Rendered with user:', user?.email, 'role:', user?.role);
+    console.log('[ExploreScreen] Theme:', themeId, 'Background:', theme.background, 'Primary:', theme.primary);
+  }, [user, theme, themeId]);
 
   const features = [
     {
@@ -128,9 +138,13 @@ export default function ExploreScreen() {
 
   const availableFeatures = getAvailableFeatures();
 
-  return (
-    <ScrollContainer safe>
-      <VStack p={0} spacing={0}>
+  // Wrap in error boundary
+  try {
+  
+    // Use ScrollContainer for consistent theming
+    return (
+      <ScrollContainer safe>
+        <VStack p={0} spacing={0}>
         {/* Header with Toggle and Breadcrumbs - Only on Web */}
         {Platform.OS === 'web' && (
           <Box px={4 as SpacingScale} py={3 as SpacingScale} borderBottomWidth={1} borderTheme="border">
@@ -206,7 +220,16 @@ export default function ExploreScreen() {
           </CardContent>
         </Card>
         </VStack>
-    </VStack>
-    </ScrollContainer>
-  );
+        </VStack>
+      </ScrollContainer>
+    );
+  } catch (error) {
+    console.error('[ExploreScreen] Render error:', error);
+    return (
+      <View style={{ flex: 1, backgroundColor: 'white', padding: 20, justifyContent: 'center', alignItems: 'center' }}>
+        <RNText style={{ fontSize: 18, color: 'red' }}>Error rendering Explore screen</RNText>
+        <RNText style={{ fontSize: 14, color: 'gray', marginTop: 10 }}>{error?.message || 'Unknown error'}</RNText>
+      </View>
+    );
+  }
 }

@@ -697,3 +697,27 @@ export const Eye = (props: Omit<SymbolProps, 'name'>) => (
 export const EyeOff = (props: Omit<SymbolProps, 'name'>) => (
   <Symbol name="eye.slash" {...props} />
 );
+
+// Additional icons for organization features
+export const Check = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="checkmark" {...props} />
+);
+
+export const X = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="xmark" {...props} />
+);
+
+export const Send = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="paperplane" {...props} />
+);
+
+// Removed Search export to avoid conflict with interaction/Search component
+// Use SearchIcon or SearchSymbol instead
+
+export const BellOff = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="bell.slash" {...props} />
+);
+
+export const Smartphone = (props: Omit<SymbolProps, 'name'>) => (
+  <Symbol name="iphone" {...props} />
+);

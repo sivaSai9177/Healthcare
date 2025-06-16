@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, ScrollView } from 'react-native';
-import { Card, VStack, HStack, Text, CardContent } from '@/components/universal';
+import { Card, CardContent } from '@/components/universal/display';
+import { VStack, HStack } from '@/components/universal/layout';
+import { Text } from '@/components/universal/typography';
 import { LinearGradient } from 'expo-linear-gradient';
 import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/lib/stores/spacing-store';
@@ -35,7 +37,8 @@ export function AuthCard({
   const shadowXl = useShadow({ size: 'xl' });
   const { isMobile, isTablet, isDesktop } = useResponsive();
   
-  const showSplitLayout = showImage && (isTablet || isDesktop);
+  const showSplitLayout = showImage && isDesktop;
+  const showCard = !isMobile; // No card on mobile
   const isDark = colorScheme === 'dark';
 
   // Gradient colors based on theme
@@ -43,15 +46,45 @@ export function AuthCard({
     ? ['#1e3a8a', '#3b82f6', '#60a5fa'] // Blue gradient for dark
     : ['#dbeafe', '#93c5fd', '#3b82f6']; // Light blue gradient
 
+  if (isMobile) {
+    // Mobile: Full-screen layout without card
+    return (
+      <ScrollView 
+        style={{ flex: 1, backgroundColor: isDark ? theme.background : theme.muted }}
+        contentContainerStyle={{ flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 24 }}>
+          {(title || subtitle) && (
+            <View style={{ marginBottom: 32 }}>
+              {title && (
+                <Text size="2xl" weight="bold" style={{ marginBottom: 8 }}>
+                  {title}
+                </Text>
+              )}
+              {subtitle && (
+                <Text size="base" colorTheme="mutedForeground">
+                  {subtitle}
+                </Text>
+              )}
+            </View>
+          )}
+          {children}
+        </View>
+      </ScrollView>
+    );
+  }
+
+  // Desktop/Tablet: Card layout
   return (
     <ScrollView 
-      className="flex-1 bg-background"
+      style={{ flex: 1, backgroundColor: theme.muted }}
       contentContainerStyle={{ flexGrow: 1 }}
       showsVerticalScrollIndicator={false}
     >
       <View className={cn(
         "flex-1 items-center justify-center",
-        isMobile ? "p-4" : "p-8",
+        "p-8",
         className
       )}>
         <AnimatedView
@@ -148,7 +181,7 @@ export function AuthCard({
                 isMobile ? "p-6" : "p-8",
                 contentClassName
               )}>
-                <VStack gap={spacing[6] as any}>
+                <VStack gap={spacing[4] as any}>
                   {(title || subtitle) && (
                     <VStack gap={spacing[2] as any} align="center">
                       {title && (

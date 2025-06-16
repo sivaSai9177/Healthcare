@@ -3,14 +3,11 @@ import { View, KeyboardAvoidingView, Platform } from 'react-native';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import {
-  Text,
-  Button,
-  Input,
-  VStack,
-  HStack,
-} from '@/components/universal';
-import { Symbols } from '@/components/universal';
+import { Text } from '@/components/universal/typography';
+import { Button } from '@/components/universal/interaction';
+import { Input } from '@/components/universal/form';
+import { VStack, HStack } from '@/components/universal/layout';
+
 import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { haptic } from '@/lib/ui/haptics';

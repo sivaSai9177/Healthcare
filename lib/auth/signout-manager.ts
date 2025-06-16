@@ -92,12 +92,22 @@ export class SignOutManager {
         log.info('Successfully signed out', 'COMPONENT');
       }
 
-      // 7. Navigate to login or specified route
+      // 7. Add grace period to prevent immediate login issues
+      if (Platform.OS === 'web') {
+        // Store logout timestamp for grace period checking
+        try {
+          localStorage.setItem('last-logout-timestamp', Date.now().toString());
+        } catch (e) {
+          // Ignore storage errors
+        }
+      }
+      
+      // 8. Navigate to login or specified route
       if (redirectTo) {
-        // Small delay to ensure state updates propagate
+        // Slightly longer delay to ensure all cleanup is complete
         setTimeout(() => {
           router.replace(redirectTo as any);
-        }, 100);
+        }, 500);
       }
 
       return { success: true };
@@ -119,28 +129,49 @@ export class SignOutManager {
   private static async clearLocalSession() {
     const storage = Platform.OS === 'web' ? webStorage : mobileStorage;
     
-    // Clear Better Auth keys
+    // Clear Better Auth keys - expanded list to handle all formats
     const keysToRemove = [
-      // Better Auth standard keys
+      // Better Auth standard keys (underscore format)
       'better-auth_session-token',
       'better-auth_session_data',
       'better-auth_user_data',
       'better-auth_cookie',
+      'better-auth_session.token',
+      'better-auth_session.data',
+      'better-auth_user.data',
       
-      // Alternative formats
+      // Alternative formats (dot notation)
       'better-auth.session-token',
+      'better-auth.session_token',
       'better-auth.session_data', 
       'better-auth.user_data',
       'better-auth.cookie',
+      'better-auth.sessionToken',
+      'better-auth.sessionData',
+      'better-auth.userData',
+      
+      // Cookie-based keys
+      'better-auth.session_token',
+      'better-auth.refresh_token',
+      'better-auth.csrf',
+      'better-auth.state',
+      'better-auth.remember',
+      '__Secure-better-auth.session_token',
+      '__Host-better-auth.refresh_token',
+      '__Host-better-auth.csrf',
       
       // Legacy keys
       'session-token',
       'auth-token',
       'user-data',
+      'sessionToken',
+      'authToken',
       
       // App-specific keys
       'expo-starter_auth_session',
       'expo-starter_auth_user',
+      'auth_session',
+      'auth_user',
     ];
 
     for (const key of keysToRemove) {
@@ -153,6 +184,27 @@ export class SignOutManager {
 
     // Clear session manager data
     await sessionManager.clearSession();
+    
+    // For web, also try to clear cookies directly
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const cookiesToClear = [
+        'better-auth.session_token',
+        'better-auth.refresh_token',
+        'better-auth.csrf',
+        'better-auth.state',
+        'better-auth.remember',
+        '__Secure-better-auth.session_token',
+        '__Host-better-auth.refresh_token',
+        '__Host-better-auth.csrf',
+      ];
+      
+      cookiesToClear.forEach(cookieName => {
+        // Clear cookie with various path and domain combinations
+        document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`;
+        document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${window.location.hostname};`;
+      });
+    }
     
     log.info('Local session cleared', 'SIGNOUT');
   }

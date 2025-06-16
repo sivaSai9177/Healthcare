@@ -116,10 +116,10 @@ export const Avatar = React.forwardRef<View, AvatarProps>(({
   const { spacing } = useSpacing();
   const [imageError, setImageError] = useState(false);
   const { shouldAnimate } = useAnimationStore();
-  const shadowStyle = useShadow(shadow);
+  const shadowStyle = useShadow(shadow !== 'none' ? shadow : undefined);
   
-  const config = sizeConfig[size];
-  const borderRadius = roundedMap[rounded];
+  const config = sizeConfig[size] || sizeConfig.default;
+  const borderRadius = roundedMap[rounded] || roundedMap.full;
   
   // Animation values
   const opacity = useSharedValue(0);

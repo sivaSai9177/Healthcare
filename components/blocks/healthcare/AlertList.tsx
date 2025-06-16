@@ -1,15 +1,9 @@
 import React, { useRef, useTransition, memo, useEffect } from 'react';
-import { Platform, FlatList, View } from 'react-native';
-import {
-  Card,
-  VStack,
-  HStack,
-  Text,
-  Button,
-  Badge,
-  Box,
-  ScrollContainer,
-} from '@/components/universal';
+import { Platform, FlatList, View, ScrollView } from 'react-native';
+import { Card, Badge } from '@/components/universal/display';
+import { VStack, HStack, Box } from '@/components/universal/layout';
+import { Text } from '@/components/universal/typography';
+import { Button } from '@/components/universal/interaction';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useShadow } from '@/hooks/useShadow';
 import { api } from '@/lib/api/trpc';
@@ -23,6 +17,7 @@ import { cn } from '@/lib/core/utils';
 import { haptic } from '@/lib/ui/haptics';
 import { SpacingScale } from '@/lib/design';
 import { useAuthStore } from '@/lib/stores/auth-store';
+import { useAlertSubscription } from '@/hooks/healthcare/useAlertSubscription';
 
 interface AlertItem {
   id: string;
@@ -84,12 +79,7 @@ const AlertCardItem = memo(({
   };
   
   return (
-    <View className={cn(
-      "animate-fade-in",
-      `delay-stagger-${staggerDelay}`,
-      "transition-all duration-200"
-    )}>
-      <Card
+    <Card
       className={cn(
         "border-l-4",
         alert.resolved && 'opacity-70',
@@ -206,7 +196,6 @@ const AlertCardItem = memo(({
         </HStack>
       )}
     </Card>
-    </View>
   );
 }, (prevProps, nextProps) => {
   // Custom comparison for memo
@@ -245,12 +234,29 @@ export const AlertList = ({
   const canAcknowledge = ['nurse', 'doctor', 'head_doctor', 'admin'].includes(role);
   const canResolve = ['doctor', 'head_doctor', 'admin'].includes(role);
   
+  // Subscribe to real-time alert updates
+  useAlertSubscription({
+    hospitalId,
+    showNotifications: true,
+    onAlertCreated: () => {
+      log.info('New alert received, list will auto-refresh', 'ALERT_LIST');
+    },
+    onAlertAcknowledged: () => {
+      log.info('Alert acknowledged, list will auto-refresh', 'ALERT_LIST');
+    },
+    onAlertResolved: () => {
+      log.info('Alert resolved, list will auto-refresh', 'ALERT_LIST');
+    },
+    onAlertEscalated: () => {
+      log.info('Alert escalated, list will auto-refresh', 'ALERT_LIST');
+    },
+  });
+  
   // Fetch active alerts
   const { data, isLoading, refetch } = api.healthcare.getActiveAlerts.useQuery(
     { hospitalId },
     {
-      refetchInterval: 30000, // Refresh every 30 seconds
-      refetchIntervalInBackground: true,
+      // Real-time updates handle refreshing, no need for polling
       enabled: !!user,
     }
   );
@@ -335,26 +341,7 @@ export const AlertList = ({
     },
   });
   
-  // Real-time subscription (only if WebSocket is enabled)
-  const wsEnabled = process.env.EXPO_PUBLIC_ENABLE_WS === 'true';
-  
-  api.healthcare.subscribeToAlerts.useSubscription(
-    undefined,
-    {
-      enabled: wsEnabled, // Only enable if WebSocket is configured
-      onData: (event) => {
-        log.info('Alert subscription event', 'ALERT_LIST', { event });
-        // Refetch to get latest data
-        refetch();
-      },
-      onError: (error) => {
-        // Only log error if WebSocket was expected to work
-        if (wsEnabled) {
-          log.error('Alert subscription error', 'ALERT_LIST', error);
-        }
-      },
-    }
-  );
+  // Real-time subscription is handled by useAlertSubscription hook above
   
   const renderItem = ({ item, index }: { item: AlertItem; index: number }) => (
     <AlertCardItem
@@ -386,18 +373,17 @@ export const AlertList = ({
     return (
       <VStack gap={spacing[4] as SpacingScale}>
         {[1, 2, 3].map((i) => (
-          <View key={i} className="animate-pulse">
-            <Box
-              className="bg-muted opacity-50 rounded-lg"
-              style={[
-                {
-                  height: 120,
-                  padding: spacing[5],
-                },
-                shadowMd
-              ]}
-            />
-          </View>
+          <Box
+            key={i}
+            className="bg-muted opacity-50 rounded-lg"
+            style={[
+              {
+                height: 120,
+                padding: spacing[5],
+              },
+              shadowMd
+            ]}
+          />
         ))}
       </VStack>
     );
@@ -407,76 +393,71 @@ export const AlertList = ({
   
   if (alerts.length === 0) {
     return (
-      <View className="animate-scale-in">
-        <Card
-          className="items-center justify-center"
-          style={[
-            {
-              minHeight: 200,
-              padding: spacing[8],
-            },
-            shadowMd
-          ]}
-        >
-          <VStack gap={spacing[4] as SpacingScale} align="center">
-            <Text size="4xl">✅</Text>
-            <Text size="lg" weight="medium">No Active Alerts</Text>
-            <Text colorTheme="mutedForeground" align="center">
-              All alerts have been handled
-            </Text>
-          </VStack>
-        </Card>
-      </View>
+      <Card
+        className="items-center justify-center"
+        style={[
+          {
+            minHeight: 200,
+            padding: spacing[8],
+          },
+          shadowMd
+        ]}
+      >
+        <VStack gap={spacing[4] as SpacingScale} align="center">
+          <Text size="4xl">✅</Text>
+          <Text size="lg" weight="medium">No Active Alerts</Text>
+          <Text colorTheme="mutedForeground" align="center">
+            All alerts have been handled
+          </Text>
+        </VStack>
+      </Card>
     );
   }
   
   // Use FlatList for native, regular mapping for web
   if (Platform.OS !== 'web') {
     return (
-      <View className="animate-fade-in">
-        <FlatList
-          ref={listRef}
-          data={alerts}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          contentContainerStyle={{
-            gap: spacing[4],
-          }}
-          showsVerticalScrollIndicator={false}
-          maxToRenderPerBatch={10}
-          windowSize={10}
-          initialNumToRender={5}
-          removeClippedSubviews={true}
-          style={{
-            maxHeight: maxHeight || 600,
-          }}
-        />
-      </View>
+      <FlatList
+        ref={listRef}
+        data={alerts}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        contentContainerStyle={{
+          gap: spacing[4],
+        }}
+        showsVerticalScrollIndicator={false}
+        maxToRenderPerBatch={10}
+        windowSize={10}
+        initialNumToRender={5}
+        removeClippedSubviews={true}
+        style={{
+          maxHeight: maxHeight || 600,
+        }}
+      />
     );
   }
   
   // Web version with CSS animations
   return (
-    <View className="animate-fade-in">
-      <ScrollContainer
-        style={{ 
-          maxHeight: maxHeight || 600,
-        }}
-      >
-        <VStack gap={spacing[4] as SpacingScale}>
-          {alerts.map((alert: AlertItem, index: number) => (
-            <AlertCardItem
-              key={alert.id}
-              alert={alert}
-              onAcknowledge={(id) => acknowledgeMutation.mutate({ alertId: id })}
-              onResolve={(id) => resolveMutation.mutate({ alertId: id })}
-              canAcknowledge={canAcknowledge}
-              canResolve={canResolve}
-              index={index}
-            />
-          ))}
-        </VStack>
-      </ScrollContainer>
-    </View>
+    <ScrollView
+      style={{ 
+        maxHeight: maxHeight || 600,
+      }}
+      showsVerticalScrollIndicator={false}
+    >
+      <VStack gap={spacing[4] as SpacingScale}>
+        {alerts.map((alert: AlertItem, index: number) => (
+          <AlertCardItem
+            key={alert.id}
+            alert={alert}
+            onAcknowledge={(id) => acknowledgeMutation.mutate({ alertId: id })}
+            onResolve={(id) => resolveMutation.mutate({ alertId: id })}
+            canAcknowledge={canAcknowledge}
+            canResolve={canResolve}
+            index={index}
+          />
+        ))}
+      </VStack>
+    </ScrollView>
   );
 };

@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import { logger } from '@/lib/core/debug/unified-logger';
 
 // Better Auth storage interface for web
 export const webStorage = {
@@ -8,7 +9,7 @@ export const webStorage = {
       const item = localStorage.getItem(key);
       return item;
     } catch (error) {
-      console.error('[WEB STORAGE] Error getting item:', error);
+      logger.error('Web storage error getting item', 'STORAGE', error);
       return null;
     }
   },
@@ -16,14 +17,14 @@ export const webStorage = {
     try {
       localStorage.setItem(key, value);
     } catch (error) {
-      console.error('[WEB STORAGE] Error setting item:', error);
+      logger.error('Web storage error setting item', 'STORAGE', error);
     }
   },
   removeItem: (key: string) => {
     try {
       localStorage.removeItem(key);
     } catch (error) {
-      console.error('[WEB STORAGE] Error removing item:', error);
+      logger.error('Web storage error removing item', 'STORAGE', error);
     }
   },
 };
@@ -44,7 +45,7 @@ export const initializeSecureStorage = async () => {
   if (storageInitialized || Platform.OS === 'web') return;
   
   try {
-// TODO: Replace with structured logging - console.log('[MOBILE STORAGE] Initializing storage...');
+    logger.debug('Initializing mobile storage', 'STORAGE');
     
     // Initialize the persistent store
     if (!(global as any).__persistentStore) {
@@ -69,18 +70,18 @@ export const initializeSecureStorage = async () => {
         const value = await SecureStore.getItemAsync(key);
         if (value) {
           (global as any).__persistentStore[key] = value;
-// TODO: Replace with structured logging - console.log(`[MOBILE STORAGE] Loaded ${key} from SecureStore`);
+          logger.debug(`Loaded ${key} from SecureStore`, 'STORAGE');
         }
       } catch (error) {
-        console.error(`[MOBILE STORAGE] Failed to load ${key}:`, error);
+        logger.error(`Failed to load ${key} from SecureStore`, 'STORAGE', error);
       }
     });
     
     await Promise.all(loadPromises);
     storageInitialized = true;
-// TODO: Replace with structured logging - console.log('[MOBILE STORAGE] Storage initialization complete');
+    logger.debug('Mobile storage initialization complete', 'STORAGE');
   } catch (error) {
-    console.error('[MOBILE STORAGE] Storage initialization failed:', error);
+    logger.error('Mobile storage initialization failed', 'STORAGE', error);
   }
 };
 
@@ -98,7 +99,7 @@ export const mobileStorage = {
     try {
       // Ensure storage is initialized
       if (!storageInitialized) {
-// TODO: Replace with structured logging - console.log('[MOBILE STORAGE] Storage not initialized, starting initialization...');
+        logger.debug('Storage not initialized, starting initialization', 'STORAGE');
         initializeStorage(); // Start initialization if not done
       }
       
@@ -106,12 +107,12 @@ export const mobileStorage = {
       const value = persistentStore[key] || null;
       
       if (value) {
-// TODO: Replace with structured logging - console.log(`[MOBILE STORAGE] Retrieved ${key}:`, value.substring(0, 50) + '...');
+        logger.debug(`Retrieved ${key}`, 'STORAGE', { preview: value.substring(0, 50) + '...' });
       }
       
       return value;
     } catch (error) {
-      console.error('[MOBILE STORAGE] Error getting item:', error);
+      logger.error('Mobile storage error getting item', 'STORAGE', error);
       return null;
     }
   },
@@ -128,10 +129,10 @@ export const mobileStorage = {
       
       // Also store in SecureStore asynchronously for actual persistence
       SecureStore.setItemAsync(key, value).catch(error => {
-        console.error(`[MOBILE STORAGE] Failed to store ${key} in SecureStore:`, error);
+        logger.error(`Failed to store ${key} in SecureStore`, 'STORAGE', error);
       });
     } catch (error) {
-      console.error('[MOBILE STORAGE] Error setting item:', error);
+      logger.error('Mobile storage error setting item', 'STORAGE', error);
     }
   },
   removeItem: (key: string) => {
@@ -143,10 +144,10 @@ export const mobileStorage = {
       
       // Also remove from SecureStore asynchronously
       SecureStore.deleteItemAsync(key).catch(error => {
-        console.error(`[MOBILE STORAGE] Failed to remove ${key} from SecureStore:`, error);
+        logger.error(`Failed to remove ${key} from SecureStore`, 'STORAGE', error);
       });
     } catch (error) {
-      console.error('[MOBILE STORAGE] Error removing item:', error);
+      logger.error('Mobile storage error removing item', 'STORAGE', error);
     }
   },
 };
@@ -189,7 +190,7 @@ export const secureStorage = {
     }
     // SecureStore doesn't have sync methods, so we'll return null
     // This is a limitation on mobile - need to use async storage
-    console.warn('Sync storage not available on mobile, use async methods');
+    logger.warn('Sync storage not available on mobile, use async methods', 'STORAGE');
     return null;
   },
 
@@ -197,7 +198,7 @@ export const secureStorage = {
     if (Platform.OS === 'web') {
       localStorage.setItem(key, value);
     } else {
-      console.warn('Sync storage not available on mobile, use async methods');
+      logger.warn('Sync storage not available on mobile, use async methods', 'STORAGE');
     }
   },
 
@@ -205,7 +206,7 @@ export const secureStorage = {
     if (Platform.OS === 'web') {
       localStorage.removeItem(key);
     } else {
-      console.warn('Sync storage not available on mobile, use async methods');
+      logger.warn('Sync storage not available on mobile, use async methods', 'STORAGE');
     }
   }
 };

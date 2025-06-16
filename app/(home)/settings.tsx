@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Platform, View } from 'react-native';
+import { Alert, Platform, View, Text as RNText } from 'react-native';
 import { useRouter } from 'expo-router';
 import { 
   ScrollContainer, 
@@ -22,6 +22,8 @@ import {
 import { DarkModeToggle } from '@/components/blocks/theme/DarkModeToggle/DarkModeToggle';
 import { SpacingDensitySelector } from '@/components/blocks/theme/DensitySelector/SpacingDensitySelector';
 import { ThemeSelector } from '@/components/blocks/theme/ThemeSelector/ThemeSelector';
+import { ProfileEditBlock, PasswordChangeBlock, EmailPreferencesBlock, TwoFactorAuthBlock } from '@/components/blocks/settings';
+import { PushNotificationSettings } from '@/components/blocks/settings/PushNotificationSettings';
 import { useAuth } from '@/hooks/useAuth';
 import { log } from '@/lib/core/debug/logger';
 import { useTheme } from '@/lib/theme/provider';
@@ -29,13 +31,43 @@ import { notificationService } from '@/lib/ui/notifications/service';
 import { SpacingScale } from '@/lib/design';
 import { SignOutButton } from '@/components/blocks/auth';
 import { signOut } from '@/lib/auth/signout-manager';
+import { api } from '@/lib/api/trpc';
 
 export default function SettingsScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const theme = useTheme();
+  
+  // Debug logging
+  React.useEffect(() => {
+    console.log('[SettingsScreen] Mounted and rendering');
+    console.log('[SettingsScreen] User:', user?.email, 'role:', user?.role);
+    
+    // Add navigation test button
+    const timer = setTimeout(() => {
+      console.log('[SettingsScreen] Still visible after 2 seconds');
+    }, 2000);
+    
+    return () => clearTimeout(timer);
+  }, [user]);
+  
+  // Remove the test return and let the component render normally
   const [notificationPermission, setNotificationPermission] = useState<string>('undetermined');
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [showEmailPreferences, setShowEmailPreferences] = useState(false);
+  const [showTwoFactorAuth, setShowTwoFactorAuth] = useState(false);
+  
+  // Debug mutation for role switching
+  const debugRoleMutation = api.user.debugUpdateOwnRole.useMutation({
+    onSuccess: () => {
+      // Trigger a refresh of the session
+      window.location.reload();
+    },
+    onError: (error) => {
+      Alert.alert('Error', error.message || 'Failed to update role');
+    }
+  });
 
   // Check notification permission status on mount
   useEffect(() => {
@@ -90,6 +122,25 @@ export default function SettingsScreen() {
     }
   };
 
+  const deleteAccountMutation = api.user.deleteAccount.useMutation({
+    onSuccess: () => {
+      log.info('Account deleted successfully', 'SETTINGS');
+      signOut({
+        reason: 'account_deleted',
+        showAlert: false,
+        redirectTo: '/(auth)/login'
+      });
+    },
+    onError: (error) => {
+      log.error('Failed to delete account', 'SETTINGS', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to delete account. Please try again.',
+        [{ text: 'OK' }]
+      );
+    },
+  });
+
   const handleDeleteAccount = () => {
     Alert.alert(
       "Delete Account",
@@ -100,7 +151,26 @@ export default function SettingsScreen() {
           text: "Delete", 
           style: "destructive",
           onPress: () => {
-            Alert.alert("Coming Soon", "Account deletion will be implemented in the next update.");
+            Alert.prompt(
+              "Confirm Account Deletion",
+              "Please enter your password and type DELETE to confirm:",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Delete Account",
+                  style: "destructive",
+                  onPress: (password) => {
+                    if (password) {
+                      deleteAccountMutation.mutate({
+                        password,
+                        confirmation: 'DELETE' as const,
+                      });
+                    }
+                  }
+                }
+              ],
+              'secure-text'
+            );
           }
         }
       ]
@@ -109,7 +179,7 @@ export default function SettingsScreen() {
 
   return (
     <ScrollContainer safe>
-      <VStack p={0} spacing={0}>
+      <VStack p={0} spacing={0} style={{ backgroundColor: 'transparent' }}>
         {/* Header with Toggle and Breadcrumbs - Only on Web */}
         {Platform.OS === 'web' && (
           <Box px={4 as SpacingScale} py={3 as SpacingScale} borderBottomWidth={1} borderTheme="border">
@@ -128,79 +198,160 @@ export default function SettingsScreen() {
           </Box>
         )}
 
-        <VStack p={4 as SpacingScale} spacing={4}>
+        <VStack p={4 as SpacingScale} spacing={4} style={{ backgroundColor: 'transparent', minHeight: '100%' }}>
           <Heading1 mb={6}>
             Settings
           </Heading1>
 
-        {/* Profile Section */}
+        {/* Debug Section - Remove in production */}
         <Card>
           <CardHeader>
-            <HStack spacing={4} alignItems="center">
-              <Avatar 
-                source={user?.image ? { uri: user.image } : undefined}
-                name={user?.name || 'User'}
-                size="xl"
-              />
-              <Box flex={1}>
-                <CardTitle>{user?.name || 'User'}</CardTitle>
-                <CardDescription>{user?.email}</CardDescription>
-              </Box>
-            </HStack>
+            <CardTitle>Debug Info</CardTitle>
+            <CardDescription>Current user information</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button
-              variant="outline"
-              fullWidth
-              onPress={() => {
-                Alert.alert("Coming Soon", "Profile editing will be available in the next update.");
-              }}
-            >
-              Edit Profile
-            </Button>
+            <VStack spacing={2}>
+              <Text>Email: {user?.email}</Text>
+              <Text>Role: {user?.role}</Text>
+              <Text>Organization: {user?.organizationName || 'None'}</Text>
+              <Text>Needs Profile Completion: {user?.needsProfileCompletion ? 'Yes' : 'No'}</Text>
+            </VStack>
+            
+            {/* Temporary role switcher for testing */}
+            {process.env.NODE_ENV !== 'production' && (
+              <VStack spacing={2} mt={4}>
+                <Text size="sm" weight="semibold">Debug: Change Role</Text>
+                <VStack spacing={2}>
+                  {/* General Roles */}
+                  <HStack spacing={2}>
+                    <Button
+                      variant={user?.role === 'user' ? 'solid' : 'outline'}
+                      size="sm"
+                      onPress={() => debugRoleMutation.mutate({ role: 'user' })}
+                    >
+                      User
+                    </Button>
+                    <Button
+                      variant={user?.role === 'admin' ? 'solid' : 'outline'}
+                      size="sm"
+                      onPress={() => debugRoleMutation.mutate({ role: 'admin' })}
+                    >
+                      Admin
+                    </Button>
+                    <Button
+                      variant={user?.role === 'manager' ? 'solid' : 'outline'}
+                      size="sm"
+                      onPress={() => debugRoleMutation.mutate({ role: 'manager' })}
+                    >
+                      Manager
+                    </Button>
+                  </HStack>
+                  
+                  {/* Healthcare Roles */}
+                  <Text size="xs" colorTheme="mutedForeground">Healthcare Roles:</Text>
+                  <HStack spacing={2} style={{ flexWrap: 'wrap' }}>
+                    <Button
+                      variant={user?.role === 'operator' ? 'solid' : 'outline'}
+                      size="sm"
+                      onPress={() => debugRoleMutation.mutate({ role: 'operator' })}
+                      style={{ marginBottom: 8 }}
+                    >
+                      Operator
+                    </Button>
+                    <Button
+                      variant={user?.role === 'doctor' ? 'solid' : 'outline'}
+                      size="sm"
+                      onPress={() => debugRoleMutation.mutate({ role: 'doctor' })}
+                      style={{ marginBottom: 8 }}
+                    >
+                      Doctor
+                    </Button>
+                    <Button
+                      variant={user?.role === 'nurse' ? 'solid' : 'outline'}
+                      size="sm"
+                      onPress={() => debugRoleMutation.mutate({ role: 'nurse' })}
+                      style={{ marginBottom: 8 }}
+                    >
+                      Nurse
+                    </Button>
+                    <Button
+                      variant={user?.role === 'head_doctor' ? 'solid' : 'outline'}
+                      size="sm"
+                      onPress={() => debugRoleMutation.mutate({ role: 'head_doctor' })}
+                      style={{ marginBottom: 8 }}
+                    >
+                      Head Doctor
+                    </Button>
+                  </HStack>
+                </VStack>
+              </VStack>
+            )}
           </CardContent>
         </Card>
 
+        {/* Profile Section */}
+        <ProfileEditBlock />
+
         {/* Account Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Account</CardTitle>
-            <CardDescription>Manage your account settings</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <VStack spacing={3}>
-              <Button
-                variant="outline"
-                fullWidth
-                onPress={() => {
-                  Alert.alert("Coming Soon", "Password change will be available in the next update.");
-                }}
-              >
-                Change Password
-              </Button>
-              
-              <Button
-                variant="outline"
-                fullWidth
-                onPress={() => {
-                  Alert.alert("Coming Soon", "Email preferences will be available in the next update.");
-                }}
-              >
-                Email Preferences
-              </Button>
-              
-              <Button
-                variant="outline"
-                fullWidth
-                onPress={() => {
-                  Alert.alert("Coming Soon", "Two-factor authentication will be available in the next update.");
-                }}
-              >
-                Two-Factor Authentication
-              </Button>
-            </VStack>
-          </CardContent>
-        </Card>
+        {!showPasswordChange && !showEmailPreferences && !showTwoFactorAuth && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Account</CardTitle>
+              <CardDescription>Manage your account settings</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <VStack spacing={3}>
+                <Button
+                  variant="outline"
+                  fullWidth
+                  onPress={() => setShowPasswordChange(true)}
+                >
+                  Change Password
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  fullWidth
+                  onPress={() => setShowEmailPreferences(true)}
+                >
+                  Email Preferences
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  fullWidth
+                  onPress={() => setShowTwoFactorAuth(true)}
+                >
+                  Two-Factor Authentication
+                </Button>
+              </VStack>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Password Change Block */}
+        {showPasswordChange && (
+          <PasswordChangeBlock 
+            onSuccess={() => setShowPasswordChange(false)}
+            onCancel={() => setShowPasswordChange(false)}
+          />
+        )}
+
+        {/* Email Preferences Block */}
+        {showEmailPreferences && (
+          <EmailPreferencesBlock 
+            onSuccess={() => setShowEmailPreferences(false)}
+            onBack={() => setShowEmailPreferences(false)}
+          />
+        )}
+
+        {/* Two-Factor Authentication Block */}
+        {showTwoFactorAuth && (
+          <TwoFactorAuthBlock 
+            onSuccess={() => setShowTwoFactorAuth(false)}
+            onCancel={() => setShowTwoFactorAuth(false)}
+          />
+        )}
 
         {/* Admin Section - Only show for admin users */}
         {user?.role === 'admin' && (
@@ -252,87 +403,12 @@ export default function SettingsScreen() {
               <Box borderTopWidth={1} borderTheme="border" pt={4} mt={2}>
                 <SpacingDensitySelector />
               </Box>
-              
-              <Box borderTopWidth={1} borderTheme="border" pt={4} mt={2}>
-                <VStack spacing={2}>
-                  <HStack justifyContent="space-between" alignItems="center">
-                    <Text size="base" weight="medium" colorTheme="foreground">
-                      Push Notifications
-                    </Text>
-                    <Text size="sm" colorTheme="mutedForeground">
-                      {notificationPermission === 'granted' ? '✅ Enabled' : '❌ Disabled'}
-                    </Text>
-                  </HStack>
-                  <Button
-                    variant={notificationPermission === 'granted' ? 'outline' : 'solid'}
-                    fullWidth
-                    isLoading={isRequestingPermission}
-                    onPress={async () => {
-                      try {
-                        setIsRequestingPermission(true);
-                        
-                        if (notificationPermission === 'granted') {
-                          // Show test notification
-                          await notificationService.showTestNotification();
-                          Alert.alert(
-                            'Test Notification Sent',
-                            'Check your notification panel to see the test notification!'
-                          );
-                        } else {
-                          // Request permission
-                          const result = await notificationService.requestPermissions();
-                          
-                          if (result.granted) {
-                            setNotificationPermission('granted');
-                            
-                            // Get push token
-                            const token = await notificationService.getExpoPushToken();
-                            log.info('Push token obtained', 'SETTINGS', { token });
-                            
-                            // Show test notification
-                            await notificationService.showTestNotification();
-                            
-                            Alert.alert(
-                              'Notifications Enabled!',
-                              'You will now receive push notifications. A test notification has been sent.'
-                            );
-                          } else {
-                            Alert.alert(
-                              'Permission Denied',
-                              Platform.OS === 'ios'
-                                ? 'Please enable notifications in Settings > Notifications > [App Name]'
-                                : 'Please enable notifications in your device settings.'
-                            );
-                          }
-                        }
-                      } catch (error: any) {
-                        log.error('Notification setup failed', 'SETTINGS', error);
-                        Alert.alert(
-                          'Error',
-                          error.message || 'Failed to set up notifications. Please try again.'
-                        );
-                      } finally {
-                        setIsRequestingPermission(false);
-                        checkNotificationPermission();
-                      }
-                    }}
-                  >
-                    {isRequestingPermission
-                      ? 'Setting up...'
-                      : notificationPermission === 'granted'
-                        ? 'Send Test Notification'
-                        : 'Enable Notifications'}
-                  </Button>
-                  {notificationPermission === 'granted' && (
-                    <Text size="xs" colorTheme="mutedForeground" align="center">
-                      Tap to send a test push notification to this device
-                    </Text>
-                  )}
-                </VStack>
-              </Box>
             </VStack>
           </CardContent>
         </Card>
+
+        {/* Push Notifications */}
+        <PushNotificationSettings />
 
         {/* Developer Options */}
         <Card>

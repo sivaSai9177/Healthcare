@@ -193,7 +193,7 @@ export const Badge = React.forwardRef<View, BadgeProps>(({
     }
   }, [pulseOnUpdate, animated, isAnimated, shouldAnimate, duration, pulseScale]);
   
-  const styles = badgeVariants[variant];
+  const styles = badgeVariants[variant] || badgeVariants.default;
   const sizeClass = densityBadgeSizeClasses[density]?.[size] || badgeSizeClasses[size];
   
   // Handle press animation

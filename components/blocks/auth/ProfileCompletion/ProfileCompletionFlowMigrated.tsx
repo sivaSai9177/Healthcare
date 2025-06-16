@@ -3,20 +3,12 @@ import { View, ScrollView, Alert, KeyboardAvoidingView, Platform, Pressable } fr
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/lib/api/trpc';
-import { 
-  Button, 
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  Input, 
-  Text, 
-  VStack, 
-  HStack,
-  Checkbox,
-  Progress
-} from '@/components/universal';
+import { Button } from '@/components/universal/interaction';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/universal/display';
+import { Input, Checkbox } from '@/components/universal/form';
+import { Text } from '@/components/universal/typography';
+import { VStack, HStack } from '@/components/universal/layout';
+import { Progress } from '@/components/universal/feedback';
 import { RoleSelector } from '@/components/blocks/forms/RoleSelector/RoleSelector';
 import { OrganizationField } from '@/components/blocks/forms/OrganizationField/OrganizationField';
 import { CompleteProfileInputSchema } from '@/lib/validations/profile';
