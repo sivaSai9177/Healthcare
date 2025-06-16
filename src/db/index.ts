@@ -19,11 +19,13 @@ const pool = new Pool({
   connectionString: DATABASE_URL,
   ssl: !isLocal && process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   // Connection pool configuration
-  max: 20, // Maximum number of clients in the pool
+  max: 30, // Maximum number of clients in the pool (increased from 20)
   idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
   connectionTimeoutMillis: 10000, // How long to wait for a connection
   // Add statement timeout to prevent long-running queries
   statement_timeout: 30000, // 30 seconds
+  // Allow some clients to be created without waiting
+  allowExitOnIdle: true
 });
 
 // Handle pool errors

@@ -200,10 +200,51 @@ class NotificationService {
   private batchQueue: Map<string, Notification[]> = new Map();
   private batchTimers: Map<string, NodeJS.Timeout | number> = new Map();
   private readonly BATCH_DELAY = 60000; // 1 minute
+  private queueProcessorInterval: NodeJS.Timeout | null = null;
+  private isInitialized = false;
+  private static instance: NotificationService | null = null;
 
   constructor() {
+    // Don't auto-start in constructor to prevent multiple instances
+    // Call initialize() explicitly when needed
+  }
+
+  // Singleton pattern to prevent multiple instances
+  static getInstance(): NotificationService {
+    if (!NotificationService.instance) {
+      NotificationService.instance = new NotificationService();
+    }
+    return NotificationService.instance;
+  }
+
+  // Initialize the service (should be called once on server startup)
+  initialize() {
+    if (this.isInitialized) {
+      log.warn('NotificationService already initialized', 'NOTIFICATION');
+      return;
+    }
+
+    log.info('Initializing NotificationService', 'NOTIFICATION');
+    this.isInitialized = true;
+    
     // Process queued notifications periodically
     this.startQueueProcessor();
+  }
+
+  // Cleanup method for graceful shutdown
+  shutdown() {
+    log.info('Shutting down NotificationService', 'NOTIFICATION');
+    
+    if (this.queueProcessorInterval) {
+      clearInterval(this.queueProcessorInterval);
+      this.queueProcessorInterval = null;
+    }
+    
+    // Clear batch timers
+    this.batchTimers.forEach(timer => clearTimeout(timer as NodeJS.Timeout));
+    this.batchTimers.clear();
+    
+    this.isInitialized = false;
   }
 
   // Main send method
@@ -982,7 +1023,12 @@ class NotificationService {
 
   // Process notification queue
   private async startQueueProcessor(): Promise<void> {
-    setInterval(async () => {
+    // Clear any existing interval
+    if (this.queueProcessorInterval) {
+      clearInterval(this.queueProcessorInterval);
+    }
+    
+    this.queueProcessorInterval = setInterval(async () => {
       try {
         // Get pending notifications
         const pending = await db
@@ -1090,7 +1136,7 @@ class NotificationService {
 }
 
 // Export singleton instance
-export const notificationService = new NotificationService();
+export const notificationService = NotificationService.getInstance();
 
 // Export types
 export type { NotificationService };
