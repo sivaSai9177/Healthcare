@@ -1,36 +1,32 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Symbol } from "@/components/universal/display/Symbols";
+import { Text } from "@/components/universal/typography/Text";
+import { cn } from "@/lib/core/utils";
+import { useAnimationStore } from "@/lib/stores/animation-store";
+import { useSpacing } from "@/lib/stores/spacing-store";
+import { useTheme } from "@/lib/theme/provider";
+import { haptic } from "@/lib/ui/haptics";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View,
-  Modal,
-  Pressable,
-  ViewStyle,
-  Platform,
-  FlatList,
-  ScrollView,
   ActivityIndicator,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
   useWindowDimensions,
-} from 'react-native';
+  View,
+  ViewStyle,
+} from "react-native";
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  withSequence,
-  interpolate,
   Extrapolation,
   FadeIn,
   FadeOut,
-  SlideInDown,
-  Layout,
-} from 'react-native-reanimated';
-import { cn } from '@/lib/core/utils';
-import { Text } from '@/components/universal/typography/Text';
-import { Input } from './Input';
-import { Symbol } from '@/components/universal/display/Symbols';
-import { useSpacing } from '@/lib/stores/spacing-store';
-import { useAnimationStore } from '@/lib/stores/animation-store';
-import { haptic } from '@/lib/ui/haptics';
-import { useTheme } from '@/lib/theme/provider';
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { Input } from "./Input";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedView = Animated.View;
@@ -49,36 +45,36 @@ export interface SelectProps {
   onValueChange?: (value: string | string[]) => void;
   options: SelectOption[];
   placeholder?: string;
-  
+
   // State
   disabled?: boolean;
   error?: string;
   isLoading?: boolean;
-  
+
   // Features
   multiple?: boolean;
   searchable?: boolean;
   clearable?: boolean;
   grouped?: { label: string; options: SelectOption[] }[];
-  
+
   // Appearance
   label?: string;
-  size?: 'sm' | 'md' | 'lg';
-  variant?: 'outline' | 'filled' | 'ghost';
-  rounded?: 'none' | 'sm' | 'md' | 'lg' | 'full';
+  size?: "sm" | "md" | "lg";
+  variant?: "outline" | "filled" | "ghost";
+  rounded?: "none" | "sm" | "md" | "lg" | "full";
   maxHeight?: number;
-  
+
   // Animation
   animated?: boolean;
-  animationType?: 'dropdown' | 'fade' | 'slide' | 'scale';
+  animationType?: "dropdown" | "fade" | "slide" | "scale";
   dropdownStagger?: boolean;
-  
+
   // Style
   className?: string;
   dropdownClassName?: string;
   style?: ViewStyle;
   dropdownStyle?: ViewStyle;
-  
+
   // Callbacks
   onOpen?: () => void;
   onClose?: () => void;
@@ -86,545 +82,594 @@ export interface SelectProps {
 
 // Size configurations with density support
 const sizeClasses = {
-  sm: 'h-9 px-3 text-sm',
-  md: 'h-10 px-4 text-base',
-  lg: 'h-12 px-5 text-lg',
+  sm: "h-9 px-3 text-sm",
+  md: "h-10 px-4 text-base",
+  lg: "h-12 px-5 text-lg",
 };
 
 const densitySizeClasses = {
   compact: {
-    sm: 'h-8 px-2.5 text-sm',
-    md: 'h-9 px-3 text-base',
-    lg: 'h-10 px-4 text-lg',
+    sm: "h-8 px-2.5 text-sm",
+    md: "h-9 px-3 text-base",
+    lg: "h-10 px-4 text-lg",
   },
   medium: {
-    sm: 'h-9 px-3 text-sm',
-    md: 'h-10 px-4 text-base',
-    lg: 'h-12 px-5 text-lg',
+    sm: "h-9 px-3 text-sm",
+    md: "h-10 px-4 text-base",
+    lg: "h-12 px-5 text-lg",
   },
   large: {
-    sm: 'h-10 px-4 text-base',
-    md: 'h-12 px-5 text-lg',
-    lg: 'h-14 px-6 text-xl',
+    sm: "h-10 px-4 text-base",
+    md: "h-12 px-5 text-lg",
+    lg: "h-14 px-6 text-xl",
   },
 };
 
 const variantClasses = {
-  outline: 'border border-input bg-background',
-  filled: 'border-0 bg-muted',
-  ghost: 'border-0 bg-transparent',
+  outline: "border border-input bg-background",
+  filled: "border-0 bg-muted",
+  ghost: "border-0 bg-transparent",
 };
 
 const roundedClasses = {
-  none: 'rounded-none',
-  sm: 'rounded-sm',
-  md: 'rounded-md',
-  lg: 'rounded-lg',
-  full: 'rounded-full',
+  none: "rounded-none",
+  sm: "rounded-sm",
+  md: "rounded-md",
+  lg: "rounded-lg",
+  full: "rounded-full",
 };
 
-export const Select = React.forwardRef<View, SelectProps>(({
-  // Core props
-  value,
-  onValueChange,
-  options,
-  placeholder = 'Select an option',
-  
-  // State
-  disabled = false,
-  error,
-  isLoading = false,
-  
-  // Features
-  multiple = false,
-  searchable = false,
-  clearable = false,
-  grouped,
-  
-  // Appearance
-  label,
-  size = 'md',
-  variant = 'outline',
-  rounded = 'md',
-  maxHeight = 300,
-  
-  // Animation
-  animated = true,
-  animationType = 'scale',
-  dropdownStagger = true,
-  
-  // Style
-  className,
-  dropdownClassName,
-  style,
-  dropdownStyle,
-  
-  // Callbacks
-  onOpen,
-  onClose,
-}, ref) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const { density } = useSpacing();
-  const { enableAnimations } = useAnimationStore();
-  const theme = useTheme();
-  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
-  const selectRef = useRef<View>(null);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
-  
-  // Animation values
-  const chevronRotation = useSharedValue(0);
-  const dropdownScale = useSharedValue(0.95);
-  const dropdownOpacity = useSharedValue(0);
-  const itemAnimations = useSharedValue(0);
-  
-  // Get all options (flat list for grouped options)
-  const allOptions = grouped 
-    ? grouped.flatMap(group => group.options)
-    : options;
-  
-  // Filter options based on search
-  const filteredOptions = searchable && searchQuery
-    ? allOptions.filter(opt => 
-        opt.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        opt.description?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : allOptions;
-  
-  // Get selected options
-  const selectedOptions = multiple && Array.isArray(value)
-    ? allOptions.filter(opt => value.includes(opt.value))
-    : allOptions.filter(opt => opt.value === value);
-  
-  const selectedLabel = selectedOptions.length > 0
-    ? multiple
-      ? `${selectedOptions[0].label}${selectedOptions.length > 1 ? ` +${selectedOptions.length - 1}` : ''}`
-      : selectedOptions[0].label
-    : placeholder;
-  
-  // Handle dropdown position for web
-  useEffect(() => {
-    if (isOpen && Platform.OS === 'web' && selectRef.current) {
-      selectRef.current.measure((x, y, width, height, pageX, pageY) => {
-        const spaceBelow = windowHeight - pageY - height;
-        const spaceAbove = pageY;
-        const estimatedDropdownHeight = Math.min(maxHeight, filteredOptions.length * 56 + 20); // Estimate based on item height
-        
-        // Determine if dropdown should open upward or downward
-        const shouldOpenUpward = spaceBelow < estimatedDropdownHeight && spaceAbove > spaceBelow;
-        
-        let topPosition;
-        if (shouldOpenUpward) {
-          // Open upward
-          topPosition = Math.max(10, pageY - estimatedDropdownHeight - 4);
-        } else {
-          // Open downward (default)
-          topPosition = pageY + height + 4;
-        }
-        
-        setDropdownPosition({
-          top: topPosition,
-          left: pageX,
-          width,
-        });
-      });
-    }
-  }, [isOpen, windowHeight, windowWidth, maxHeight, filteredOptions.length]);
-  
-  // Update animations
-  useEffect(() => {
-    if (enableAnimations) {
-      chevronRotation.value = withSpring(isOpen ? 180 : 0, {
-        damping: 15,
-        stiffness: 300,
-      });
-      
-      if (isOpen) {
-        dropdownScale.value = withSpring(1, {
-          damping: 12,
-          stiffness: 200,
-        });
-        dropdownOpacity.value = withTiming(1, { duration: 200 });
-        
-        if (dropdownStagger) {
-          itemAnimations.value = withTiming(1, { duration: 300 });
-        }
-      } else {
-        dropdownScale.value = withTiming(0.95, { duration: 150 });
-        dropdownOpacity.value = withTiming(0, { duration: 150 });
-        itemAnimations.value = 0;
-      }
-    }
-  }, [isOpen, enableAnimations, dropdownStagger]);
-  
-  // Handlers
-  const handleOpen = useCallback(() => {
-    if (!disabled) {
-      setIsOpen(true);
-      onOpen?.();
-      haptic('light');
-    }
-  }, [disabled, onOpen]);
-  
-  const handleClose = useCallback(() => {
-    setIsOpen(false);
-    setSearchQuery('');
-    setHighlightedIndex(-1);
-    onClose?.();
-  }, [onClose]);
-  
-  const handleSelect = useCallback((option: SelectOption) => {
-    if (option.disabled) return;
-    
-    haptic('light');
-    
-    if (multiple && Array.isArray(value)) {
-      const newValue = value.includes(option.value)
-        ? value.filter(v => v !== option.value)
-        : [...value, option.value];
-      onValueChange?.(newValue);
-    } else {
-      onValueChange?.(option.value);
-      handleClose();
-    }
-  }, [multiple, value, onValueChange, handleClose]);
-  
-  const handleClear = useCallback(() => {
-    onValueChange?.(multiple ? [] : '');
-    haptic('light');
-  }, [multiple, onValueChange]);
-  
-  // Get size classes based on density
-  const sizeClass = densitySizeClasses[density]?.[size] || sizeClasses[size];
-  
-  // Build trigger classes
-  const triggerClasses = cn(
-    'flex-row items-center justify-between',
-    variantClasses[variant],
-    roundedClasses[rounded],
-    sizeClass,
-    error && 'border-destructive',
-    disabled && 'opacity-50',
-    'transition-all duration-200',
-    Platform.OS === 'web' && 'hover:border-ring',
-    className
-  );
-  
-  // Animated styles
-  const chevronStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${chevronRotation.value}deg` }],
-  }));
-  
-  const animatedDropdownStyle = useAnimatedStyle(() => {
-    if (animationType === 'scale') {
-      return {
-        opacity: dropdownOpacity.value,
-        transform: [
-          { scale: dropdownScale.value },
-          { translateY: interpolate(
-            dropdownScale.value,
-            [0.95, 1],
-            [-10, 0],
-            Extrapolation.CLAMP
-          )},
-        ],
-      };
-    }
-    
-    return {
-      opacity: dropdownOpacity.value,
-    };
-  });
-  
-  // Create animated styles for dropdown items outside of render
-  const getItemAnimatedStyle = useCallback((index: number) => {
-    'worklet';
-    
-    if (!enableAnimations || !dropdownStagger) {
-      return {};
-    }
-    
-    const delay = index * 50;
-    const progress = interpolate(
-      itemAnimations.value,
-      [0, 1],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-    
-    return {
-      opacity: progress,
-      transform: [
-        {
-          translateY: interpolate(
-            progress,
-            [0, 1],
-            [20, 0],
-            Extrapolation.CLAMP
-          ),
-        },
-      ],
-    };
-  }, [enableAnimations, dropdownStagger, itemAnimations]);
+export const Select = React.forwardRef<View, SelectProps>(
+  (
+    {
+      // Core props
+      value,
+      onValueChange,
+      options,
+      placeholder = "Select an option",
 
-  const renderOption = useCallback((option: SelectOption, index: number) => {
-    const isSelected = multiple && Array.isArray(value) 
-      ? value.includes(option.value)
-      : value === option.value;
-    
-    const isHighlighted = index === highlightedIndex;
-    
-    return (
-      <AnimatedPressable
-        key={option.value}
-        onPress={() => handleSelect(option)}
-        onHoverIn={() => setHighlightedIndex(index)}
-        onHoverOut={() => setHighlightedIndex(-1)}
-        style={[
-          getItemAnimatedStyle(index),
-          {
-            opacity: option.disabled ? 0.5 : 1,
-          },
-        ]}
-        className={cn(
-          'px-4 py-3 flex-row items-center',
-          isSelected && 'bg-accent',
-          isHighlighted && !isSelected && 'bg-muted',
-          'transition-colors duration-150'
-        )}
-      >
-        {/* Icon */}
-        {option.icon && (
-          <Symbol 
-            name={option.icon as any} 
-            size={16} 
-            color={isSelected ? theme.accentForeground : theme.mutedForeground}
-            className="mr-3"
-          />
-        )}
-        
-        {/* Content */}
-        <View className="flex-1">
-          <Text
-            size={size === 'sm' ? 'sm' : 'base'}
-            weight={isSelected ? 'medium' : 'normal'}
-            color={isSelected ? 'accent' : 'foreground'}
+      // State
+      disabled = false,
+      error,
+      isLoading = false,
+
+      // Features
+      multiple = false,
+      searchable = false,
+      clearable = false,
+      grouped,
+
+      // Appearance
+      label,
+      size = "md",
+      variant = "outline",
+      rounded = "md",
+      maxHeight = 300,
+
+      // Animation
+      animated = true,
+      animationType = "scale",
+      dropdownStagger = true,
+
+      // Style
+      className,
+      dropdownClassName,
+      style,
+      dropdownStyle,
+
+      // Callbacks
+      onOpen,
+      onClose,
+    },
+    ref
+  ) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    const { density } = useSpacing();
+    const { enableAnimations } = useAnimationStore();
+    const theme = useTheme();
+    const { height: windowHeight } = useWindowDimensions();
+    const selectRef = useRef<View>(null);
+    const [dropdownPosition, setDropdownPosition] = useState({
+      top: 0,
+      left: 0,
+      width: 0,
+    });
+
+    // Animation values
+    const chevronRotation = useSharedValue(0);
+    const dropdownScale = useSharedValue(0.95);
+    const dropdownOpacity = useSharedValue(0);
+    const itemAnimations = useSharedValue(0);
+
+    // Get all options (flat list for grouped options)
+    const allOptions = grouped
+      ? grouped.flatMap((group) => group.options)
+      : options;
+
+    // Filter options based on search
+    const filteredOptions =
+      searchable && searchQuery
+        ? allOptions.filter(
+            (opt) =>
+              opt.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              opt.description?.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+        : allOptions;
+
+    // Get selected options
+    const selectedOptions =
+      multiple && Array.isArray(value)
+        ? allOptions.filter((opt) => value.includes(opt.value))
+        : allOptions.filter((opt) => opt.value === value);
+
+    const selectedLabel =
+      selectedOptions.length > 0
+        ? multiple
+          ? `${selectedOptions[0].label}${
+              selectedOptions.length > 1
+                ? ` +${selectedOptions.length - 1}`
+                : ""
+            }`
+          : selectedOptions[0].label
+        : placeholder;
+
+    // Handle dropdown position for web
+    useEffect(() => {
+      if (isOpen && Platform.OS === "web" && selectRef.current) {
+        selectRef.current.measure((x, y, width, height, pageX, pageY) => {
+          const spaceBelow = windowHeight - pageY - height;
+          const dropdownHeight = Math.min(maxHeight, spaceBelow - 20);
+
+          setDropdownPosition({
+            top: pageY + height + 4,
+            left: pageX,
+            width,
+          });
+        });
+      }
+    }, [isOpen, windowHeight, maxHeight]);
+
+    // Update animations
+    useEffect(() => {
+      if (enableAnimations) {
+        chevronRotation.value = withSpring(isOpen ? 180 : 0, {
+          damping: 15,
+          stiffness: 300,
+        });
+
+        if (isOpen) {
+          dropdownScale.value = withSpring(1, {
+            damping: 12,
+            stiffness: 200,
+          });
+          dropdownOpacity.value = withTiming(1, { duration: 200 });
+
+          if (dropdownStagger) {
+            itemAnimations.value = withTiming(1, { duration: 300 });
+          }
+        } else {
+          dropdownScale.value = withTiming(0.95, { duration: 150 });
+          dropdownOpacity.value = withTiming(0, { duration: 150 });
+          itemAnimations.value = 0;
+        }
+      }
+    }, [isOpen, enableAnimations, dropdownStagger]);
+
+    // Handlers
+    const handleOpen = useCallback(() => {
+      if (!disabled) {
+        setIsOpen(true);
+        onOpen?.();
+        haptic("light");
+      }
+    }, [disabled, onOpen]);
+
+    const handleClose = useCallback(() => {
+      setIsOpen(false);
+      setSearchQuery("");
+      setHighlightedIndex(-1);
+      onClose?.();
+    }, [onClose]);
+
+    const handleSelect = useCallback(
+      (option: SelectOption) => {
+        if (option.disabled) return;
+
+        haptic("light");
+
+        if (multiple && Array.isArray(value)) {
+          const newValue = value.includes(option.value)
+            ? value.filter((v) => v !== option.value)
+            : [...value, option.value];
+          onValueChange?.(newValue);
+        } else {
+          onValueChange?.(option.value);
+          handleClose();
+        }
+      },
+      [multiple, value, onValueChange, handleClose]
+    );
+
+    const handleClear = useCallback(() => {
+      onValueChange?.(multiple ? [] : "");
+      haptic("light");
+    }, [multiple, onValueChange]);
+
+    // Get size classes based on density
+    const sizeClass = densitySizeClasses[density]?.[size] || sizeClasses[size];
+
+    // Build trigger classes
+    const triggerClasses = cn(
+      "flex-row items-center justify-between",
+      variantClasses[variant],
+      roundedClasses[rounded],
+      sizeClass,
+      error && "border-destructive",
+      disabled && "opacity-50",
+      "transition-all duration-200",
+      Platform.OS === "web" && "hover:border-ring",
+      className
+    );
+
+    // Animated styles
+    const chevronStyle = useAnimatedStyle(() => ({
+      transform: [{ rotate: `${chevronRotation.value}deg` }],
+    }));
+
+    const animatedDropdownStyle = useAnimatedStyle(() => {
+      const baseStyle = {
+        opacity: dropdownOpacity.value,
+      };
+
+      if (animationType === "scale") {
+        return {
+          ...baseStyle,
+          transform: [
+            { scale: dropdownScale.value },
+            {
+              translateY: interpolate(
+                dropdownScale.value,
+                [0.95, 1],
+                [-10, 0],
+                Extrapolation.CLAMP
+              ),
+            },
+          ],
+        };
+      }
+
+      return baseStyle;
+    });
+
+    // Create animated styles for dropdown items outside of render
+    const getItemAnimatedStyle = useCallback(
+      (index: number) => {
+        "worklet";
+
+        if (!enableAnimations || !dropdownStagger) {
+          return {};
+        }
+
+        const delay = index * 50;
+        const progress = interpolate(
+          itemAnimations.value,
+          [0, 1],
+          [0, 1],
+          Extrapolation.CLAMP
+        );
+
+        return {
+          opacity: progress,
+          transform: [
+            {
+              translateY: interpolate(
+                progress,
+                [0, 1],
+                [20, 0],
+                Extrapolation.CLAMP
+              ),
+            },
+          ],
+        };
+      },
+      [enableAnimations, dropdownStagger, itemAnimations]
+    );
+
+    const renderOption = useCallback(
+      (option: SelectOption, index: number) => {
+        const isSelected =
+          multiple && Array.isArray(value)
+            ? value.includes(option.value)
+            : value === option.value;
+
+        const isHighlighted = index === highlightedIndex;
+
+        return (
+          <AnimatedPressable
+            key={option.value}
+            onPress={() => handleSelect(option)}
+            onHoverIn={() => setHighlightedIndex(index)}
+            onHoverOut={() => setHighlightedIndex(-1)}
+            style={[
+              getItemAnimatedStyle(index),
+              {
+                opacity: option.disabled ? 0.5 : 1,
+              },
+            ]}
+            className={cn(
+              "px-4 py-3 flex-row items-center",
+              isSelected && "bg-accent",
+              isHighlighted && !isSelected && "bg-muted",
+              "transition-colors duration-150"
+            )}
           >
-            {option.label}
-          </Text>
-          {option.description && (
+            {/* Icon */}
+            {option.icon && (
+              <Symbol
+                name={option.icon as any}
+                size={16}
+                color={
+                  isSelected ? theme.accentForeground : theme.mutedForeground
+                }
+                className="mr-3"
+              />
+            )}
+
+            {/* Content */}
+            <View className="flex-1">
+              <Text
+                size={size === "sm" ? "sm" : "base"}
+                weight={isSelected ? "medium" : "normal"}
+                color={isSelected ? "accent" : "foreground"}
+              >
+                {option.label}
+              </Text>
+              {option.description && (
+                <Text size="sm" color="muted" className="mt-0.5">
+                  {option.description}
+                </Text>
+              )}
+            </View>
+
+            {/* Checkmark for selected items */}
+            {isSelected && (
+              <AnimatedView
+                entering={FadeIn.duration(200)}
+                exiting={FadeOut.duration(150)}
+              >
+                <Symbol
+                  name="checkmark"
+                  size={16}
+                  color={theme.accentForeground}
+                />
+              </AnimatedView>
+            )}
+          </AnimatedPressable>
+        );
+      },
+      [
+        value,
+        highlightedIndex,
+        handleSelect,
+        multiple,
+        size,
+        getItemAnimatedStyle,
+      ]
+    );
+
+    return (
+      <>
+        <View ref={ref} style={style}>
+          {/* Label */}
+          {label && (
             <Text
               size="sm"
-              color="muted"
-              className="mt-0.5"
+              weight="medium"
+              color={error ? "destructive" : "foreground"}
+              className="mb-1.5"
             >
-              {option.description}
+              {label}
+            </Text>
+          )}
+
+          {/* Select Trigger */}
+          <Pressable
+            ref={selectRef}
+            onPress={handleOpen}
+            disabled={disabled}
+            className={triggerClasses}
+            style={
+              Platform.OS === "web"
+                ? ({ cursor: disabled ? "not-allowed" : "pointer" } as any)
+                : undefined
+            }
+          >
+            {/* Selected Value(s) */}
+            <Text
+              size={size === "sm" ? "sm" : size === "lg" ? "lg" : "base"}
+              color={selectedOptions.length > 0 ? "foreground" : "muted"}
+              className="flex-1 mr-2"
+              numberOfLines={1}
+            >
+              {selectedLabel}
+            </Text>
+
+            {/* Clear Button */}
+            {clearable && selectedOptions.length > 0 && !disabled && (
+              <Pressable
+                onPress={handleClear}
+                className="p-1 mr-1"
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={
+                  Platform.OS === "web"
+                    ? ({ cursor: "pointer" } as any)
+                    : undefined
+                }
+              >
+                <Symbol
+                  name="x.circle.fill"
+                  size={16}
+                  color={theme.mutedForeground}
+                />
+              </Pressable>
+            )}
+
+            {/* Chevron */}
+            <AnimatedView style={chevronStyle}>
+              <Symbol
+                name="chevron.down"
+                size={size === "sm" ? 14 : size === "lg" ? 18 : 16}
+                color={error ? theme.destructive : theme.mutedForeground}
+              />
+            </AnimatedView>
+          </Pressable>
+
+          {/* Error Message */}
+          {error && (
+            <Text size="sm" color="destructive" className="mt-1.5">
+              {error}
             </Text>
           )}
         </View>
-        
-        {/* Checkmark for selected items */}
-        {isSelected && (
-          <AnimatedView
-            entering={FadeIn.duration(200)}
-            exiting={FadeOut.duration(150)}
-          >
-            <Symbol 
-              name="checkmark" 
-              size={16} 
-              color={theme.accentForeground}
-            />
-          </AnimatedView>
-        )}
-      </AnimatedPressable>
-    );
-  }, [value, highlightedIndex, handleSelect, multiple, size, getItemAnimatedStyle]);
-  
-  return (
-    <>
-      <View ref={ref} style={style}>
-        {/* Label */}
-        {label && (
-          <Text
-            size="sm"
-            weight="medium"
-            color={error ? 'destructive' : 'foreground'}
-            className="mb-1.5"
-          >
-            {label}
-          </Text>
-        )}
-        
-        {/* Select Trigger */}
-        <Pressable
-          ref={selectRef}
-          onPress={handleOpen}
-          disabled={disabled}
-          className={triggerClasses}
-          style={Platform.OS === 'web' ? { cursor: disabled ? 'not-allowed' : 'pointer' } as any : undefined}
+
+        {/* Dropdown Modal */}
+        <Modal
+          visible={isOpen}
+          transparent
+          animationType="none"
+          onRequestClose={handleClose}
         >
-          {/* Selected Value(s) */}
-          <Text
-            size={size === 'sm' ? 'sm' : size === 'lg' ? 'lg' : 'base'}
-            color={selectedOptions.length > 0 ? 'foreground' : 'muted'}
-            className="flex-1 mr-2"
-            numberOfLines={1}
+          <Pressable
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+            }}
+            onPress={handleClose}
           >
-            {selectedLabel}
-          </Text>
-          
-          {/* Clear Button */}
-          {clearable && selectedOptions.length > 0 && !disabled && (
-            <Pressable
-              onPress={handleClear}
-              className="p-1 mr-1"
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
+            <AnimatedPressable
+              style={[
+                {
+                  position: Platform.OS === "web" ? "absolute" : "relative",
+                  ...(Platform.OS === "web"
+                    ? dropdownPosition
+                    : {
+                        marginTop: 100,
+                        marginHorizontal: 20,
+                      }),
+                  maxHeight,
+                },
+                animatedDropdownStyle,
+                dropdownStyle,
+              ]}
+              className={cn(
+                "bg-popover border border-border rounded-md shadow-lg overflow-hidden",
+                dropdownClassName
+              )}
+              onPress={(e) => e.stopPropagation()}
             >
-              <Symbol name="x.circle.fill" size={16} color={theme.mutedForeground} />
-            </Pressable>
-          )}
-          
-          {/* Chevron */}
-          <AnimatedView style={chevronStyle}>
-            <Symbol 
-              name="chevron.down" 
-              size={size === 'sm' ? 14 : size === 'lg' ? 18 : 16}
-              color={error ? theme.destructive : theme.mutedForeground}
-            />
-          </AnimatedView>
-        </Pressable>
-        
-        {/* Error Message */}
-        {error && (
-          <Text size="sm" color="destructive" className="mt-1.5">
-            {error}
-          </Text>
-        )}
-      </View>
-      
-      {/* Dropdown Modal */}
-      <Modal
-        visible={isOpen}
-        transparent
-        animationType="none"
-        onRequestClose={handleClose}
-      >
-        <Pressable
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            justifyContent: Platform.OS === 'web' ? 'flex-start' : 'center',
-            alignItems: Platform.OS === 'web' ? 'flex-start' : 'center',
-          }}
-          onPress={handleClose}
-        >
-          <AnimatedPressable
-            style={[
-              Platform.OS === 'web' 
-                ? {
-                    position: 'absolute' as const,
-                    ...dropdownPosition,
-                    maxHeight,
-                  }
-                : {
-                    position: 'relative' as const,
-                    marginVertical: 'auto',
-                    marginHorizontal: 20,
-                    maxHeight: windowHeight * 0.7,
-                    alignSelf: 'center',
-                  },
-              animatedDropdownStyle,
-              dropdownStyle,
-            ]}
-            className={cn(
-              'bg-popover border border-border rounded-md shadow-lg overflow-hidden',
-              dropdownClassName
-            )}
-            onPress={(e) => e.stopPropagation()}
-          >
-            {/* Search Input */}
-            {searchable && (
-              <View className="p-3 border-b border-border">
-                <Input
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholder="Search..."
-                  size={size}
-                  leftElement={<Symbol name="magnifyingglass" size={20} color={theme.mutedForeground} />}
-                  showClearButton
-                  autoFocus
-                />
-              </View>
-            )}
-            
-            {/* Loading State */}
-            {isLoading ? (
-              <View className="p-8 items-center justify-center">
-                <ActivityIndicator className="mb-3" />
-                <Text size="sm" color="muted">Loading options...</Text>
-              </View>
-            ) : (
-              /* Options List */
-              <ScrollView
-                className="flex-1"
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-              >
-                {filteredOptions.length === 0 ? (
-                  <View className="p-8 items-center">
-                    <Symbol name="magnifyingglass" size={32} color={theme.mutedForeground} className="mb-3" />
-                    <Text size="sm" color="muted">No options found</Text>
-                  </View>
-                ) : grouped ? (
-                  /* Grouped Options */
-                  grouped.map((group, groupIndex) => {
-                    const groupOptions = group.options.filter(opt =>
-                      !searchQuery || filteredOptions.includes(opt)
-                    );
-                    
-                    if (groupOptions.length === 0) return null;
-                    
-                    return (
-                      <View key={group.label}>
-                        {groupIndex > 0 && <View className="h-px bg-border my-1" />}
-                        <Text
-                          size="sm"
-                          weight="medium"
-                          color="muted"
-                          className="px-4 py-2"
-                        >
-                          {group.label}
-                        </Text>
-                        {groupOptions.map((option, index) => 
-                          renderOption(option, index)
-                        )}
-                      </View>
-                    );
-                  })
-                ) : (
-                  /* Flat Options */
-                  filteredOptions.map((option, index) => 
-                    renderOption(option, index)
-                  )
-                )}
-              </ScrollView>
-            )}
-          </AnimatedPressable>
-        </Pressable>
-      </Modal>
-    </>
-  );
-});
-Select.displayName = 'Select';
+              {/* Search Input */}
+              {searchable && (
+                <View className="p-3 border-b border-border">
+                  <Input
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholder="Search..."
+                    size={size}
+                    leftElement={
+                      <Symbol
+                        name="magnifyingglass"
+                        size={20}
+                        color={theme.mutedForeground}
+                      />
+                    }
+                    showClearButton
+                    autoFocus
+                  />
+                </View>
+              )}
+
+              {/* Loading State */}
+              {isLoading ? (
+                <View className="p-8 items-center justify-center">
+                  <ActivityIndicator className="mb-3" />
+                  <Text size="sm" color="muted">
+                    Loading options...
+                  </Text>
+                </View>
+              ) : (
+                /* Options List */
+                <ScrollView
+                  className="flex-1"
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {filteredOptions.length === 0 ? (
+                    <View className="p-8 items-center">
+                      <Symbol
+                        name="magnifyingglass"
+                        size={32}
+                        color={theme.mutedForeground}
+                        className="mb-3"
+                      />
+                      <Text size="sm" color="muted">
+                        No options found
+                      </Text>
+                    </View>
+                  ) : grouped ? (
+                    /* Grouped Options */
+                    grouped.map((group, groupIndex) => {
+                      const groupOptions = group.options.filter(
+                        (opt) => !searchQuery || filteredOptions.includes(opt)
+                      );
+
+                      if (groupOptions.length === 0) return null;
+
+                      return (
+                        <View key={group.label}>
+                          {groupIndex > 0 && (
+                            <View className="h-px bg-border my-1" />
+                          )}
+                          <Text
+                            size="sm"
+                            weight="medium"
+                            color="muted"
+                            className="px-4 py-2"
+                          >
+                            {group.label}
+                          </Text>
+                          {groupOptions.map((option, index) =>
+                            renderOption(option, index)
+                          )}
+                        </View>
+                      );
+                    })
+                  ) : (
+                    /* Flat Options */
+                    filteredOptions.map((option, index) =>
+                      renderOption(option, index)
+                    )
+                  )}
+                </ScrollView>
+              )}
+            </AnimatedPressable>
+          </Pressable>
+        </Modal>
+      </>
+    );
+  }
+);
+Select.displayName = "Select";
 
 // Native-style picker for mobile (optional)
-export const NativeSelect = React.forwardRef<View, SelectProps>((props, ref) => {
-  // For true native feel on mobile, you could integrate with
-  // @react-native-picker/picker or similar libraries
-  // For now, using the same implementation
-  return <Select {...props} ref={ref} />;
-});
+export const NativeSelect = React.forwardRef<View, SelectProps>(
+  (props, ref) => {
+    // For true native feel on mobile, you could integrate with
+    // @react-native-picker/picker or similar libraries
+    // For now, using the same implementation
+    return <Select {...props} ref={ref} />;
+  }
+);
 
-NativeSelect.displayName = 'NativeSelect';
+NativeSelect.displayName = "NativeSelect";
