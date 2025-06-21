@@ -147,7 +147,7 @@ export const Select = React.forwardRef<View, SelectProps>(
       maxHeight = 300,
 
       // Animation
-      animated = true,
+      // animated = true, // Currently unused
       animationType = "scale",
       dropdownStagger = true,
 
@@ -169,13 +169,15 @@ export const Select = React.forwardRef<View, SelectProps>(
     const { density } = useSpacing();
     const { enableAnimations } = useAnimationStore();
     const theme = useTheme();
-    const { height: windowHeight } = useWindowDimensions();
+    const { height: windowHeight, width: windowWidth } = useWindowDimensions();
     const selectRef = useRef<View>(null);
     const [dropdownPosition, setDropdownPosition] = useState({
       top: 0,
       left: 0,
       width: 0,
+      maxHeight: 300,
     });
+    const [shouldOpenUpward, setShouldOpenUpward] = useState(false);
 
     // Animation values
     const chevronRotation = useSharedValue(0);
@@ -218,18 +220,51 @@ export const Select = React.forwardRef<View, SelectProps>(
     // Handle dropdown position for web
     useEffect(() => {
       if (isOpen && Platform.OS === "web" && selectRef.current) {
-        selectRef.current.measure((x, y, width, height, pageX, pageY) => {
+        selectRef.current.measure((_, __, width, height, pageX, pageY) => {
           const spaceBelow = windowHeight - pageY - height;
-          const dropdownHeight = Math.min(maxHeight, spaceBelow - 20);
-
+          const spaceAbove = pageY;
+          // Calculate height including search bar if present
+          const searchBarHeight = searchable ? 60 : 0;
+          
+          // On initial open, determine direction based on all options
+          if (searchQuery === '') {
+            const initialDropdownHeight = Math.min(
+              maxHeight, 
+              allOptions.length * 56 + searchBarHeight + 20
+            );
+            const shouldOpen = spaceBelow < initialDropdownHeight && spaceAbove > spaceBelow;
+            setShouldOpenUpward(shouldOpen);
+          }
+          
+          // Calculate current height based on filtered options (unused but kept for clarity)
+          // const estimatedDropdownHeight = Math.min(
+          //   maxHeight, 
+          //   filteredOptions.length * 56 + searchBarHeight + 20
+          // );
+          
+          let topPosition;
+          let calculatedMaxHeight;
+          
+          if (shouldOpenUpward) {
+            // Open upward - maintain position even when filtered
+            const fullHeight = Math.min(maxHeight, allOptions.length * 56 + searchBarHeight + 20);
+            topPosition = Math.max(10, pageY - fullHeight - 4);
+            calculatedMaxHeight = Math.min(maxHeight, pageY - 20);
+          } else {
+            // Open downward (default)
+            topPosition = pageY + height + 4;
+            calculatedMaxHeight = Math.min(maxHeight, spaceBelow - 20);
+          }
+          
           setDropdownPosition({
-            top: pageY + height + 4,
+            top: topPosition,
             left: pageX,
             width,
+            maxHeight: calculatedMaxHeight,
           });
         });
       }
-    }, [isOpen, windowHeight, maxHeight]);
+    }, [isOpen, windowHeight, windowWidth, maxHeight, filteredOptions.length, searchQuery, searchable, shouldOpenUpward, allOptions.length]);
 
     // Update animations
     useEffect(() => {
@@ -255,7 +290,7 @@ export const Select = React.forwardRef<View, SelectProps>(
           itemAnimations.value = 0;
         }
       }
-    }, [isOpen, enableAnimations, dropdownStagger]);
+    }, [isOpen, enableAnimations, dropdownStagger, chevronRotation, dropdownScale, dropdownOpacity, itemAnimations]);
 
     // Handlers
     const handleOpen = useCallback(() => {
@@ -270,6 +305,7 @@ export const Select = React.forwardRef<View, SelectProps>(
       setIsOpen(false);
       setSearchQuery("");
       setHighlightedIndex(-1);
+      setShouldOpenUpward(false); // Reset direction for next open
       onClose?.();
     }, [onClose]);
 
@@ -319,13 +355,9 @@ export const Select = React.forwardRef<View, SelectProps>(
     }));
 
     const animatedDropdownStyle = useAnimatedStyle(() => {
-      const baseStyle = {
-        opacity: dropdownOpacity.value,
-      };
-
       if (animationType === "scale") {
         return {
-          ...baseStyle,
+          opacity: dropdownOpacity.value,
           transform: [
             { scale: dropdownScale.value },
             {
@@ -336,23 +368,25 @@ export const Select = React.forwardRef<View, SelectProps>(
                 Extrapolation.CLAMP
               ),
             },
-          ],
+          ] as any, // Type assertion to fix TS error with transform array
         };
       }
 
-      return baseStyle;
+      return {
+        opacity: dropdownOpacity.value,
+      };
     });
 
     // Create animated styles for dropdown items outside of render
     const getItemAnimatedStyle = useCallback(
-      (index: number) => {
+      (_index: number) => {
         "worklet";
 
         if (!enableAnimations || !dropdownStagger) {
           return {};
         }
 
-        const delay = index * 50;
+        // const delay = index * 50; // For future stagger implementation
         const progress = interpolate(
           itemAnimations.value,
           [0, 1],
@@ -456,6 +490,8 @@ export const Select = React.forwardRef<View, SelectProps>(
         multiple,
         size,
         getItemAnimatedStyle,
+        theme.accentForeground,
+        theme.mutedForeground,
       ]
     );
 
@@ -545,26 +581,37 @@ export const Select = React.forwardRef<View, SelectProps>(
             style={{
               flex: 1,
               backgroundColor: "rgba(0, 0, 0, 0.5)",
+              justifyContent: Platform.OS === "web" ? "flex-start" : "center",
+              alignItems: Platform.OS === "web" ? "flex-start" : "center",
             }}
             onPress={handleClose}
           >
             <AnimatedPressable
               style={[
-                {
-                  position: Platform.OS === "web" ? "absolute" : "relative",
-                  ...(Platform.OS === "web"
-                    ? dropdownPosition
-                    : {
-                        marginTop: 100,
-                        marginHorizontal: 20,
-                      }),
-                  maxHeight,
-                },
+                Platform.OS === "web" 
+                  ? {
+                      position: "absolute" as const,
+                      top: dropdownPosition.top,
+                      left: dropdownPosition.left,
+                      width: dropdownPosition.width,
+                      maxHeight: dropdownPosition.maxHeight,
+                      // Add subtle transition for position changes
+                      transition: "top 0.15s ease-out, max-height 0.2s ease-out",
+                    }
+                  : {
+                      position: "relative" as const,
+                      marginVertical: "auto",
+                      marginHorizontal: 20,
+                      maxHeight: windowHeight * 0.7,
+                      alignSelf: "center",
+                    },
                 animatedDropdownStyle,
                 dropdownStyle,
               ]}
               className={cn(
-                "bg-popover border border-border rounded-md shadow-lg overflow-hidden",
+                "bg-popover border border-border rounded-md overflow-hidden",
+                Platform.OS === "web" ? "shadow-xl" : "shadow-lg",
+                shouldOpenUpward && "shadow-2xl",
                 dropdownClassName
               )}
               onPress={(e) => e.stopPropagation()}
