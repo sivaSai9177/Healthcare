@@ -169,7 +169,7 @@ export const Select = React.forwardRef<View, SelectProps>(({
   const { density } = useSpacing();
   const { enableAnimations } = useAnimationStore();
   const theme = useTheme();
-  const { height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const selectRef = useRef<View>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   
@@ -208,16 +208,29 @@ export const Select = React.forwardRef<View, SelectProps>(({
     if (isOpen && Platform.OS === 'web' && selectRef.current) {
       selectRef.current.measure((x, y, width, height, pageX, pageY) => {
         const spaceBelow = windowHeight - pageY - height;
-        const dropdownHeight = Math.min(maxHeight, spaceBelow - 20);
+        const spaceAbove = pageY;
+        const estimatedDropdownHeight = Math.min(maxHeight, filteredOptions.length * 56 + 20); // Estimate based on item height
+        
+        // Determine if dropdown should open upward or downward
+        const shouldOpenUpward = spaceBelow < estimatedDropdownHeight && spaceAbove > spaceBelow;
+        
+        let topPosition;
+        if (shouldOpenUpward) {
+          // Open upward
+          topPosition = Math.max(10, pageY - estimatedDropdownHeight - 4);
+        } else {
+          // Open downward (default)
+          topPosition = pageY + height + 4;
+        }
         
         setDropdownPosition({
-          top: pageY + height + 4,
+          top: topPosition,
           left: pageX,
           width,
         });
       });
     }
-  }, [isOpen, windowHeight, maxHeight]);
+  }, [isOpen, windowHeight, windowWidth, maxHeight, filteredOptions.length]);
   
   // Update animations
   useEffect(() => {
@@ -304,13 +317,9 @@ export const Select = React.forwardRef<View, SelectProps>(({
   }));
   
   const animatedDropdownStyle = useAnimatedStyle(() => {
-    const baseStyle = {
-      opacity: dropdownOpacity.value,
-    };
-    
     if (animationType === 'scale') {
       return {
-        ...baseStyle,
+        opacity: dropdownOpacity.value,
         transform: [
           { scale: dropdownScale.value },
           { translateY: interpolate(
@@ -323,7 +332,9 @@ export const Select = React.forwardRef<View, SelectProps>(({
       };
     }
     
-    return baseStyle;
+    return {
+      opacity: dropdownOpacity.value,
+    };
   });
   
   // Create animated styles for dropdown items outside of render
@@ -504,19 +515,26 @@ export const Select = React.forwardRef<View, SelectProps>(({
           style={{
             flex: 1,
             backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: Platform.OS === 'web' ? 'flex-start' : 'center',
+            alignItems: Platform.OS === 'web' ? 'flex-start' : 'center',
           }}
           onPress={handleClose}
         >
           <AnimatedPressable
             style={[
-              {
-                position: Platform.OS === 'web' ? 'absolute' : 'relative',
-                ...(Platform.OS === 'web' ? dropdownPosition : {
-                  marginTop: 100,
-                  marginHorizontal: 20,
-                }),
-                maxHeight,
-              },
+              Platform.OS === 'web' 
+                ? {
+                    position: 'absolute' as const,
+                    ...dropdownPosition,
+                    maxHeight,
+                  }
+                : {
+                    position: 'relative' as const,
+                    marginVertical: 'auto',
+                    marginHorizontal: 20,
+                    maxHeight: windowHeight * 0.7,
+                    alignSelf: 'center',
+                  },
               animatedDropdownStyle,
               dropdownStyle,
             ]}
