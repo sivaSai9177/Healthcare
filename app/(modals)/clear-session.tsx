@@ -23,7 +23,7 @@ export default function ClearSessionScreen() {
       
       // Redirect to login after a short delay
       setTimeout(() => {
-        router.replace('/(auth)/login');
+        router.replace('/auth/login' as any);
       }, 1500);
     } catch (error) {
       console.error('Failed to clear session:', error);

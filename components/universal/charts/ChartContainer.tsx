@@ -143,7 +143,7 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
         style={{
           flexDirection: isHorizontal ? 'row' : 'column',
           flexWrap: isHorizontal ? 'wrap' : 'nowrap',
-          gap: spacing[3],
+          gap: spacing[3] as any,
         }}
       >
         {items.map((item, index) => (
@@ -163,7 +163,7 @@ export const ChartLegend: React.FC<ChartLegendProps> = ({
               style={{
                 width: 12,
                 height: 12,
-                borderRadius: 2,
+                borderRadius: 2 as any,
                 backgroundColor: item.color,
                 marginRight: spacing[2],
               }}
@@ -292,7 +292,7 @@ export const ChartTooltipContent: React.FC<{
         Platform.OS === 'android' && "elevation-1"
       )}
       style={{
-        padding: spacing[2],
+        padding: spacing[2] as any,
         ...(Platform.OS === 'web' && {
           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
         }),

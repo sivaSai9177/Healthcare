@@ -15,3 +15,6 @@ export * from './AreaChartWithControls';
 export * from './AreaChartInteractive';
 export * from './RadarChart';
 export * from './RadialChart';
+
+// Type exports
+export type * from './types';

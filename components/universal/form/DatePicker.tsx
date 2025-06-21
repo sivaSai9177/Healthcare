@@ -358,7 +358,7 @@ export const DatePicker = React.forwardRef<View, DatePickerProps>(({
             style={[
               {
                 width: spacing[80],
-                padding: spacing[4],
+                padding: spacing[4] as any,
               },
               shadowStyle,
               calendarStyle,

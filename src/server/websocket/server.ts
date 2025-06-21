@@ -1,11 +1,25 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'http';
 import { parse } from 'url';
-import { alertEvents } from '../services/alert-subscriptions';
-import { log } from '@/lib/core/debug/logger';
-import { db } from '@/src/db';
-import { sessions, users } from '@/src/db/schema';
 import { eq } from 'drizzle-orm';
+import { alertEvents } from '../services/alert-subscriptions';
+import { db } from '@/src/db/server-db';
+import { session, user as users } from '@/src/db/schema';
+
+// Simple console logger for Docker environment
+const log = {
+  info: (message: string, context?: string, data?: any) => {
+
+  },
+  error: (message: string, context?: string, error?: any) => {
+    console.error(`[ERROR] [${context || 'WEBSOCKET'}] ${message}`, error || '');
+  },
+  debug: (message: string, context?: string, data?: any) => {
+    if (process.env.NODE_ENV === 'development') {
+
+    }
+  }
+};
 
 interface AuthenticatedWebSocket extends WebSocket {
   userId?: string;
@@ -25,7 +39,7 @@ interface WebSocketMessage {
 class WebSocketManager {
   private wss: WebSocketServer;
   private clients: Map<string, Set<AuthenticatedWebSocket>> = new Map();
-  private heartbeatInterval: NodeJS.Timeout;
+  private heartbeatInterval: NodeJS.Timeout | undefined;
 
   constructor(port: number = 3002) {
     const server = createServer();
@@ -88,16 +102,16 @@ class WebSocketManager {
   private async authenticateClient(ws: AuthenticatedWebSocket, token: string) {
     try {
       // Validate session token
-      const [session] = await db
+      const [sessionData] = await db
         .select({
-          userId: sessions.userId,
-          expiresAt: sessions.expiresAt,
+          userId: session.userId,
+          expiresAt: session.expiresAt,
         })
-        .from(sessions)
-        .where(eq(sessions.token, token))
+        .from(session)
+        .where(eq(session.token, token))
         .limit(1);
       
-      if (!session || session.expiresAt < new Date()) {
+      if (!sessionData || sessionData.expiresAt < new Date()) {
         ws.send(JSON.stringify({ error: 'Invalid or expired token' }));
         return;
       }
@@ -110,7 +124,7 @@ class WebSocketManager {
           organizationId: users.organizationId,
         })
         .from(users)
-        .where(eq(users.id, session.userId))
+        .where(eq(users.id, sessionData.userId))
         .limit(1);
       
       if (!user) {
@@ -197,11 +211,12 @@ class WebSocketManager {
         event: event.type,
         data: event.data,
         timestamp: event.timestamp,
-      });
+        organizationId: event.data?.organizationId,
+      }, event.data?.organizationId);
     });
   }
 
-  private broadcastToHospital(hospitalId: string, data: any) {
+  private broadcastToHospital(hospitalId: string, data: any, organizationId?: string) {
     const clients = this.clients.get(hospitalId);
     if (!clients) return;
     
@@ -210,12 +225,15 @@ class WebSocketManager {
     
     clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
-        client.send(message);
-        sent++;
+        // If organizationId is specified, only send to clients from that organization
+        if (!organizationId || client.organizationId === organizationId) {
+          client.send(message);
+          sent++;
+        }
       }
     });
     
-    log.debug(`Broadcast to ${sent} clients in hospital ${hospitalId}`, 'WEBSOCKET');
+    log.debug(`Broadcast to ${sent} clients in hospital ${hospitalId}${organizationId ? ` (org: ${organizationId})` : ''}`, 'WEBSOCKET');
   }
 
   private removeClient(ws: AuthenticatedWebSocket) {
@@ -240,7 +258,7 @@ class WebSocketManager {
         ws.isAlive = false;
         ws.ping();
       });
-    }, 30000); // 30 seconds
+    }, 30000) as any; // 30 seconds
   }
 
   public shutdown() {

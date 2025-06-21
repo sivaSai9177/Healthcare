@@ -169,7 +169,7 @@ export const Switch = React.forwardRef<RNSwitch, SwitchProps>(({
       <View 
         style={[
           sizeConfig[size],
-          disabled && { opacity: 0.5 },
+          disabled && { opacity: 0.5 as any },
           style,
         ]}
       >
@@ -200,7 +200,7 @@ export const Switch = React.forwardRef<RNSwitch, SwitchProps>(({
         {
           width: 51,
           height: 31,
-          borderRadius: 16,
+          borderRadius: 16 as any,
           padding: 2,
           cursor: disabled ? 'not-allowed' : 'pointer',
           position: 'relative',

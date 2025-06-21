@@ -7,26 +7,22 @@ const APP_ENV = process.env.APP_ENV || 'development';
 let DATABASE_URL: string;
 
 switch (APP_ENV) {
-  case 'local':
-    DATABASE_URL = process.env.LOCAL_DATABASE_URL || 'postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev';
-    break;
-  case 'preview':
-    DATABASE_URL = process.env.PREVIEW_DATABASE_URL || 'postgresql://myexpo:myexpo123@localhost:5432/myexpo_preview';
-    break;
-  case 'staging':
-    DATABASE_URL = process.env.STAGING_DATABASE_URL || process.env.NEON_DATABASE_URL || '';
+  case 'test':
+    DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgresql://myexpo:myexpo123@localhost:5432/myexpo_test';
     break;
   case 'production':
-    DATABASE_URL = process.env.PRODUCTION_DATABASE_URL || process.env.NEON_DATABASE_URL || '';
+    DATABASE_URL = process.env.PROD_DATABASE_URL || process.env.DATABASE_URL || 'postgresql://myexpo:myexpo123@localhost:5432/myexpo_prod';
     break;
+  case 'development':
+  case 'local':
   default:
-    // development
-    DATABASE_URL = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL || '';
+    // development/local
+    DATABASE_URL = process.env.DATABASE_URL || 'postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev';
 }
 
 // TODO: Replace with structured logging - console.log(`📦 Drizzle Kit Configuration`);
 // TODO: Replace with structured logging - console.log(`🌍 Environment: ${APP_ENV}`);
-// TODO: Replace with structured logging - console.log(`📊 Database: ${DATABASE_URL.includes('localhost') ? 'Local PostgreSQL' : 'Neon Cloud'}`);
+// TODO: Replace with structured logging - console.log(`📊 Database: PostgreSQL`);
 
 export default defineConfig({
   out: "./drizzle",

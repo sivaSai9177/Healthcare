@@ -131,7 +131,7 @@ const AnimatedCloseButton = ({ onPress, spacing, animated, isAnimated, shouldAni
           right: spacing[4],
           top: spacing[4],
           zIndex: 1,
-          padding: spacing[2],
+          padding: spacing[2] as any,
           borderRadius: spacing[2],
         },
         animated && isAnimated && shouldAnimate() ? animatedStyle : {},
@@ -340,7 +340,7 @@ function DialogOverlay({
             bottom: 0,
             backgroundColor: overlayColor,
           },
-          animated && isAnimated && shouldAnimate() ? animatedStyle : { opacity: 1 },
+          animated && isAnimated && shouldAnimate() ? animatedStyle : { opacity: 1 as any },
         ]}
       />
     </TouchableWithoutFeedback>
@@ -440,10 +440,10 @@ export function DialogContent({
                 backgroundColor: '#ffffff',
                 borderRadius: designSystem.borderRadius.lg,
                 ...designSystem.shadows.lg,
-                padding: spacing[6],
-                margin: spacing[4],
+                padding: spacing[6] as any,
+                margin: spacing[4] as any,
               },
-              animated && isAnimated && shouldAnimate() && animationType !== 'none' ? animatedStyle : { opacity: 1 },
+              animated && isAnimated && shouldAnimate() && animationType !== 'none' ? animatedStyle : { opacity: 1 as any },
               Platform.OS === 'web' && animated && isAnimated && shouldAnimate() && {
                 transition: 'all 0.3s ease',
               } as any,
@@ -470,7 +470,7 @@ export function DialogContent({
               style={{ flexGrow: 0 }}
             >
               {isLoading ? (
-                <View style={{ padding: spacing[8], alignItems: 'center' }}>
+                <View style={{ padding: spacing[8] as any, alignItems: 'center' }}>
                   <ActivityIndicator size="lg" color="#3b82f6" />
                   <UniversalText
                     size="sm"

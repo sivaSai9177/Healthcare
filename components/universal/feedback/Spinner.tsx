@@ -238,7 +238,7 @@ export const Spinner = React.forwardRef<View, SpinnerProps>(({
       return (
         <View className="flex-row items-center justify-center" style={{ gap: dotSize / 2 }}>
           <AnimatedView
-            className={cn('rounded-full', colorClass)}
+            className={cn('rounded-full', colorClass) as string}
             style={[
               {
                 width: dotSize,
@@ -249,7 +249,7 @@ export const Spinner = React.forwardRef<View, SpinnerProps>(({
             ]}
           />
           <AnimatedView
-            className={cn('rounded-full', colorClass)}
+            className={cn('rounded-full', colorClass) as string}
             style={[
               {
                 width: dotSize,
@@ -260,7 +260,7 @@ export const Spinner = React.forwardRef<View, SpinnerProps>(({
             ]}
           />
           <AnimatedView
-            className={cn('rounded-full', colorClass)}
+            className={cn('rounded-full', colorClass) as string}
             style={[
               {
                 width: dotSize,
@@ -279,7 +279,7 @@ export const Spinner = React.forwardRef<View, SpinnerProps>(({
       return (
         <View className="flex-row items-end justify-center" style={{ height: config.size, gap: barWidth / 2 }}>
           <AnimatedView
-            className={cn('rounded-full', colorClass)}
+            className={cn('rounded-full', colorClass) as string}
             style={[
               {
                 width: barWidth,
@@ -289,7 +289,7 @@ export const Spinner = React.forwardRef<View, SpinnerProps>(({
             ]}
           />
           <AnimatedView
-            className={cn('rounded-full', colorClass)}
+            className={cn('rounded-full', colorClass) as string}
             style={[
               {
                 width: barWidth,
@@ -299,7 +299,7 @@ export const Spinner = React.forwardRef<View, SpinnerProps>(({
             ]}
           />
           <AnimatedView
-            className={cn('rounded-full', colorClass)}
+            className={cn('rounded-full', colorClass) as string}
             style={[
               {
                 width: barWidth,
@@ -335,13 +335,13 @@ export const Spinner = React.forwardRef<View, SpinnerProps>(({
     <View
       ref={ref}
       className={containerClasses}
-      style={[style]}
+      style={[style] as any}
     >
       {renderSpinner()}
       {label && (
         <Text
           size={config.fontSize}
-          className={cn('mt-2', colorClass)}
+          className={cn('mt-2', colorClass) as string}
         >
           {label}
         </Text>

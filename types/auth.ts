@@ -45,15 +45,24 @@ export interface AppUser extends User {
   jobTitle?: string;
   phoneNumber?: string;
   bio?: string;
+  licenseNumber?: string;
+  availabilityStatus?: 'available' | 'busy' | 'offline';
+  contactPreferences?: {
+    email: boolean;
+    push: boolean;
+    sms: boolean;
+  };
+  profilePhotoUrl?: string;
   needsProfileCompletion?: boolean;
   emailVerified?: boolean;
+  defaultHospitalId?: string;
 }
 
 // Update the module declaration to use our custom user type
 declare module "better-auth/types" {
   interface User {
     // Extend with our custom fields
-    role: UserRole;
+    role?: UserRole;
     organizationId?: string;
     organizationName?: string;
     organizationRole?: HealthcareRole;
@@ -61,8 +70,17 @@ declare module "better-auth/types" {
     jobTitle?: string;
     phoneNumber?: string;
     bio?: string;
+    licenseNumber?: string;
+    availabilityStatus?: 'available' | 'busy' | 'offline';
+    contactPreferences?: {
+      email: boolean;
+      push: boolean;
+      sms: boolean;
+    };
+    profilePhotoUrl?: string;
     needsProfileCompletion?: boolean;
     emailVerified?: boolean;
+    defaultHospitalId?: string;
   }
 }
 

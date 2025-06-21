@@ -369,7 +369,7 @@ export const TableCell = React.memo<TableCellProps>(function TableCell({
         <Text
           size="sm"
           weight={header ? 'medium' : 'normal'}
-          style={[{ textAlign }, textStyle]}
+          style={[{ textAlign }, textStyle] as any}
         >
           {children}
         </Text>

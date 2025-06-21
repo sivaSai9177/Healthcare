@@ -35,14 +35,14 @@ class MobileAuthTester {
   private addResult(test: string, passed: boolean, message: string, details?: any) {
     this.results.push({ test, passed, message, details });
     const status = passed ? '✅ PASS' : '❌ FAIL';
-// TODO: Replace with structured logging - console.log(`${status} ${test}: ${message}`);
+// TODO: Replace with structured logging - /* console.log(`${status} ${test}: ${message}`) */;
     if (details && !passed) {
-// TODO: Replace with structured logging - console.log('  Details:', details);
+// TODO: Replace with structured logging - /* console.log('  Details:', details) */;
     }
   }
 
   async testAppSchemeConfiguration() {
-// TODO: Replace with structured logging - console.log('\n🔧 Testing App Scheme Configuration...');
+// TODO: Replace with structured logging - /* console.log('\n🔧 Testing App Scheme Configuration...') */;
     
     try {
       // Test app.json scheme configuration
@@ -95,7 +95,7 @@ class MobileAuthTester {
   }
 
   async testAuthClientConfiguration() {
-// TODO: Replace with structured logging - console.log('\n🔐 Testing Auth Client Configuration...');
+// TODO: Replace with structured logging - /* console.log('\n🔐 Testing Auth Client Configuration...') */;
     
     try {
       // Test if auth client can be imported (basic syntax check)
@@ -159,7 +159,7 @@ class MobileAuthTester {
   }
 
   async testOAuthConfiguration() {
-// TODO: Replace with structured logging - console.log('\n🌐 Testing OAuth Configuration...');
+// TODO: Replace with structured logging - /* console.log('\n🌐 Testing OAuth Configuration...') */;
     
     try {
       // Check environment variables
@@ -204,7 +204,7 @@ class MobileAuthTester {
   }
 
   async testMobileSpecificComponents() {
-// TODO: Replace with structured logging - console.log('\n📱 Testing Mobile-Specific Components...');
+// TODO: Replace with structured logging - /* console.log('\n📱 Testing Mobile-Specific Components...') */;
     
     try {
       const fs = require('fs');
@@ -280,7 +280,7 @@ class MobileAuthTester {
   }
 
   async testCrossPlatformCompatibility() {
-// TODO: Replace with structured logging - console.log('\n🌍 Testing Cross-Platform Compatibility...');
+// TODO: Replace with structured logging - /* console.log('\n🌍 Testing Cross-Platform Compatibility...') */;
     
     try {
       const platforms = ['ios', 'android', 'web'];
@@ -343,7 +343,7 @@ class MobileAuthTester {
   }
 
   async testSecurityConfiguration() {
-// TODO: Replace with structured logging - console.log('\n🔒 Testing Security Configuration...');
+// TODO: Replace with structured logging - /* console.log('\n🔒 Testing Security Configuration...') */;
     
     try {
       // Test secure storage configuration
@@ -409,7 +409,7 @@ class MobileAuthTester {
   }
 
   async runAllTests() {
-// TODO: Replace with structured logging - console.log('🚀 Starting Mobile Authentication Flow Tests...\n');
+// TODO: Replace with structured logging - /* console.log('🚀 Starting Mobile Authentication Flow Tests...\n') */;
     
     await this.testAppSchemeConfiguration();
     await this.testAuthClientConfiguration();
@@ -423,25 +423,25 @@ class MobileAuthTester {
     const passedTests = this.results.filter(r => r.passed).length;
     const failedTests = totalTests - passedTests;
     
-// TODO: Replace with structured logging - console.log('\n📊 Test Summary:');
-// TODO: Replace with structured logging - console.log(`Total Tests: ${totalTests}`);
-// TODO: Replace with structured logging - console.log(`Passed: ${passedTests} ✅`);
-// TODO: Replace with structured logging - console.log(`Failed: ${failedTests} ❌`);
-// TODO: Replace with structured logging - console.log(`Success Rate: ${Math.round((passedTests / totalTests) * 100)}%`);
+// TODO: Replace with structured logging - /* console.log('\n📊 Test Summary:') */;
+// TODO: Replace with structured logging - /* console.log(`Total Tests: ${totalTests}`) */;
+// TODO: Replace with structured logging - /* console.log(`Passed: ${passedTests} ✅`) */;
+// TODO: Replace with structured logging - /* console.log(`Failed: ${failedTests} ❌`) */;
+// TODO: Replace with structured logging - /* console.log(`Success Rate: ${Math.round((passedTests / totalTests) */ * 100)}%`);
     
     if (failedTests > 0) {
-// TODO: Replace with structured logging - console.log('\n❌ Failed Tests:');
+// TODO: Replace with structured logging - /* console.log('\n❌ Failed Tests:') */;
       this.results
         .filter(r => !r.passed)
-// TODO: Replace with structured logging - .forEach(r => console.log(`  - ${r.test}: ${r.message}`));
+// TODO: Replace with structured logging - .forEach(r => /* console.log(`  - ${r.test}: ${r.message}`) */);
     }
     
-// TODO: Replace with structured logging - console.log('\n📱 Mobile Testing Instructions:');
-// TODO: Replace with structured logging - console.log('1. Create development build: bun run eas:build:dev');
-// TODO: Replace with structured logging - console.log('2. Install on device via TestFlight (iOS) or APK (Android)');
-// TODO: Replace with structured logging - console.log('3. Start development server: bun start');
-// TODO: Replace with structured logging - console.log('4. Test OAuth flow in the development build app');
-// TODO: Replace with structured logging - console.log('5. Verify profile completion and session management');
+// TODO: Replace with structured logging - /* console.log('\n📱 Mobile Testing Instructions:') */;
+// TODO: Replace with structured logging - /* console.log('1. Create development build: bun run eas:build:dev') */;
+// TODO: Replace with structured logging - /* console.log('2. Install on device via TestFlight (iOS) */ or APK (Android)');
+// TODO: Replace with structured logging - /* console.log('3. Start development server: bun start') */;
+// TODO: Replace with structured logging - /* console.log('4. Test OAuth flow in the development build app') */;
+// TODO: Replace with structured logging - /* console.log('5. Verify profile completion and session management') */;
     
     return {
       totalTests,

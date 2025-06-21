@@ -210,7 +210,7 @@ export function Register({
         entering={FadeIn.springify()}
         style={animatedFormStyle}
       >
-        <VStack gap={spacing[3]}>
+        <VStack gap={spacing[3] as any}>
             {/* Error Message */}
             {error && (
               <AnimatedView entering={FadeIn} exiting={FadeOut}>
@@ -223,7 +223,7 @@ export function Register({
             )}
 
             {/* Social Login Section - Moved to top */}
-            <VStack gap={spacing[3]}>
+            <VStack gap={spacing[3] as any}>
               {/* Social Buttons */}
               <SocialLoginButtons
                 providers={['google']}
@@ -262,12 +262,14 @@ export function Register({
             </VStack>
 
             {/* Form Fields */}
-            <VStack gap={spacing[3]}>
+            <VStack gap={spacing[3] as any}>
               {/* Row 1: Name and Email Fields */}
               <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: spacing[2] }}>
                 {/* Name Field */}
                 <View style={isMobile ? { width: '100%' } : { flex: 1 }}>
                   <Input
+                    id="register-name"
+                    name="name"
                     floatingLabel={false}
                     label="Full Name"
                     placeholder="John Doe"
@@ -290,6 +292,8 @@ export function Register({
                 {/* Email Field */}
                 <View style={isMobile ? { width: '100%', marginTop: spacing[2] } : { flex: 1 }}>
                   <Input
+                    id="register-email"
+                    name="email"
                     floatingLabel={false}
                     label="Email"
                     placeholder="user@example.com"
@@ -326,11 +330,13 @@ export function Register({
                 {/* Password Field */}
                 <View style={isMobile ? { width: '100%' } : { flex: 1 }}>
                   <Input
+                    id="register-password"
+                    name="password"
                     floatingLabel={false}
                     label="Password"
                     placeholder="Create a password"
                     secureTextEntry={!showPassword}
-                    autoComplete="password-new"
+                    autoComplete="new-password"
                     value={password}
                     onChangeText={(text) => {
                       form.setValue('password', text, { shouldValidate: true });
@@ -360,11 +366,13 @@ export function Register({
                 {/* Confirm Password Field */}
                 <View style={isMobile ? { width: '100%', marginTop: spacing[2] } : { flex: 1 }}>
                   <Input
+                    id="register-confirm-password"
+                    name="confirmPassword"
                     floatingLabel={false}
                     label="Confirm Password"
                     placeholder="Re-enter password"
                     secureTextEntry={!showConfirmPassword}
-                    autoComplete="password-new"
+                    autoComplete="off"
                     value={form.watch('confirmPassword')}
                     onChangeText={(text) => {
                       form.setValue('confirmPassword', text, { shouldValidate: true });

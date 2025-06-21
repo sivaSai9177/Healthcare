@@ -32,3 +32,6 @@ export * from './charts';
 
 // Design system tokens are available via @/lib/design
 // Removed re-export to avoid duplicate exports
+
+// Type exports
+export type * from './types';

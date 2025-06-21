@@ -283,7 +283,7 @@ export const LineChart: React.FC<LineChartProps> = ({
   };
   
   return (
-    <View style={[{ width, height }, style]} testID={testID}>
+    <View style={[{ width, height }, style] as any} testID={testID}>
       <Svg 
         width={width} 
         height={height}
@@ -446,7 +446,7 @@ export const LineChart: React.FC<LineChartProps> = ({
                 style={{
                   width: 8,
                   height: 8,
-                  borderRadius: 4,
+                  borderRadius: 4 as any,
                   backgroundColor: tooltip.datasetLabel === 'Desktop' ? '#3b82f6' : '#10b981',
                 }}
               />

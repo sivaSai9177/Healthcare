@@ -8,7 +8,6 @@ import { Button } from '@/components/universal/interaction';
 import { Symbol } from '@/components/universal/display/Symbols';
 import { api } from '@/lib/api/trpc';
 import { useSpacing } from '@/lib/stores/spacing-store';
-import { SpacingScale } from '@/lib/stores/spacing-types';
 
 interface SystemHealthBlockProps {
   className?: string;
@@ -41,7 +40,7 @@ function formatUptime(seconds: number): string {
 }
 
 export function SystemHealthBlock({ className }: SystemHealthBlockProps) {
-  const { spacing } = useSpacing();
+  useSpacing();
   
   // Query system health
   const { data: health, isLoading, error, refetch } = api.system.getSystemHealth.useQuery(
@@ -69,7 +68,7 @@ export function SystemHealthBlock({ className }: SystemHealthBlockProps) {
       <Card className={className}>
         <CardContent>
           <Alert>
-            <AlertDescription>Failed to load system health</AlertDescription>
+            <Text>Failed to load system health</Text>
           </Alert>
         </CardContent>
       </Card>
@@ -90,12 +89,12 @@ export function SystemHealthBlock({ className }: SystemHealthBlockProps) {
   };
 
   const memoryUsagePercent = health.memory.heapUsed / health.memory.heapTotal * 100;
-  const isMaintenanceMode = config?.maintenance.enabled;
+  const isMaintenanceMode = (config as any)?.maintenance?.enabled;
 
   return (
     <Card className={className}>
       <CardHeader>
-        <HStack justify="between" align="center" as SpacingScale>
+        <HStack justifyContent="space-between" alignItems="center">
           <View>
             <CardTitle>System Health</CardTitle>
             <CardDescription>Real-time system monitoring</CardDescription>
@@ -105,23 +104,23 @@ export function SystemHealthBlock({ className }: SystemHealthBlockProps) {
             size="sm"
             onPress={() => refetch()}
           >
-            <Symbol name="arrow-clockwise" size={16} />
+            <Symbol name="arrow.clockwise" size={16} />
           </Button>
         </HStack>
       </CardHeader>
       <CardContent>
-        <VStack spacing="lg" as SpacingScale>
+        <VStack gap={5 as any}>
           {/* Status Overview */}
-          <HStack justify="between" align="center" as SpacingScale>
-            <HStack spacing="sm" align="center" as SpacingScale>
+          <HStack justifyContent="space-between" alignItems="center">
+            <HStack gap={2 as any} alignItems="center">
               <Symbol 
-                name={health.status === 'healthy' ? 'checkmark-circle' : 'exclamationmark-triangle'} 
+                name={health.status === 'healthy' ? 'checkmark.circle' : 'exclamationmark.triangle'} 
                 size={20} 
                 className={health.status === 'healthy' ? 'text-green-500' : 'text-red-500'}
               />
               <Text weight="semibold">System Status</Text>
             </HStack>
-            <HStack spacing="sm" as SpacingScale>
+            <HStack gap={2 as any}>
               <Badge variant={getStatusVariant(health.status)}>
                 {health.status.toUpperCase()}
               </Badge>
@@ -132,24 +131,24 @@ export function SystemHealthBlock({ className }: SystemHealthBlockProps) {
           </HStack>
 
           {/* Uptime and Version */}
-          <HStack spacing="xl" as SpacingScale>
-            <VStack spacing="xs" as SpacingScale>
+          <HStack gap={6 as any}>
+            <VStack gap={1 as any}>
               <Text size="xs" className="text-muted-foreground">Uptime</Text>
               <Text size="sm" weight="medium">{formatUptime(health.uptime)}</Text>
             </VStack>
-            <VStack spacing="xs" as SpacingScale>
+            <VStack gap={1 as any}>
               <Text size="xs" className="text-muted-foreground">Version</Text>
               <Text size="sm" weight="medium">{health.version}</Text>
             </VStack>
-            <VStack spacing="xs" as SpacingScale>
+            <VStack gap={1 as any}>
               <Text size="xs" className="text-muted-foreground">Environment</Text>
               <Text size="sm" weight="medium">{health.environment}</Text>
             </VStack>
           </HStack>
 
           {/* Memory Usage */}
-          <VStack spacing="sm" as SpacingScale>
-            <HStack justify="between" as SpacingScale>
+          <VStack gap={2 as any}>
+            <HStack justifyContent="space-between">
               <Text size="sm" weight="medium">Memory Usage</Text>
               <Text size="xs" className="text-muted-foreground">
                 {formatBytes(health.memory.heapUsed)} / {formatBytes(health.memory.heapTotal)}
@@ -165,9 +164,9 @@ export function SystemHealthBlock({ className }: SystemHealthBlockProps) {
           </VStack>
 
           {/* Additional Metrics */}
-          <VStack spacing="sm" as SpacingScale>
+          <VStack gap={2 as any}>
             <Text size="sm" weight="medium">Resource Metrics</Text>
-            <HStack spacing="md" as SpacingScale className="flex-wrap">
+            <HStack gap={4 as any} className="flex-wrap">
               <Badge variant="secondary">
                 RSS: {formatBytes(health.memory.rss)}
               </Badge>
@@ -182,14 +181,14 @@ export function SystemHealthBlock({ className }: SystemHealthBlockProps) {
 
           {/* CPU Usage (if available) */}
           {health.cpu && (
-            <HStack spacing="md" as SpacingScale>
-              <VStack spacing="xs" as SpacingScale className="flex-1">
+            <HStack gap={4 as any}>
+              <VStack gap={1 as any} className="flex-1">
                 <Text size="xs" className="text-muted-foreground">User CPU</Text>
                 <Text size="sm" weight="medium">
                   {(health.cpu.user / 1000000).toFixed(2)}s
                 </Text>
               </VStack>
-              <VStack spacing="xs" as SpacingScale className="flex-1">
+              <VStack gap={1 as any} className="flex-1">
                 <Text size="xs" className="text-muted-foreground">System CPU</Text>
                 <Text size="sm" weight="medium">
                   {(health.cpu.system / 1000000).toFixed(2)}s

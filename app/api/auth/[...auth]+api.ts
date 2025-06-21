@@ -1,15 +1,5 @@
-// Load environment variables for API routes
-import 'dotenv/config';
 import { auth } from "@/lib/auth/auth-server";
-import { logger } from '@/lib/core/debug/unified-logger';
-
-// Validate critical environment variables
-if (!process.env.BETTER_AUTH_SECRET) {
-  logger.error('BETTER_AUTH_SECRET is not set', 'AUTH');
-}
-if (!process.env.DATABASE_URL) {
-  logger.error('DATABASE_URL is not set', 'AUTH');
-}
+import { logger } from '@/lib/core/debug/server-logger';
 
 // Simple Better Auth handler with proper CORS
 async function handler(request: Request) {
@@ -33,36 +23,76 @@ async function handler(request: Request) {
 
   try {
     // Debug logging
-    logger.api.request(request.method, new URL(request.url).pathname, {
-      headers: Object.fromEntries(request.headers.entries()),
+    const url = new URL(request.url);
+    logger.auth.debug('Auth request received', {
+      url: request.url,
+      method: request.method,
+      pathname: url.pathname
     });
     
-    // Don't read request body - let Better Auth handle it
-    // Reading the body consumes it and causes issues with Better Auth
+    // Log sign-out attempts specifically
+    if (url.pathname.includes('sign-out')) {
+      logger.auth.warn('Sign-out request detected', {
+        method: request.method,
+        contentType: request.headers.get('content-type'),
+        contentLength: request.headers.get('content-length'),
+        origin: request.headers.get('origin'),
+        referer: request.headers.get('referer')
+      });
+      
+      // Try to safely log the body for sign-out
+      if (request.method === 'POST' && request.headers.get('content-length') !== '0') {
+        try {
+          const clonedRequest = request.clone();
+          const bodyText = await clonedRequest.text();
+          logger.auth.warn('Sign-out request body', {
+            bodyText,
+            bodyLength: bodyText.length,
+            bodyPreview: bodyText.substring(0, 100),
+            isObjectString: bodyText === '[object Object]',
+            startsWithBrace: bodyText.startsWith('{'),
+            endsWithBrace: bodyText.endsWith('}')
+          });
+          
+          // If the body is literally "[object Object]", this means something tried to stringify an object
+          if (bodyText === '[object Object]') {
+            logger.auth.error('CRITICAL: Sign-out request has invalid body "[object Object]"', {
+              hint: 'An object was passed where a string was expected',
+              userAgent: request.headers.get('user-agent'),
+              referer: request.headers.get('referer')
+            });
+            
+            // Return early with a proper error
+            return new Response(
+              JSON.stringify({ 
+                error: 'Invalid request body',
+                details: 'Request body contains invalid JSON'
+              }), 
+              {
+                status: 400,
+                headers: {
+                  ...corsHeaders,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+          }
+        } catch (bodyError) {
+          logger.auth.error('Failed to read sign-out request body', {
+            error: bodyError.message
+          });
+        }
+      }
+    }
     
     // Check if auth handler exists
     if (!auth || typeof auth.handler !== 'function') {
-      logger.api.error('GET', '/api/auth', new Error('auth.handler is not a function'), undefined);
-      logger.api.error('Auth initialization issue', {
-        hasAuth: !!auth,
-        authKeys: auth ? Object.keys(auth) : [],
-        envVarsSet: {
-          BETTER_AUTH_SECRET: !!process.env.BETTER_AUTH_SECRET,
-          DATABASE_URL: !!process.env.DATABASE_URL,
-          BETTER_AUTH_BASE_URL: !!process.env.BETTER_AUTH_BASE_URL,
-        }
+      logger.auth.error('auth.handler is not a function', {
+        authExists: !!auth,
+        handlerType: typeof auth?.handler
       });
       return new Response(
-        JSON.stringify({ 
-          error: 'Auth handler not properly initialized',
-          details: process.env.NODE_ENV === 'development' ? {
-            hasAuth: !!auth,
-            envVarsSet: {
-              BETTER_AUTH_SECRET: !!process.env.BETTER_AUTH_SECRET,
-              DATABASE_URL: !!process.env.DATABASE_URL,
-            }
-          } : undefined
-        }), 
+        JSON.stringify({ error: 'Auth handler not properly initialized' }), 
         {
           status: 500,
           headers: {
@@ -71,56 +101,6 @@ async function handler(request: Request) {
           },
         }
       );
-    }
-    
-    // Parse URL to check the path
-    const url = new URL(request.url);
-    
-    // Special handling for sign-out endpoint with OAuth sessions
-    if (url.pathname.includes('/sign-out') && request.method === 'POST') {
-      logger.auth.debug('Sign-out request detected');
-      
-      try {
-        // For OAuth sessions, Better Auth v1.2.8 has a known issue with JSON parsing
-        // We'll handle this gracefully
-        const response = await auth.handler(request);
-        
-        // If we get a response, return it
-        if (response) {
-          logger.auth.debug('Sign-out response', {
-            status: response.status,
-            statusText: response.statusText
-          });
-          
-          // Add CORS headers
-          Object.entries(corsHeaders).forEach(([key, value]) => {
-            response.headers.set(key, value);
-          });
-          
-          return response;
-        }
-      } catch (error: any) {
-        // Check if this is the known JSON parsing error with OAuth sessions
-        if (error?.message?.includes('[object Object]') || 
-            error?.message?.includes('is not valid JSON')) {
-          logger.auth.debug('Known OAuth sign-out issue detected, returning success');
-          
-          // Return a successful response since the sign-out actually worked
-          return new Response(
-            JSON.stringify({ success: true }),
-            {
-              status: 200,
-              headers: {
-                ...corsHeaders,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-        }
-        
-        // Re-throw other errors
-        throw error;
-      }
     }
     
     // Check if this is a mobile OAuth callback for Google
@@ -158,7 +138,7 @@ async function handler(request: Request) {
                   background: white;
                   border-radius: 12px;
                   padding: 40px 20px;
-                  box-shadow: 0 4px 20px theme.mutedForeground + "10";
+                  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
                   max-width: 400px;
                   margin: 0 auto;
                 }
@@ -210,7 +190,7 @@ async function handler(request: Request) {
                   background: white;
                   border-radius: 12px;
                   padding: 40px 20px;
-                  box-shadow: 0 4px 20px theme.mutedForeground + "10";
+                  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
                   max-width: 400px;
                   margin: 0 auto;
                 }
@@ -244,42 +224,50 @@ async function handler(request: Request) {
     }
     
     // Call Better Auth handler for normal requests
-    logger.auth.debug('Request details', {
+    logger.auth.debug('Calling auth.handler...', {
       method: request.method,
       pathname: url.pathname,
-      isSignOut: url.pathname.includes('sign-out'),
-      isOAuth: url.pathname.includes('callback') || url.pathname.includes('oauth'),
-      headers: {
-        cookie: request.headers.get('cookie'),
-        authorization: request.headers.get('authorization'),
-        origin: request.headers.get('origin'),
-        referer: request.headers.get('referer'),
-      }
+      hasHandler: !!auth.handler,
+      authKeys: Object.keys(auth || {})
     });
     
-    const response = await auth.handler(request);
-    logger.api.response(request.method, url.pathname, response.status);
-    
-    // Log response body for errors
-    if (response.status >= 400) {
-      const clonedResponse = response.clone();
-      try {
-        const responseBody = await clonedResponse.text();
-        logger.api.error(request.method, url.pathname, responseBody);
-        
-        // Try to parse as JSON for better error details
-        try {
-          const errorJson = JSON.parse(responseBody);
-          logger.api.error(request.method, url.pathname, errorJson);
-        } catch {
-          // Not JSON, that's ok
-        }
-      } catch (e) {
-        logger.debug('Could not read error response body', 'API');
+    let response: Response;
+    try {
+      response = await auth.handler(request);
+    } catch (handlerError: any) {
+      logger.auth.error('Better Auth handler threw error', {
+        error: handlerError.message || handlerError,
+        stack: handlerError.stack,
+        pathname: url.pathname
+      });
+      
+      // If it's a JSON parse error, log more details
+      if (handlerError.message?.includes('is not valid JSON')) {
+        logger.auth.error('JSON parse error details', {
+          errorString: handlerError.toString(),
+          errorMessage: handlerError.message,
+          method: request.method,
+          contentType: request.headers.get('content-type')
+        });
       }
+      
+      throw handlerError;
     }
     
-    // Response handled by Better Auth
+    logger.auth.debug('Response from auth.handler', { 
+      status: response.status,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+    
+    // Log errors for debugging
+    if (response.status >= 400) {
+      const responseText = await response.clone().text();
+      logger.auth.error('Auth handler returned error', {
+        status: response.status,
+        statusText: response.statusText,
+        body: responseText
+      });
+    }
     
     // Add CORS headers to response
     Object.entries(corsHeaders).forEach(([key, value]) => {
@@ -288,7 +276,7 @@ async function handler(request: Request) {
 
     return response;
   } catch (error) {
-    logger.api.error(request.method, new URL(request.url).pathname, error);
+    logger.auth.error('Auth API error', error);
     
     // Return more detailed error in development
     const errorMessage = process.env.NODE_ENV === 'development' 

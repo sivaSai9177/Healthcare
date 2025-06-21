@@ -30,6 +30,7 @@ import { Symbol } from '@/components/universal/display/Symbols';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 import { haptic } from '@/lib/ui/haptics';
+import { useTheme } from '@/lib/theme/provider';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedView = Animated.View;
@@ -122,7 +123,7 @@ const roundedClasses = {
   full: 'rounded-full',
 };
 
-export const Select = (React.forwardRef<View, SelectProps>(({
+export const Select = React.forwardRef<View, SelectProps>(({
   // Core props
   value,
   onValueChange,
@@ -167,6 +168,7 @@ export const Select = (React.forwardRef<View, SelectProps>(({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const { density } = useSpacing();
   const { enableAnimations } = useAnimationStore();
+  const theme = useTheme();
   const { height: windowHeight } = useWindowDimensions();
   const selectRef = useRef<View>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
@@ -291,7 +293,8 @@ export const Select = (React.forwardRef<View, SelectProps>(({
     sizeClass,
     error && 'border-destructive',
     disabled && 'opacity-50',
-    'transition-colors duration-200',
+    'transition-all duration-200',
+    Platform.OS === 'web' && 'hover:border-ring',
     className
   );
   
@@ -323,31 +326,43 @@ export const Select = (React.forwardRef<View, SelectProps>(({
     return baseStyle;
   });
   
+  // Create animated styles for dropdown items outside of render
+  const getItemAnimatedStyle = useCallback((index: number) => {
+    'worklet';
+    
+    if (!enableAnimations || !dropdownStagger) {
+      return {};
+    }
+    
+    const delay = index * 50;
+    const progress = interpolate(
+      itemAnimations.value,
+      [0, 1],
+      [0, 1],
+      Extrapolation.CLAMP
+    );
+    
+    return {
+      opacity: progress,
+      transform: [
+        {
+          translateY: interpolate(
+            progress,
+            [0, 1],
+            [20, 0],
+            Extrapolation.CLAMP
+          ),
+        },
+      ],
+    };
+  }, [enableAnimations, dropdownStagger, itemAnimations]);
+
   const renderOption = useCallback((option: SelectOption, index: number) => {
     const isSelected = multiple && Array.isArray(value) 
       ? value.includes(option.value)
       : value === option.value;
     
     const isHighlighted = index === highlightedIndex;
-    
-    const itemStyle = useAnimatedStyle(() => {
-      if (!dropdownStagger || !enableAnimations) return {};
-      
-      const delay = index * 30;
-      const progress = interpolate(
-        itemAnimations.value,
-        [0, 1],
-        [0, 1],
-        Extrapolation.CLAMP
-      );
-      
-      return {
-        opacity: progress,
-        transform: [
-          { translateX: interpolate(progress, [0, 1], [-20, 0]) },
-        ],
-      };
-    });
     
     return (
       <AnimatedPressable
@@ -356,7 +371,7 @@ export const Select = (React.forwardRef<View, SelectProps>(({
         onHoverIn={() => setHighlightedIndex(index)}
         onHoverOut={() => setHighlightedIndex(-1)}
         style={[
-          itemStyle,
+          getItemAnimatedStyle(index),
           {
             opacity: option.disabled ? 0.5 : 1,
           },
@@ -373,7 +388,7 @@ export const Select = (React.forwardRef<View, SelectProps>(({
           <Symbol 
             name={option.icon as any} 
             size={16} 
-            color={isSelected ? 'accent-foreground' : 'foreground'}
+            color={isSelected ? theme.accentForeground : theme.mutedForeground}
             className="mr-3"
           />
         )}
@@ -407,13 +422,13 @@ export const Select = (React.forwardRef<View, SelectProps>(({
             <Symbol 
               name="checkmark" 
               size={16} 
-              color="accent-foreground"
+              color={theme.accentForeground}
             />
           </AnimatedView>
         )}
       </AnimatedPressable>
     );
-  }, [value, highlightedIndex, handleSelect, dropdownStagger, enableAnimations, multiple, size]);
+  }, [value, highlightedIndex, handleSelect, multiple, size, getItemAnimatedStyle]);
   
   return (
     <>
@@ -436,6 +451,7 @@ export const Select = (React.forwardRef<View, SelectProps>(({
           onPress={handleOpen}
           disabled={disabled}
           className={triggerClasses}
+          style={Platform.OS === 'web' ? { cursor: disabled ? 'not-allowed' : 'pointer' } as any : undefined}
         >
           {/* Selected Value(s) */}
           <Text
@@ -453,8 +469,9 @@ export const Select = (React.forwardRef<View, SelectProps>(({
               onPress={handleClear}
               className="p-1 mr-1"
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
             >
-              <Symbol name="x.circle.fill" size={16} color="muted" />
+              <Symbol name="x.circle.fill" size={16} color={theme.mutedForeground} />
             </Pressable>
           )}
           
@@ -463,7 +480,7 @@ export const Select = (React.forwardRef<View, SelectProps>(({
             <Symbol 
               name="chevron.down" 
               size={size === 'sm' ? 14 : size === 'lg' ? 18 : 16}
-              color={error ? 'destructive' : 'muted'}
+              color={error ? theme.destructive : theme.mutedForeground}
             />
           </AnimatedView>
         </Pressable>
@@ -517,7 +534,7 @@ export const Select = (React.forwardRef<View, SelectProps>(({
                   onChangeText={setSearchQuery}
                   placeholder="Search..."
                   size={size}
-                  leftIcon="magnifyingglass"
+                  leftElement={<Symbol name="magnifyingglass" size={20} color={theme.mutedForeground} />}
                   showClearButton
                   autoFocus
                 />
@@ -539,7 +556,7 @@ export const Select = (React.forwardRef<View, SelectProps>(({
               >
                 {filteredOptions.length === 0 ? (
                   <View className="p-8 items-center">
-                    <Symbol name="magnifyingglass" size={32} color="muted" className="mb-3" />
+                    <Symbol name="magnifyingglass" size={32} color={theme.mutedForeground} className="mb-3" />
                     <Text size="sm" color="muted">No options found</Text>
                   </View>
                 ) : grouped ? (
@@ -581,7 +598,7 @@ export const Select = (React.forwardRef<View, SelectProps>(({
       </Modal>
     </>
   );
-}));
+});
 Select.displayName = 'Select';
 
 // Native-style picker for mobile (optional)

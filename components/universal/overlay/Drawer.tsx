@@ -340,7 +340,7 @@ export const Drawer = React.forwardRef<View, DrawerProps>(
         }));
         
         const handleStyle: ViewStyle = {
-          borderRadius: 2,
+          borderRadius: 2 as any,
           alignSelf: 'center',
           marginVertical: isHorizontal ? 0 : spacing[2],
           marginHorizontal: isHorizontal ? spacing[2] : 0,
@@ -354,7 +354,7 @@ export const Drawer = React.forwardRef<View, DrawerProps>(
             className="bg-muted-foreground"
             style={[
               handleStyle,
-              animated && shouldAnimate() ? animatedHandleStyle : { opacity: 0.3 },
+              animated && shouldAnimate() ? animatedHandleStyle : { opacity: 0.3 as any },
             ]} 
           />
         );
@@ -393,7 +393,7 @@ export const Drawer = React.forwardRef<View, DrawerProps>(
           
           <Animated.View
             ref={ref}
-            style={[getDrawerStyle(), getTransformStyle(), style]}
+            style={[getDrawerStyle(), getTransformStyle(), style] as any}
             {...panResponder.panHandlers}
           >
             {(position === 'right' || position === 'bottom') && renderHandle()}
@@ -500,7 +500,7 @@ export const DrawerHeader: React.FC<DrawerHeaderProps> = ({
               onPressOut={handlePressOut}
               style={[
                 {
-                  padding: spacing[2],
+                  padding: spacing[2] as any,
                   borderRadius: spacing[2],
                 },
                 animated && shouldAnimate() ? animatedCloseButtonStyle : {},
@@ -529,7 +529,7 @@ export const DrawerContent: React.FC<DrawerContentProps> = ({ children, style })
   const { spacing } = useSpacing();
   
   return (
-    <View style={[{ padding: spacing[4], flex: 1 }, style]}>
+    <View style={[{ padding: spacing[4] as any, flex: 1 }, style] as any}>
       {children}
     </View>
   );
@@ -549,7 +549,7 @@ export const DrawerFooter: React.FC<DrawerFooterProps> = ({ children, style }) =
       className="border-t border-border"
       style={[
         {
-          padding: spacing[4],
+          padding: spacing[4] as any,
         },
         style,
       ]}

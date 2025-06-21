@@ -8,7 +8,8 @@ import { Platform, AppState, AppStateStatus } from "react-native";
 import { webStorage, mobileStorage } from "../core/secure-storage";
 import { getAuthUrl } from "../core/config/unified-env";
 import { sessionManager } from "./auth-session-manager";
-import { logger } from "../core/debug/unified-logger";
+// Use server logger to avoid React Native imports in auth paths
+import { logger } from "../core/debug/server-logger";
 
 const BASE_URL = getAuthUrl();
 
@@ -18,12 +19,146 @@ if (typeof window !== 'undefined' || __DEV__) {
     platform: Platform.OS,
     baseURL: BASE_URL,
     authEndpoint: `${BASE_URL}/api/auth`,
-    isExpoGo: !Platform.OS || Platform.OS === 'ios' || Platform.OS === 'android'
+    isExpoGo: !Platform.OS || Platform.OS === 'ios' || Platform.OS === 'android',
+    credentials: Platform.OS === 'web' ? 'include' : 'omit'
   });
 }
 
+// Custom fetch wrapper to intercept and fix sign-out requests and handle body issues
+const customFetch: typeof fetch = async (input, init) => {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
+  
+  // Enhanced logging for social sign-in requests
+  if (url.includes('/sign-in/social')) {
+    logger.auth.debug('Social sign-in request intercepted', {
+      url,
+      method: init?.method,
+      bodyType: typeof init?.body,
+      bodyValue: init?.body,
+      headers: init?.headers,
+      stack: new Error().stack?.split('\n').slice(1, 5).join('\n')
+    });
+  }
+  
+  // Check if body is literally "[object Object]" string (can happen with any request)
+  if (init?.body === '[object Object]') {
+    logger.auth.error('CRITICAL: Body is literally "[object Object]" string!', {
+      url,
+      method: init?.method,
+      stack: new Error().stack?.split('\n').slice(1, 5).join('\n')
+    });
+    
+    // For social sign-in, we need to reconstruct the proper body
+    if (url.includes('/sign-in/social')) {
+      const newInit = { ...init };
+      // Default social sign-in body structure
+      newInit.body = JSON.stringify({
+        provider: 'google',
+        callbackURL: Platform.OS === 'web' 
+          ? `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8081'}/auth-callback`
+          : '/auth-callback'
+      });
+      logger.auth.warn('Fixed social sign-in body', { fixedBody: newInit.body });
+      return fetch(input, newInit);
+    }
+    
+    // Try to fix it - if it's a POST request, it likely needs an empty JSON object
+    const newInit = { ...init };
+    if (init?.method === 'POST' && init?.headers?.['Content-Type']?.includes('application/json')) {
+      newInit.body = '{}';
+    } else {
+      delete newInit.body;
+    }
+    return fetch(input, newInit);
+  }
+  
+  // Ensure body is properly stringified for JSON requests
+  if (init?.body && init?.method === 'POST') {
+    // Check headers - handle both Headers object and plain object
+    let contentType = '';
+    if (init.headers instanceof Headers) {
+      contentType = init.headers.get('content-type') || '';
+    } else if (typeof init.headers === 'object') {
+      contentType = init.headers['Content-Type'] || init.headers['content-type'] || '';
+    }
+    
+    // Special handling for social sign-in to ensure proper body format
+    if (url.includes('/sign-in/social') && typeof init.body === 'object' && 
+        !(init.body instanceof FormData) && !(init.body instanceof URLSearchParams) && 
+        !(init.body instanceof Blob) && !(init.body instanceof ArrayBuffer)) {
+      logger.auth.debug('Ensuring social sign-in body is properly stringified', {
+        url,
+        bodyType: typeof init.body,
+        bodyConstructor: init.body?.constructor?.name,
+        bodyKeys: Object.keys(init.body || {})
+      });
+      const newInit = { ...init };
+      newInit.body = JSON.stringify(init.body);
+      return fetch(input, newInit);
+    }
+    
+    // If it's a JSON request and body is an object, stringify it
+    if (contentType.includes('application/json') && typeof init.body === 'object' && 
+        !(init.body instanceof FormData) && !(init.body instanceof URLSearchParams) && 
+        !(init.body instanceof Blob) && !(init.body instanceof ArrayBuffer)) {
+      logger.auth.debug('Stringifying object body for JSON request', {
+        url,
+        bodyType: typeof init.body,
+        bodyConstructor: init.body?.constructor?.name
+      });
+      const newInit = { ...init };
+      newInit.body = JSON.stringify(init.body);
+      return fetch(input, newInit);
+    }
+  }
+  
+  // Special handling for sign-out requests
+  if (url.includes('/sign-out')) {
+    logger.auth.debug('Intercepting sign-out request', {
+      url,
+      method: init?.method,
+      hasBody: !!init?.body,
+      bodyType: typeof init?.body,
+      bodyValue: init?.body
+    });
+    
+    // Better Auth's sign-out doesn't expect a body - always remove it
+    if (init?.body) {
+      logger.auth.warn('Removing body from sign-out request', {
+        bodyType: typeof init?.body,
+        bodyValue: init?.body
+      });
+      const newInit = { ...init };
+      delete newInit.body;
+      // Ensure method is POST
+      newInit.method = 'POST';
+      return fetch(input, newInit);
+    }
+  }
+  
+  return fetch(input, init);
+};
+
+// Wrap the fetch to ensure we catch all cases
+const wrappedFetch: typeof fetch = (input, init) => {
+  // Log all requests to debug the issue
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
+  if (url.includes('/sign-in/social')) {
+    logger.auth.warn('Social sign-in fetch call', {
+      url,
+      method: init?.method,
+      bodyType: typeof init?.body,
+      bodyString: typeof init?.body === 'string' ? init?.body : 'not-a-string',
+      bodyValue: init?.body,
+      hasHeaders: !!init?.headers
+    });
+  }
+  return customFetch(input, init);
+};
+
 const baseAuthClient = createAuthClient({
-  baseURL: `${BASE_URL}/api/auth`, // Full auth endpoint path
+  baseURL: BASE_URL, // Use base URL without /api/auth - Better Auth will append it
+  customFetch: wrappedFetch, // Use our wrapped fetch
   fetchOptions: {
     // Add credentials for cookie support in tunnel mode
     credentials: Platform.OS === 'web' ? 'include' : 'omit',
@@ -32,10 +167,8 @@ const baseAuthClient = createAuthClient({
       // Add security headers
       'X-Requested-With': 'XMLHttpRequest', // CSRF protection
     },
-    // Request timeout
-    ...(Platform.OS === 'web' && {
-      signal: AbortSignal.timeout(30000), // 30 second timeout
-    }),
+    // Request timeout - removed to prevent abort errors
+    // The retry mechanism will handle timeouts instead
   },
   // Retry configuration
   retry: {
@@ -46,11 +179,11 @@ const baseAuthClient = createAuthClient({
       return !error.response || error.response.status >= 500;
     },
   },
-  // Session refresh configuration
+  // Session refresh configuration - optimized to reduce database load
   sessionRefresh: {
     enabled: true,
-    interval: 5 * 60 * 1000, // Check every 5 minutes
-    refreshThreshold: 24 * 60 * 60 * 1000, // Refresh if expires in less than 24 hours
+    interval: 2 * 60 * 60 * 1000, // Check every 2 hours (significantly reduced)
+    refreshThreshold: 4 * 60 * 60 * 1000, // Refresh if expires in less than 4 hours
   },
   plugins: [
     expoClient({
@@ -94,25 +227,36 @@ const baseAuthClient = createAuthClient({
 // Store the original signOut method
 const originalSignOut = baseAuthClient.signOut;
 
+// Track if we're already signing out to prevent loops
+let isSigningOut = false;
+
 // Override just the signOut method while preserving all other methods
 baseAuthClient.signOut = async function(options?: any) {
+  // Capture stack trace to identify caller
+  const stack = new Error().stack;
+  logger.auth.warn('Sign-out called from:', {
+    stack: stack?.split('\n').slice(1, 5).join('\n'),
+    timestamp: new Date().toISOString(),
+    hasOptions: !!options,
+    optionsType: typeof options
+  });
+  
+  // Prevent concurrent sign-out calls
+  if (isSigningOut) {
+    logger.auth.debug('Sign-out already in progress, skipping duplicate call');
+    return { success: true };
+  }
+  
+  isSigningOut = true;
+  
   try {
     // Add a timeout to prevent hanging requests
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout for sign-out
     
-    // Merge options with timeout signal
-    const enhancedOptions = {
-      ...options,
-      fetchOptions: {
-        ...options?.fetchOptions,
-        signal: controller.signal,
-      }
-    };
-    
     try {
-      // Call the original signOut with timeout
-      const result = await originalSignOut.call(this, enhancedOptions);
+      // Call the original signOut WITHOUT any options - Better Auth doesn't accept them
+      const result = await originalSignOut.call(this);
       clearTimeout(timeoutId);
       return result;
     } catch (error: any) {
@@ -137,6 +281,45 @@ baseAuthClient.signOut = async function(options?: any) {
     logger.auth.error('Sign-out error', error);
     // Don't throw - sign-out should always succeed locally
     return { success: true };
+  } finally {
+    // Reset the flag after a delay to allow for legitimate sign-out attempts later
+    setTimeout(() => {
+      isSigningOut = false;
+    }, 2000);
+  }
+};
+
+// Store original social sign-in method
+const originalSocialSignIn = baseAuthClient.signIn.social;
+
+// Override social sign-in to ensure proper request format
+baseAuthClient.signIn.social = async function(options: any) {
+  logger.auth.warn('Social sign-in called', {
+    options,
+    optionsType: typeof options,
+    hasProvider: !!options?.provider,
+    hasCallbackURL: !!options?.callbackURL
+  });
+  
+  // Ensure options are properly formatted
+  const cleanOptions = {
+    provider: options?.provider || 'google',
+    callbackURL: options?.callbackURL || (Platform.OS === 'web' 
+      ? `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8081'}/auth-callback`
+      : '/auth-callback')
+  };
+  
+  logger.auth.debug('Calling original social sign-in with clean options', cleanOptions);
+  
+  try {
+    return await originalSocialSignIn.call(this, cleanOptions);
+  } catch (error: any) {
+    logger.auth.error('Social sign-in error', {
+      error: error.message,
+      stack: error.stack,
+      response: error.response
+    });
+    throw error;
   }
 };
 
@@ -270,6 +453,10 @@ export const authClientEnhanced = {
         return { valid: true };
       } catch (error) {
         logger.auth.error('Session validation error', error);
+        // Check if it's a network error
+        if (error?.message?.includes('fetch') || error?.message?.includes('network')) {
+          return { valid: false, reason: 'network_error' };
+        }
         return { valid: false, reason: 'Validation error' };
       }
     },
@@ -277,8 +464,14 @@ export const authClientEnhanced = {
   
   // Enhanced sign out with cleanup
   signOutEnhanced: async (options?: { everywhere?: boolean }): Promise<void> => {
+    logger.auth.warn('signOutEnhanced called', {
+      hasOptions: !!options,
+      options: options,
+      stackTrace: new Error().stack?.split('\n').slice(1, 5).join('\n')
+    });
+    
     try {
-      // Sign out from Better Auth
+      // Sign out from Better Auth - don't pass options as Better Auth doesn't accept them
       await authClient.signOut();
       
       // Clear all local storage

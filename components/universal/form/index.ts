@@ -22,9 +22,12 @@ export {
 } from './Form';
 export { Input } from './Input';
 export { RadioGroup } from './RadioGroup';
-export { Select } from './Select';
+export { Select, type SelectOption } from './Select';
 export { Slider } from './Slider';
 export { Switch } from './Switch';
 export { TextArea } from './TextArea';
 export { TimePicker } from './TimePicker';
 export { Toggle } from './Toggle';
+
+// Type exports
+export type * from './types';

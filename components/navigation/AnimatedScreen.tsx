@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useEntranceAnimation } from '@/lib/ui/animations';
@@ -6,8 +6,8 @@ import { Box } from '@/components/universal/layout/Box';
 
 interface AnimatedScreenProps {
   children: React.ReactNode;
-  type?: 'fade' | 'scale' | 'slide' | 'fadeScale' | 'fadeSlide';
-  duration?: number;
+  type?: 'fade' | 'scale' | 'slide' | 'scale-fade';
+  duration?: 'instant' | 'fast' | 'normal' | 'slow' | 'slower' | 'slowest';
   delay?: number;
   direction?: 'up' | 'down' | 'left' | 'right';
   style?: ViewStyle;
@@ -16,23 +16,19 @@ interface AnimatedScreenProps {
 
 export function AnimatedScreen({
   children,
-  type = 'fadeScale',
-  duration = 300,
+  type = 'scale-fade',
+  duration = 'normal',
   delay = 0,
   direction = 'up',
   style,
   flex = 1,
 }: AnimatedScreenProps) {
-  const { animatedStyle, animateIn } = useEntranceAnimation({
+  const { animatedStyle } = useEntranceAnimation({
     type,
     duration,
     delay,
-    direction,
+    from: direction,
   });
-  
-  useEffect(() => {
-    animateIn();
-  }, [animateIn]);
   
   return (
     <Animated.View 
@@ -50,8 +46,8 @@ export function AnimatedScreen({
 // Screen wrapper with consistent padding and background
 export function AnimatedPageContainer({
   children,
-  type = 'fadeSlide',
-  duration = 300,
+  type = 'slide',
+  duration = 'normal',
   delay = 0,
   direction = 'up',
   style,

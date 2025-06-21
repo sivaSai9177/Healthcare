@@ -63,7 +63,7 @@ export function OAuthErrorHandler({ error, onRetry, onDismiss }: OAuthErrorHandl
     if (onRetry) {
       onRetry();
     } else {
-      router.replace('/(auth)/login');
+      router.replace('/(public)/auth/login');
     }
   };
 
@@ -72,7 +72,7 @@ export function OAuthErrorHandler({ error, onRetry, onDismiss }: OAuthErrorHandl
     if (onDismiss) {
       onDismiss();
     } else {
-      router.replace('/(auth)/login');
+      router.replace('/(public)/auth/login');
     }
   };
 

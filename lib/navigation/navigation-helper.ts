@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { log } from '@/lib/core/debug/logger';
 import type { AppUser } from '@/lib/stores/auth-store';
+import { ROUTES, getLoginRoute } from './routes';
 
 /**
  * Navigation helper for consistent routing logic
@@ -20,13 +21,13 @@ export const NavigationHelper = {
 
     if (!isAuthenticated || !user) {
       log.info('NavigationHelper: Not authenticated, going to login', 'NAV_HELPER');
-      router.replace('/(auth)/login');
+      router.replace(ROUTES.PUBLIC.login);
       return;
     }
 
     if (user.needsProfileCompletion || user.role === 'guest') {
       log.info('NavigationHelper: Profile completion needed', 'NAV_HELPER');
-      router.replace('/(auth)/complete-profile');
+      router.replace(ROUTES.PUBLIC.completeProfile);
       return;
     }
 
@@ -45,9 +46,9 @@ export const NavigationHelper = {
     });
 
     if (user.needsProfileCompletion || user.role === 'guest') {
-      router.replace('/(auth)/complete-profile');
+      router.replace(ROUTES.PUBLIC.completeProfile);
     } else {
-      router.replace('/(home)');
+      router.replace(ROUTES.APP.HOME);
     }
   },
 
@@ -65,9 +66,9 @@ export const NavigationHelper = {
   navigateToLogin(returnPath?: string) {
     log.info('NavigationHelper: Going to login', 'NAV_HELPER', { returnPath });
     if (returnPath) {
-      router.replace(`/(auth)/login?returnTo=${encodeURIComponent(returnPath)}`);
+      router.replace(getLoginRoute(returnPath));
     } else {
-      router.replace('/(auth)/login');
+      router.replace(ROUTES.PUBLIC.login);
     }
   },
 

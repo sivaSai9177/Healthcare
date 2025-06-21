@@ -52,6 +52,46 @@ app/
 └── index.tsx              # Entry point
 ```
 
+### `/__tests__` - Test Suite
+Comprehensive test coverage with jest-expo:
+```
+__tests__/
+├── animations/            # Animation system tests
+│   ├── core/             # Core animation logic
+│   │   ├── animation-config-test.ts
+│   │   ├── animation-hooks-test.ts
+│   │   └── animation-store-test.ts
+│   ├── platform/         # Platform-specific tests
+│   │   └── animation-platform-test.tsx
+│   ├── integration/      # Integration scenarios
+│   │   └── animation-integration-test.tsx
+│   ├── variants/         # Variant system tests
+│   │   └── animation-variants-test.ts
+│   └── components/       # Component animations
+│       ├── button-animation-test.tsx
+│       ├── card-animation-test.tsx
+│       └── list-animation-test.tsx
+├── unit/                 # Unit tests
+│   ├── hooks/           # Hook tests
+│   ├── utils/           # Utility tests
+│   └── stores/          # Store tests
+├── components/          # Component tests
+│   ├── universal/       # Universal components
+│   ├── blocks/          # Block components
+│   └── navigation/      # Navigation tests
+├── integration/         # Integration tests
+│   ├── auth/           # Auth flows
+│   ├── healthcare/     # Healthcare workflows
+│   └── api/            # API integration
+├── e2e/                # End-to-end tests
+│   └── maestro/        # Maestro test flows
+├── helpers/            # Test utilities
+├── mocks/              # Test mocks
+├── setup/              # Test setup files
+└── utils/              # Test utilities
+    └── animation-test-utils.ts
+```
+
 ### `/components` - Component Library
 Organized by category:
 ```
@@ -84,7 +124,12 @@ lib/
 │   └── client.ts      # Auth client
 ├── core/              # Core utilities
 │   ├── config/        # Configuration
-│   ├── debug/         # Logging
+│   │   └── unified-env.ts # Environment config
+│   ├── debug/         # Logging & debugging
+│   │   ├── logger.ts  # Base logger
+│   │   ├── unified-logger.ts # Unified logger
+│   │   ├── trpc-logger.ts # TRPC logger
+│   │   └── trpc-logger-enhanced.ts # Enhanced TRPC logger
 │   └── utils.ts       # Utilities
 ├── design/            # Design system
 │   ├── tokens.ts      # Design tokens
@@ -113,7 +158,18 @@ src/
 │   │   └── healthcare.ts # Healthcare APIs
 │   ├── services/    # Business services
 │   │   ├── notifications/ # Push notifications
-│   │   └── escalation-timer.ts # Escalations
+│   │   ├── escalation-timer.ts # Escalations
+│   │   └── audit.ts     # Audit logging
+│   ├── logging/     # Logging service
+│   │   ├── service.ts   # Logging implementation
+│   │   └── start.ts     # Service entry point
+│   ├── websocket/   # WebSocket server
+│   │   ├── server.ts    # WS implementation
+│   │   └── start.js     # Service entry
+│   ├── email/       # Email service
+│   │   └── service.ts   # Email implementation
+│   ├── middleware/  # tRPC middleware
+│   │   └── rate-limit.ts # Rate limiting
 │   ├── trpc.ts     # tRPC setup
 │   └── index.ts     # Server entry
 └── scripts/         # Database scripts
@@ -163,7 +219,24 @@ Build and development scripts:
 scripts/
 ├── organize-root-directory.ts # File organization
 ├── reset-project.js          # Project reset
-└── build-web.js             # Web build script
+├── build-web.js             # Web build script
+├── start-logging-service.sh  # Start logging service
+├── start-posthog.sh         # Start PostHog
+├── test-logging-service.ts  # Test logging
+├── demo-trpc-logging.ts     # Demo TRPC logging
+└── setup-healthcare-complete.ts # Healthcare setup
+```
+
+### `/docker` - Docker Configuration
+Container configurations:
+```
+docker/
+├── Dockerfile.websocket    # WebSocket service
+├── Dockerfile.email       # Email service
+├── Dockerfile.logging     # Logging service
+├── Dockerfile.worker      # Queue worker
+├── nginx/                 # Nginx config
+└── posthog/              # PostHog config
 ```
 
 ## Key Files
@@ -190,6 +263,12 @@ scripts/
 - `jest.config.js` - Jest test configuration
 - `.gitignore` - Git ignore rules
 
+### Docker Files
+- `docker-compose.yml` - Main Docker configuration
+- `docker-compose.local.yml` - Local development services
+- `docker-compose.prod.yml` - Production configuration
+- `docker-compose.posthog-simple.yml` - PostHog setup
+
 ## File Naming Conventions
 
 ### Components
@@ -203,9 +282,10 @@ scripts/
 - No separate style files (NativeWind)
 
 ### Tests
-- `ComponentName.test.tsx` - Component tests
-- `hook-name.test.ts` - Hook tests
-- `util-name.test.ts` - Utility tests
+- `component-name-test.tsx` - Component tests (new pattern)
+- `hook-name-test.ts` - Hook tests (new pattern)
+- `util-name-test.ts` - Utility tests (new pattern)
+- Migration in progress from `.test.tsx` to `-test.tsx`
 
 ## Import Organization
 

@@ -1,55 +1,74 @@
 #!/usr/bin/env bun
+/**
+ * Test Better Auth initialization
+ */
 
-// Simple test to check if auth module loads without React Native dependencies
+// Set NODE_ENV to avoid React Native imports
+import 'dotenv/config';
 
-// TODO: Replace with structured logging - console.log('[TEST] Starting auth module test...');
+process.env.NODE_ENV = 'production';
 
-// Test 1: Can we load the database?
-try {
-  const { db } = await import('@/src/db');
-// TODO: Replace with structured logging - console.log('[TEST] ✅ Database module loaded successfully');
-} catch (error) {
-  console.error('[TEST] ❌ Failed to load database:', error.message);
+async function testAuth() {
+  console.log('Testing Better Auth...\n');
+  
+  try {
+    // Import auth dynamically to catch errors
+    console.log('1. Importing auth module...');
+    const authModule = await import('../lib/auth/auth-server');
+    const { auth } = authModule;
+    
+    console.log('✅ Auth module imported successfully');
+    console.log('   auth type:', typeof auth);
+    console.log('   auth.handler type:', typeof auth?.handler);
+    
+    if (!auth) {
+      console.error('❌ Auth object is undefined!');
+      return;
+    }
+    
+    if (typeof auth.handler !== 'function') {
+      console.error('❌ auth.handler is not a function!');
+      console.log('   auth object keys:', Object.keys(auth));
+      return;
+    }
+    
+    // Test a simple request
+    console.log('\n2. Testing auth handler...');
+    // Test multiple endpoints
+    const endpoints = [
+      { path: '/session', method: 'GET' },
+      { path: '/sign-in/email', method: 'POST' },
+      { path: '/sign-up/email', method: 'POST' },
+    ];
+    
+    for (const endpoint of endpoints) {
+      console.log(`\nTesting ${endpoint.method} ${endpoint.path}...`);
+      const testRequest = new Request(`http://localhost:8081/api/auth${endpoint.path}`, {
+        method: endpoint.method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        ...(endpoint.method === 'POST' && {
+          body: JSON.stringify({
+            email: 'test@example.com',
+            password: 'password123',
+          }),
+        }),
+      });
+      
+      const response = await auth.handler(testRequest);
+      console.log(`   Status: ${response.status} ${response.statusText}`);
+      
+      if (response.status !== 404) {
+        const responseText = await response.text();
+        console.log(`   Response: ${responseText.substring(0, 100)}...`);
+      }
+    }
+    
+  } catch (error: any) {
+    console.error('❌ Error:', error.message);
+    console.error('Stack:', error.stack);
+  }
 }
 
-// Test 2: Can we load Better Auth without our config?
-try {
-  const { betterAuth } = await import('better-auth');
-// TODO: Replace with structured logging - console.log('[TEST] ✅ Better Auth core loaded successfully');
-} catch (error) {
-  console.error('[TEST] ❌ Failed to load Better Auth:', error.message);
-}
-
-// Test 3: Can we create a minimal auth instance?
-try {
-  const { betterAuth } = await import('better-auth');
-  const { drizzleAdapter } = await import('better-auth/adapters/drizzle');
-  const { db } = await import('@/src/db');
-  
-  const minimalAuth = betterAuth({
-    baseURL: 'http://localhost:8081/api/auth',
-    secret: process.env.BETTER_AUTH_SECRET || 'test-secret',
-    database: drizzleAdapter(db, {
-      provider: 'pg',
-    }),
-  });
-  
-// TODO: Replace with structured logging - console.log('[TEST] ✅ Minimal auth instance created');
-  
-  // Test the handler
-  const testRequest = new Request('http://localhost:8081/api/auth/session');
-  const response = await minimalAuth.handler(testRequest);
-// TODO: Replace with structured logging - console.log('[TEST] Handler response:', response.status);
-  
-} catch (error) {
-  console.error('[TEST] ❌ Failed to create minimal auth:', error.message);
-  console.error('[TEST] Stack:', error.stack);
-}
-
-// Test 4: Check environment variables
-// TODO: Replace with structured logging - console.log('\n[TEST] Environment check:');
-// TODO: Replace with structured logging - console.log('- NODE_ENV:', process.env.NODE_ENV);
-// TODO: Replace with structured logging - console.log('- GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? '✅ Set' : '❌ Not set');
-// TODO: Replace with structured logging - console.log('- GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? '✅ Set' : '❌ Not set');
-// TODO: Replace with structured logging - console.log('- BETTER_AUTH_SECRET:', process.env.BETTER_AUTH_SECRET ? '✅ Set' : '❌ Not set');
-// TODO: Replace with structured logging - console.log('- DATABASE_URL:', process.env.DATABASE_URL ? '✅ Set' : '❌ Not set');
+testAuth();

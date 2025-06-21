@@ -59,7 +59,7 @@ export function SessionTimeoutWarning({ open, onExtend, onLogout }: SessionTimeo
     await signOut({
       reason: 'user_initiated',
       showAlert: false,
-      redirectTo: '/(auth)/login'
+      redirectTo: '/(public)/auth/login'
     });
     
     onLogout();

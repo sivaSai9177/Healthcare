@@ -210,8 +210,8 @@ export const Separator = React.forwardRef<View, SeparatorProps>(({
   if (animated && shouldAnimate() && animationType === 'shimmer') {
     return (
       <View 
-        className={cn(separatorClasses, 'overflow-hidden')}
-        style={[separatorStyle, style]}
+        className={cn(separatorClasses, 'overflow-hidden') as string}
+        style={[separatorStyle, style] as any}
       >
         {content}
         <AnimatedView

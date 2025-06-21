@@ -59,7 +59,7 @@ export function useForgotPassword(options: UseForgotPasswordOptions = {}) {
   }, [resetPasswordMutation]);
 
   const goBack = useCallback(() => {
-    router.replace('/(auth)/login');
+    router.replace('/login');
   }, [router]);
 
   return {

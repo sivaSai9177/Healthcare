@@ -5,7 +5,21 @@
 
 import { EventEmitter } from 'events';
 import { observable } from '@trpc/server/observable';
-import { log } from '@/lib/core/debug/logger';
+
+// Simple console logger for server environment
+const log = {
+  info: (message: string, context?: string, data?: any) => {
+
+  },
+  error: (message: string, context?: string, error?: any) => {
+    console.error(`[ERROR] [${context || 'ALERT_SUB'}] ${message}`, error || '');
+  },
+  debug: (message: string, context?: string, data?: any) => {
+    if (process.env.NODE_ENV === 'development') {
+
+    }
+  }
+};
 
 // Event types for alerts
 export type AlertEventType = 

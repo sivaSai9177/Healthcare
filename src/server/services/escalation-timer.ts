@@ -7,9 +7,9 @@ import { db } from '@/src/db';
 import { 
   alerts, 
   alertEscalations, 
-  notificationLogs,
   healthcareAuditLogs 
 } from '@/src/db/healthcare-schema';
+import { notificationLogs } from '@/src/db/notification-schema';
 import { users } from '@/src/db/schema';
 import { eq, and, lt, or } from 'drizzle-orm';
 import { 
@@ -32,8 +32,17 @@ interface EscalationResult {
 }
 
 export class EscalationTimerService {
-  private checkInterval: NodeJS.Timeout | null = null;
+  private checkInterval: ReturnType<typeof setInterval> | null = null;
   private isRunning = false;
+  private isProcessing = false;
+  private static instance: EscalationTimerService | null = null;
+  
+  static getInstance(): EscalationTimerService {
+    if (!EscalationTimerService.instance) {
+      EscalationTimerService.instance = new EscalationTimerService();
+    }
+    return EscalationTimerService.instance;
+  }
 
   /**
    * Start the escalation timer service
@@ -77,10 +86,18 @@ export class EscalationTimerService {
    * Check for alerts that need escalation and process them
    */
   private async checkAndEscalateAlerts() {
+    // Skip if already processing to avoid concurrent execution
+    if (this.isProcessing) {
+      log.debug('Escalation check already in progress, skipping', 'ESCALATION');
+      return;
+    }
+    
+    this.isProcessing = true;
+    
     try {
       const now = new Date();
       
-      // Find alerts that need escalation
+      // Find alerts that need escalation - single query
       const alertsToEscalate = await db
         .select()
         .from(alerts)
@@ -90,7 +107,8 @@ export class EscalationTimerService {
             lt(alerts.nextEscalationAt, now),
             lt(alerts.escalationLevel, MAX_ESCALATION_TIER)
           )
-        );
+        )
+        .limit(10); // Process in batches to avoid overwhelming the system
 
       if (alertsToEscalate.length === 0) {
         return;
@@ -110,6 +128,8 @@ export class EscalationTimerService {
       log.info(`Escalation complete: ${successful} successful, ${failed} failed`, 'ESCALATION');
     } catch (error) {
       log.error('Error checking alerts for escalation', 'ESCALATION', error);
+    } finally {
+      this.isProcessing = false;
     }
   }
 
@@ -136,7 +156,7 @@ export class EscalationTimerService {
       // Verification log to ensure new code is running
       log.info(`Escalating alert ${alert.id} from ${fromRole} (tier ${fromTier}) to ${toRole} (tier ${toTier})`, 'ESCALATION');
 
-      // Begin transaction
+      // Begin transaction with proper error handling
       const escalationResult = await db.transaction(async (tx) => {
         // Update alert escalation tier and next escalation time
         const nextEscalationTime = toTier < MAX_ESCALATION_TIER
@@ -162,7 +182,7 @@ export class EscalationTimerService {
         });
 
         // Get users to notify based on role
-        const rolesToNotify = toRole === 'all_staff' ? ['nurse', 'doctor', 'head_doctor'] : [toRole];
+        const rolesToNotify = (toRole as any) === 'all_staff' ? ['nurse', 'doctor', 'head_doctor'] : [toRole];
         const usersToNotify = await this.getUsersToNotify(alert.hospitalId, rolesToNotify);
 
         // Create notification logs
@@ -184,10 +204,10 @@ export class EscalationTimerService {
         await Promise.all(notificationPromises);
 
         // Audit log for system-initiated escalation
-        // Note: After running fix-healthcare-audit-logs.sql, userId can be null for system actions
-        try {
+        // Use the alert creator's ID for system actions since userId cannot be null
+        if (alert.createdBy) {
           await tx.insert(healthcareAuditLogs).values({
-            userId: null as any, // System action - no user involved
+            userId: alert.createdBy, // Use alert creator for system actions
             action: 'alert_escalated',
             entityType: 'alert',
             entityId: alert.id,
@@ -201,24 +221,8 @@ export class EscalationTimerService {
               escalatedBy: 'automatic_timeout',
             },
           });
-        } catch (auditError) {
-          // Fallback: If the migration hasn't been run yet, use the alert creator
-          log.error('[ESCALATION] Failed to log with null userId, using creator as fallback', auditError);
-          await tx.insert(healthcareAuditLogs).values({
-            userId: alert.createdBy,
-            action: 'alert_escalated',
-            entityType: 'alert',
-            entityId: alert.id,
-            hospitalId: alert.hospitalId,
-            metadata: {
-              fromTier,
-              toTier,
-              reason: 'timeout',
-              notifiedUsers: usersToNotify.map((u: any) => u.id),
-              systemAction: true,
-              escalatedBy: 'automatic_timeout',
-            },
-          });
+        } else {
+          log.warn(`Alert ${alert.id} has no createdBy user, skipping audit log`, 'ESCALATION');
         }
 
         return {
@@ -244,7 +248,7 @@ export class EscalationTimerService {
         
         // Get users to notify
         const usersToNotify = await this.getUsersToNotify(alert.hospitalId, 
-          toRole === 'all_staff' ? ['nurse', 'doctor', 'head_doctor'] : [toRole]
+          (toRole as any) === 'all_staff' ? ['nurse', 'doctor', 'head_doctor'] : [toRole]
         );
         
         if (usersToNotify.length > 0) {
@@ -392,4 +396,4 @@ export class EscalationTimerService {
 }
 
 // Export singleton instance
-export const escalationTimerService = new EscalationTimerService();
+export const escalationTimerService = EscalationTimerService.getInstance();

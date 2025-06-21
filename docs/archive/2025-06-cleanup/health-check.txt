@@ -1,0 +1,100 @@
+$ bun run scripts/health-check.ts
+[33m
+🏥 Healthcare System Health Check[0m
+[33m================================
+[0m
+[33m
+🔍 Checking PostgreSQL...[0m
+[32m✅ PostgreSQL is healthy[0m
+[33m
+🔍 Checking Redis...[0m
+[31m❌ Redis is unhealthy[0m
+[33m
+🔍 Checking WebSocket Server...[0m
+[31m❌ WebSocket Server is not running[0m
+[33m
+🔍 Checking Email Service...[0m
+[33m⚠️  Email Service is not running (optional)[0m
+[33m
+🔍 Checking TRPC API...[0m
+[31m❌ TRPC API is unhealthy[0m
+[33m
+🔍 Checking Disk Space...[0m
+[32m✅ Disk usage is normal: 4%[0m
+[33m
+🔍 Checking Memory Usage...[0m
+[33m⚠️  Could not check memory usage[0m
+[33m
+📊 Health Check Summary[0m
+[33m======================
+[0m
+[32m✅ Healthy: 2[0m
+[31m❌ Unhealthy: 3[0m
+[33m⚠️  Warnings: 2[0m
+[33m
+📋 Detailed Results:[0m
+[32m
+✅ PostgreSQL[0m
+   Status: healthy
+   Message: Database connection successful
+[31m
+❌ Redis[0m
+   Status: unhealthy
+   Message: Redis connection failed
+   Details: {
+  "code": 127,
+  "killed": false,
+  "signal": null,
+  "cmd": "redis-cli ping",
+  "stdout": "",
+  "stderr": "/bin/sh: redis-cli: command not found\n"
+}
+[31m
+❌ WebSocket Server[0m
+   Status: unhealthy
+   Message: WebSocket server is not running
+   Details: {
+  "code": "ConnectionRefused",
+  "path": "http://localhost:3002/health",
+  "errno": 0
+}
+[33m
+⚠️ Email Service[0m
+   Status: warning
+   Message: Email service is not running (optional)
+   Details: {
+  "code": "ConnectionRefused",
+  "path": "http://localhost:3005/health",
+  "errno": 0
+}
+[31m
+❌ TRPC API[0m
+   Status: unhealthy
+   Message: API is not responding
+   Details: {
+  "code": "ConnectionRefused",
+  "path": "http://localhost:3000/api/health",
+  "errno": 0
+}
+[32m
+✅ Disk Space[0m
+   Status: healthy
+   Message: Disk usage is normal: 4%
+   Details: {
+  "usage": 4
+}
+[33m
+⚠️ Memory[0m
+   Status: warning
+   Message: Could not check memory usage
+   Details: {
+  "code": 127,
+  "killed": false,
+  "signal": null,
+  "cmd": "free -m",
+  "stdout": "",
+  "stderr": "/bin/sh: free: command not found\n"
+}
+[31m
+❌ System health check failed![0m
+error: script "health:check" exited with code 1

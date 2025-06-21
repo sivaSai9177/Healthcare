@@ -12,8 +12,7 @@ export function setupWindowLogger() {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     // Import to trigger window exposure
     if (__DEV__ || process.env.EXPO_PUBLIC_DEBUG_MODE === 'true') {
-      console.log('🐛 Window logger setup complete');
-      
+
       // Create some common module loggers to register them
       getModuleLogger('App');
       getModuleLogger('Auth');
@@ -27,11 +26,7 @@ export function setupWindowLogger() {
       getModuleLogger('Components');
       
       // Show available commands
-      console.log('🐛 Available debug commands:');
-      console.log('  - window.debugger.help() - Show all commands');
-      console.log('  - window.debugger.listModules() - List registered modules');
-      console.log('  - window.debugger.enableModule("Auth") - Enable specific module');
-      console.log('  - window.getLogger("MyModule") - Get logger for a module');
+
     }
   }
 }

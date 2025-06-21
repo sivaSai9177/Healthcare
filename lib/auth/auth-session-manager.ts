@@ -1,19 +1,102 @@
 import { Platform } from 'react-native';
 import { webStorage, mobileStorage } from '../core/secure-storage';
 import { Session, User } from 'better-auth/types';
+import { logger } from '../core/debug/server-logger';
 
-// Use underscore notation for consistency with existing storage
+// Standardized storage keys - use underscore notation for consistency
 const SESSION_TOKEN_KEY = 'better-auth_session-token';
 const SESSION_DATA_KEY = 'better-auth_session_data';
 const USER_DATA_KEY = 'better-auth_user_data';
 
+// Legacy keys for migration
+const LEGACY_KEYS = [
+  'better-auth.session-token',
+  'better-auth.session_data',
+  'better-auth.user_data',
+  'better-auth_cookie',
+  'better-auth.cookie',
+  'session-token',
+  'auth-token'
+];
+
 export const sessionManager = {
-  // Get session token for API requests (simplified)
+  // Migrate old storage keys to new standardized keys
+  async migrateStorageKeys() {
+    const storage = Platform.OS === 'web' ? webStorage : mobileStorage;
+    let migrated = false;
+    
+    try {
+      // Check for legacy token storage
+      for (const legacyKey of LEGACY_KEYS) {
+        const value = storage.getItem(legacyKey);
+        if (value) {
+          // Extract token from various formats
+          let token = null;
+          let sessionData = null;
+          let userData = null;
+          
+          if (legacyKey.includes('cookie')) {
+            // Extract from cookie format
+            const match = value.match(/better-auth\.session-token=([^;\s]+)/);
+            if (match) {
+              token = match[1];
+            }
+          } else if (legacyKey.includes('session_data') || legacyKey.includes('session-data')) {
+            try {
+              sessionData = JSON.parse(value);
+            } catch (e) {
+              // Not JSON
+            }
+          } else if (legacyKey.includes('user_data') || legacyKey.includes('user-data')) {
+            try {
+              userData = JSON.parse(value);
+            } catch (e) {
+              // Not JSON
+            }
+          } else if (value.includes('.') && !value.includes('=')) {
+            // Direct token
+            token = value.trim();
+          }
+          
+          // Store in standardized location
+          if (token && !storage.getItem(SESSION_TOKEN_KEY)) {
+            storage.setItem(SESSION_TOKEN_KEY, token);
+            migrated = true;
+          }
+          if (sessionData && !storage.getItem(SESSION_DATA_KEY)) {
+            storage.setItem(SESSION_DATA_KEY, JSON.stringify(sessionData));
+            migrated = true;
+          }
+          if (userData && !storage.getItem(USER_DATA_KEY)) {
+            storage.setItem(USER_DATA_KEY, JSON.stringify(userData));
+            migrated = true;
+          }
+          
+          // Remove legacy key after migration
+          storage.removeItem(legacyKey);
+        }
+      }
+      
+      if (migrated) {
+        logger.auth.info('Migrated legacy auth storage keys', {
+          platform: Platform.OS
+        });
+      }
+    } catch (error) {
+      logger.auth.error('Failed to migrate storage keys', {
+        error: error?.message || error
+      });
+    }
+    
+    return migrated;
+  },
+  
+  // Get session token for API requests (enhanced with reference project logic)
   getSessionToken() {
     const storage = Platform.OS === 'web' ? webStorage : mobileStorage;
     
     if (Platform.OS !== 'web') {
-      // Debug: Check all possible keys where token might be stored
+      // Mobile: Check all possible keys where token might be stored
       const possibleKeys = [
         'better-auth_session-token',
         'better-auth.session-token',
@@ -27,14 +110,9 @@ export const sessionManager = {
       for (const key of possibleKeys) {
         const value = storage.getItem(key);
         if (value) {
-          
           // Check if it's a cookie format and extract token
           if (key.includes('cookie')) {
-            // The Better Auth Expo plugin stores the entire cookie string
-            // We need to parse it correctly
-            
             // Format 1: Full cookie string with multiple cookies
-            // Example: "better-auth.session-token=xyz123; Path=/; HttpOnly"
             const sessionTokenMatch = value.match(/better-auth\.session-token=([^;\s]+)/);
             if (sessionTokenMatch) {
               foundToken = sessionTokenMatch[1];
@@ -42,14 +120,12 @@ export const sessionManager = {
             }
             
             // Format 2: Just the session token part
-            // Example: "better-auth.session-token=xyz123"
             if (value.startsWith('better-auth.session-token=')) {
               foundToken = value.split('=')[1].split(';')[0].trim();
               break;
             }
             
             // Format 3: Raw token (no cookie format)
-            // If it's a valid JWT-like token (has dots)
             if (value.includes('.') && !value.includes('=') && !value.includes(';')) {
               foundToken = value.trim();
               break;
@@ -96,7 +172,7 @@ export const sessionManager = {
       return foundToken;
     }
     
-    // Web uses standard key
+    // Web: Use standard key
     return storage.getItem(SESSION_TOKEN_KEY);
   },
   
@@ -149,17 +225,25 @@ export const sessionManager = {
     const storage = Platform.OS === 'web' ? webStorage : mobileStorage;
     
     try {
+      // Clear standard keys
       storage.removeItem(SESSION_TOKEN_KEY);
       storage.removeItem(SESSION_DATA_KEY);
       storage.removeItem(USER_DATA_KEY);
-      // Also clear old keys for backward compatibility
-      storage.removeItem('better-auth_cookie');
-      storage.removeItem('better-auth.session-token');
-      storage.removeItem('better-auth.session_data');
-      storage.removeItem('better-auth.user_data');
-      storage.removeItem('better-auth.cookie');
+      
+      // Clear all legacy keys
+      for (const legacyKey of LEGACY_KEYS) {
+        storage.removeItem(legacyKey);
+      }
+      
+      logger.auth.debug('Session storage cleared', {
+        platform: Platform.OS
+      });
+      
       return true;
     } catch (error) {
+      logger.auth.error('Failed to clear session storage', {
+        error: error?.message || error
+      });
       return false;
     }
   },

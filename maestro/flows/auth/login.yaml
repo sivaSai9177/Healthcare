@@ -1,0 +1,38 @@
+appId: ${APP_ID}
+tags:
+  - auth
+  - critical
+---
+# Login Flow Test
+- launchApp:
+    clearState: true
+    
+- assertVisible:
+    text: "Sign In"
+    timeout: 10000
+    
+# Enter email
+- tapOn:
+    id: "email-input"
+- inputText: ${testUsers.nurse.email}
+
+# Enter password  
+- tapOn:
+    id: "password-input"
+- inputText: ${testUsers.nurse.password}
+
+# Submit form
+- tapOn:
+    text: "Sign In"
+    
+# Wait for dashboard
+- assertVisible:
+    text: "Dashboard"
+    timeout: 15000
+    
+# Verify user is logged in
+- assertVisible:
+    text: "Active Alerts"
+    
+# Take screenshot
+- takeScreenshot: login-success

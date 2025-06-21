@@ -1,0 +1,90 @@
+# Production Dockerfile for Healthcare Alert System
+# Multi-stage build for optimal size and security
+
+# Stage 1: Dependencies
+FROM node:20-alpine AS deps
+RUN apk add --no-cache libc6-compat python3 make g++
+WORKDIR /app
+
+# Install bun
+RUN npm install -g bun@latest
+
+# Copy dependency files
+COPY package.json bun.lock ./
+COPY .npmrc* ./
+
+# Install dependencies
+RUN bun install --frozen-lockfile
+
+# Stage 2: Builder
+FROM node:20-alpine AS builder
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+# Install bun
+RUN npm install -g bun@latest
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Set build args
+ARG EXPO_PUBLIC_API_URL
+ARG EXPO_PUBLIC_WS_URL
+ARG EXPO_PUBLIC_POSTHOG_API_KEY
+ARG EXPO_PUBLIC_POSTHOG_API_HOST
+
+# Build the application
+ENV NODE_ENV=production
+ENV EXPO_PUBLIC_API_URL=$EXPO_PUBLIC_API_URL
+ENV EXPO_PUBLIC_WS_URL=$EXPO_PUBLIC_WS_URL
+ENV EXPO_PUBLIC_POSTHOG_API_KEY=$EXPO_PUBLIC_POSTHOG_API_KEY
+ENV EXPO_PUBLIC_POSTHOG_API_HOST=$EXPO_PUBLIC_POSTHOG_API_HOST
+
+# Skip database generation at build time - will run migrations at runtime
+
+# Export the web build
+RUN bunx expo export --platform web
+
+# API routes are already built as part of Expo export
+
+# Stage 3: Runner
+FROM node:20-alpine AS runner
+RUN apk add --no-cache libc6-compat curl
+WORKDIR /app
+
+# Install bun and pm2 for process management
+RUN npm install -g bun@latest pm2
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 healthcare
+
+# Copy necessary files
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/drizzle ./drizzle
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/ecosystem.config.js ./
+COPY --from=builder /app/start-server.sh ./
+COPY --from=builder /app/drizzle.config.ts ./
+COPY --from=builder /app/tsconfig.json ./
+
+# Copy only production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+
+# Create necessary directories
+RUN mkdir -p logs uploads \
+  && chown -R healthcare:nodejs /app
+
+# Switch to non-root user
+USER healthcare
+
+# Expose ports
+EXPOSE 3000 8081
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/api/health || exit 1
+
+# Start the application
+CMD ["sh", "./start-server.sh"]

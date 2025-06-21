@@ -159,21 +159,21 @@ export const StatCard = React.forwardRef<View, StatCardProps>(
 
     const sizeMap = {
       compact: {
-        padding: spacing[3],
+        padding: spacing[3] as any,
         iconSize: 20,
         valueSize: 20,
         labelSize: 12,
         changeSize: 11,
       },
       default: {
-        padding: spacing[4],
+        padding: spacing[4] as any,
         iconSize: 24,
         valueSize: 28,
         labelSize: 14,
         changeSize: 12,
       },
       large: {
-        padding: spacing[5],
+        padding: spacing[5] as any,
         iconSize: 32,
         valueSize: 36,
         labelSize: 16,
@@ -233,8 +233,8 @@ export const StatCard = React.forwardRef<View, StatCardProps>(
     // Web CSS animations
     const webAnimationStyle = Platform.OS === 'web' && animated && shouldAnimate() ? {
       '@keyframes slideIn': {
-        from: { transform: 'scale(0.9)', opacity: 0 },
-        to: { transform: 'scale(1)', opacity: 1 },
+        from: { transform: 'scale(0.9)', opacity: 0 as any },
+        to: { transform: 'scale(1)', opacity: 1 as any },
       },
       '@keyframes barGrow': {
         from: { width: '0%' },
@@ -317,7 +317,7 @@ export const StatCard = React.forwardRef<View, StatCardProps>(
                 <Symbol
                   name={icon as any}
                   size={sizes.iconSize}
-                  className={cn(iconColor ? undefined : accentColor, !iconColor && !accentColor && 'text-primary')}
+                  className={cn(iconColor ? undefined : accentColor, !iconColor && !accentColor && 'text-primary') as string}
                   style={iconColor ? { color: iconColor } : undefined}
                 />
               </Animated.View>
@@ -450,7 +450,7 @@ export const StatList: React.FC<StatListProps> = ({
               marginRight: isHorizontal && index < stats.length - 1 ? spacing[2] : 0,
               marginBottom: !isHorizontal && index < stats.length - 1 ? spacing[2] : 0,
               backgroundColor: undefined,
-              borderRadius: 8,
+              borderRadius: 8 as any,
               borderWidth: 1,
               borderColor: undefined,
             }}
@@ -523,7 +523,7 @@ export const MiniStat: React.FC<MiniStatProps> = ({
         {
           flexDirection: 'row',
           alignItems: 'center',
-          padding: spacing[2],
+          padding: spacing[2] as any,
         },
         style,
       ]}

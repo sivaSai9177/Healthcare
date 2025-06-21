@@ -1,0 +1,37 @@
+#!/bin/bash
+# Post-deploy hook - Run after successful deployment
+
+echo "🎉 Post-deploy: Finalizing deployment..."
+
+# Run database migrations
+echo "📝 Running database migrations..."
+ssh "root@${DEPLOY_SERVER_IP}" "docker exec healthcare-app bun run db:push" || {
+    echo "❌ Failed to run migrations"
+    exit 1
+}
+
+# Warm up the application
+echo "🔥 Warming up application..."
+curl -s -o /dev/null -w "%{http_code}" "https://${DEPLOY_DOMAIN}/api/health" || {
+    echo "⚠️  Warning: Health check failed"
+}
+
+# Clear CDN cache if applicable
+echo "🧹 Clearing caches..."
+# Add CDN cache clearing commands here if using a CDN
+
+# Send deployment notification
+echo "📢 Sending deployment notification..."
+if [ -n "$SLACK_WEBHOOK_URL" ]; then
+    curl -X POST -H 'Content-type: application/json' \
+        --data "{\"text\":\"🚀 Healthcare Alert System deployed successfully to ${DEPLOY_DOMAIN}\"}" \
+        "$SLACK_WEBHOOK_URL"
+fi
+
+# Log deployment
+echo "📊 Logging deployment..."
+DEPLOY_TIMESTAMP=$(date -u +%Y-%m-%d_%H:%M:%S_UTC)
+echo "[${DEPLOY_TIMESTAMP}] Deployment completed for version ${KAMAL_VERSION}" >> /var/log/healthcare-deployments.log
+
+echo "✅ Post-deploy tasks completed!"
+echo "🌐 Application is now live at: https://${DEPLOY_DOMAIN}"

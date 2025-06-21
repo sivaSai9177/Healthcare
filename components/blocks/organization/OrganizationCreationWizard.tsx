@@ -3,7 +3,7 @@ import { View, Platform } from 'react-native';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/universal/display';
 import { Text } from '@/components/universal/typography';
 import { Button } from '@/components/universal/interaction';
-import { Input, Select, Form } from '@/components/universal/form';
+import { Input, Select, Form, FormItem } from '@/components/universal/form';
 import { Stepper } from '@/components/universal/navigation';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useForm } from 'react-hook-form';

@@ -8,7 +8,7 @@ import { user as userTable } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
 
 async function testOAuthProfileCompletion() {
-// TODO: Replace with structured logging - console.log('🧪 Testing OAuth profile completion detection...\n');
+// TODO: Replace with structured logging - /* console.log('🧪 Testing OAuth profile completion detection...\n') */;
 
   try {
     // Test email to check
@@ -22,11 +22,11 @@ async function testOAuthProfileCompletion() {
       .limit(1);
 
     if (!user) {
-// TODO: Replace with structured logging - console.log(`❌ User ${testEmail} not found`);
+// TODO: Replace with structured logging - /* console.log(`❌ User ${testEmail} not found`) */;
       return;
     }
 
-// TODO: Replace with structured logging - console.log(`📋 User Details:`, {
+// TODO: Replace with structured logging - /* console.log(`📋 User Details:`, {
       id: user.id,
       email: user.email,
       name: user.name,
@@ -35,27 +35,27 @@ async function testOAuthProfileCompletion() {
       organizationId: user.organizationId,
       emailVerified: user.emailVerified,
       createdAt: user.createdAt,
-    });
+    }) */;
 
     // Check profile completion logic
     const requiresProfileCompletion = 
       (!user.role || user.role === 'guest') && 
       user.needsProfileCompletion === true;
 
-// TODO: Replace with structured logging - console.log(`\n🔍 Profile Completion Check:`);
-// TODO: Replace with structured logging - console.log(`  - Has role: ${!!user.role} (${user.role || 'none'})`);
-// TODO: Replace with structured logging - console.log(`  - Is guest: ${user.role === 'guest'}`);
-// TODO: Replace with structured logging - console.log(`  - needsProfileCompletion flag: ${user.needsProfileCompletion}`);
-// TODO: Replace with structured logging - console.log(`  - 🎯 Requires profile completion: ${requiresProfileCompletion ? '✅ YES' : '❌ NO'}`);
+// TODO: Replace with structured logging - /* console.log(`\n🔍 Profile Completion Check:`) */;
+// TODO: Replace with structured logging - /* console.log(`  - Has role: ${!!user.role} (${user.role || 'none'}) */`);
+// TODO: Replace with structured logging - /* console.log(`  - Is guest: ${user.role === 'guest'}`) */;
+// TODO: Replace with structured logging - /* console.log(`  - needsProfileCompletion flag: ${user.needsProfileCompletion}`) */;
+// TODO: Replace with structured logging - /* console.log(`  - 🎯 Requires profile completion: ${requiresProfileCompletion ? '✅ YES' : '❌ NO'}`) */;
 
     if (requiresProfileCompletion) {
-// TODO: Replace with structured logging - console.log(`\n✅ User will be redirected to complete their profile!`);
+// TODO: Replace with structured logging - /* console.log(`\n✅ User will be redirected to complete their profile!`) */;
     } else {
-// TODO: Replace with structured logging - console.log(`\n❌ User will NOT be prompted for profile completion`);
+// TODO: Replace with structured logging - /* console.log(`\n❌ User will NOT be prompted for profile completion`) */;
     }
 
     // List all OAuth users
-// TODO: Replace with structured logging - console.log(`\n📊 All OAuth Users Status:`);
+// TODO: Replace with structured logging - /* console.log(`\n📊 All OAuth Users Status:`) */;
     const oauthUsers = await db
       .select({
         email: userTable.email,
@@ -70,7 +70,7 @@ async function testOAuthProfileCompletion() {
       const status = oauthUser.needsProfileCompletion && (!oauthUser.role || oauthUser.role === 'guest') 
         ? '⏳ Needs completion' 
         : '✅ Complete';
-// TODO: Replace with structured logging - console.log(`  - ${oauthUser.email}: ${status} (role: ${oauthUser.role || 'none'})`);
+// TODO: Replace with structured logging - /* console.log(`  - ${oauthUser.email}: ${status} (role: ${oauthUser.role || 'none'}) */`);
     }
 
   } catch (error) {
@@ -82,7 +82,7 @@ async function testOAuthProfileCompletion() {
 // Run the test
 testOAuthProfileCompletion()
   .then(() => {
-// TODO: Replace with structured logging - console.log('\n✅ Test completed!');
+// TODO: Replace with structured logging - /* console.log('\n✅ Test completed!') */;
     process.exit(0);
   })
   .catch((error) => {

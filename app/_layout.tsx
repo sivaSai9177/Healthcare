@@ -1,12 +1,13 @@
 // Suppress common Expo Go warnings - MUST be first import
-// Temporarily disabled to fix Hermes errors
-// import "@/lib/core/platform/suppress-warnings";
+import "@/lib/core/platform/suppress-warnings";
 // Import crypto polyfill early for React Native
 import "@/lib/core/crypto";
 // Setup window debugger for browser console access
 import "@/lib/core/debug/setup-window-logger";
 // Import router debugging (will initialize after navigation is ready)
-// import { initializeRouterDebugger } from "@/lib/core/debug/router-debug";
+import { initializeRouterDebugger } from "@/lib/core/debug/router-debug";
+// Import console interceptor
+import { startConsoleInterception } from "@/components/blocks/debug/utils/console-interceptor";
 
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -21,9 +22,14 @@ import { logger } from '@/lib/core/debug/unified-logger';
 import { useThemeStore } from '@/lib/stores/theme-store';
 
 import { ErrorBoundary } from "@/components/providers/ErrorBoundary";
-import { ConsolidatedDebugPanel } from "@/components/blocks/debug/DebugPanel/DebugPanel";
+import { ErrorProvider } from "@/components/providers/ErrorProvider";
+import { ErrorBanner } from "@/components/blocks/errors/ErrorBanner";
+import { RootErrorStoreSetup } from "@/components/RootErrorStoreSetup";
+import GlobalErrorBoundary from "@/components/providers/GlobalErrorBoundary";
+// import { ConsolidatedDebugPanel } from "@/components/blocks/debug/DebugPanel/DebugPanel";
 import { SyncProvider } from "@/components/providers/SyncProvider";
 import { SessionProvider } from "@/components/providers/SessionProvider";
+import { HospitalProvider } from "@/components/providers/HospitalProvider";
 import { ThemeStyleInjector } from "@/components/providers/ThemeStyleInjector";
 import { ThemeSync } from "@/components/providers/ThemeSync";
 // SpacingProvider removed - now using Zustand store
@@ -35,16 +41,8 @@ import { initializeSecureStorage } from "@/lib/core/secure-storage";
 // Import CSS for web platform
 import './global.css';
 
-// Only import reanimated on native platforms
-if (Platform.OS !== 'web') {
-  try {
-    // Dynamic import for native platforms only
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require("react-native-reanimated");
-  } catch {
-    logger.debug('[Reanimated] Failed to load on native platform', 'SYSTEM');
-  }
-}
+// Import reanimated for all platforms
+import 'react-native-reanimated';
 
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync();
@@ -65,15 +63,22 @@ const ThemedStatusBar = () => {
 export default function RootLayout() {
   logger.system.info('RootLayout rendering', {
     platform: Platform.OS,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV,
+    apiUrl: process.env.EXPO_PUBLIC_API_URL
   });
   
-  const [loaded] = useFonts({
+  const [loaded, error] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
   const [storageReady, setStorageReady] = useState(Platform.OS === 'web');
   
-  logger.system.info('RootLayout state', { fontLoaded: loaded, storageReady });
+  logger.system.info('RootLayout state', { 
+    fontLoaded: loaded, 
+    fontError: error,
+    storageReady,
+    platform: Platform.OS 
+  });
 
   useEffect(() => {
     // Initialize storage on mobile
@@ -87,41 +92,89 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded && storageReady) {
       SplashScreen.hideAsync();
+      logger.debug('[App] All resources loaded, hiding splash screen', 'SYSTEM');
       
-      // Initialize router debugger after navigation is ready
-      // Use a small delay to ensure navigation container is fully mounted
-      // Temporarily disabled to fix navigation context error
-      // TODO: Re-implement with proper navigation-aware initialization
-      // if (__DEV__) {
-      //   setTimeout(() => {
-      //     initializeRouterDebugger();
-      //   }, 100);
-      // }
+      // Initialize debugging tools after navigation is ready
+      if (__DEV__) {
+        // Start console interception immediately
+        startConsoleInterception();
+        logger.debug('[App] Console interception started', 'SYSTEM');
+        
+        // Initialize router debugger after a delay
+        setTimeout(() => {
+          try {
+            initializeRouterDebugger();
+            logger.debug('[App] Router debugger initialized', 'SYSTEM');
+          } catch (error) {
+            logger.error('[App] Failed to initialize router debugger', 'SYSTEM', error);
+          }
+        }, 500); // Increased delay to ensure navigation is ready
+      }
     }
   }, [loaded, storageReady]);
 
+  // Add error handling
+  if (error) {
+    logger.system.error('Font loading error', error);
+  }
+
   // Wait for both fonts and storage to be ready
   if (!loaded || !storageReady) {
+    logger.system.info('Waiting for resources', { loaded, storageReady });
     return null;
   }
 
+  logger.system.info('Resources ready, rendering app');
+
   return (
-    <SafeAreaProvider style={{ flex: 1 }}>
-      <ErrorBoundary>
-        <TRPCProvider>
-          <SyncProvider>
-            <SessionProvider>
-              <EnhancedThemeProvider>
-                <ThemeSync />
-                <AnimationProvider>
-                  <ThemeStyleInjector>
-                    <Stack 
-                    screenOptions={{
-                      ...stackScreenOptions.default,
-                      headerShown: false,
-                    }}
-                  >
-                    {/* Entry point */}
+    <GlobalErrorBoundary>
+      <SafeAreaProvider style={{ flex: 1 }}>
+        <ErrorBoundary>
+          <TRPCProvider dehydratedState={undefined}>
+            <ErrorProvider>
+              <SyncProvider>
+                <SessionProvider>
+                  <HospitalProvider>
+                    <EnhancedThemeProvider>
+                      <ThemeSync />
+                      <AnimationProvider>
+                        <ThemeStyleInjector>
+                        <RootErrorStoreSetup />
+                        <ErrorBanner />
+                      <Stack 
+                      screenOptions={{
+                        ...stackScreenOptions.default,
+                        headerShown: false,
+                      }}
+                    >
+                    {/* Public routes */}
+                    <Stack.Screen 
+                      name="(public)" 
+                      options={{ 
+                        headerShown: false,
+                        animation: 'fade',
+                      }}
+                    />
+                    
+                    {/* Authenticated app routes */}
+                    <Stack.Screen 
+                      name="(app)" 
+                      options={{ 
+                        headerShown: false,
+                        animation: 'fade',
+                      }}
+                    />
+                    
+                    {/* Modal routes */}
+                    <Stack.Screen 
+                      name="(modals)" 
+                      options={{ 
+                        presentation: 'modal',
+                        headerShown: false,
+                      }}
+                    />
+                    
+                    {/* Legacy index route for backward compatibility */}
                     <Stack.Screen 
                       name="index" 
                       options={{ 
@@ -130,57 +183,10 @@ export default function RootLayout() {
                       }} 
                     />
                     
-                    {/* Public routes - always accessible */}
-                    <Stack.Screen name="(auth)" options={stackScreenOptions.default} />
+                    {/* Auth callback route */}
                     <Stack.Screen 
                       name="auth-callback" 
                       options={{ animation: 'fade' }}
-                    />
-                    
-                    {/* Protected routes - require authentication */}
-                    <Stack.Screen 
-                      name="(home)" 
-                      options={{
-                        ...stackScreenOptions.default,
-                        animation: Platform.OS === 'web' ? 'fade' : 'slide_from_right',
-                        animationDuration: 300,
-                      }} 
-                    />
-                    <Stack.Screen 
-                      name="(healthcare)" 
-                      options={{
-                        ...stackScreenOptions.default,
-                        animation: Platform.OS === 'web' ? 'fade' : 'slide_from_right',
-                        animationDuration: 300,
-                      }} 
-                    />
-                    <Stack.Screen 
-                      name="(organization)" 
-                      options={{
-                        ...stackScreenOptions.default,
-                        animation: Platform.OS === 'web' ? 'fade' : 'slide_from_right',
-                        animationDuration: 300,
-                      }} 
-                    />
-                    <Stack.Screen 
-                      name="(admin)" 
-                      options={{
-                        ...stackScreenOptions.default,
-                        animation: Platform.OS === 'web' ? 'fade' : 'slide_from_right',
-                        animationDuration: 300,
-                      }} 
-                    />
-                    <Stack.Screen 
-                      name="(manager)" 
-                      options={{
-                        ...stackScreenOptions.default,
-                        animation: Platform.OS === 'web' ? 'fade' : 'slide_from_right',
-                        animationDuration: 300,
-                      }} 
-                    />
-                    <Stack.Screen 
-                      name="(modals)" 
-                      options={stackScreenOptions.modal}
                     />
                     
                     {/* 404 handler */}
@@ -193,15 +199,18 @@ export default function RootLayout() {
                     />
                   </Stack>
                   <ThemedStatusBar />
-                  <ConsolidatedDebugPanel />
+                  {/* <ConsolidatedDebugPanel /> */}
                   <LayoutDebugger />
                   </ThemeStyleInjector>
                 </AnimationProvider>
               </EnhancedThemeProvider>
+              </HospitalProvider>
               </SessionProvider>
             </SyncProvider>
+          </ErrorProvider>
           </TRPCProvider>
-      </ErrorBoundary>
-    </SafeAreaProvider>
+        </ErrorBoundary>
+      </SafeAreaProvider>
+    </GlobalErrorBoundary>
   );
 }

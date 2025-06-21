@@ -6,6 +6,7 @@ import { showErrorAlert, showSuccessAlert } from '@/lib/core/alert';
 import { logger } from '@/lib/core/debug/unified-logger';
 import { generateUUID } from '@/lib/core/crypto';
 import { toAppUser } from '@/lib/stores/auth-store';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface RegisterData {
   name: string;
@@ -21,12 +22,18 @@ interface RegisterData {
 
 export function useRegister() {
   const { updateAuth, setLoading, setError } = useAuth();
+  const queryClient = useQueryClient();
   
   // Sign up mutation
   const signUpMutation = api.auth.signUp.useMutation({
     onSuccess: (data) => {
       logger.auth.info('Sign up successful via tRPC', { userId: data.user?.id });
       setLoading(false);
+      
+      // Invalidate any cached email check results
+      queryClient.invalidateQueries({ 
+        queryKey: [['auth', 'checkEmailExists']] 
+      });
       
       if (data.user && data.token) {
         const appUser = toAppUser(data.user, data.user.role || 'user');

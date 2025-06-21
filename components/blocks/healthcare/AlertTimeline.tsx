@@ -4,7 +4,7 @@ import {
   HStack,
   Skeleton,
   Stack,
-  Symbols,
+  Symbol,
   Text,
   VStack,
 } from "@/components/universal";
@@ -92,7 +92,7 @@ export function AlertTimeline({
           <Stack gap={1} className="mt-2">
             {metadata.responseAction && (
               <HStack spacing={1} align="center">
-                <Symbols
+                <Symbol
                   name="arrow.right.circle.fill"
                   size={14}
                   className="text-muted-foreground"
@@ -104,7 +104,7 @@ export function AlertTimeline({
             )}
             {metadata.estimatedResponseTime && (
               <HStack spacing={1} align="center">
-                <Symbols
+                <Symbol
                   name="clock.fill"
                   size={14}
                   className="text-muted-foreground"
@@ -117,7 +117,7 @@ export function AlertTimeline({
             {metadata.urgencyAssessment &&
               metadata.urgencyAssessment !== "maintain" && (
                 <HStack spacing={1} align="center">
-                  <Symbols
+                  <Symbol
                     name="flag.fill"
                     size={14}
                     className="text-muted-foreground"
@@ -134,7 +134,7 @@ export function AlertTimeline({
         return (
           <Stack gap={1} className="mt-2">
             <HStack gap={1} align="center">
-              <Symbols
+              <Symbol
                 name="person.fill"
                 size={14}
                 className="text-destructive"
@@ -178,7 +178,7 @@ export function AlertTimeline({
         {[1, 2, 3].map((i) => (
           <Card key={i}>
             <HStack spacing={2} align="start">
-              <Skeleton width={32} height={32} rounded="full" />
+              <Skeleton width={32} height={32} className="rounded-full" />
               <VStack spacing={1} style={{ flex: 1 }}>
                 <Skeleton width="80%" height={16} />
                 <Skeleton width="60%" height={14} />
@@ -194,7 +194,7 @@ export function AlertTimeline({
     return (
       <Card variant="default">
         <HStack spacing={2} align="center">
-          <Symbols
+          <Symbol
             name="clock.arrow.circlepath"
             size={20}
             className="text-muted-foreground"
@@ -241,8 +241,8 @@ export function AlertTimeline({
                     icon.colorClass === "text-muted-foreground" && "bg-muted/20"
                   )}
                 >
-                  <Symbols
-                    name={icon.name}
+                  <Symbol
+                    name={icon.name as any}
                     size={20}
                     className={icon.colorClass}
                   />

@@ -196,7 +196,7 @@ export const Grid = React.forwardRef<View, GridProps>(
     return (
       <View
         ref={ref}
-        className={cn('flex-row flex-wrap', className)}
+        className={cn('flex-row flex-wrap', className) as string}
         style={containerStyle}
         onLayout={handleLayout}
         testID={testID}
@@ -284,7 +284,7 @@ export const Row = React.forwardRef<View, RowProps>(
       <View 
         ref={ref} 
         className={rowClasses}
-        style={[{ gap: spacing[gap] }, style]} 
+        style={[{ gap: spacing[gap] }, style] as any} 
         testID={testID}
       >
         {children}
@@ -335,7 +335,7 @@ export const Column = React.forwardRef<View, ColumnProps>(
       <View 
         ref={ref} 
         className={columnClasses}
-        style={[{ gap: spacing[gap], flex }, style]} 
+        style={[{ gap: spacing[gap], flex }, style] as any} 
         testID={testID}
       >
         {children}

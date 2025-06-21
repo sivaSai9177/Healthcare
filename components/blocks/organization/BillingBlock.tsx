@@ -3,9 +3,9 @@ import { View } from 'react-native';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, Badge, Table, TableHeader, TableBody, TableRow, TableCell } from '@/components/universal/display';
 import { Text } from '@/components/universal/typography';
 import { Button } from '@/components/universal/interaction';
-import { Stack, Grid } from '@/components/universal/layout';
-import { Dialog } from '@/components/universal/overlay';
-import { Alert } from '@/components/universal/feedback';
+import { HStack, Grid } from '@/components/universal/layout';
+import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@/components/universal/overlay';
+import { Alert, AlertTitle, AlertDescription } from '@/components/universal/feedback';
 import { cn } from '@/lib/core/utils';
 import { useResponsive } from '@/hooks/responsive';
 import { useSpacing } from '@/lib/stores/spacing-store';
@@ -165,7 +165,7 @@ export function BillingBlock({
       {/* Current Plan */}
       <Card shadow="md" className="mb-6">
         <CardHeader>
-          <Stack direction="horizontal" justify="between" align="center">
+          <HStack justifyContent="space-between" alignItems="center">
             <View>
               <CardTitle>Current Plan</CardTitle>
               <CardDescription>
@@ -175,7 +175,7 @@ export function BillingBlock({
             <Badge variant="secondary" size="lg">
               {currentPlanData?.name}
             </Badge>
-          </Stack>
+          </HStack>
         </CardHeader>
         <CardContent>
           <Grid columns={isMobile ? 1 : 3} gap={spacing[4] as any}>
@@ -193,16 +193,16 @@ export function BillingBlock({
             </View>
             <View>
               <Text colorTheme="mutedForeground" size="sm">Payment Method</Text>
-              <Stack direction="horizontal" gap={spacing[1] as any} align="center">
+              <HStack gap={spacing[1] as any} alignItems="center">
                 <CreditCard size={16} />
                 <Text size="lg" weight="medium">•••• 4242</Text>
-              </Stack>
+              </HStack>
             </View>
           </Grid>
         </CardContent>
         {currentPlan !== 'enterprise' && (
           <CardFooter>
-            <Stack direction="horizontal" gap={spacing[2] as any}>
+            <HStack gap={spacing[2] as any}>
               <Button
                 variant="outline"
                 size="sm"
@@ -218,15 +218,15 @@ export function BillingBlock({
               >
                 Cancel Plan
               </Button>
-            </Stack>
+            </HStack>
           </CardFooter>
         )}
       </Card>
       
       {/* Available Plans */}
       <View style={{ marginBottom: spacing[6] }}>
-        <Stack gap={spacing[4] as any}>
-          <Stack direction="horizontal" justify="between" align="center">
+        <HStack gap={spacing[4] as any}>
+          <HStack justifyContent="space-between" alignItems="center">
             <View>
               <Text size="xl" weight="bold">Available Plans</Text>
               <Text colorTheme="mutedForeground" size="sm">
@@ -254,7 +254,7 @@ export function BillingBlock({
                 </Badge>
               </Button>
             </View>
-          </Stack>
+          </HStack>
           
           <Grid columns={isMobile ? 1 : 3} gap={spacing[4] as any}>
             {plans.map((plan) => {
@@ -288,7 +288,7 @@ export function BillingBlock({
                   )}
                   
                   <CardHeader>
-                    <Stack gap={spacing[2] as any}>
+                    <HStack gap={spacing[2] as any}>
                       <View className="flex-row items-center justify-between">
                         <Text size="lg" weight="bold">{plan.name}</Text>
                         {isCurrentPlan && (
@@ -300,36 +300,35 @@ export function BillingBlock({
                       <Text colorTheme="mutedForeground" size="sm">
                         {plan.description}
                       </Text>
-                    </Stack>
+                    </HStack>
                   </CardHeader>
                   
                   <CardContent>
                     <View style={{ marginBottom: spacing[4] }}>
                       {typeof price === 'number' ? (
-                        <Stack direction="horizontal" align="baseline" gap={spacing[1] as any}>
+                        <HStack gap={spacing[1] as any} alignItems="center">
                           <Text size="3xl" weight="bold">${price}</Text>
                           <Text colorTheme="mutedForeground" size="sm">
                             /{billingInterval === 'yearly' ? 'year' : 'month'}
                           </Text>
-                        </Stack>
+                        </HStack>
                       ) : (
                         <Text size="3xl" weight="bold">{price}</Text>
                       )}
                     </View>
                     
-                    <Stack gap={spacing[2] as any}>
+                    <HStack gap={spacing[2] as any}>
                       {plan.features.map((feature, index) => (
-                        <Stack 
+                        <HStack 
                           key={index} 
-                          direction="horizontal" 
                           gap={spacing[2] as any}
-                          align="center"
+                          alignItems="center"
                         >
                           <CheckIcon size={16} className="text-success flex-shrink-0" />
                           <Text size="sm">{feature}</Text>
-                        </Stack>
+                        </HStack>
                       ))}
-                    </Stack>
+                    </HStack>
                   </CardContent>
                   
                   <CardFooter>
@@ -349,13 +348,13 @@ export function BillingBlock({
               );
             })}
           </Grid>
-        </Stack>
+        </HStack>
       </View>
       
       {/* Billing History */}
       <Card shadow="md">
         <CardHeader>
-          <Stack direction="horizontal" justify="between" align="center">
+          <HStack justifyContent="space-between" alignItems="center">
             <CardTitle>Billing History</CardTitle>
             <Button
               variant="ghost"
@@ -364,7 +363,7 @@ export function BillingBlock({
             >
               Download All
             </Button>
-          </Stack>
+          </HStack>
         </CardHeader>
         <CardContent>
           <Table>

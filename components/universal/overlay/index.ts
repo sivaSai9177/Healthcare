@@ -15,3 +15,6 @@ export { DropdownMenu } from './DropdownMenu';
 export { Popover } from './Popover';
 export { Sheet } from './Sheet';
 export { Tooltip } from './Tooltip';
+
+// Type exports
+export type * from './types';

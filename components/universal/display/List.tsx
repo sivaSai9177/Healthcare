@@ -292,7 +292,7 @@ export const ListItem = React.memo(React.forwardRef<View, ListItemProps>(
       if (swipeActions.length === 0 || Platform.OS === 'web') return null;
 
       return (
-        <View style={[StyleSheet.absoluteFillObject, { flexDirection: 'row', justifyContent: 'flex-end' }]}>
+        <View style={[StyleSheet.absoluteFillObject, { flexDirection: 'row', justifyContent: 'flex-end' }] as any}>
           {swipeActions.map((action) => (
             <SwipeActionButton
               key={action.key}
@@ -333,7 +333,7 @@ export const ListItem = React.memo(React.forwardRef<View, ListItemProps>(
             onLongPress={onLongPress}
             disabled={disabled}
             underlayColor={theme.accent}
-            style={[itemStyle, style]}
+            style={[itemStyle, style] as any}
           >
             <View
               style={{
@@ -349,9 +349,9 @@ export const ListItem = React.memo(React.forwardRef<View, ListItemProps>(
               )}
               
               <View style={{ flex: 1 }}>
-                <Text style={[titleTextStyle, titleStyle]}>{title}</Text>
+                <Text style={[titleTextStyle, titleStyle] as any}>{title}</Text>
                 {description && (
-                  <Text style={[descriptionTextStyle, descriptionStyle]}>
+                  <Text style={[descriptionTextStyle, descriptionStyle] as any}>
                     {description}
                   </Text>
                 )}
@@ -485,7 +485,7 @@ export const List = React.forwardRef<FlatList, ListProps>(
         onEndReachedThreshold={onEndReachedThreshold}
         horizontal={horizontal}
         numColumns={numColumns}
-        style={[{ backgroundColor: theme.background }, style]}
+        style={[{ backgroundColor: theme.background }, style] as any}
         contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={!horizontal}
         showsHorizontalScrollIndicator={horizontal}
@@ -584,7 +584,7 @@ export const SectionListComponent = React.forwardRef<SectionList, SectionListPro
         onEndReached={onEndReached}
         onEndReachedThreshold={onEndReachedThreshold}
         stickySectionHeadersEnabled={stickySectionHeadersEnabled}
-        style={[{ backgroundColor: theme.background }, style]}
+        style={[{ backgroundColor: theme.background }, style] as any}
         contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator
         testID={testID}
@@ -628,7 +628,7 @@ export const SimpleList: React.FC<SimpleListProps> = ({
 
   return (
     <ScrollView
-      style={[{ backgroundColor: theme.background }, style]}
+      style={[{ backgroundColor: theme.background }, style] as any}
       showsVerticalScrollIndicator
       testID={testID}
     >

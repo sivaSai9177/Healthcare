@@ -32,7 +32,7 @@ export type Platform = 'ios' | 'android' | 'web';
 
 // Theme Types (re-export from design system)
 export type { ExtendedTheme, ThemeDefinition } from '@/lib/theme/registry';
-export type { SpacingDensity, SpacingScale } from '@/lib/design/spacing';
+export type { SpacingDensity } from '@/lib/design/spacing';
 export type { ColorScheme } from '@/contexts/ColorSchemeContext';
 
 // Animation Types

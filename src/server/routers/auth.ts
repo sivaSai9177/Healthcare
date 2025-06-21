@@ -10,7 +10,8 @@ import {
 } from '../trpc';
 import { auth } from '@/lib/auth/auth-server';
 import { TRPCError } from '@trpc/server';
-import { log, logger } from '@/lib/core/debug/logger';
+import { log, logger } from '@/lib/core/debug/server-logger';
+import { getCachedSession, setCachedSession, clearCachedSession } from '@/lib/auth/session-cache';
 
 // Import comprehensive server-side validation schemas
 import {
@@ -24,6 +25,8 @@ import {
   UserResponseSchema,
   AuthResponseSchema,
   SessionResponseSchema,
+  SelectHospitalInputSchema,
+  HospitalResponseSchema,
   validateUserRole
 } from '@/lib/validations/server';
 import { authExtensions } from './auth-extensions';
@@ -87,7 +90,7 @@ export const authRouter = router({
       // Sanitize inputs
       const sanitizedEmail = sanitizeInput.email(input.email);
       
-      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+      const { auditService, auditHelpers, AuditAction, AuditOutcome } = await import('../services/audit');
       const context = auditHelpers.extractContext(ctx.req);
       
       try {
@@ -148,13 +151,27 @@ export const authRouter = router({
           role: dbUser?.role || (response.user as any).role || 'user',
           organizationId: dbUser?.organizationId || (response.user as any).organizationId || undefined,
           needsProfileCompletion: dbUser?.needsProfileCompletion ?? (response.user as any).needsProfileCompletion ?? false,
+          contactPreferences: dbUser?.contactPreferences 
+            ? (typeof dbUser.contactPreferences === 'string' 
+              ? JSON.parse(dbUser.contactPreferences) 
+              : dbUser.contactPreferences)
+            : { email: true, push: true, sms: false },
         };
 
         log.info('[AUTH] Complete user object being returned:', 'COMPONENT', {});
+        
+        // Validate user through schema to ensure proper format
+        const validatedUser = UserResponseSchema.parse({
+          ...completeUser,
+          status: 'active',
+          isEmailVerified: dbUser?.emailVerified ?? false,
+          createdAt: dbUser?.createdAt || response.user.createdAt || new Date(),
+          updatedAt: dbUser?.updatedAt || response.user.updatedAt || new Date(),
+        });
 
         return {
           success: true,
-          user: completeUser,
+          user: validatedUser,
           token: response.token,
         };
       } catch (error) {
@@ -232,15 +249,20 @@ export const authRouter = router({
 
         // Immediately update user with role and other fields in database
         const { db } = await import('@/src/db');
-        const { user: userTable, session: sessionTable } = await import('@/src/db/schema');
+        const { user: userTable } = await import('@/src/db/schema');
         const { eq } = await import('drizzle-orm');
+        
+        // Healthcare roles and guest users need profile completion
+        const healthcareRoles = ['doctor', 'nurse', 'head_doctor', 'operator'];
+        const needsProfileCompletion = healthcareRoles.includes(input.role) || input.role === 'guest';
         
         await db.update(userTable)
           .set({ 
             role: input.role,
             phoneNumber: input.phoneNumber,
-            department: input.department,
-            needsProfileCompletion: false,
+            department: input.department as any, // Department enum is validated by Zod schema
+            needsProfileCompletion: needsProfileCompletion,
+            contactPreferences: '{"email": true, "push": true, "sms": false}', // Ensure default is set
             updatedAt: new Date()
           })
           .where(eq(userTable.id, signUpResponse.user.id));
@@ -263,8 +285,6 @@ export const authRouter = router({
           session = signInResponse.session;
         }
 
-        let organization = null;
-        
         // Handle organization creation/joining based on role
         if (input.role === 'manager' || input.role === 'admin') {
           if (sanitizedOrgName) {
@@ -276,26 +296,44 @@ export const authRouter = router({
             // Store organization name in user record for later creation
             // The actual organization will be created via the organization router
             // after profile completion to avoid partial data
-            organization = {
-              id: null,
-              name: sanitizedOrgName,
-              pendingCreation: true
-            };
           }
-        } else if (input.role === 'user' && input.organizationCode) {
-          // TODO: Implement organization joining by code
-          log.info('[AUTH] Organization joining by code not yet implemented', 'COMPONENT', {});
-          // For now, just continue without organization
+        } else if (input.organizationCode) {
+          // Healthcare roles and regular users can join by organization code
+          log.info('[AUTH] Organization joining by code will be handled in profile completion', 'COMPONENT', {
+            role: input.role,
+            code: input.organizationCode
+          });
+          // Store the code for later use during profile completion
+          await db.update(userTable)
+            .set({ 
+              organizationName: input.organizationCode, // Temporarily store code in organizationName field
+              updatedAt: new Date()
+            })
+            .where(eq(userTable.id, signUpResponse.user.id));
         }
         
+        // Fetch the updated user from database to ensure all fields are present
+        const [updatedUser] = await db
+          .select()
+          .from(userTable)
+          .where(eq(userTable.id, signUpResponse.user.id))
+          .limit(1);
+
+        if (!updatedUser) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to fetch created user',
+          });
+        }
+
         // Update user data - organization will be created later if needed
         const completeUser = {
           ...signUpResponse.user,
-          role: input.role,
-          // Don't set organization yet - it will be created via organization router
-          organizationId: null,
-          organizationName: sanitizedOrgName || null, // Store intended org name
-          needsProfileCompletion: false,
+          ...updatedUser,
+          role: updatedUser.role || input.role,
+          organizationId: updatedUser.organizationId || null,
+          organizationName: sanitizedOrgName || updatedUser.organizationName || null,
+          needsProfileCompletion: updatedUser.needsProfileCompletion ?? needsProfileCompletion,
         };
 
         // Validate and return properly typed response
@@ -303,6 +341,15 @@ export const authRouter = router({
           ...completeUser,
           role: validateUserRole(completeUser.role),
           status: 'active',
+          needsProfileCompletion: completeUser.needsProfileCompletion,
+          isEmailVerified: false, // New signups are not email verified yet
+          createdAt: updatedUser.createdAt || new Date(),
+          updatedAt: updatedUser.updatedAt || new Date(),
+          contactPreferences: updatedUser.contactPreferences 
+            ? (typeof updatedUser.contactPreferences === 'string' 
+              ? JSON.parse(updatedUser.contactPreferences) 
+              : updatedUser.contactPreferences)
+            : { email: true, push: true, sms: false },
         });
 
         return AuthResponseSchema.parse({
@@ -369,11 +416,25 @@ export const authRouter = router({
           return null;
         }
       
+      // Check session cache first
+      const sessionToken = ctx.session.session.token;
+      const cachedData = getCachedSession(sessionToken);
+      
+      if (cachedData) {
+        logger.auth.debug('Returning cached session data', {
+          userId: cachedData.user.id,
+          cached: true
+        });
+        return cachedData;
+      }
+      
       // Fetch fresh user data from database to ensure we have latest data
       let dbUser = null;
+      let healthcareHospitalId = null;
       try {
         const { db } = await import('@/src/db');
         const { user: userTable } = await import('@/src/db/schema');
+        const { healthcareUsers } = await import('@/src/db/healthcare-schema');
         const { eq } = await import('drizzle-orm');
         
         const [user] = await db
@@ -384,6 +445,27 @@ export const authRouter = router({
         
         dbUser = user;
         
+        // If user is a healthcare role but has no defaultHospitalId, check healthcare_users table
+        const healthcareRoles = ['nurse', 'doctor', 'healthcare_admin', 'head_nurse', 'head_doctor'];
+        if (dbUser && healthcareRoles.includes(dbUser.role) && !dbUser.defaultHospitalId) {
+          const [healthcareUser] = await db
+            .select({
+              hospitalId: healthcareUsers.hospitalId,
+            })
+            .from(healthcareUsers)
+            .where(eq(healthcareUsers.userId, ctx.session.user.id))
+            .limit(1);
+          
+          if (healthcareUser?.hospitalId) {
+            healthcareHospitalId = healthcareUser.hospitalId;
+            logger.auth.debug('Found hospital assignment in healthcare_users', {
+              userId: dbUser.id,
+              hospitalId: healthcareHospitalId,
+              role: dbUser.role
+            });
+          }
+        }
+        
         logger.auth.debug('Database user query result', {
           id: dbUser?.id,
           email: dbUser?.email,
@@ -391,6 +473,8 @@ export const authRouter = router({
           needsProfileCompletion: dbUser?.needsProfileCompletion,
           hasDbUser: !!dbUser,
           organizationId: dbUser?.organizationId,
+          defaultHospitalId: dbUser?.defaultHospitalId,
+          healthcareHospitalId: healthcareHospitalId,
           timestamp: new Date().toISOString()
         });
         
@@ -404,10 +488,15 @@ export const authRouter = router({
 
         // Check if this is a new OAuth user who needs profile completion
         // If user has no role, guest role, or the default 'user' role with needsProfileCompletion, they need to complete their profile
+        // Healthcare roles without organization or hospital also need profile completion
+        const healthcareRolesCheck = ['doctor', 'nurse', 'head_doctor', 'operator'];
+        const isHealthcareWithoutSetup = dbUser && healthcareRolesCheck.includes(dbUser.role) && (!dbUser.organizationId || (!dbUser.defaultHospitalId && !healthcareHospitalId));
+        
         const isIncompleteProfile = dbUser && (
           !dbUser.role || 
           dbUser.role === 'guest' || 
-          (dbUser.role === 'user' && dbUser.needsProfileCompletion)
+          (dbUser.role === 'user' && dbUser.needsProfileCompletion) ||
+          isHealthcareWithoutSetup
         );
         
         if (isIncompleteProfile) {
@@ -469,6 +558,21 @@ export const authRouter = router({
       }
       
       try {
+        // Check if this is a healthcare role without proper setup BEFORE building userData
+        const healthcareRolesCheck = ['doctor', 'nurse', 'head_doctor', 'operator'];
+        const isHealthcareWithoutSetup = dbUser && healthcareRolesCheck.includes(dbUser.role) && (!dbUser.organizationId || (!dbUser.defaultHospitalId && !healthcareHospitalId));
+        
+        if (isHealthcareWithoutSetup) {
+          logger.auth.debug('Healthcare user without proper setup detected', {
+            userId: dbUser.id,
+            role: dbUser.role,
+            hasOrganization: !!dbUser.organizationId,
+            hasDefaultHospital: !!dbUser.defaultHospitalId,
+            hasHealthcareHospital: !!healthcareHospitalId,
+            willSetNeedsProfileCompletion: true
+          });
+        }
+        
         // Ensure dates are properly handled
         const parseDate = (date: any): Date => {
           if (date instanceof Date) return date;
@@ -488,12 +592,18 @@ export const authRouter = router({
           department: dbUser?.department || null,
           jobTitle: dbUser?.jobTitle || null,
           bio: dbUser?.bio || null,
-          needsProfileCompletion: dbUser?.needsProfileCompletion ?? (ctx.session.user as any).needsProfileCompletion ?? false,
+          contactPreferences: dbUser?.contactPreferences 
+            ? (typeof dbUser.contactPreferences === 'string' 
+              ? JSON.parse(dbUser.contactPreferences) 
+              : dbUser.contactPreferences)
+            : { email: true, push: true, sms: false },
+          needsProfileCompletion: isHealthcareWithoutSetup ? true : (dbUser?.needsProfileCompletion ?? (ctx.session.user as any).needsProfileCompletion ?? false),
           status: 'active' as const,
           createdAt: parseDate(ctx.session.user.createdAt),
           updatedAt: parseDate(ctx.session.user.updatedAt),
           isEmailVerified: dbUser?.emailVerified ?? ctx.session.user.emailVerified ?? false,
           lastLoginAt: new Date(), // Current session indicates recent login
+          defaultHospitalId: dbUser?.defaultHospitalId || healthcareHospitalId || null,
         };
         
         // Log the user data before validation
@@ -538,7 +648,12 @@ export const authRouter = router({
           timestamp: new Date().toISOString()
         });
 
-        return SessionResponseSchema.parse(sessionResponse);
+        const validatedResponse = SessionResponseSchema.parse(sessionResponse);
+        
+        // Cache the session data for subsequent requests
+        setCachedSession(sessionToken, validatedResponse);
+        
+        return validatedResponse;
         
       } catch (error) {
         logger.auth.error('Session validation error in getSession', error);
@@ -564,12 +679,9 @@ export const authRouter = router({
           type: outerError?.constructor?.name,
         });
         
-        // Throw a proper TRPC error instead of returning null
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to retrieve session',
-          cause: outerError,
-        });
+        // Return null on error to prevent "headers already sent" error
+        // This is consistent with the endpoint's return type: SessionResponseSchema.nullable()
+        return null;
       }
     }),
 
@@ -580,6 +692,33 @@ export const authRouter = router({
         ...ctx.user,
         role: (ctx.user as any).role || 'user',
         organizationId: (ctx.user as any).organizationId,
+      };
+    }),
+    
+  // Debug endpoint to check user data
+  debugUserData: protectedProcedure
+    .query(async ({ ctx }) => {
+      // Get fresh user data from database
+      const { db } = await import('@/src/db');
+      const { user: users } = await import('@/src/db/schema');
+      const { eq } = await import('drizzle-orm');
+      
+      const [dbUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, ctx.user.id))
+        .limit(1);
+      
+      return {
+        contextUser: ctx.user,
+        databaseUser: dbUser,
+        comparison: {
+          organizationIdMatch: (ctx.user as any).organizationId === dbUser?.organizationId,
+          contextOrgId: (ctx.user as any).organizationId,
+          dbOrgId: dbUser?.organizationId,
+          contextOrgIdType: typeof (ctx.user as any).organizationId,
+          dbOrgIdType: typeof dbUser?.organizationId,
+        },
       };
     }),
 
@@ -671,6 +810,11 @@ export const authRouter = router({
             role: validateUserRole(existingUser.role),
             status: 'active',
             isEmailVerified: true, // OAuth users are considered verified
+            contactPreferences: existingUser.contactPreferences 
+              ? (typeof existingUser.contactPreferences === 'string' 
+                ? JSON.parse(existingUser.contactPreferences) 
+                : existingUser.contactPreferences)
+              : { email: true, push: true, sms: false },
           });
 
           return {
@@ -746,6 +890,11 @@ export const authRouter = router({
             role: validateUserRole(newUser.role),
             status: 'active',
             isEmailVerified: true,
+            contactPreferences: newUser.contactPreferences 
+              ? (typeof newUser.contactPreferences === 'string' 
+                ? JSON.parse(newUser.contactPreferences) 
+                : newUser.contactPreferences)
+              : { email: true, push: true, sms: false },
           });
 
           return {
@@ -794,17 +943,19 @@ export const authRouter = router({
   // Complete profile for new OAuth users with comprehensive validation
   completeProfile: protectedProcedure
     .input(CompleteProfileInputSchema)
-    .output(z.object({ success: z.literal(true), user: UserResponseSchema, organizationId: z.string().optional() }))
+    .output(z.object({ success: z.literal(true), user: UserResponseSchema, organizationId: z.string().optional(), hospitalId: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
-      log.info('[AUTH] completeProfile called with input:', 'COMPONENT', {});
+      log.info('[AUTH] completeProfile called with input:', 'COMPONENT', input);
       log.info('[AUTH] completeProfile user context:', 'COMPONENT', {
         userId: ctx.user.id,
         userEmail: ctx.user.email,
         currentRole: (ctx.user as any).role,
+        currentOrganizationId: (ctx.user as any).organizationId,
+        currentHospitalId: (ctx.user as any).defaultHospitalId,
         needsProfileCompletion: (ctx.user as any).needsProfileCompletion
       });
 
-      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+      const { auditService, auditHelpers, AuditAction, AuditOutcome } = await import('../services/audit');
       const context = auditHelpers.extractContext(ctx.req, ctx.session);
       
       // Capture before state for audit
@@ -823,6 +974,7 @@ export const authRouter = router({
         
         // Handle organization logic based on role
         let finalOrganizationId = input.organizationId;
+        const healthcareRoles = ['doctor', 'nurse', 'head_doctor', 'operator'];
         
         if (input.role === 'manager' || input.role === 'admin') {
           if (input.organizationName) {
@@ -842,7 +994,9 @@ export const authRouter = router({
                 .slice(0, 50);
             };
             
-            const slug = createSlug(input.organizationName);
+            const baseSlug = createSlug(input.organizationName);
+            // Add timestamp to make slug unique
+            const slug = `${baseSlug}-${Date.now()}`;
             
             // Create organization in transaction
             const result = await db.transaction(async (tx) => {
@@ -977,7 +1131,145 @@ export const authRouter = router({
           
           finalOrganizationId = result.id;
           log.info('[AUTH] Personal workspace created:', 'COMPONENT', { organizationId: result.id });
+        } else if (healthcareRoles.includes(input.role) && input.organizationName && !finalOrganizationId) {
+          // Create healthcare organization
+          log.info('[AUTH] Creating healthcare organization', 'COMPONENT', {});
+          const { organization, organizationMember, organizationSettings } = await import('@/src/db/organization-schema');
+          
+          const createSlug = (name: string): string => {
+            return name
+              .toLowerCase()
+              .trim()
+              .replace(/[^a-z0-9\s-]/g, '')
+              .replace(/\s+/g, '-')
+              .replace(/-+/g, '-')
+              .replace(/^-|-$/g, '')
+              .slice(0, 50);
+          };
+          
+          const baseSlug = createSlug(input.organizationName);
+          // Add timestamp to make slug unique
+          const slug = `${baseSlug}-${Date.now()}`;
+          
+          const result = await db.transaction(async (tx) => {
+            // Create healthcare organization
+            const [newOrg] = await tx
+              .insert(organization)
+              .values({
+                name: input.organizationName,
+                slug,
+                type: 'healthcare',
+                size: 'medium',
+                createdBy: ctx.user.id,
+                status: 'active',
+              })
+              .returning();
+            
+            // Add user as member (not owner, since doctors shouldn't own hospitals)
+            await tx.insert(organizationMember).values({
+              organizationId: newOrg.id,
+              userId: ctx.user.id,
+              role: 'member',
+              status: 'active',
+            });
+            
+            // Create default settings
+            await tx.insert(organizationSettings).values({
+              organizationId: newOrg.id,
+            });
+            
+            return newOrg;
+          });
+          
+          finalOrganizationId = result.id;
+          log.info('[AUTH] Healthcare organization created:', 'COMPONENT', { organizationId: result.id });
         }
+        
+        // Handle hospital assignment for healthcare roles
+        let hospitalId = input.defaultHospitalId;
+        
+        if (healthcareRoles.includes(input.role) && finalOrganizationId) {
+          // If no hospital ID provided, check if organization has a default hospital
+          if (!hospitalId) {
+            const { hospitals } = await import('@/src/db/healthcare-schema');
+            const [defaultHospital] = await db
+              .select()
+              .from(hospitals)
+              .where(
+                and(
+                  eq(hospitals.organizationId, finalOrganizationId),
+                  eq(hospitals.isDefault, true)
+                )
+              )
+              .limit(1);
+            
+            if (defaultHospital) {
+              hospitalId = defaultHospital.id;
+              log.info('[AUTH] Using default hospital for organization', 'COMPONENT', {
+                hospitalId: defaultHospital.id,
+                hospitalName: defaultHospital.name,
+              });
+            } else {
+              // Create a default hospital for the organization
+              const [newHospital] = await db
+                .insert(hospitals)
+                .values({
+                  organizationId: finalOrganizationId,
+                  name: `${input.organizationName || 'Default'} Hospital`,
+                  code: `HOSP-${Date.now().toString(36).toUpperCase()}`,
+                  isDefault: true,
+                  isActive: true,
+                })
+                .returning();
+              
+              hospitalId = newHospital.id;
+              log.info('[AUTH] Created default hospital for organization', 'COMPONENT', {
+                hospitalId: newHospital.id,
+                hospitalName: newHospital.name,
+              });
+            }
+          } else {
+            // Validate that the provided hospital belongs to the organization
+            const { hospitals } = await import('@/src/db/healthcare-schema');
+            const [hospital] = await db
+              .select()
+              .from(hospitals)
+              .where(
+                and(
+                  eq(hospitals.id, hospitalId),
+                  eq(hospitals.organizationId, finalOrganizationId)
+                )
+              )
+              .limit(1);
+            
+            if (!hospital) {
+              throw new TRPCError({
+                code: 'BAD_REQUEST',
+                message: 'Invalid hospital selection. Hospital must belong to your organization.',
+              });
+            }
+          }
+          
+          // Create healthcare user profile
+          const { healthcareUsers } = await import('@/src/db/healthcare-schema');
+          await db
+            .insert(healthcareUsers)
+            .values({
+              userId: ctx.user.id,
+              hospitalId: hospitalId,
+              department: input.department as any, // Department enum is validated by Zod schema
+            })
+            .onConflictDoUpdate({
+              target: healthcareUsers.userId,
+              set: {
+                hospitalId: hospitalId,
+                department: input.department as any, // Department enum is validated by Zod schema
+              },
+            });
+        }
+        
+        // Check if healthcare role has proper hospital assignment
+        const needsHospitalAssignment = healthcareRoles.includes(input.role) && !hospitalId;
         
         // Prepare update data
         const updateData: any = {
@@ -989,9 +1281,20 @@ export const authRouter = router({
           department: input.department,
           jobTitle: input.jobTitle,
           bio: input.bio,
-          needsProfileCompletion: false, // Profile is now complete
+          defaultHospitalId: hospitalId,
+          // Healthcare roles without hospital still need profile completion
+          needsProfileCompletion: needsHospitalAssignment,
           updatedAt: new Date(),
         };
+        
+        if (needsHospitalAssignment) {
+          log.warn('[AUTH] Healthcare user completing profile without hospital assignment', 'COMPONENT', {
+            userId: ctx.user.id,
+            role: input.role,
+            organizationId: finalOrganizationId,
+            hospitalId: hospitalId
+          });
+        }
         
         // Update in database
         const updatedUsers = await db
@@ -1042,12 +1345,18 @@ export const authRouter = router({
           role: validateUserRole(updatedUser.role),
           status: 'active',
           isEmailVerified: updatedUser.emailVerified ?? false,
+          contactPreferences: updatedUser.contactPreferences 
+            ? (typeof updatedUser.contactPreferences === 'string' 
+              ? JSON.parse(updatedUser.contactPreferences) 
+              : updatedUser.contactPreferences)
+            : { email: true, push: true, sms: false },
         });
         
         return {
           success: true as const,
           user: validatedUser,
           organizationId: finalOrganizationId,
+          hospitalId: hospitalId,
         };
       } catch (error) {
         // Log failed profile completion
@@ -1081,7 +1390,7 @@ export const authRouter = router({
       bio: z.string().max(500).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+      const { auditService, auditHelpers, AuditAction, AuditOutcome } = await import('../services/audit');
       const context = auditHelpers.extractContext(ctx.req, ctx.session);
       
       // Capture before state for audit
@@ -1178,10 +1487,18 @@ export const authRouter = router({
   // Sign out - protected endpoint
   signOut: protectedProcedure
     .mutation(async ({ ctx }) => {
-      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+      const { auditService, auditHelpers, AuditAction, AuditOutcome } = await import('../services/audit');
       const context = auditHelpers.extractContext(ctx.req, ctx.session);
       
       try {
+        // Clear session cache first if we have a session token
+        if (ctx.session?.session?.token) {
+          clearCachedSession(ctx.session.session.token);
+          logger.auth.debug('Cleared session cache on sign out', {
+            userId: ctx.session.user.id
+          });
+        }
+        
         // Use Better Auth API to sign out
         await auth.api.signOut({
           headers: ctx.req.headers,
@@ -1217,14 +1534,16 @@ export const authRouter = router({
     }),
 
   // Check if email exists (for registration form)
+  // DEPRECATED: Use checkEmailExists mutation instead
+  // This endpoint is kept for backward compatibility but always returns false
   checkEmail: publicProcedure
     .input(z.object({
       email: z.string().email(),
     }))
     .query(async ({ input }) => {
-      // In a real app, check database for existing email
-      // For now, return false (email available)
-      log.info('[AUTH] Checking email availability:', 'COMPONENT', {});
+      logger.auth.warn('DEPRECATED: checkEmail query called. Use checkEmailExists mutation instead.');
+      // Always return false to avoid breaking existing code
+      // The real implementation is in checkEmailExists mutation
       return {
         exists: false,
         available: true,
@@ -1395,6 +1714,7 @@ export const authRouter = router({
           department: userTable.department,
           createdAt: userTable.createdAt,
           updatedAt: userTable.updatedAt,
+          contactPreferences: userTable.contactPreferences,
         }).from(userTable);
         
         // Apply filters and execute
@@ -1412,6 +1732,11 @@ export const authRouter = router({
           role: validateUserRole(user.role),
           status: 'active' as const,
           isEmailVerified: false, // Would come from actual field
+          contactPreferences: user.contactPreferences 
+            ? (typeof user.contactPreferences === 'string' 
+              ? JSON.parse(user.contactPreferences) 
+              : user.contactPreferences)
+            : { email: true, push: true, sms: false },
         }));
         
         return {
@@ -1466,7 +1791,7 @@ export const authRouter = router({
           });
         }
         
-        const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+        const { auditService, auditHelpers, AuditAction, AuditOutcome } = await import('../services/audit');
         const context = auditHelpers.extractContext(ctx.req, ctx.session);
         
         // Log role change
@@ -1485,6 +1810,11 @@ export const authRouter = router({
           role: validateUserRole(updatedUsers[0].role),
           status: 'active',
           isEmailVerified: false, // Would come from actual field
+          contactPreferences: updatedUsers[0].contactPreferences 
+            ? (typeof updatedUsers[0].contactPreferences === 'string' 
+              ? JSON.parse(updatedUsers[0].contactPreferences) 
+              : updatedUsers[0].contactPreferences)
+            : { email: true, push: true, sms: false },
         });
         
         return {
@@ -1571,25 +1901,42 @@ export const authRouter = router({
       exists: z.boolean(),
       isAvailable: z.boolean(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      // Rate limiting for email checks: 20 per minute per IP
+      const clientIp = ctx.req.headers.get('x-forwarded-for')?.split(',')[0] || 
+                       ctx.req.headers.get('x-real-ip') || 'unknown';
+      checkRateLimit(`email-check:${clientIp}`, 20, 60000);
+      
+      const sanitizedEmail = sanitizeInput.email(input.email);
+      
       try {
         const { db } = await import('@/src/db');
         const { user: userTable } = await import('@/src/db/schema');
         const { eq } = await import('drizzle-orm');
         
+        logger.auth.debug('Checking email existence', { email: sanitizedEmail });
+        
         const [existingUser] = await db
           .select({ id: userTable.id })
           .from(userTable)
-          .where(eq(userTable.email, input.email.toLowerCase()))
+          .where(eq(userTable.email, sanitizedEmail))
           .limit(1);
         
-        return {
+        const result = {
           exists: !!existingUser,
           isAvailable: !existingUser,
         };
+        
+        logger.auth.debug('Email check result', { 
+          email: sanitizedEmail, 
+          exists: result.exists 
+        });
+        
+        return result;
       } catch (error) {
-        logger.auth.error('Error checking email', error);
-        // Return safe default on error
+        logger.auth.error('Error checking email existence', error);
+        // Return safe default on error - assume email is available
+        // This prevents blocking registration due to database errors
         return {
           exists: false,
           isAvailable: true,
@@ -1609,7 +1956,7 @@ export const authRouter = router({
         .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
     }))
     .mutation(async ({ input, ctx }) => {
-      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+      const { auditService, auditHelpers, AuditAction, AuditOutcome } = await import('../services/audit');
       const context = auditHelpers.extractContext(ctx.req, ctx.session);
       
       try {
@@ -1711,7 +2058,7 @@ export const authRouter = router({
       email: z.string().email(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+      const { auditService, auditHelpers } = await import('../services/audit');
       const context = auditHelpers.extractContext(ctx.req, ctx.session);
       
       try {
@@ -1732,19 +2079,16 @@ export const authRouter = router({
         });
 
         // Log magic link sent
-        await auditService.logSecurityEvent(
-          ctx.user.id,
-          'TWO_FACTOR_MAGIC_LINK_SENT',
-          {
-            action: 'TWO_FACTOR_MAGIC_LINK_SENT',
-            entityType: 'user',
-            entityId: ctx.user.id,
-            description: 'Magic link sent for two-factor authentication',
-            metadata: { email: input.email },
-            severity: AuditSeverity.INFO,
-          },
-          context
-        );
+        await auditService.log({
+          userId: ctx.user.id,
+          action: 'TWO_FACTOR_MAGIC_LINK_SENT' as any,
+          outcome: 'SUCCESS' as any,
+          entityType: 'user',
+          entityId: ctx.user.id,
+          description: 'Magic link sent for two-factor authentication',
+          metadata: { email: input.email },
+          ...context
+        });
 
         log.info('[AUTH] Magic link sent for 2FA', 'AUTH', {
           userId: ctx.user.id,
@@ -1757,19 +2101,16 @@ export const authRouter = router({
         };
       } catch (error: any) {
         // Log failed attempt
-        await auditService.logSecurityEvent(
-          ctx.user.id,
-          'TWO_FACTOR_MAGIC_LINK_FAILED',
-          {
-            action: 'TWO_FACTOR_MAGIC_LINK_FAILED',
-            entityType: 'user',
-            entityId: ctx.user.id,
-            description: 'Failed to send magic link for two-factor authentication',
-            metadata: { error: error.message },
-            severity: AuditSeverity.WARNING,
-          },
-          context
-        );
+        await auditService.log({
+          userId: ctx.user.id,
+          action: 'TWO_FACTOR_MAGIC_LINK_FAILED' as any,
+          outcome: 'FAILURE' as any,
+          entityType: 'user',
+          entityId: ctx.user.id,
+          description: 'Failed to send magic link for two-factor authentication',
+          metadata: { error: error.message },
+          ...context
+        });
 
         if (error instanceof TRPCError) throw error;
 
@@ -1781,10 +2122,10 @@ export const authRouter = router({
       }
     }),
 
-  // Enable two-factor authentication
-  enableTwoFactor: protectedProcedure
+  // Enable two-factor authentication with audit logging
+  enableTwoFactorWithAudit: protectedProcedure
     .mutation(async ({ ctx }) => {
-      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+      const { auditService, auditHelpers, AuditAction, AuditOutcome } = await import('../services/audit');
       const context = auditHelpers.extractContext(ctx.req, ctx.session);
       
       try {
@@ -1842,7 +2183,7 @@ export const authRouter = router({
   // Disable two-factor authentication
   disableTwoFactor: protectedProcedure
     .mutation(async ({ ctx }) => {
-      const { auditService, AuditAction, AuditOutcome, auditHelpers } = await import('../services/audit');
+      const { auditService, auditHelpers, AuditAction, AuditOutcome } = await import('../services/audit');
       const context = auditHelpers.extractContext(ctx.req, ctx.session);
       
       try {
@@ -1896,6 +2237,82 @@ export const authRouter = router({
         });
       }
     }),
+
+  // Select/switch hospital for healthcare users
+  selectHospital: protectedProcedure
+    .input(SelectHospitalInputSchema)
+    .output(z.object({ 
+      success: z.literal(true), 
+      hospital: HospitalResponseSchema,
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const healthcareRoles = ['doctor', 'nurse', 'head_doctor', 'operator'];
+      const userRole = (ctx.user as any).role;
+      
+      // Verify user has healthcare role
+      if (!healthcareRoles.includes(userRole)) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Only healthcare staff can select hospitals',
+        });
+      }
+      
+      // Verify hospital exists and user has access
+      const { db } = await import('@/src/db');
+      const { user: users } = await import('@/src/db/schema');
+      const { hospitals, healthcareUsers } = await import('@/src/db/healthcare-schema');
+      const { eq, and } = await import('drizzle-orm');
+      
+      const [hospital] = await db
+        .select()
+        .from(hospitals)
+        .where(
+          and(
+            eq(hospitals.id, input.hospitalId),
+            eq(hospitals.organizationId, (ctx.user as any).organizationId),
+            eq(hospitals.isActive, true)
+          )
+        )
+        .limit(1);
+      
+      if (!hospital) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Hospital not found or you do not have access',
+        });
+      }
+      
+      // Update user's default hospital
+      await db
+        .update(users)
+        .set({ 
+          defaultHospitalId: input.hospitalId,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, ctx.user.id));
+      
+      // Update healthcare user profile
+      await db
+        .update(healthcareUsers)
+        .set({
+          hospitalId: input.hospitalId,
+        })
+        .where(eq(healthcareUsers.userId, ctx.user.id));
+      
+      // Log the change
+      log.info('[AUTH] User switched hospital', 'COMPONENT', {
+        userId: ctx.user.id,
+        previousHospitalId: (ctx.user as any).defaultHospitalId,
+        newHospitalId: input.hospitalId,
+        hospitalName: hospital.name,
+      });
+      
+      return {
+        success: true,
+        hospital: HospitalResponseSchema.parse(hospital),
+      };
+    }),
+
 
   // Import and spread auth extensions
   ...authExtensions,

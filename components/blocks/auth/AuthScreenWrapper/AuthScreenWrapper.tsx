@@ -25,7 +25,7 @@ export function AuthScreenWrapper({
 }: AuthScreenWrapperProps) {
   const theme = useTheme();
   const { spacing } = useSpacing();
-  const { isMobile, isTablet, isDesktop } = useResponsive();
+  const { isMobile } = useResponsive();
   const [screenWidth, setScreenWidth] = React.useState(SCREEN_WIDTH);
   
   // Update screen width on resize (web)
@@ -53,10 +53,10 @@ export function AuthScreenWrapper({
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
-      <VStack gap={spacing[4]} style={{ flex: 1, justifyContent: 'center' }}>
+      <VStack gap={spacing[4] as any} style={{ flex: 1, justifyContent: 'center' }}>
         {/* Header if provided */}
         {(title || subtitle) && (
-          <VStack gap={spacing[2]} align="center">
+          <VStack gap={spacing[2] as any} align="center">
             {title && (
               <Text size={isLargeScreen ? "3xl" : "2xl"} weight="bold">
                 {title}
@@ -95,14 +95,14 @@ export function AuthScreenWrapper({
         alignItems: 'center',
         padding: spacing[8]
       }}>
-        <VStack gap={spacing[6]} align="center">
+        <VStack gap={spacing[6] as any} align="center">
           {/* Rocket Emoji */}
           <Text style={{ fontSize: 80 }}>
             🚀
           </Text>
           
           {/* Minimal Text */}
-          <VStack gap={spacing[2]} align="center">
+          <VStack gap={spacing[2] as any} align="center">
             <Text 
               size="3xl" 
               weight="bold" 
@@ -164,10 +164,10 @@ export function AuthScreenWrapper({
       ) : (
         // For non-large screens, just show the form content directly
         <View style={{ padding: isTabletOrDesktop ? spacing[6] : spacing[4], flex: 1 }}>
-          <VStack gap={spacing[4]}>
+          <VStack gap={spacing[4] as any}>
             {/* Header if provided */}
             {(title || subtitle) && (
-              <VStack gap={spacing[2]} align="center">
+              <VStack gap={spacing[2] as any} align="center">
                 {title && (
                   <Text size={isLargeScreen ? "3xl" : "2xl"} weight="bold">
                     {title}

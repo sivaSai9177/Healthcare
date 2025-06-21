@@ -38,15 +38,18 @@ export default function AcknowledgeAlertModal() {
   const [delegateTo, setDelegateTo] = React.useState<string>('');
 
   // Fetch alert details
-  const { data: alert, isLoading: isLoadingAlert } = api.healthcare.getAlert.useQuery(
+  const { data: alert, loading: isLoadingAlert } = api.healthcare.getAlert.useQuery(
     { alertId: alertId! },
     { enabled: !!alertId }
   );
 
   // Fetch available staff for delegation
   const { data: availableStaff } = api.healthcare.getOnDutyStaff.useQuery(
-    { hospitalId: user?.organizationId || user?.hospitalId || '' },
-    { enabled: !!user && responseAction === 'delegating' }
+    { 
+      hospitalId: user?.organizationId || '', 
+      department: undefined 
+    },
+    { enabled: !!user?.organizationId && responseAction === 'delegating' }
   );
 
   // Acknowledge mutation
@@ -103,7 +106,7 @@ export default function AcknowledgeAlertModal() {
   if (isLoadingAlert) {
     return (
       <Container style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ padding: spacing.md }}>
+        <ScrollView contentContainerStyle={{ padding: spacing.md , paddingBottom: 20 }}>
           <Stack spacing="lg">
             <Card>
               <Stack spacing="sm">
@@ -127,7 +130,7 @@ export default function AcknowledgeAlertModal() {
         <Card style={{ margin: spacing.md }}>
           <Stack spacing="md" align="center">
             <Symbol name="exclamationmark.triangle.fill" size={48} color={theme.destructive} />
-            <Text size="lg" weight="medium">Alert not found</Text>
+            <Text size="default" weight="medium">Alert not found</Text>
             <Button variant="outline" onPress={handleCancel}>
               Go Back
             </Button>
@@ -149,7 +152,7 @@ export default function AcknowledgeAlertModal() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={{ padding: spacing.md }}>
+        <ScrollView contentContainerStyle={{ padding: spacing.md , paddingBottom: 20 }}>
           <Stack spacing="lg">
             {/* Alert Summary */}
             <Card>

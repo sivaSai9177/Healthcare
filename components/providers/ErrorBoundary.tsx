@@ -3,7 +3,7 @@ import React, { Component, ReactNode } from 'react';
 import { View, Text, ScrollView, Pressable, Platform } from 'react-native';
 import { createLogger, exportLogs } from '@/lib/core/debug';
 import { showErrorAlert } from '@/lib/core/alert';
-import { useTheme } from '@/lib/theme/provider';
+import { useThemeStore } from '@/lib/stores/theme-store';
 
 interface Props {
   children: ReactNode;
@@ -126,22 +126,17 @@ export function useErrorHandler() {
 
 // Default error UI component
 function DefaultErrorUI({ error, resetError, onExportDebug }: { error: Error; resetError: () => void; onExportDebug?: () => void }) {
-  // Use a try-catch in case we're outside the theme provider
-  let theme;
-  try {
-    theme = useTheme();
-  } catch {
+  // Get theme directly from store to avoid hook rules violation
+  const theme = useThemeStore.getState().theme || {
     // Fallback to default theme colors
-    theme = {
-      background: '#ffffff',
-      foreground: '#000000',
-      muted: '#f4f4f5',
-      mutedForeground: '#71717a',
-      primary: '#0ea5e9',
-      primaryForeground: '#ffffff',
-      destructive: '#ef4444',
-      destructiveForeground: '#ffffff',
-    };
+    background: '#ffffff',
+    foreground: '#000000',
+    muted: '#f4f4f5',
+    mutedForeground: '#71717a',
+    primary: '#0ea5e9',
+    primaryForeground: '#ffffff',
+    destructive: '#ef4444',
+    destructiveForeground: '#ffffff',
   }
   
   return (

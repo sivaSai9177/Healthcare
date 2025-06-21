@@ -1,36 +1,20 @@
 import React, { useEffect } from 'react';
 import { View, Pressable, ViewStyle, ScrollView, Platform } from 'react-native';
-import { useSpacing } from '@/lib/stores/spacing-store';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withDelay,
+} from 'react-native-reanimated';
 import { HStack } from '@/components/universal/layout/Stack';
 import { Text } from '@/components/universal/typography/Text';
 import { UniversalLink } from './Link';
 import { Symbol } from '@/components/universal/display/Symbols';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 import { haptic } from '@/lib/ui/haptics';
-import { cn } from '@/lib/core/utils';
 
-// Only import Reanimated on native platforms
-let Animated: any;
-let useSharedValue: any;
-let useAnimatedStyle: any;
-let withSpring: any;
-let withTiming: any;
-let withDelay: any;
-let FadeIn: any;
-
-if (Platform.OS !== 'web') {
-  const ReanimatedModule = require('react-native-reanimated');
-  Animated = ReanimatedModule.default;
-  useSharedValue = ReanimatedModule.useSharedValue;
-  useAnimatedStyle = ReanimatedModule.useAnimatedStyle;
-  withSpring = ReanimatedModule.withSpring;
-  withTiming = ReanimatedModule.withTiming;
-  withDelay = ReanimatedModule.withDelay;
-  FadeIn = ReanimatedModule.FadeIn;
-}
-
-const AnimatedPressable = Platform.OS !== 'web' && Animated ? Animated.createAnimatedComponent(Pressable) : Pressable;
-const AnimatedView = Platform.OS !== 'web' && Animated ? Animated.View : View;
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export type BreadcrumbAnimationType = 'stagger' | 'fade' | 'none';
 
@@ -51,7 +35,6 @@ export interface BreadcrumbProps {
   animated?: boolean;
   animationType?: BreadcrumbAnimationType;
   animationDuration?: number;
-  useHaptics?: boolean;
 }
 
 // Breadcrumb Item Wrapper for animations
@@ -71,17 +54,17 @@ const BreadcrumbItemWrapper: React.FC<BreadcrumbItemWrapperProps> = ({
   animationDuration,
 }) => {
   const { shouldAnimate } = useAnimationStore();
-  
-  // Skip animations on web completely
-  if (Platform.OS === 'web' || !animated || !shouldAnimate() || animationType === 'none') {
-    return <>{children}</>;
-  }
-  
-  // Native animation logic
   const opacity = useSharedValue(0);
   const translateX = useSharedValue(-10);
   
   useEffect(() => {
+    // Skip animations on web or when disabled
+    if (Platform.OS === 'web' || !animated || !shouldAnimate() || animationType === 'none') {
+      opacity.value = 1;
+      translateX.value = 0;
+      return;
+    }
+    
     const delay = animationType === 'stagger' ? index * 50 : 0;
     
     opacity.value = withDelay(
@@ -95,17 +78,22 @@ const BreadcrumbItemWrapper: React.FC<BreadcrumbItemWrapperProps> = ({
         withSpring(0, springConfig)
       );
     }
-  }, [index, animationType, animationDuration]);
+  }, [index, animationType, animationDuration, animated, opacity, translateX, shouldAnimate]);
   
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
     transform: animationType === 'stagger' ? [{ translateX: translateX.value }] : [],
   }));
   
+  // Skip animations on web completely
+  if (Platform.OS === 'web' || !animated || !shouldAnimate() || animationType === 'none') {
+    return <>{children}</>;
+  }
+  
   return (
-    <AnimatedView style={animatedStyle}>
+    <Animated.View style={animatedStyle}>
       {children}
-    </AnimatedView>
+    </Animated.View>
   );
 };
 
@@ -117,7 +105,6 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({
   animated = true,
   animationType = 'stagger',
   animationDuration = 300,
-  useHaptics = true,
 }) => {
   
   const items = React.Children.toArray(children);
@@ -174,19 +161,23 @@ export const BreadcrumbItem: React.FC<BreadcrumbItemProps> = ({
   className,
 }) => {
   const { shouldAnimate } = useAnimationStore();
+  const scale = useSharedValue(1);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
   
   // Skip animations on web
   const useAnimations = Platform.OS !== 'web' && shouldAnimate();
-  const scale = useAnimations && useSharedValue ? useSharedValue(1) : null;
   
   const handlePressIn = () => {
-    if (useAnimations && scale && withSpring) {
+    if (useAnimations) {
       scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
     }
   };
   
   const handlePressOut = () => {
-    if (useAnimations && scale && withSpring) {
+    if (useAnimations) {
       scale.value = withSpring(1, springConfig);
     }
   };
@@ -197,10 +188,6 @@ export const BreadcrumbItem: React.FC<BreadcrumbItemProps> = ({
     }
     onPress?.();
   };
-  
-  const animatedStyle = useAnimations && scale && useAnimatedStyle ? useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  })) : {};
   
   // If it's a link
   if (href && !disabled && !current) {
@@ -258,12 +245,10 @@ export const BreadcrumbItem: React.FC<BreadcrumbItemProps> = ({
 
 // Breadcrumb Ellipsis
 export const BreadcrumbEllipsis: React.FC = () => {
-  const { componentSpacing } = useSpacing();
-  
   return (
     <View className="px-1">
       <Symbol name="ellipsis"
-        size={componentSpacing.iconSize.sm}
+        size={16}
         className="text-muted-foreground"
       />
     </View>
@@ -290,7 +275,6 @@ export interface SimpleBreadcrumbProps {
   animated?: boolean;
   animationType?: BreadcrumbAnimationType;
   animationDuration?: number;
-  useHaptics?: boolean;
 }
 
 export const SimpleBreadcrumb: React.FC<SimpleBreadcrumbProps> = ({
@@ -305,7 +289,6 @@ export const SimpleBreadcrumb: React.FC<SimpleBreadcrumbProps> = ({
   animated = true,
   animationType = 'stagger',
   animationDuration = 300,
-  useHaptics = true,
 }) => {
   
   // Add home item if needed
@@ -314,14 +297,12 @@ export const SimpleBreadcrumb: React.FC<SimpleBreadcrumbProps> = ({
     : items;
   
   // Handle max items with ellipsis
-  let displayItems = allItems;
-  let showEllipsis = false;
+  let displayItems: (typeof allItems[0] | { isEllipsis: true })[] = allItems;
   
   if (maxItems && allItems.length > maxItems) {
     const firstItem = allItems[0];
     const lastItems = allItems.slice(-(maxItems - 2));
-    displayItems = [firstItem, { label: '...', isEllipsis: true }, ...lastItems];
-    showEllipsis = true;
+    displayItems = [firstItem, { isEllipsis: true }, ...lastItems];
   }
   
   return (
@@ -331,7 +312,6 @@ export const SimpleBreadcrumb: React.FC<SimpleBreadcrumbProps> = ({
       animated={animated}
       animationType={animationType}
       animationDuration={animationDuration}
-      useHaptics={useHaptics}
     >
       {displayItems.map((item, index) => {
         if ('isEllipsis' in item && item.isEllipsis) {
@@ -341,12 +321,12 @@ export const SimpleBreadcrumb: React.FC<SimpleBreadcrumbProps> = ({
         const isLast = index === displayItems.length - 1;
         return (
           <BreadcrumbItem
-            key={item.label}
-            href={item.href}
-            onPress={item.onPress}
-            current={item.current || isLast}
+            key={(item as any).label}
+            href={(item as any).href}
+            onPress={(item as any).onPress}
+            current={(item as any).current || isLast}
           >
-            {item.label}
+            {(item as any).label}
           </BreadcrumbItem>
         );
       })}
@@ -364,15 +344,13 @@ export const IconBreadcrumbItem: React.FC<IconBreadcrumbItemProps> = ({
   children,
   ...props
 }) => {
-  const { componentSpacing } = useSpacing();
-  
   return (
     <BreadcrumbItem {...props}>
       <HStack spacing={1} alignItems="center">
         {icon && (
           <Symbol
             name={icon as any}
-            size={componentSpacing.iconSize.sm}
+            size={16}
             className={props.current ? 'text-foreground' : 'text-muted-foreground'}
           />
         )}

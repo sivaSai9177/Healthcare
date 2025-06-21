@@ -1,3 +1,4 @@
+import type { SpacingValue, ButtonVariant, BadgeVariant } from '@/types/components';
 import React from 'react';
 import { ScrollView, RefreshControl, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -185,7 +186,7 @@ export default function EscalationDetailsModal() {
   return (
     <Container style={{ flex: 1 }}>
       <ScrollView
-        contentContainerStyle={{ padding: spacing.md }}
+        contentContainerStyle={{ padding: spacing.md , paddingBottom: 20 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -196,11 +197,11 @@ export default function EscalationDetailsModal() {
             <Stack spacing="md">
               <HStack justify="between" align="center">
                 <VStack spacing="xs">
-                  <Text size="lg" weight="semibold">Current Escalation Status</Text>
+                  <Text size="default" weight="semibold">Current Escalation Status</Text>
                   <Badge variant="default">Tier {currentTier}</Badge>
                 </VStack>
                 <VStack spacing="xs" align="end">
-                  <Text size="sm" weight="medium" color="destructive">
+                  <Text size="sm" weight="medium" color="error">
                     {Math.floor(timeToNextEscalation / 60)}:{(timeToNextEscalation % 60).toString().padStart(2, '0')}
                   </Text>
                   <Text size="xs" color="muted">Until Tier {currentTier + 1}</Text>
@@ -215,9 +216,9 @@ export default function EscalationDetailsModal() {
 
               <Button
                 onPress={handleManualEscalate}
-                variant="destructive"
+                variant="error"
                 size="sm"
-                isLoading={triggerEscalationMutation.isPending}
+                loading={triggerEscalationMutation.isPending}
                 disabled={triggerEscalationMutation.isPending || currentTier >= 3}
               >
                 <HStack spacing="xs" align="center">
@@ -330,7 +331,7 @@ export default function EscalationDetailsModal() {
           {/* Escalation History */}
           <Card>
             <Stack spacing="md">
-              <Text size="lg" weight="semibold">Escalation History</Text>
+              <Text size="default" weight="semibold">Escalation History</Text>
               <Separator />
               
               {escalationHistory.map((event, index) => (
@@ -375,21 +376,21 @@ export default function EscalationDetailsModal() {
               <Button
                 variant="outline"
                 size="sm"
-// TODO: Replace with structured logging - onPress={() => console.log('Pause escalation')}
+// TODO: Replace with structured logging - onPress={() => /* console.log('Pause escalation') */}
               >
                 Pause Escalation
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-// TODO: Replace with structured logging - onPress={() => console.log('Skip to tier')}
+// TODO: Replace with structured logging - onPress={() => /* console.log('Skip to tier') */}
               >
                 Skip to Specific Tier
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-// TODO: Replace with structured logging - onPress={() => console.log('Notify additional staff')}
+// TODO: Replace with structured logging - onPress={() => /* console.log('Notify additional staff') */}
               >
                 Notify Additional Staff
               </Button>

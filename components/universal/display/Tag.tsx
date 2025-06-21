@@ -196,7 +196,7 @@ export const Tag = React.forwardRef<View, TagProps>(({
         <Symbol
           name={icon}
           size={config.iconSize}
-          className={cn(classes.text, 'mr-1')}
+          className={cn(classes.text, 'mr-1') as string}
         />
       )}
       
@@ -218,7 +218,7 @@ export const Tag = React.forwardRef<View, TagProps>(({
         <Symbol
           name={icon}
           size={config.iconSize}
-          className={cn(classes.text, 'ml-1')}
+          className={cn(classes.text, 'ml-1') as string}
         />
       )}
     </AnimatedView>
@@ -237,7 +237,7 @@ export const StatusTag: React.FC<{
     active: { variant: 'success' as const, icon: 'checkmark.circle.fill', text: 'Active' },
     inactive: { variant: 'default' as const, icon: 'minus.circle', text: 'Inactive' },
     pending: { variant: 'warning' as const, icon: 'clock.fill', text: 'Pending' },
-    error: { variant: 'destructive' as const, icon: 'xmark.circle.fill', text: 'Error' },
+    error: { variant: "error" as const, icon: 'xmark.circle.fill', text: 'Error' },
     success: { variant: 'success' as const, icon: 'checkmark.circle.fill', text: 'Success' },
     warning: { variant: 'warning' as const, icon: 'exclamationmark.triangle.fill', text: 'Warning' },
   };

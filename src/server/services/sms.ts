@@ -383,4 +383,4 @@ class MockSMSProvider implements SMSProvider {
 export const smsService = new SMSService();
 
 // Export types
-export type { SMSService, SMSProvider };
+export type { SMSService };

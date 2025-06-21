@@ -89,7 +89,7 @@ export const AreaChartWithControls: React.FC<AreaChartWithControlsProps> = ({
         backgroundColor: theme.card,
         borderColor: theme.border,
         borderWidth: 1,
-        borderRadius: 12,
+        borderRadius: 12 as any,
         overflow: 'hidden',
         ...(style as any),
       }}

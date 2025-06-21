@@ -345,7 +345,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
               shadowStyle,
               animated && shouldAnimate() && animationType !== 'none'
                 ? animatedStyle
-                : { opacity: 1 },
+                : { opacity: 1 as any },
               Platform.OS === 'web' && animated && shouldAnimate() && {
                 transition: 'all 0.2s ease',
                 transformOrigin: getTransformOrigin(),

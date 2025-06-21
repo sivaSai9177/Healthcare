@@ -1,8 +1,6 @@
 import React from "react";
 import { Platform, Pressable, View, StyleSheet } from "react-native";
-import { Text, VStack, HStack } from "@/components/universal";
-import { cn } from '@/lib/core/utils';
-import { useSpacing } from '@/lib/stores/spacing-store';
+import { Text, VStack } from "@/components/universal";
 import { haptic } from '@/lib/ui/haptics';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { authStyles } from '@/components/blocks/auth/styles/authStyles';
@@ -53,7 +51,6 @@ const roleOptions: RoleOption[] = [
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function RoleSelectorGrid({ selectedRole, onRoleSelect, className }: RoleSelectorGridProps) {
-  const { spacing } = useSpacing();
   const theme = useTheme();
   const [hoveredRole, setHoveredRole] = React.useState<UserRole | null>(null);
 
@@ -63,7 +60,7 @@ export function RoleSelectorGrid({ selectedRole, onRoleSelect, className }: Role
   };
 
   return (
-    <VStack gap={authStyles.spacing[2]} className={className}>
+    <VStack gap={authStyles.spacing[2] as any} className={className}>
       <Text size="sm" weight="medium" style={{ marginBottom: authStyles.spacing[2] }}>
         Select your role
       </Text>
@@ -96,7 +93,7 @@ export function RoleSelectorGrid({ selectedRole, onRoleSelect, className }: Role
                 }
               ]}
             >
-              <VStack gap={authStyles.spacing[1]} align="center">
+              <VStack gap={authStyles.spacing[1] as any} alignItems="center">
                 <Text size="2xl">{role.icon}</Text>
                 <Text 
                   size="sm" 

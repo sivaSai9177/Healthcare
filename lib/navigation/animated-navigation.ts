@@ -1,8 +1,8 @@
 import { router } from 'expo-router';
 import { Platform } from 'react-native';
 import { log } from '@/lib/core/debug/logger';
-import { haptic } from '@/lib/ui/haptics';
-import { DURATION_CLASSES } from '@/lib/ui/animations/constants';
+import { haptic, haptics } from '@/lib/ui/haptics';
+import { DURATIONS } from '@/lib/ui/animations/constants';
 
 export type NavigationAnimation = 
   | 'slide_from_right' 
@@ -117,7 +117,7 @@ export const animatedNavigation = {
    * Auth navigation with smooth transitions
    */
   auth: {
-    toLogin: (returnPath?: string) => {
+    toLogin: () => {
       animatedNavigation.replace('/(auth)/login', {
         animation: 'fade',
         animationDuration: DURATIONS.fast,
@@ -195,7 +195,7 @@ export const animatedNavigation = {
       if (Platform.OS !== 'web') {
         haptics.tabSelect();
       }
-      router.replace(href);
+      router.replace(href as any);
     },
   },
 };

@@ -3,6 +3,7 @@ import { authStore } from '@/lib/stores/auth-store';
 import { router } from 'expo-router';
 import { log } from '@/lib/core/debug/logger';
 import { Platform, AppState, AppStateStatus } from 'react-native';
+import { ROUTES } from '@/lib/navigation/routes';
 
 interface SessionTimeoutConfig {
   timeoutDuration: number; // Session timeout in milliseconds
@@ -19,9 +20,9 @@ class SessionTimeoutManager {
   private isActive = false;
   
   private config: SessionTimeoutConfig = {
-    timeoutDuration: parseInt(process.env.EXPO_PUBLIC_SESSION_TIMEOUT || '1800000'), // 30 minutes default
-    warningDuration: 5 * 60 * 1000, // 5 minutes warning
-    checkInterval: 60 * 1000, // Check every minute
+    timeoutDuration: parseInt(process.env.EXPO_PUBLIC_SESSION_TIMEOUT || String(8 * 60 * 60 * 1000)), // 8 hours default (PRD requirement)
+    warningDuration: 30 * 60 * 1000, // 30 minutes warning
+    checkInterval: 0, // DISABLED - Session checks now handled by SyncProvider only
   };
 
   private warningCallback?: () => void;
@@ -52,20 +53,24 @@ class SessionTimeoutManager {
     
     log.info('Session timeout monitoring started', 'AUTH', {
       timeoutDuration: this.config.timeoutDuration / 1000 + 's',
-      warningDuration: this.config.warningDuration / 1000 + 's'
+      warningDuration: this.config.warningDuration / 1000 + 's',
+      checkInterval: this.config.checkInterval / 1000 + 's'
     });
     
     this.updateActivity();
     this.startTimers();
     
-    // Start periodic checks with a delay to allow OAuth flow to complete
-    setTimeout(() => {
-      if (this.isActive) {
-        this.checkTimer = setInterval(() => {
-          this.checkSession();
-        }, this.config.checkInterval);
-      }
-    }, 5000); // 5 second delay before starting checks
+    // Disable periodic session checks since SyncProvider already handles this
+    // The session timeout manager should only handle inactivity timeout
+    // Session validity is checked by SyncProvider's TanStack Query
+    
+    // setTimeout(() => {
+    //   if (this.isActive) {
+    //     this.checkTimer = setInterval(() => {
+    //       this.checkSession();
+    //     }, this.config.checkInterval);
+    //   }
+    // }, 10000); // 10 second delay before starting checks
   }
 
   /**
@@ -180,6 +185,8 @@ class SessionTimeoutManager {
 
   /**
    * Check if session is still valid
+   * This should only check if the session exists and is not expired
+   * It should NOT trigger timeout based on inactivity
    */
   private async checkSession() {
     // Don't check if not active
@@ -192,52 +199,98 @@ class SessionTimeoutManager {
         return;
       }
       
-      const session = await authClient.getSession();
+      const response = await authClient.getSession();
       
-      if (!session?.session) {
+      // Check for various response formats from Better Auth
+      const hasValidSession = response && (
+        response.session || // Standard format
+        response.data?.session || // Wrapped format
+        (response.user && response.expiresAt) // Alternative format
+      );
+      
+      if (!hasValidSession) {
         // No session, trigger timeout
+        log.warn('No session found during check', 'AUTH', {
+          responseKeys: response ? Object.keys(response) : [],
+          hasUser: !!(response?.user || response?.data?.user),
+          hasSession: !!(response?.session || response?.data?.session)
+        });
         this.handleTimeout();
         return;
       }
       
+      // Extract session data from various possible formats
+      const sessionData = response.session || response.data?.session || response;
+      
       // Check if session has expired
-      const expiresAt = new Date(session.session.expiresAt).getTime();
+      const expiresAt = new Date(sessionData.expiresAt).getTime();
       if (Date.now() >= expiresAt) {
-        log.warn('Session has expired', 'AUTH');
+        log.warn('Session has expired', 'AUTH', {
+          expiresAt: new Date(expiresAt).toISOString(),
+          now: new Date().toISOString()
+        });
         this.handleTimeout();
+      } else {
+        // Session is valid, log for debugging
+        log.debug('Session check passed', 'AUTH', {
+          expiresAt: new Date(expiresAt).toISOString(),
+          remainingMinutes: Math.floor((expiresAt - Date.now()) / 1000 / 60)
+        });
       }
     } catch (error) {
       // Only log error if we're still active
       if (this.isActive) {
+        // Check if it's a network/parsing error vs actual auth error
+        const errorMessage = error?.message || '';
+        if (errorMessage.includes('JSON') || errorMessage.includes('network')) {
+          log.warn('Network error during session check, skipping', 'AUTH', error);
+          return;
+        }
+        
         log.error('Failed to check session', 'AUTH', error);
       }
     }
   }
 
   /**
-   * Handle session timeout
+   * Handle session timeout due to inactivity
    */
   private async handleTimeout() {
-    log.warn('Session timeout reached', 'AUTH');
+    log.warn('Session timeout reached due to inactivity', 'AUTH', {
+      lastActivity: this.lastActivityTime,
+      timeoutDuration: this.config.timeoutDuration
+    });
     
-    // Clear auth state - check if authStore is available
+    // First check if there's actually a valid session before clearing
     try {
-      if (authStore && typeof authStore.getState === 'function') {
-        authStore.getState().clearAuth();
+      const currentAuth = authStore?.getState();
+      if (!currentAuth?.isAuthenticated) {
+        log.info('No active session to timeout', 'AUTH');
+        this.stop();
+        return;
       }
     } catch (error) {
-      log.error('Failed to clear auth state', 'AUTH', error);
+      log.error('Failed to check auth state', 'AUTH', error);
     }
     
-    // Call custom timeout callback
+    // Call custom timeout callback if provided
     if (this.timeoutCallback) {
       this.timeoutCallback();
     } else {
+      // Clear auth state
+      try {
+        if (authStore && typeof authStore.getState === 'function') {
+          authStore.getState().clearAuth();
+        }
+      } catch (error) {
+        log.error('Failed to clear auth state', 'AUTH', error);
+      }
+      
       // Default behavior: redirect to login
       if (Platform.OS === 'web') {
         window.location.href = '/login';
       } else {
-        router.replace('/(auth)/login');
+        router.replace(ROUTES.auth.login);
       }
     }
     

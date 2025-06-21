@@ -4,7 +4,7 @@
  */
 
 async function testCompleteProfile() {
-// TODO: Replace with structured logging - console.log('🧪 Testing completeProfile endpoint...\n');
+// TODO: Replace with structured logging - /* console.log('🧪 Testing completeProfile endpoint...\n') */;
 
   const testData = {
     "0": {
@@ -25,22 +25,22 @@ async function testCompleteProfile() {
       body: JSON.stringify(testData)
     });
 
-// TODO: Replace with structured logging - console.log('📊 Response Status:', response.status);
-// TODO: Replace with structured logging - console.log('📊 Response Headers:', Object.fromEntries(response.headers.entries()));
+// TODO: Replace with structured logging - /* console.log('📊 Response Status:', response.status) */;
+// TODO: Replace with structured logging - /* console.log('📊 Response Headers:', Object.fromEntries(response.headers.entries() */));
     
     const responseText = await response.text();
-// TODO: Replace with structured logging - console.log('📊 Response Body:', responseText);
+// TODO: Replace with structured logging - /* console.log('📊 Response Body:', responseText) */;
 
     if (!response.ok) {
-// TODO: Replace with structured logging - console.log('\n❌ Request failed with status:', response.status);
+// TODO: Replace with structured logging - /* console.log('\n❌ Request failed with status:', response.status) */;
       try {
         const errorData = JSON.parse(responseText);
-// TODO: Replace with structured logging - console.log('📋 Error Details:', JSON.stringify(errorData, null, 2));
+// TODO: Replace with structured logging - /* console.log('📋 Error Details:', JSON.stringify(errorData, null, 2) */);
       } catch {
-// TODO: Replace with structured logging - console.log('📋 Raw Error Response:', responseText);
+// TODO: Replace with structured logging - /* console.log('📋 Raw Error Response:', responseText) */;
       }
     } else {
-// TODO: Replace with structured logging - console.log('\n✅ Request succeeded!');
+// TODO: Replace with structured logging - /* console.log('\n✅ Request succeeded!') */;
     }
 
   } catch (error) {

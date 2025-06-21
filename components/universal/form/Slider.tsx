@@ -301,7 +301,7 @@ export const Slider = React.forwardRef<View, SliderProps>(
         
         {/* Track */}
         <View
-          className={cn('rounded-full overflow-hidden', classes.track)}
+          className={cn('rounded-full overflow-hidden', classes.track) as string}
           style={[
             {
               height: config.trackHeight,
@@ -313,7 +313,7 @@ export const Slider = React.forwardRef<View, SliderProps>(
         >
           {/* Active track fill */}
           <AnimatedView
-            className={cn('absolute left-0 top-0 bottom-0', classes.activeTrack)}
+            className={cn('absolute left-0 top-0 bottom-0', classes.activeTrack) as string}
             style={[
               animated && shouldAnimate() ? trackFillAnimatedStyle : { width: valueToPosition(value) + config.thumbSize / 2 },
               activeTrackStyle,
@@ -323,7 +323,7 @@ export const Slider = React.forwardRef<View, SliderProps>(
         
         {/* Thumb */}
         <AnimatedView
-          className={cn('absolute rounded-full', classes.thumb)}
+          className={cn('absolute rounded-full', classes.thumb) as string}
           style={[
             {
               width: config.thumbSize,

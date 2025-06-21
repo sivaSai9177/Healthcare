@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   TextInput,
   TextInputProps,
@@ -42,7 +42,7 @@ export interface TextAreaProps extends Omit<TextInputProps, 'style'> {
   containerClassName?: string;
   style?: ViewStyle;
   inputStyle?: TextStyle;
-  shadow?: 'sm' | 'base' | 'md' | 'lg' | 'none';
+  shadow?: 'sm' | 'md' | 'lg' | 'none';
   
   // Animation props
   animated?: boolean;
@@ -126,9 +126,9 @@ export const TextArea = React.forwardRef<TextInput, TextAreaProps>(({
   placeholderTextColor,
   ...props
 }, ref) => {
-  const { spacing } = useSpacing();
+  useSpacing(); // Hook for spacing context (may be used in future)
   const { shouldAnimate } = useAnimationStore();
-  const shadowStyle = useShadow(shadow);
+  const shadowStyle = useShadow({ size: shadow === 'none' ? undefined : shadow });
   const [isFocused, setIsFocused] = useState(false);
   const [height, setHeight] = useState(sizeConfig[size].minHeight);
   const [characterCount, setCharacterCount] = useState(value?.length || 0);
@@ -177,7 +177,7 @@ export const TextArea = React.forwardRef<TextInput, TextAreaProps>(({
   const handleChangeText = (text: string) => {
     if (characterLimit && text.length > characterLimit) {
       if (useHaptics) {
-        haptic('notificationWarning');
+        haptic('warning');
       }
       return;
     }
@@ -204,13 +204,13 @@ export const TextArea = React.forwardRef<TextInput, TextAreaProps>(({
         }
       );
     }
-  }, [error]);
+  }, [error, animated, errorShake, shouldAnimate]);
   
   // Animated styles
   const containerAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
-      { scale: focusScale.value },
-      { translateX: errorShake.value },
+      { scale: focusScale.value } as any,
+      { translateX: errorShake.value } as any,
     ],
   }));
   
@@ -263,7 +263,7 @@ export const TextArea = React.forwardRef<TextInput, TextAreaProps>(({
             height: autoResize ? height : minHeight,
           },
           shadowStyle,
-          animated && shouldAnimate() ? containerAnimatedStyle : {},
+          animated && shouldAnimate() ? containerAnimatedStyle : undefined,
         ]}
       >
         <AnimatedTextInput

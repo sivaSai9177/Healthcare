@@ -8,10 +8,8 @@ import { Button } from '@/components/universal/interaction';
 import { Input } from '@/components/universal/form';
 import { VStack, HStack } from '@/components/universal/layout';
 
-import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { haptic } from '@/lib/ui/haptics';
-import { useShadow } from '@/hooks/useShadow';
 import { useResponsive } from '@/hooks/responsive';
 import { useDebounce } from '@/hooks/useDebounce';
 import Animated, { 
@@ -25,15 +23,16 @@ import Animated, {
   withSequence
 } from 'react-native-reanimated';
 import { AuthCard } from '../AuthCard';
+import { Symbol } from '@/components/universal/display/Symbols';
 
 const AnimatedView = Animated.View;
 
 // Icon components
 const Mail = ({ size, className }: { size: number; className?: string }) => (
-  <Symbols name="envelope.fill" size={size} className={className} />
+  <Symbol name="envelope.fill" size={size} className={className} />
 );
 const ArrowLeft = ({ size, className }: { size: number; className?: string }) => (
-  <Symbols name="chevron.left" size={size} className={className} />
+  <Symbol name="chevron.left" size={size} className={className} />
 );
 
 // Validation schema
@@ -74,7 +73,7 @@ export function ForgotPassword({
       -1,
       true
     );
-  }, []);
+  }, [iconScale]);
 
   const animatedIconStyle = useAnimatedStyle(() => ({
     transform: [
@@ -184,7 +183,7 @@ export function ForgotPassword({
                   rightElement={
                     form.formState.touchedFields.email && email ? (
                       <AnimatedView entering={FadeIn}>
-                        <Symbols 
+                        <Symbol 
                           name={isValidEmail ? "checkmark.circle.fill" : "xmark.circle.fill"}
                           size={20} 
                           className={isValidEmail ? "text-success" : "text-destructive"}
@@ -219,7 +218,7 @@ export function ForgotPassword({
             {/* Back to Login */}
             {onBack && (
               <AnimatedView entering={SlideInDown.delay(500).springify()}>
-                <HStack justify="center" align="center">
+                <HStack justify="center" align="center" gap={2 as any}>
                   <Text size="sm" colorTheme="mutedForeground">
                     Remember your password?
                   </Text>
@@ -229,7 +228,7 @@ export function ForgotPassword({
                     onPress={handleBack}
                     className="ml-1"
                   >
-                    <HStack gap={1} align="center">
+                    <HStack gap={1 as any} align="center">
                       <ArrowLeft size={16} className="text-primary" />
                       <Text size="sm" className="text-primary">
                         Back to Login

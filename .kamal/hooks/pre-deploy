@@ -1,0 +1,27 @@
+#!/bin/bash
+# Pre-deploy hook - Run before deploying the application
+
+echo "🚀 Pre-deploy: Preparing deployment..."
+
+# Backup database before deployment
+echo "💾 Creating database backup..."
+BACKUP_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+ssh "root@${DEPLOY_SERVER_IP}" "docker exec healthcare-postgres pg_dump -U postgres healthcare_prod > /backups/healthcare_${BACKUP_TIMESTAMP}.sql" || {
+    echo "⚠️  Warning: Could not create database backup"
+}
+
+# Check disk space on server
+echo "💿 Checking server disk space..."
+ssh "root@${DEPLOY_SERVER_IP}" "df -h" | grep -E "/$|/var"
+
+# Create necessary directories on server
+echo "📁 Creating necessary directories..."
+ssh "root@${DEPLOY_SERVER_IP}" "mkdir -p /var/healthcare/{uploads,logs,backups}"
+
+# Ensure SSL certificates are in place
+echo "🔒 Checking SSL certificates..."
+ssh "root@${DEPLOY_SERVER_IP}" "test -f /letsencrypt/acme.json" || {
+    echo "⚠️  Warning: SSL certificates not found. They will be generated on first access."
+}
+
+echo "✅ Pre-deploy preparations completed!"

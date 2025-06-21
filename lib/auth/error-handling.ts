@@ -5,7 +5,7 @@
 
 import { TRPCError } from '@trpc/client';
 import { Alert } from 'react-native';
-import { logger } from '@/lib/core/debug/unified-logger';
+import { logger } from '@/lib/core/debug/server-logger';
 
 export interface AuthError {
   code: string;

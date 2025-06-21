@@ -226,7 +226,7 @@ export function DropdownMenuTrigger({
       style={({ pressed }) => ({
         opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
         backgroundColor: pressed || isHovered ? 'rgba(0, 0, 0, 0.05)' : 'transparent',
-        borderRadius: 4,
+        borderRadius: 4 as any,
         ...(Platform.OS === 'web' && {
           transition: 'all 0.15s ease',
           cursor: disabled ? 'not-allowed' : 'pointer',
@@ -272,7 +272,7 @@ const RadioIcon = ({ selected }: { selected: boolean }) => {
         style={{
           width: 8,
           height: 8,
-          borderRadius: 4,
+          borderRadius: 4 as any,
           backgroundColor: selected ? "#000000" : "transparent",
         }}
       />
@@ -457,11 +457,11 @@ export function DropdownMenuContent({
                 left,
                 top,
                 minWidth,
-                padding: spacing[1],
+                padding: spacing[1] as any,
               },
               animated && shouldAnimate() && animationType !== 'none' 
                 ? animatedStyle 
-                : { opacity: 1 },
+                : { opacity: 1 as any },
               Platform.OS === 'web' && animated && shouldAnimate() && {
                 transition: 'all 0.2s ease',
                 transformOrigin: getTransformOrigin(),
@@ -546,7 +546,7 @@ export function DropdownMenuItem({
           alignItems: "center",
           paddingHorizontal: spacing[2],
           paddingVertical: spacing[1.5],
-          borderRadius: 4,
+          borderRadius: 4 as any,
           backgroundColor: pressed || isHovered ? 'rgba(0, 0, 0, 0.05)' : 'transparent',
           opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
           ...(Platform.OS === 'web' && {

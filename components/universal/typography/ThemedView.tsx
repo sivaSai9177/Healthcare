@@ -29,13 +29,13 @@ const variantClasses = {
 const variantStyles: Record<string, ViewStyle> = {
   default: {},
   card: {
-    borderRadius: 12,
+    borderRadius: 12 as any,
   },
   surface: {
-    borderRadius: 8,
+    borderRadius: 8 as any,
   },
   subtle: {
-    borderRadius: 6,
+    borderRadius: 6 as any,
   },
 };
 
@@ -69,8 +69,8 @@ export function ThemedView({
   if (animated || animateOnMount) {
     return (
       <Animated.View
-        className={cn(variantClasses[variant], className)}
-        style={[combinedStyle, animated ? animatedStyle : undefined]}
+        className={cn(variantClasses[variant], className) as string}
+        style={[combinedStyle, animated ? animatedStyle : undefined] as any}
         entering={animateOnMount ? FadeIn.duration(300) : undefined}
         exiting={animateOnMount ? FadeOut.duration(200) : undefined}
         {...otherProps}
@@ -80,7 +80,7 @@ export function ThemedView({
   
   return (
     <View 
-      className={cn(variantClasses[variant], className)}
+      className={cn(variantClasses[variant], className) as string}
       style={combinedStyle}
       {...otherProps} 
     />

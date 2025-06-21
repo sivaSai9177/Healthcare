@@ -1,190 +1,265 @@
-# Claude Context - Expo Modern Starter Kit
+# Claude Context - Healthcare Alert System MVP
 
 ## Project Overview
 
-**Project**: Modern Expo Starter Kit with Healthcare Alert System  
+**Project**: Healthcare Alert System MVP  
 **Tech Stack**: Expo SDK 52, React Native, TypeScript, tRPC, Better Auth, Drizzle ORM  
-**Architecture**: Expo Router with API routes, tRPC backend via Expo API routes  
-**Status**: 85% Production Ready (Design System Migration Needed)
+**Architecture**: Containerized with Docker, Deployed with Kamal  
+**Status**: 90% Production Ready - Script consolidation and testing phase
 
 ### Key Features
-- 🏥 Healthcare Alert System (MVP Complete)
-- 🔐 Complete Authentication with Better Auth
+- 🏥 Real-time Healthcare Alert Management
+- 🔐 Complete Authentication (Better Auth v1.2.8)
 - 📱 Cross-platform (iOS, Android, Web)
-- 🎨 Design System (40% migrated to Tailwind)
-- 🔄 Real-time updates via WebSocket
-- 📧 Multi-channel notifications
+- 🐳 Fully Containerized with Docker
+- 🚀 Kamal Deployment Ready
+- 🔄 WebSocket Real-time Updates
+- 📧 Multi-channel Notifications
 
-## Current Sprint
+## Current Phase: Production Preparation
 
-**Sprint**: Design System Migration & Code Quality  
-**Duration**: 3 weeks (Starting Jan 13, 2025)  
-**Focus**: Complete Tailwind migration, fix code quality issues
+**Focus**: Script consolidation, testing infrastructure, and deployment verification  
+**Timeline**: June 19-30, 2025
 
-For current tasks: `cat .claude/sprint-context/current.md`
-
-## Module Contexts
-
-When working on specific modules, load the appropriate context:
-
-- **Healthcare**: `.claude/modules/healthcare.md`
-- **Organization**: `.claude/modules/organization.md`
-- **Auth**: `.claude/modules/auth.md`
-- **Design System**: `.claude/modules/design-system.md`
-- **Performance**: `.claude/modules/performance.md`
-
-## Task Management
-
-### View Tasks by Priority
+### Active Tasks
 ```bash
-# Current sprint tasks
-cat .claude/sprint-context/current.md
-
-# Backlog
-cat .claude/sprint-context/backlog.md
-
-# Completed tasks
-cat .claude/sprint-context/completed.md
+# View current todos in your session
+# Currently working on:
+# 1. Script consolidation (manage-users.ts ✅, manage-database.ts pending)
+# 2. Docker environment testing
+# 3. Unit and integration tests
+# 4. Kamal deployment preparation
 ```
 
-### Start Module Work
-```bash
-# Example: Working on healthcare module
-cat .claude/modules/healthcare.md
+## Docker Development Environment
 
-# Load specific task template
-cat .claude/tasks/healthcare-task.md
+### Quick Start
+```bash
+# Start full development environment
+./scripts/docker-dev.sh start --with-tools
+
+# Access containers
+./scripts/docker-dev.sh shell app      # Main app
+./scripts/docker-dev.sh shell scripts  # Script runner
+
+# Run scripts in container
+./scripts/docker-dev.sh run-script scripts/users/manage-users.ts list
+
+# View logs
+./scripts/docker-dev.sh logs app
 ```
 
-## Key Directories
+### Container Services
+- **app**: Main Expo application (ports: 8081, 3000)
+- **postgres**: PostgreSQL database (port: 5432)
+- **redis**: Cache and WebSocket support (port: 6379)
+- **websocket**: Real-time server (port: 3002)
+- **scripts**: Isolated script runner
+- **mailhog**: Email testing (port: 8025) - optional
+- **pgadmin**: Database UI (port: 5050) - optional
 
-- `/app` - Expo Router pages
-- `/components` - UI components (universal, blocks, specific)
-- `/hooks` - Custom React hooks
-- `/lib` - Core utilities and libraries
-- `/src/server` - Backend logic (tRPC routers, services)
-- `/app/api` - API routes (tRPC handler)
-- `/docs` - All documentation
+## Script Management
 
-## Important Files
-
-- `.env.example` - Environment variables template
-- `package.json` - Dependencies and scripts
-- `app.config.ts` - Expo configuration
-- `tailwind.config.ts` - Tailwind setup
-- `drizzle.config.ts` - Database configuration
-
-## Development Workflow
-
-1. **Start Development**:
+### Completed Scripts
+1. **manage-users.ts** - Enhanced user management
+   - Healthcare profile support
+   - Organization/hospital creation
+   - Multiple scenarios (demo, healthcare, MVP)
+   - User verification and permissions
    ```bash
-   bun run start  # Expo Go mode
-   bun run dev    # Development build
+   # Examples
+   bun run scripts/users/manage-users.ts setup-healthcare
+   bun run scripts/users/manage-users.ts verify doremon@gmail.com
    ```
 
-2. **Run Tests**:
-   ```bash
-   bun test
-   bun run lint
-   bun run typecheck
-   ```
+### In Progress
+2. **manage-database.ts** - Database operations (pending)
+3. **manage-auth.ts** - Auth and OAuth management (pending)
 
-3. **Database**:
-   ```bash
-   bun run db:push    # Push schema changes
-   bun run db:studio  # Open Drizzle Studio
-   ```
-
-## Design System Status
-
-### ✅ Fully Migrated to Tailwind (5/60+)
-- Button - Complete with density support and shadow prop ✅
-- Card - Shadow and animation support
-- Box - Pure Tailwind utility component
-- Stack (VStack/HStack) - Gap with density
-- Input - Partial migration
-
-### 📝 Import Path Conventions
-- Hooks: `@/hooks/[hook-name]` or `@/hooks/[category]/index`
-- UI utilities: `@/lib/ui/[module]`
-- Components: `@/components/[category]/[component]`
-- Note: React Native doesn't support className on native components
-
-### 🔄 Partially Migrated
-- Text - Still uses useTheme()
-- Form - Mixed approach
-- Many components use theme for colors
-
-### ❌ Not Migrated (55+ components)
-- All chart components (6)
-- Dialog, Drawer, Modal components
-- Table, List, Select components
-- Navigation components (Navbar, Sidebar)
-- 150+ files still using theme system
-
-### 📋 Migration Priority
-1. Universal components (40+ remaining)
-2. Block components (18 total)
-3. Screen components
-4. Remove old theme system
-
-## Code Quality Metrics
-
-- **TypeScript**: 100% coverage ✅
-- **TODOs**: 100+ to address
-- **Console logs**: 108+ files to clean
-- **Any types**: 181+ to fix
-- **Bundle size**: 2.1MB (target: <2MB)
-
-## Responsive System
-
-### Density Modes
-- **Compact**: < 360px (0.75x spacing)
-- **Medium**: 360-768px (1.0x spacing)
-- **Large**: > 768px (1.25x spacing)
-
-### Breakpoints
-- xs: 0px, sm: 640px, md: 768px
-- lg: 1024px, xl: 1280px, 2xl: 1536px
-
-### Key Hooks
-- `useResponsive()` - Device detection
-- `useSpacing()` - Density-aware spacing
-- `useBreakpoint()` - Current breakpoint
-
-## Quick Commands
-
+### Script Development Workflow
 ```bash
-# Remove console logs
-bun run scripts/remove-console-logs.ts
+# 1. Create/edit script
+# 2. Test in Docker container
+./scripts/docker-dev.sh run-script scripts/your-script.ts
 
-# Fix imports
-bun run lint:fix
+# 3. Add unit tests
+bun test scripts/test/your-script.test.ts
 
-# Analyze bundle
-bun run analyze:bundle
-
-# Start with healthcare module
-bun run local:healthcare
+# 4. Run integration tests
+./scripts/docker-dev.sh shell scripts
+bun run test:integration
 ```
 
-## Recent Changes (Jan 13, 2025)
+## Deployment with Kamal
 
-- ✅ Fixed authentication flow and navigation guards
-- ✅ Resolved _interopRequireDefault bundling errors
-- ✅ Created responsive design documentation
-- ✅ Standardized shadow implementation guide
-- ✅ Fixed Button.tsx import errors and shadow prop implementation
-- ✅ Updated component to remove className usage (React Native incompatible)
-- 🔄 Reorganizing codebase for production
+### Production Deployment
+```bash
+# 1. Setup environment
+cp .env.example .env.production
+# Edit with production values
 
-## Next Steps
+# 2. Deploy
+export $(cat .env.production | xargs)
+kamal setup    # First time
+kamal deploy   # Updates
 
-1. Complete design system migration
-2. Clean up code quality issues
-3. Optimize bundle size
-4. Prepare for production deployment
+# 3. Post-deployment
+kamal app exec 'bun run db:push'
+kamal app exec 'bun run scripts/users/manage-users.ts setup-healthcare'
+```
+
+### Deployment Files
+- `Dockerfile.production` - Multi-stage production build
+- `Dockerfile.development` - Development with hot reload
+- `docker-compose.dev.yml` - Local development stack
+- `config/deploy.yml` - Kamal configuration
+- `.kamal/hooks/*` - Deployment lifecycle hooks
+
+## Testing Infrastructure
+
+### Test Categories
+1. **Unit Tests** - Individual functions and utilities
+2. **Integration Tests** - Script functionality with real services
+3. **E2E Tests** - Full user flows (pending)
+
+### Running Tests
+```bash
+# Local tests
+bun test
+
+# Docker container tests
+./scripts/docker-dev.sh shell scripts
+bun test
+
+# Specific test file
+bun test scripts/test/manage-users.test.ts
+```
+
+## Project Structure
+
+### Key Directories
+- `/scripts` - All management scripts
+  - `/users` - User management
+  - `/database` - DB operations
+  - `/auth` - Authentication
+  - `/test` - Test scripts
+  - `/config` - Shared configuration
+  - `/lib` - Utility functions
+- `/.kamal` - Deployment configuration
+- `/docker` - Docker-specific files
+
+### Important Files
+- `docker-dev.sh` - Docker environment manager
+- `KAMAL_DEPLOYMENT_MVP.md` - Deployment guide
+- `MVP_DEPLOYMENT_STATUS.md` - Current status
+- `.env.example` - Environment template
+
+## Code Quality Standards
+
+### For Scripts
+- ✅ TypeScript with proper types
+- ✅ Error handling with try/catch
+- ✅ Colored output with chalk
+- ✅ Help text and examples
+- ✅ Environment validation
+- ✅ Database transactions where needed
+- ✅ Cleanup on exit (SIGINT/SIGTERM)
+
+### Testing Requirements
+- Unit tests for all utility functions
+- Integration tests for critical paths
+- Mock external services when needed
+- Test both success and failure cases
+- Minimum 80% coverage
+
+## Quick Reference
+
+### Database Operations
+```bash
+# Migrations
+./scripts/docker-dev.sh migrate
+
+# Reset database
+./scripts/docker-dev.sh reset-db
+
+# Seed data
+./scripts/docker-dev.sh seed
+```
+
+### User Management
+```bash
+# Create users
+bun run scripts/users/manage-users.ts setup-healthcare
+
+# List users
+bun run scripts/users/manage-users.ts list
+
+# Verify user
+bun run scripts/users/manage-users.ts verify email@example.com
+```
+
+### Debugging
+```bash
+# Container shells
+docker-compose -f docker-compose.dev.yml exec app sh
+docker-compose -f docker-compose.dev.yml exec scripts sh
+
+# Database access
+docker-compose -f docker-compose.dev.yml exec postgres psql -U postgres healthcare_dev
+
+# Redis CLI
+docker-compose -f docker-compose.dev.yml exec redis redis-cli
+```
+
+## Environment Variables
+
+### Required for Development
+```env
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/healthcare_dev
+BETTER_AUTH_SECRET=development-secret
+REDIS_URL=redis://localhost:6379
+```
+
+### Required for Production
+```env
+DEPLOY_SERVER_IP=your.server.ip
+DEPLOY_DOMAIN=healthcare.yourdomain.com
+DOCKER_REGISTRY_USERNAME=your-username
+DATABASE_URL=postgres://user:pass@host/db
+# ... see .env.example for full list
+```
+
+## Current Metrics
+
+- **Scripts**: 270 total, 1 consolidated (manage-users.ts)
+- **Docker**: Development environment ready ✅
+- **Kamal**: Production deployment configured ✅
+- **Tests**: Infrastructure ready, tests pending
+- **TypeScript**: No errors in consolidated scripts ✅
+
+## Next Actions
+
+1. **Test manage-users.ts in Docker**
+   ```bash
+   ./scripts/docker-dev.sh start
+   ./scripts/docker-dev.sh run-script scripts/users/manage-users.ts list
+   ```
+
+2. **Create manage-database.ts**
+   - Consolidate DB reset, backup, migration scripts
+   - Add health checks
+   - Include maintenance operations
+
+3. **Add Unit Tests**
+   - Test utility functions in scripts/lib
+   - Test configuration loaders
+   - Mock external dependencies
+
+4. **Deploy to Staging**
+   - Test full Kamal deployment
+   - Verify all services start
+   - Check SSL and routing
 
 ---
 
-For detailed documentation, see `/docs/README.md`
+**Remember**: Always test scripts in Docker container before deployment!

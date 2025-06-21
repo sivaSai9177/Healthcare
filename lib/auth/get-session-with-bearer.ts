@@ -3,7 +3,7 @@ import { db } from '@/src/db';
 import { session as sessionTable, user as userTable } from '@/src/db/schema';
 import { eq } from 'drizzle-orm';
 import type { Session, User } from 'better-auth/types';
-import { logger } from '@/lib/core/debug/unified-logger';
+import { logger } from '@/lib/core/debug/server-logger';
 
 /**
  * Enhanced session retrieval that works with mobile Bearer tokens

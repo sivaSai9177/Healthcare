@@ -1,0 +1,37 @@
+# Test Users Configuration
+testUsers:
+  # Healthcare Professional
+  nurse:
+    email: nurse@test.hospital.com
+    password: Test123!
+    role: nurse
+    organization: Test Hospital
+    
+  # Doctor
+  doctor:
+    email: doctor@test.hospital.com
+    password: Test123!
+    role: doctor
+    organization: Test Hospital
+    
+  # Manager
+  manager:
+    email: manager@test.hospital.com
+    password: Test123!
+    role: manager
+    organization: Test Hospital
+    
+  # Admin
+  admin:
+    email: admin@test.hospital.com
+    password: Test123!
+    role: admin
+    organization: Test Hospital
+    
+  # New User (for registration tests)
+  newUser:
+    email: newuser@test.hospital.com
+    password: NewUser123!
+    fullName: Test User
+    role: nurse
+    organization: Test Hospital

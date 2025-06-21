@@ -95,26 +95,26 @@ export default function DebugSignOutScreen() {
 
   return (
     <ScrollView className="flex-1 p-4">
-      <VStack spacing={4}>
+      <VStack spacing={4 as any}>
         <Card>
           <CardHeader>
             <CardTitle>Debug Sign Out</CardTitle>
           </CardHeader>
           <CardContent>
-            <VStack spacing={3}>
+            <VStack spacing={3 as any}>
               <Text>User: {user?.email || 'Not logged in'}</Text>
               <Text>Authenticated: {isAuthenticated ? 'Yes' : 'No'}</Text>
               
               <Button
                 variant="outline"
                 onPress={runDebug}
-                isLoading={isLoading}
+                loading={isLoading}
               >
                 Run Debug
               </Button>
               
               <Button
-                variant="destructive"
+                variant="error"
                 onPress={testDirectSignOut}
               >
                 Test Direct Sign Out

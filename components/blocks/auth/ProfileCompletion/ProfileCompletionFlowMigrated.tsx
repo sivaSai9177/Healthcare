@@ -9,7 +9,7 @@ import { Input, Checkbox } from '@/components/universal/form';
 import { Text } from '@/components/universal/typography';
 import { VStack, HStack } from '@/components/universal/layout';
 import { Progress } from '@/components/universal/feedback';
-import { RoleSelector } from '@/components/blocks/forms/RoleSelector/RoleSelector';
+import { HealthcareRoleSelector } from '@/components/blocks/forms/RoleSelector/HealthcareRoleSelector';
 import { OrganizationField } from '@/components/blocks/forms/OrganizationField/OrganizationField';
 import { CompleteProfileInputSchema } from '@/lib/validations/profile';
 import { z } from 'zod';
@@ -31,7 +31,8 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 import { Symbol } from '@/components/universal/display/Symbols';
-import { MaterialIcons } from '@expo/vector-icons';
+import { HospitalSelector } from '@/components/blocks/forms/HospitalSelector/HospitalSelector';
+import { isHealthcareRole } from '@/lib/auth/permissions';
 
 const logger = log;
 
@@ -73,11 +74,13 @@ export function ProfileCompletionFlowMigrated({ onComplete, showSkip = false }: 
     department: undefined,
     jobTitle: undefined,
     bio: undefined,
+    defaultHospitalId: undefined,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   
-  // Dynamic total steps based on role (guest = 3, others = 4)
-  const totalSteps = formData.role === 'guest' ? 3 : 4;
+  // Calculate total steps based on role
+  const isHealthcare = isHealthcareRole(formData.role as any);
+  const totalSteps = isHealthcare ? 5 : 4;
   
   // Progress animation
   const progressValue = useSharedValue(33.33);
@@ -122,13 +125,13 @@ export function ProfileCompletionFlowMigrated({ onComplete, showSkip = false }: 
             const updatedSession = await utils.auth.getSession.fetch();
             
             if (updatedSession && !(updatedSession as any).user?.needsProfileCompletion) {
-              router.replace('/(home)');
+              router.replace('/');
             } else {
-              router.replace('/(home)');
+              router.replace('/');
             }
           } catch (error) {
             logger.error('Error refreshing session', 'PROFILE_COMPLETION', error);
-            router.replace('/(home)');
+            router.replace('/');
           }
         }, 100);
       }
@@ -169,23 +172,26 @@ export function ProfileCompletionFlowMigrated({ onComplete, showSkip = false }: 
         }
         break;
       case 3:
-        // Organization step validation (skipped for guests)
-        if (formData.role !== 'guest') {
-          if ((formData.role === 'manager' || formData.role === 'admin') && !formData.organizationName?.trim()) {
-            stepErrors.organizationName = 'Organization name is required';
-          }
-        } else {
-          // For guests, step 3 is terms
-          if (!formData.acceptTerms) {
-            stepErrors.acceptTerms = 'You must accept the terms';
-          }
-          if (!formData.acceptPrivacy) {
-            stepErrors.acceptPrivacy = 'You must accept the privacy policy';
+        // Organization step validation
+        const healthcareRoles = ['doctor', 'nurse', 'operator', 'head_doctor'];
+        if (formData.role === 'admin' && !formData.organizationName?.trim()) {
+          stepErrors.organizationName = 'Organization name is required for admin role';
+        }
+        // Healthcare roles require organization
+        if (healthcareRoles.includes(formData.role)) {
+          if (!formData.organizationId && !formData.organizationCode && !formData.organizationName) {
+            stepErrors.organizationId = 'Healthcare roles require an organization. Please join an existing organization or create a new one.';
           }
         }
         break;
       case 4:
-        // Terms step (only for non-guests)
+        // Hospital step for healthcare roles
+        if (isHealthcare && !formData.defaultHospitalId) {
+          stepErrors.defaultHospitalId = 'Please select a hospital';
+        }
+        break;
+      case 5:
+        // Terms step
         if (!formData.acceptTerms) {
           stepErrors.acceptTerms = 'You must accept the terms';
         }
@@ -230,7 +236,7 @@ export function ProfileCompletionFlowMigrated({ onComplete, showSkip = false }: 
     if (!isAuthenticated || !user) {
       logger.error('Cannot submit profile - user not authenticated', 'PROFILE_COMPLETION');
       Alert.alert('Error', 'Please sign in to complete your profile');
-      router.replace('/(auth)/login');
+      router.replace('/(public)/auth/login');
       return;
     }
     
@@ -328,7 +334,7 @@ export function ProfileCompletionFlowMigrated({ onComplete, showSkip = false }: 
                 </Text>
               </VStack>
               
-              <RoleSelector
+              <HealthcareRoleSelector
                 selectedRole={formData.role as any}
                 onRoleSelect={(role) => {
                   setFormData({ ...formData, role });
@@ -355,69 +361,7 @@ export function ProfileCompletionFlowMigrated({ onComplete, showSkip = false }: 
         );
 
       case 3:
-        // For guests: Terms & Privacy
-        // For others: Organization step
-        if (formData.role === 'guest') {
-          return (
-            <AnimatedView 
-              entering={SlideInRight.springify()} 
-              exiting={SlideOutLeft.springify()}
-              className="space-y-4"
-            >
-              <VStack gap={spacing[4] as any}>
-                <VStack gap={spacing[2] as any} className="items-center">
-                  <AnimatedView entering={FadeIn.delay(200).springify()}>
-                    <Symbol name="shield" size={48} style={{ marginBottom: 8 }} />
-                  </AnimatedView>
-                  <Text size="lg" weight="semibold">Terms & Privacy</Text>
-                  <Text size="sm" colorTheme="mutedForeground" className="text-center">
-                    Please review and accept our terms
-                  </Text>
-                </VStack>
-                
-                <VStack gap={spacing[3]}>
-                  <Checkbox
-                    checked={formData.acceptTerms}
-                    onCheckedChange={(checked) => {
-                      setFormData({ ...formData, acceptTerms: checked as boolean });
-                      if (errors.acceptTerms) setErrors({ ...errors, acceptTerms: '' });
-                    }}
-                    label={
-                      <Text size="sm">
-                        I accept the{' '}
-                        <Text size="sm" className="text-primary underline">
-                          Terms and Conditions
-                        </Text>
-                      </Text>
-                    }
-                    error={errors.acceptTerms}
-                    className="animate-fade-in"
-                  />
-                  
-                  <Checkbox
-                    checked={formData.acceptPrivacy}
-                    onCheckedChange={(checked) => {
-                      setFormData({ ...formData, acceptPrivacy: checked as boolean });
-                      if (errors.acceptPrivacy) setErrors({ ...errors, acceptPrivacy: '' });
-                    }}
-                    label={
-                      <Text size="sm">
-                        I accept the{' '}
-                        <Text size="sm" className="text-primary underline">
-                          Privacy Policy
-                        </Text>
-                      </Text>
-                    }
-                    error={errors.acceptPrivacy}
-                    className="animate-fade-in delay-100"
-                  />
-                </VStack>
-              </VStack>
-            </AnimatedView>
-          );
-        }
-        
-        // Organization step for non-guests
+        // Organization step for all healthcare roles
         return (
           <AnimatedView 
             entering={SlideInRight.springify()} 
@@ -431,9 +375,9 @@ export function ProfileCompletionFlowMigrated({ onComplete, showSkip = false }: 
                 </AnimatedView>
                 <Text size="lg" weight="semibold">Organization Details</Text>
                 <Text size="sm" colorTheme="mutedForeground" className="text-center">
-                  {formData.role === 'user' 
-                    ? 'Join an existing organization (optional)' 
-                    : 'Create your organization workspace'}
+                  {formData.role === 'admin' 
+                    ? 'Create your hospital organization' 
+                    : 'Join your hospital organization (optional)'}
                 </Text>
               </VStack>
               
@@ -453,11 +397,40 @@ export function ProfileCompletionFlowMigrated({ onComplete, showSkip = false }: 
         );
 
       case 4:
-        // Terms & Privacy (only for non-guests)
-        // For guests, this is handled in case 3
-        if (formData.role === 'guest') {
-          return null;
+        // Hospital selection for healthcare roles
+        if (isHealthcare && formData.organizationId) {
+          return (
+            <AnimatedView 
+              entering={SlideInRight.springify()} 
+              exiting={SlideOutLeft.springify()}
+              className="space-y-4"
+            >
+              <VStack gap={spacing[4] as any}>
+                <VStack gap={spacing[2] as any} className="items-center">
+                  <AnimatedView entering={FadeIn.delay(200).springify()}>
+                    <Symbol name="building.2" size={48} style={{ marginBottom: 8 }} />
+                  </AnimatedView>
+                  <Text size="lg" weight="semibold">Select Your Hospital</Text>
+                  <Text size="sm" colorTheme="mutedForeground" className="text-center">
+                    Choose the hospital where you work
+                  </Text>
+                </VStack>
+                
+                <HospitalSelector
+                  organizationId={formData.organizationId}
+                  value={formData.defaultHospitalId}
+                  onChange={(hospitalId) => {
+                    setFormData({ ...formData, defaultHospitalId: hospitalId });
+                    if (errors.defaultHospitalId) setErrors({ ...errors, defaultHospitalId: '' });
+                  }}
+                  error={errors.defaultHospitalId}
+                />
+              </VStack>
+            </AnimatedView>
+          );
         }
+        // Fall through to terms step if not healthcare role
+        // Terms & Privacy for all roles
         return (
           <AnimatedView 
             entering={SlideInRight.springify()} 
@@ -516,6 +489,69 @@ export function ProfileCompletionFlowMigrated({ onComplete, showSkip = false }: 
           </AnimatedView>
         );
 
+      case 5:
+        // Terms & Privacy for healthcare roles (step 5)
+        if (isHealthcare) {
+          return (
+            <AnimatedView 
+              entering={SlideInRight.springify()} 
+              exiting={SlideOutLeft.springify()}
+              className="space-y-4"
+            >
+              <VStack gap={spacing[4] as any}>
+                <VStack gap={spacing[2] as any} className="items-center">
+                  <AnimatedView entering={FadeIn.delay(200).springify()}>
+                    <Symbol name="shield" size={48} style={{ marginBottom: 8 }} />
+                  </AnimatedView>
+                  <Text size="lg" weight="semibold">Terms & Privacy</Text>
+                  <Text size="sm" colorTheme="mutedForeground" className="text-center">
+                    Please review and accept our terms
+                  </Text>
+                </VStack>
+                
+                <VStack gap={spacing[3]}>
+                  <Checkbox
+                    checked={formData.acceptTerms}
+                    onCheckedChange={(checked) => {
+                      setFormData({ ...formData, acceptTerms: checked as boolean });
+                      if (errors.acceptTerms) setErrors({ ...errors, acceptTerms: '' });
+                    }}
+                    label={
+                      <Text size="sm">
+                        I accept the{' '}
+                        <Text size="sm" className="text-primary underline">
+                          Terms and Conditions
+                        </Text>
+                      </Text>
+                    }
+                    error={errors.acceptTerms}
+                    className="animate-fade-in"
+                  />
+                  
+                  <Checkbox
+                    checked={formData.acceptPrivacy}
+                    onCheckedChange={(checked) => {
+                      setFormData({ ...formData, acceptPrivacy: checked as boolean });
+                      if (errors.acceptPrivacy) setErrors({ ...errors, acceptPrivacy: '' });
+                    }}
+                    label={
+                      <Text size="sm">
+                        I accept the{' '}
+                        <Text size="sm" className="text-primary underline">
+                          Privacy Policy
+                        </Text>
+                      </Text>
+                    }
+                    error={errors.acceptPrivacy}
+                    className="animate-fade-in delay-100"
+                  />
+                </VStack>
+              </VStack>
+            </AnimatedView>
+          );
+        }
+        return null;
+
       default:
         return null;
     }
@@ -565,7 +601,7 @@ export function ProfileCompletionFlowMigrated({ onComplete, showSkip = false }: 
                       <Button
                         variant="outline"
                         onPress={handlePrevious}
-                        leftIcon={<MaterialIcons name="chevron-left" size={16} />}
+                        leftIcon={<Symbol name="chevron.left" size={16} />}
                         className="flex-1"
                       >
                         Previous
@@ -577,9 +613,9 @@ export function ProfileCompletionFlowMigrated({ onComplete, showSkip = false }: 
                       isLoading={completeProfileMutation.isPending}
                       rightIcon={
                         currentStep === totalSteps ? (
-                          <MaterialIcons name="check" size={16} />
+                          <Symbol name="checkmark" size={16} />
                         ) : (
-                          <MaterialIcons name="chevron-right" size={16} />
+                          <Symbol name="chevron.right" size={16} />
                         )
                       }
                       className="flex-1"
@@ -593,7 +629,7 @@ export function ProfileCompletionFlowMigrated({ onComplete, showSkip = false }: 
                       variant="ghost"
                       onPress={() => {
                         haptic('light');
-                        router.replace('/(home)');
+                        router.replace('/');
                       }}
                       fullWidth
                       className="animate-fade-in"

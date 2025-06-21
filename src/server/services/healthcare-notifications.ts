@@ -219,9 +219,9 @@ export class HealthcareNotificationService {
         .select({
           userId: healthcareUsers.userId,
           email: users.email,
-          phone: users.phone,
-          role: healthcareUsers.role,
-          departmentId: healthcareUsers.departmentId,
+          phone: users.phoneNumber,
+          role: users.role,
+          department: healthcareUsers.department,
           isOnDuty: healthcareUsers.isOnDuty,
         })
         .from(healthcareUsers)
@@ -269,14 +269,14 @@ export class HealthcareNotificationService {
         .select({
           userId: healthcareUsers.userId,
           email: users.email,
-          phone: users.phone,
+          phone: users.phoneNumber,
         })
         .from(healthcareUsers)
         .innerJoin(users, eq(healthcareUsers.userId, users.id))
         .where(
           and(
             eq(healthcareUsers.hospitalId, hospitalId),
-            eq(healthcareUsers.role, toRole),
+            eq(users.role, toRole),
             eq(healthcareUsers.isOnDuty, true)
           )
         );
@@ -287,14 +287,14 @@ export class HealthcareNotificationService {
           .select({
             userId: healthcareUsers.userId,
             email: users.email,
-            phone: users.phone,
+            phone: users.phoneNumber,
           })
           .from(healthcareUsers)
           .innerJoin(users, eq(healthcareUsers.userId, users.id))
           .where(
             and(
               eq(healthcareUsers.hospitalId, hospitalId),
-              eq(healthcareUsers.role, 'head_doctor')
+              eq(users.role, 'head_doctor')
             )
           );
 
@@ -312,19 +312,21 @@ export class HealthcareNotificationService {
    * Get shift statistics
    */
   private async getShiftStatistics(
-    userId: string,
-    shiftStart: Date,
-    shiftEnd: Date
+    _userId: string,
+    _shiftStart: Date,
+    _shiftEnd: Date
   ): Promise<any> {
     try {
-      // This would be implemented with actual queries
-      return {
+      // TODO: Implement with actual queries
+      // This is a placeholder implementation
+      const stats = {
         totalAlerts: 15,
         acknowledged: 12,
         resolved: 10,
         escalated: 2,
         avgResponseTime: 3.5,
       };
+      return stats;
     } catch (error) {
       log.error('Failed to get shift statistics', 'HEALTHCARE_NOTIFY', error);
       return {
@@ -341,14 +343,15 @@ export class HealthcareNotificationService {
    * Get top alerts for shift
    */
   private async getTopAlerts(
-    userId: string,
-    shiftStart: Date,
-    shiftEnd: Date,
-    limit = 5
+    _userId: string,
+    _shiftStart: Date,
+    _shiftEnd: Date,
+    _limit = 5
   ): Promise<any[]> {
     try {
-      // This would be implemented with actual queries
-      return [
+      // TODO: Implement with actual queries
+      // This is a placeholder implementation
+      const alerts = [
         {
           roomNumber: '302',
           alertType: 'Cardiac Emergency',
@@ -364,6 +367,7 @@ export class HealthcareNotificationService {
           status: 'Escalated',
         },
       ];
+      return alerts;
     } catch (error) {
       log.error('Failed to get top alerts', 'HEALTHCARE_NOTIFY', error);
       return [];

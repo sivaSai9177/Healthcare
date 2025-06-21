@@ -6,6 +6,8 @@ import { patientRouter } from './patient';
 import { organizationRouter } from './organization';
 import { userRouter } from './user';
 import { systemRouter } from './system';
+import { ssrRouter } from './ssr';
+import { notificationRouter } from './notification';
 
 export const appRouter = router({
   auth: authRouter,
@@ -15,6 +17,8 @@ export const appRouter = router({
   organization: organizationRouter,
   user: userRouter,
   system: systemRouter,
+  ssr: ssrRouter,
+  notification: notificationRouter,
 });
 
 // Export type definition of API

@@ -9,8 +9,7 @@ import {
 } from '@/src/db/notification-schema';
 import { users } from '@/src/db/schema';
 import { eq, and, or, lte } from 'drizzle-orm';
-import { emailService } from './email-index';
-import type { EmailOptions } from './email-mock';
+import { emailService, type EmailOptions } from './email';
 import { smsService, SMSOptions } from './sms';
 import { expoPushService } from './push-notifications';
 import { generateUUID } from '@/lib/core/crypto';
@@ -202,6 +201,7 @@ class NotificationService {
   private readonly BATCH_DELAY = 60000; // 1 minute
   private queueProcessorInterval: NodeJS.Timeout | null = null;
   private isInitialized = false;
+  private isProcessingQueue = false;
   private static instance: NotificationService | null = null;
 
   constructor() {
@@ -389,9 +389,10 @@ class NotificationService {
       
       for (const pref of prefs) {
         const channel = pref.channel as keyof UserPreferences;
-        if (channel in preferences) {
-          preferences[channel].enabled = preferences[channel].enabled && pref.enabled;
-          preferences[channel].types[pref.notificationType] = pref.enabled;
+        if (channel === 'email' || channel === 'sms' || channel === 'push') {
+          const channelPref = preferences[channel] as ChannelPreferences;
+          channelPref.enabled = channelPref.enabled && pref.enabled;
+          channelPref.types[pref.notificationType] = pref.enabled;
         }
       }
       
@@ -489,8 +490,9 @@ class NotificationService {
     
     // Filter channels based on preferences
     const enabledChannels = defaultChannels.filter(channel => {
-      const channelPrefs = prefs[channel as keyof UserPreferences];
-      if (typeof channelPrefs === 'object' && 'enabled' in channelPrefs) {
+      const channelKey = channel as keyof UserPreferences;
+      if (channelKey === 'email' || channelKey === 'sms' || channelKey === 'push') {
+        const channelPrefs = prefs[channelKey] as ChannelPreferences;
         return channelPrefs.enabled && 
                (channelPrefs.types[notification.type] !== false);
       }
@@ -1028,9 +1030,18 @@ class NotificationService {
       clearInterval(this.queueProcessorInterval);
     }
     
-    this.queueProcessorInterval = setInterval(async () => {
+    // Process queue function - reuses connection pool
+    const processQueue = async () => {
       try {
-        // Get pending notifications
+        // Skip if already processing to avoid concurrent execution
+        if (this.isProcessingQueue) {
+          log.debug('Queue processor already running, skipping', 'NOTIFICATION');
+          return;
+        }
+        
+        this.isProcessingQueue = true;
+        
+        // Get pending notifications - single query
         const pending = await db
           .select()
           .from(notificationQueue)
@@ -1045,6 +1056,7 @@ class NotificationService {
           )
           .limit(10);
         
+        // Process in batches to minimize connection usage
         for (const item of pending) {
           try {
             // Update status
@@ -1053,7 +1065,7 @@ class NotificationService {
               .set({ status: 'processing' })
               .where(eq(notificationQueue.id, item.id));
             
-            // Send notification
+            // Send notification (this doesn't use DB)
             const notification = item.payload as Notification;
             const result = await this.send(notification);
             
@@ -1092,13 +1104,28 @@ class NotificationService {
               }
             }
           } catch (error) {
-            log.error('Failed to process queued notification', 'NOTIFICATION', error);
+            log.error('Failed to process queued notification', 'NOTIFICATION', { 
+              itemId: item.id,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            });
+            // Don't let one failed item stop the whole queue
           }
         }
       } catch (error) {
-        log.error('Queue processor error', 'NOTIFICATION', error);
+        log.error('Queue processor error', 'NOTIFICATION', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        });
+      } finally {
+        this.isProcessingQueue = false;
       }
-    }, 30000); // Every 30 seconds
+    };
+    
+    // Run initial process
+    processQueue();
+    
+    // Set up interval - increase to 60 seconds to reduce DB load
+    this.queueProcessorInterval = setInterval(processQueue, 60000) as any; // Every 60 seconds
   }
 
   // Group notifications by recipient

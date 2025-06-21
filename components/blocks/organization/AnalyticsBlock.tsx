@@ -2,7 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge } from '@/components/universal/display';
 import { Text } from '@/components/universal/typography';
-import { Stack, Grid } from '@/components/universal/layout';
+import { VStack, HStack, Grid } from '@/components/universal/layout';
 import { Button } from '@/components/universal/interaction';
 import { useResponsive } from '@/hooks/responsive';
 import { useSpacing } from '@/lib/stores/spacing-store';
@@ -52,7 +52,7 @@ export function AnalyticsBlock({
     <View className="animate-fade-in">
       {/* Header */}
       <View style={{ marginBottom: spacing[6] }}>
-        <Stack direction="horizontal" justify="between" align="center">
+        <HStack justifyContent="space-between" alignItems="center">
           <View>
             <Text size="2xl" weight="bold">Analytics Overview</Text>
             <Text colorTheme="mutedForeground" size="sm">
@@ -69,7 +69,7 @@ export function AnalyticsBlock({
               Export
             </Button>
           )}
-        </Stack>
+        </HStack>
       </View>
       
       {/* Metrics Cards */}
@@ -85,8 +85,8 @@ export function AnalyticsBlock({
             className="animate-scale-in"
           >
             <CardContent>
-              <Stack gap={spacing[2] as any}>
-                <Stack direction="horizontal" justify="between" align="center">
+              <VStack gap={spacing[2] as any}>
+                <HStack justifyContent="space-between" alignItems="center">
                   <View 
                     className="p-2 rounded-lg bg-primary/10"
                     style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
@@ -100,12 +100,12 @@ export function AnalyticsBlock({
                     {metric.change > 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                     {Math.abs(metric.change)}%
                   </Badge>
-                </Stack>
+                </HStack>
                 <View>
                   <Text size="2xl" weight="bold">{metric.value}</Text>
                   <Text colorTheme="mutedForeground" size="xs">{metric.label}</Text>
                 </View>
-              </Stack>
+              </VStack>
             </CardContent>
           </Card>
         ))}

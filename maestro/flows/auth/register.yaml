@@ -1,0 +1,70 @@
+appId: ${APP_ID}
+tags:
+  - auth
+---
+# Registration Flow Test
+- launchApp:
+    clearState: true
+    
+- assertVisible:
+    text: "Sign In"
+    timeout: 10000
+
+# Navigate to registration
+- tapOn:
+    text: "Create account"
+    
+- assertVisible:
+    text: "Create Account"
+    timeout: 5000
+    
+# Fill registration form
+- tapOn:
+    id: "name-input"
+- inputText: ${testUsers.newUser.fullName}
+
+- tapOn:
+    id: "email-input"
+- inputText: ${testUsers.newUser.email}
+
+- tapOn:
+    id: "password-input"
+- inputText: ${testUsers.newUser.password}
+
+- tapOn:
+    id: "confirm-password-input"
+- inputText: ${testUsers.newUser.password}
+
+# Accept terms
+- tapOn:
+    id: "terms-checkbox"
+    
+# Submit registration
+- tapOn:
+    text: "Create Account"
+    
+# Wait for profile completion
+- assertVisible:
+    text: "Complete Your Profile"
+    timeout: 10000
+    
+# Select role
+- tapOn:
+    text: "Nurse"
+    
+# Select organization
+- tapOn:
+    id: "organization-select"
+- tapOn:
+    text: ${testUsers.newUser.organization}
+    
+# Complete profile
+- tapOn:
+    text: "Complete Setup"
+    
+# Verify dashboard access
+- assertVisible:
+    text: "Dashboard"
+    timeout: 15000
+    
+- takeScreenshot: registration-complete

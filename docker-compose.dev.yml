@@ -1,0 +1,185 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: healthcare-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-healthcare_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/database/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - healthcare-network
+
+  # Redis for caching and WebSocket
+  redis:
+    image: redis:7-alpine
+    container_name: healthcare-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_password}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - healthcare-network
+
+  # Main Expo Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    container_name: healthcare-app
+    environment:
+      # Database
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-healthcare_dev}
+      
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379
+      
+      # Auth
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-development-secret-key}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      
+      # API URLs
+      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://localhost:3000}
+      EXPO_PUBLIC_WS_URL: ${EXPO_PUBLIC_WS_URL:-ws://localhost:3002}
+      
+      # Development
+      NODE_ENV: development
+      EXPO_DEVTOOLS_LISTEN_ADDRESS: 0.0.0.0
+      WATCHPACK_POLLING: true
+      EXPO_PACKAGER_HOSTNAME: 0.0.0.0
+      REACT_NATIVE_PACKAGER_HOSTNAME: 0.0.0.0
+      CHOKIDAR_USEPOLLING: true
+      
+      # OAuth (optional)
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
+      
+      # Email (optional)
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@healthcare.local}
+      
+      # PostHog (optional)
+      EXPO_PUBLIC_POSTHOG_API_KEY: ${EXPO_PUBLIC_POSTHOG_API_KEY:-}
+      EXPO_PUBLIC_POSTHOG_API_HOST: ${EXPO_PUBLIC_POSTHOG_API_HOST:-https://app.posthog.com}
+    ports:
+      - "8081:8081"    # Expo dev server
+      - "19000:19000"  # Expo CLI
+      - "19001:19001"  # Expo CLI
+      - "3000:3000"    # API server
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - /app/.expo
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: /app/scripts/docker-expo-start.sh
+    networks:
+      - healthcare-network
+    stdin_open: true
+    tty: true
+
+  # WebSocket Server
+  websocket:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    container_name: healthcare-websocket
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+      EXPO_PUBLIC_WS_PORT: 3002
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-healthcare_dev}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: node scripts/services/individual/start-websocket-node.js
+    networks:
+      - healthcare-network
+
+  # Script Runner - For testing scripts in isolation
+  scripts:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    container_name: healthcare-scripts
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-healthcare_dev}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379
+      API_URL: http://app:3000
+      NODE_ENV: development
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      app:
+        condition: service_started
+    command: tail -f /dev/null  # Keep container running
+    networks:
+      - healthcare-network
+    stdin_open: true
+    tty: true
+
+  # Mailhog for email testing (optional)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: healthcare-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - healthcare-network
+
+  # pgAdmin for database management (optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: healthcare-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@healthcare.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - healthcare-network
+
+networks:
+  healthcare-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:

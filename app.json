@@ -66,11 +66,7 @@
       "allowedOrigins": [
         "http://192.168.1.104:8081",
         "http://localhost:8081",
-        "http://192.168.1.104:8081",
-        "http://localhost:8081",
-        "http://192.168.1.104:8081",
-        "http://localhost:8081",
-        "http://192.168.1.104:8081",
+        "http://192.168.2.1:8081",
         "http://localhost:8081"
       ],
       "router": {},
@@ -78,15 +74,6 @@
         "projectId": "f155b026-01bd-4212-94f3-e7aedef2801d"
       }
     },
-    "owner": "siva9177",
-    "cli": {
-      "appVersionSource": "remote"
-    },
-    "build": {
-      "development": {
-        "developmentClient": true,
-        "distribution": "internal"
-      }
-    }
+    "owner": "siva9177"
   }
 }

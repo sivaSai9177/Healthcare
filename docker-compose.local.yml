@@ -12,7 +12,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - local_postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-multiple-db.sh:/docker-entrypoint-initdb.d/init-multiple-db.sh:ro
+      - ./scripts/database/init-multiple-db.sh:/docker-entrypoint-initdb.d/init-multiple-db.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-myexpo}"]
       interval: 10s
@@ -54,6 +54,211 @@ services:
     profiles:
       - tools
 
+  # Expo Development Server
+  expo-local:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    container_name: myexpo-expo-local
+    environment:
+      NODE_ENV: development
+      APP_ENV: local
+      DATABASE_URL: postgresql://${POSTGRES_USER:-myexpo}:${POSTGRES_PASSWORD:-myexpo123}@postgres-local:5432/${POSTGRES_DB:-myexpo_dev}
+      REDIS_URL: redis://redis-local:6379
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-local-dev-secret}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:8081}
+      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://localhost:8081}
+      EXPO_PUBLIC_WS_URL: ws://localhost:3002
+      EXPO_DEVTOOLS_LISTEN_ADDRESS: 0.0.0.0
+      REACT_NATIVE_PACKAGER_HOSTNAME: ${LOCAL_IP:-localhost}
+    ports:
+      - "${EXPO_PORT:-8081}:8081"
+      - "19000:19000"
+      - "19001:19001"
+      - "19002:19002"
+    depends_on:
+      postgres-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
+    volumes:
+      - .:/app:cached
+      - /app/node_modules
+      - /app/.expo
+    networks:
+      - myexpo-local
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    command: ["bun", "expo", "start", "--lan", "--non-interactive"]
+
+  # WebSocket Server for real-time alerts
+  websocket-local:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.websocket
+      target: development
+    container_name: myexpo-websocket-local
+    environment:
+      NODE_ENV: development
+      APP_ENV: local
+      DATABASE_URL: postgresql://${POSTGRES_USER:-myexpo}:${POSTGRES_PASSWORD:-myexpo123}@postgres-local:5432/${POSTGRES_DB:-myexpo_dev}
+      REDIS_URL: redis://redis-local:6379
+      EXPO_PUBLIC_WS_PORT: 3002
+      WS_CORS_ORIGIN: ${WS_CORS_ORIGIN:-http://localhost:8081}
+    ports:
+      - "${WS_PORT:-3002}:3002"
+    depends_on:
+      postgres-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src:cached
+      - ./lib:/app/lib:cached
+      - ./types:/app/types:cached
+      - ./scripts:/app/scripts:cached
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - /app/node_modules
+    networks:
+      - myexpo-local
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Email Server (Nodemailer service)
+  email-local:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.email
+      target: development
+    container_name: myexpo-email-local
+    environment:
+      NODE_ENV: development
+      APP_ENV: local
+      EMAIL_HOST: ${EMAIL_HOST:-smtp.gmail.com}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASS: ${EMAIL_PASS}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@hospital-alert-system.com}
+      EMAIL_SERVICE_PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-myexpo}:${POSTGRES_PASSWORD:-myexpo123}@postgres-local:5432/${POSTGRES_DB:-myexpo_dev}
+      REDIS_URL: redis://redis-local:6379
+      APP_URL: ${APP_URL:-http://localhost:8081}
+    ports:
+      - "${EMAIL_PORT_HTTP:-3001}:3001"
+    depends_on:
+      postgres-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src:cached
+      - ./lib:/app/lib:cached
+      - ./types:/app/types:cached
+      - ./scripts:/app/scripts:cached
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./tsconfig.websocket.json:/app/tsconfig.websocket.json:ro
+      - /app/node_modules
+    networks:
+      - myexpo-local
+    restart: unless-stopped
+    profiles:
+      - services
+
+  # Logging Service (TRPC Logger with PostHog)
+  logging-local:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.logging
+      target: development
+    container_name: myexpo-logging-local
+    environment:
+      NODE_ENV: development
+      APP_ENV: local
+      LOGGING_SERVICE_PORT: 3003
+      POSTHOG_API_KEY: ${POSTHOG_API_KEY}
+      POSTHOG_API_HOST: ${POSTHOG_API_HOST:-http://posthog-local:8000}
+      POSTHOG_PROJECT_API_KEY: ${POSTHOG_PROJECT_API_KEY}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-myexpo}:${POSTGRES_PASSWORD:-myexpo123}@postgres-local:5432/${POSTGRES_DB:-myexpo_dev}
+      REDIS_URL: redis://redis-local:6379
+    ports:
+      - "${LOGGING_PORT:-3003}:3003"
+    depends_on:
+      postgres-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src:cached
+      - ./lib:/app/lib:cached
+      - ./types:/app/types:cached
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - /app/node_modules
+    networks:
+      - myexpo-local
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Queue Worker for background jobs
+  queue-worker-local:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+      target: development
+    container_name: myexpo-queue-worker-local
+    environment:
+      NODE_ENV: development
+      APP_ENV: local
+      DATABASE_URL: postgresql://${POSTGRES_USER:-myexpo}:${POSTGRES_PASSWORD:-myexpo123}@postgres-local:5432/${POSTGRES_DB:-myexpo_dev}
+      REDIS_URL: redis://redis-local:6379
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-5}
+    depends_on:
+      postgres-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src:ro
+      - ./lib:/app/lib:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+    networks:
+      - myexpo-local
+    restart: unless-stopped
+    profiles:
+      - services
+
+
+  # MinIO for S3-compatible object storage
+  minio-local:
+    image: minio/minio:latest
+    container_name: myexpo-minio-local
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - local_minio_data:/data
+    networks:
+      - myexpo-local
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    profiles:
+      - storage
+
   # Local development API (optional)
   api-local:
     build:
@@ -68,6 +273,8 @@ services:
       REDIS_URL: redis://redis-local:6379
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-local-dev-secret}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:8081}
+      EMAIL_HOST: mailhog-local
+      EMAIL_PORT: 1025
     ports:
       - "${API_PORT:-3000}:3000"
     depends_on:
@@ -75,6 +282,8 @@ services:
         condition: service_healthy
       redis-local:
         condition: service_healthy
+      websocket-local:
+        condition: service_started
     volumes:
       - ./src:/app/src
       - ./lib:/app/lib
@@ -85,6 +294,103 @@ services:
     profiles:
       - api
 
+  # PostHog Analytics (self-hosted)
+  posthog-local:
+    image: posthog/posthog:latest
+    container_name: myexpo-posthog-local
+    depends_on:
+      postgres-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
+      clickhouse-local:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-myexpo}:${POSTGRES_PASSWORD:-myexpo123}@postgres-local:5432/posthog
+      REDIS_URL: redis://redis-local:6379
+      SECRET_KEY: ${POSTHOG_SECRET_KEY:-your-secret-key-here}
+      SITE_URL: ${POSTHOG_SITE_URL:-http://localhost:8000}
+      DISABLE_SECURE_SSL_REDIRECT: 'true'
+      IS_BEHIND_PROXY: 'true'
+      JS_URL: ${POSTHOG_JS_URL:-http://localhost:8000}
+    ports:
+      - "${POSTHOG_PORT:-8000}:8000"
+    volumes:
+      - local_posthog_data:/var/lib/posthog
+    networks:
+      - myexpo-local
+    profiles:
+      - analytics
+
+  # ClickHouse for PostHog
+  clickhouse-local:
+    image: clickhouse/clickhouse-server:23-alpine
+    container_name: myexpo-clickhouse-local
+    environment:
+      CLICKHOUSE_DB: posthog
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-posthog}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-posthog123}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
+    volumes:
+      - local_clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - myexpo-local
+    profiles:
+      - analytics
+
+  # Drizzle Studio for database management
+  drizzle-studio-local:
+    build:
+      context: .
+      dockerfile: Dockerfile.development
+    container_name: myexpo-drizzle-studio-local
+    environment:
+      NODE_ENV: development
+      APP_ENV: local
+      DATABASE_URL: postgresql://${POSTGRES_USER:-myexpo}:${POSTGRES_PASSWORD:-myexpo123}@postgres-local:5432/${POSTGRES_DB:-myexpo_dev}
+    ports:
+      - "${DRIZZLE_STUDIO_PORT:-4983}:4983"
+    depends_on:
+      postgres-local:
+        condition: service_healthy
+    volumes:
+      - ./drizzle.config.ts:/app/drizzle.config.ts:ro
+      - ./src/db:/app/src/db:ro
+      - ./types:/app/types:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - /app/node_modules
+    networks:
+      - myexpo-local
+    command: ["bunx", "drizzle-kit", "studio", "--host", "0.0.0.0", "--port", "4983"]
+    restart: unless-stopped
+
+  # Nginx reverse proxy (optional)
+  nginx-local:
+    image: nginx:alpine
+    container_name: myexpo-nginx-local
+    ports:
+      - "${NGINX_PORT:-80}:80"
+      - "${NGINX_SSL_PORT:-443}:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api-local
+      - websocket-local
+    networks:
+      - myexpo-local
+    profiles:
+      - proxy
+
 networks:
   myexpo-local:
     driver: bridge
@@ -92,3 +398,6 @@ networks:
 volumes:
   local_postgres_data:
   local_redis_data:
+  local_minio_data:
+  local_posthog_data:
+  local_clickhouse_data:

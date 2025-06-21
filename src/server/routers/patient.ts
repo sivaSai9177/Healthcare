@@ -5,8 +5,7 @@ import { db } from '@/src/db';
 import { 
   patients, 
   patientVitals, 
-  careTeamAssignments,
-  patientAlerts
+  careTeamAssignments
 } from '@/src/db/patient-schema';
 import { alerts, healthcareAuditLogs } from '@/src/db/healthcare-schema';
 import { users } from '@/src/db/schema';
@@ -88,7 +87,7 @@ export const patientRouter = router({
         // Create patient
         const [newPatient] = await db.insert(patients).values({
           ...input,
-          hospitalId: ctx.user.organizationId || ctx.user.hospitalId,
+          hospitalId: ctx.user.organizationId || ctx.hospitalContext?.userHospitalId,
           secondaryDiagnoses: input.secondaryDiagnoses || [],
           allergies: input.allergies || [],
           medications: input.medications || [],
@@ -107,8 +106,8 @@ export const patientRouter = router({
             mrn: newPatient.mrn,
             name: newPatient.name,
           },
-          ipAddress: ctx.headers?.['x-forwarded-for'] || ctx.headers?.['x-real-ip'],
-          userAgent: ctx.headers?.['user-agent'],
+          ipAddress: ctx.req.headers.get('x-forwarded-for') || ctx.req.headers.get('x-real-ip'),
+          userAgent: ctx.req.headers.get('user-agent'),
         });
 
         log.info('Patient created', 'PATIENT', {
@@ -250,8 +249,8 @@ export const patientRouter = router({
           metadata: {
             changes: updateData,
           },
-          ipAddress: ctx.headers?.['x-forwarded-for'] || ctx.headers?.['x-real-ip'],
-          userAgent: ctx.headers?.['user-agent'],
+          ipAddress: ctx.req.headers.get('x-forwarded-for') || ctx.req.headers.get('x-real-ip'),
+          userAgent: ctx.req.headers.get('user-agent'),
         });
 
         return updatedPatient;
@@ -337,13 +336,13 @@ export const patientRouter = router({
           action: 'vitals_recorded',
           entityType: 'patient',
           entityId: input.patientId,
-          hospitalId: ctx.user.organizationId || ctx.user.hospitalId,
+          hospitalId: ctx.user.organizationId || ctx.hospitalContext?.userHospitalId,
           metadata: {
             vitalsId: newVitals.id,
             values: input,
           },
-          ipAddress: ctx.headers?.['x-forwarded-for'] || ctx.headers?.['x-real-ip'],
-          userAgent: ctx.headers?.['user-agent'],
+          ipAddress: ctx.req.headers.get('x-forwarded-for') || ctx.req.headers.get('x-real-ip'),
+          userAgent: ctx.req.headers.get('user-agent'),
         });
 
         return newVitals;
@@ -513,13 +512,13 @@ export const patientRouter = router({
           action: 'care_team_assigned',
           entityType: 'patient',
           entityId: input.patientId,
-          hospitalId: ctx.user.organizationId || ctx.user.hospitalId,
+          hospitalId: ctx.user.organizationId || ctx.hospitalContext?.userHospitalId,
           metadata: {
             assignedUserId: input.userId,
             role: input.role,
           },
-          ipAddress: ctx.headers?.['x-forwarded-for'] || ctx.headers?.['x-real-ip'],
-          userAgent: ctx.headers?.['user-agent'],
+          ipAddress: ctx.req.headers.get('x-forwarded-for') || ctx.req.headers.get('x-real-ip'),
+          userAgent: ctx.req.headers.get('user-agent'),
         });
 
         return assignment;
@@ -596,8 +595,8 @@ export const patientRouter = router({
             dischargeNotes: input.dischargeNotes,
             dischargeDiagnosis: input.dischargeDiagnosis,
           },
-          ipAddress: ctx.headers?.['x-forwarded-for'] || ctx.headers?.['x-real-ip'],
-          userAgent: ctx.headers?.['user-agent'],
+          ipAddress: ctx.req.headers.get('x-forwarded-for') || ctx.req.headers.get('x-real-ip'),
+          userAgent: ctx.req.headers.get('user-agent'),
         });
 
         return dischargedPatient;

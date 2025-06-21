@@ -6,26 +6,36 @@
 // Set up Reanimated mocks before any imports to prevent initialization errors
 import { Platform } from 'react-native';
 
-// Skip all property definitions on native platforms to avoid Hermes errors
-if (Platform.OS === 'web' && typeof globalThis !== 'undefined') {
-  // Only set up mocks on web where they're needed
-  const safeSetGlobal = (name: string, value: any) => {
-    try {
-      // Only set if the property doesn't exist
-      if (!(name in globalThis)) {
-        (globalThis as any)[name] = value;
-      }
-    } catch (error) {
-      // Silently ignore
+// More robust global property setter that works with Hermes
+const safeSetGlobal = (name: string, value: any) => {
+  try {
+    // Use Object.defineProperty for better compatibility
+    if (typeof globalThis !== 'undefined' && !(name in globalThis)) {
+      Object.defineProperty(globalThis, name, {
+        value,
+        writable: true,
+        configurable: true,
+        enumerable: false
+      });
     }
-  };
-  
+  } catch (error) {
+    // Silently ignore - some environments may not allow this
+  }
+};
+
+// Set up Reanimated globals for all platforms to prevent errors
+if (typeof globalThis !== 'undefined') {
+  // These need to be defined before Reanimated loads
   safeSetGlobal('_WORKLET', false);
   safeSetGlobal('__reanimatedWorkletInit', () => {});
   safeSetGlobal('__reanimatedModuleProxy', undefined);
-  safeSetGlobal('ProgressTransitionRegister', undefined);
-  safeSetGlobal('LayoutAnimationRepository', undefined);
-  safeSetGlobal('UpdatePropsManager', undefined);
+  
+  // Only set these on web to avoid Hermes issues
+  if (Platform.OS === 'web') {
+    safeSetGlobal('ProgressTransitionRegister', undefined);
+    safeSetGlobal('LayoutAnimationRepository', undefined);
+    safeSetGlobal('UpdatePropsManager', undefined);
+  }
 }
 
 // Suppress warnings in development
@@ -55,6 +65,9 @@ if (__DEV__) {
     'ProgressTransitionRegister',
     'LayoutAnimationRepository',
     'UpdatePropsManager',
+    // Native driver warning on web
+    '`useNativeDriver` is not supported because the native animated module is missing',
+    'Animated: `useNativeDriver` is not supported',
     // Shadow style deprecation warnings
     '"shadow*" style props are deprecated',
     'shadowColor',
@@ -81,7 +94,7 @@ if (__DEV__) {
     if (message && typeof message === 'string') {
       // Suppress network errors in tunnel mode during development
       if (message.includes('Network request failed') && message.includes('exp.direct')) {
-// TODO: Replace with structured logging - console.log('[SUPPRESSED] Network error in tunnel mode - this is expected');
+// TODO: Replace with structured logging - /* console.log('[SUPPRESSED] Network error in tunnel mode - this is expected') */;
         return;
       }
       // Suppress errors that are already being shown by error boundary
@@ -95,6 +108,14 @@ if (__DEV__) {
       // Suppress auth error that's already shown to user
       if (message.includes('[AUTH]Login process failed') && message.includes('Invalid email or password')) {
         return; // User is already shown the error in UI
+      }
+      // Suppress network abort errors (these are expected when requests are cancelled)
+      if (message.includes('AbortError') || message.includes('signal is aborted') || message.includes('The user aborted a request')) {
+        return; // Expected behavior when requests are cancelled
+      }
+      // Suppress HEAD request failures (these are health checks)
+      if (message.includes('[Network] HEAD /') && message.includes('Failed')) {
+        return; // Health check failures are not critical
       }
     }
     originalError.apply(console, args);

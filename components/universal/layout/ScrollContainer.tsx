@@ -150,8 +150,8 @@ export const ScrollContainer = React.forwardRef<any, ScrollContainerProps>(({
   if (safe) {
     return (
       <SafeAreaView
-        className={cn("flex-1", props.className)}
-        style={[{ flex: 1, backgroundColor: theme.background }, style]}
+        className={cn("flex-1", props.className) as string}
+        style={[{ flex: 1, backgroundColor: theme.background }, style] as any}
         edges={headerTitle ? ['left', 'right', 'bottom'] : undefined}
       >
         {scrollContent}

@@ -9,6 +9,7 @@ import { useSpacing } from '@/lib/stores/spacing-store';
 import { useShadow } from '@/hooks/useShadow';
 import { useResponsive } from '@/hooks/responsive';
 import { useThemeStore } from '@/lib/stores/theme-store';
+import { useTheme } from '@/lib/theme';
 import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
 
 const AnimatedView = Animated.View;
@@ -34,6 +35,7 @@ export function AuthCard({
 }: AuthCardProps) {
   const { spacing } = useSpacing();
   const { colorScheme } = useThemeStore();
+  const theme = useTheme();
   const shadowXl = useShadow({ size: 'xl' });
   const { isMobile, isTablet, isDesktop } = useResponsive();
   

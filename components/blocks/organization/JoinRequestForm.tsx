@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Modal, ScrollView } from 'react-native';
 import { useTheme } from '@/lib/theme/provider';
+import { useSpacing } from '@/lib/stores/spacing-store';
 import { api } from '@/lib/api/trpc';
 import { Text } from '@/components/universal/typography/Text';
 import { Input } from '@/components/universal/form/Input';
@@ -9,8 +10,8 @@ import { Card } from '@/components/universal/display/Card';
 import { Box } from '@/components/universal/layout/Box';
 import { Alert } from '@/components/universal/feedback/Alert';
 import { X } from '@/components/universal/display/Symbols';
-// Define OrganizationRole type locally
-type OrganizationRole = 'member' | 'moderator' | 'manager' | 'admin' | 'owner';
+// Define OrganizationRole type locally to match API
+type OrganizationRole = 'member' | 'manager' | 'admin' | 'owner' | 'guest';
 
 interface JoinRequestFormProps {
   organizationId: string;
@@ -27,7 +28,8 @@ export function JoinRequestForm({
   onClose,
   onSuccess,
 }: JoinRequestFormProps) {
-  const { theme } = useTheme();
+  const theme = useTheme();
+  const { spacing } = useSpacing();
   const [message, setMessage] = useState('');
   const [requestedRole, setRequestedRole] = useState<OrganizationRole>('member');
   
@@ -54,65 +56,65 @@ export function JoinRequestForm({
       backgroundColor: 'rgba(0, 0, 0, 0.5)',
       justifyContent: 'center' as const,
       alignItems: 'center' as const,
-      padding: theme.spacing.m,
+      padding: spacing[4],
     },
     container: {
-      width: '100%',
+      width: 400,
       maxWidth: 500,
-      maxHeight: '80%',
-    },
+      maxHeight: 600,
+    } as const,
     header: {
       flexDirection: 'row' as const,
       justifyContent: 'space-between' as const,
       alignItems: 'center' as const,
-      marginBottom: theme.spacing.m,
+      marginBottom: spacing[4],
     },
     title: {
       fontSize: 20,
       fontWeight: '600' as const,
-      color: theme.colors.text,
+      color: theme.foreground,
     },
     closeButton: {
-      padding: theme.spacing.xs,
+      padding: spacing[2],
     },
     content: {
-      gap: theme.spacing.m,
+      gap: spacing[4],
     },
     label: {
       fontSize: 14,
       fontWeight: '500' as const,
-      color: theme.colors.text,
-      marginBottom: theme.spacing.xs,
+      color: theme.foreground,
+      marginBottom: spacing[2],
     },
     orgName: {
       fontSize: 16,
       fontWeight: '600' as const,
-      color: theme.colors.primary,
+      color: theme.primary,
     },
     roleOptions: {
-      gap: theme.spacing.s,
+      gap: spacing[3],
     },
     roleOption: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      padding: theme.spacing.m,
-      borderRadius: theme.borderRadius.m,
+      padding: spacing[4],
+      borderRadius: 8,
       borderWidth: 1,
-      borderColor: theme.colors.border,
+      borderColor: theme.border,
     },
     roleOptionActive: {
-      backgroundColor: theme.colors.primary + '10',
-      borderColor: theme.colors.primary,
+      backgroundColor: theme.primary + '10',
+      borderColor: theme.primary,
     },
     roleTitle: {
       fontSize: 16,
       fontWeight: '500' as const,
-      color: theme.colors.text,
+      color: theme.foreground,
     },
     roleDescription: {
       fontSize: 14,
-      color: theme.colors.textSecondary,
-      marginTop: theme.spacing.xs,
+      color: theme.mutedForeground,
+      marginTop: spacing[2],
     },
     messageInput: {
       height: 120,
@@ -120,8 +122,8 @@ export function JoinRequestForm({
     },
     actions: {
       flexDirection: 'row' as const,
-      gap: theme.spacing.s,
-      marginTop: theme.spacing.m,
+      gap: spacing[3],
+      marginTop: spacing[4],
     },
     actionButton: {
       flex: 1,
@@ -135,7 +137,7 @@ export function JoinRequestForm({
       description: 'Regular member with standard access',
     },
     {
-      value: 'guest',
+      value: 'guest' as OrganizationRole,
       title: 'Guest',
       description: 'Limited access for collaboration',
     },
@@ -157,7 +159,7 @@ export function JoinRequestForm({
               onPress={onClose}
               style={styles.closeButton}
             >
-              <X size={24} color={theme.colors.text} />
+              <X size={24} color={theme.foreground} />
             </Button>
           </View>
 
@@ -170,9 +172,9 @@ export function JoinRequestForm({
 
               {sendJoinRequest.error && (
                 <Alert
-                  variant="danger"
+                  variant="error"
                   title="Error"
-                  message={sendJoinRequest.error.message}
+                  description={sendJoinRequest.error.message}
                 />
               )}
 
@@ -184,10 +186,10 @@ export function JoinRequestForm({
                       key={role.value}
                       variant="ghost"
                       onPress={() => setRequestedRole(role.value)}
-                      style={[
-                        styles.roleOption,
-                        requestedRole === role.value && styles.roleOptionActive,
-                      ]}
+                      style={{
+                        ...styles.roleOption,
+                        ...(requestedRole === role.value ? styles.roleOptionActive : {}),
+                      }}
                     >
                       <View style={{ flex: 1 }}>
                         <Text style={styles.roleTitle}>{role.title}</Text>
@@ -216,8 +218,8 @@ export function JoinRequestForm({
                 <Text
                   style={{
                     fontSize: 12,
-                    color: theme.colors.textSecondary,
-                    marginTop: theme.spacing.xs,
+                    color: theme.mutedForeground,
+                    marginTop: spacing[2],
                     textAlign: 'right' as const,
                   }}
                 >
@@ -230,15 +232,15 @@ export function JoinRequestForm({
                   variant="secondary"
                   onPress={onClose}
                   style={styles.actionButton}
-                  disabled={sendJoinRequest.isLoading}
+                  disabled={sendJoinRequest.isPending}
                 >
                   Cancel
                 </Button>
                 <Button
-                  variant="primary"
+                  variant="default"
                   onPress={handleSubmit}
                   style={styles.actionButton}
-                  loading={sendJoinRequest.isLoading}
+                  isLoading={sendJoinRequest.isPending}
                   disabled={message.trim().length > 0 && message.trim().length < 10}
                 >
                   Send Request

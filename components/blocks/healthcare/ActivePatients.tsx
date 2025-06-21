@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, Platform } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { api } from '@/lib/api/trpc';
@@ -11,12 +11,14 @@ import { useResponsive } from '@/hooks/responsive';
 import { useAnimation } from '@/lib/ui/animations/hooks';
 import { haptic } from '@/lib/ui/haptics';
 import { useAuthStore } from '@/lib/stores/auth-store';
+import { useActiveOrganization } from '@/lib/stores/organization-store';
 import { Card, Badge } from '@/components/universal/display';
 import { Text } from '@/components/universal/typography';
 import { Button } from '@/components/universal/interaction';
 import { Skeleton } from '@/components/universal/feedback';
 import { HStack, VStack } from '@/components/universal/layout';
 import {
+  Symbol,
   Users,
   Heart,
   Activity,
@@ -27,6 +29,8 @@ import {
   TrendingUp,
   TrendingDown,
 } from '@/components/universal/display/Symbols';
+import { HealthcareOnly } from '@/components/blocks/auth/PermissionGuard';
+import { useHealthcareAccess } from '@/hooks/usePermissions';
 
 interface PatientData {
   id: string;
@@ -45,52 +49,59 @@ interface PatientData {
   alerts: number;
 }
 
-export function ActivePatients() {
+interface ActivePatientsProps {
+  scrollEnabled?: boolean;
+}
+
+export function ActivePatients({ scrollEnabled = true }: ActivePatientsProps) {
   const router = useRouter();
   const { spacing } = useSpacing();
   const { isLargeScreen } = useResponsive();
   const shadowMd = useShadow({ size: 'md' });
   const shadowSm = useShadow({ size: 'sm' });
   const { user } = useAuthStore();
+  const { organization: activeOrganization, isLoading: orgLoading } = useActiveOrganization();
+  const { canViewPatients, isMedicalStaff } = useHealthcareAccess();
   
   // Animation hooks
   const { animatedStyle: blockFadeStyle } = useAnimation('fadeIn', { duration: 'normal' });
   const { animatedStyle: statsScaleStyle } = useAnimation('scaleIn', { duration: 'normal' });
   
-  // Don't render if no user
-  if (!user) {
-    return null;
-  }
-  
   // Fetch active alerts data (using the correct API endpoint)
   const { data: alertsData, isLoading } = api.healthcare.getActiveAlerts.useQuery({
-    hospitalId: 'hospital-123', // TODO: Get from context
+    hospitalId: activeOrganization?.id || '',
     limit: 5,
     offset: 0,
   }, {
-    enabled: !!user,
+    enabled: !!user && !!activeOrganization?.id,
   });
   
   // Mock patient data for now (since we're using alerts API)
   const patients = React.useMemo(() => {
     if (!alertsData?.alerts) return [];
     // Transform alerts to patient-like data for display
-    return alertsData.alerts.map((alert: any) => ({
-      id: alert.alert.id,
-      name: `Patient in Room ${alert.alert.roomNumber}`,
-      age: Math.floor(Math.random() * 50) + 20,
-      condition: alert.alert.urgencyLevel <= 2 ? 'critical' : 'stable',
-      roomNumber: alert.alert.roomNumber,
-      vitalSigns: {
-        heartRate: 75 + Math.floor(Math.random() * 20),
-        bloodPressure: '120/80',
-        temperature: 98.6 + (Math.random() * 2 - 1),
-        oxygenSaturation: 95 + Math.floor(Math.random() * 5),
-      },
-      lastChecked: new Date(alert.alert.createdAt),
-      trend: Math.random() > 0.5 ? 'improving' : 'stable',
-      alerts: alert.alert.status === 'active' ? 1 : 0,
-    }));
+    return alertsData.alerts.map((alert: any) => {
+      // Safe access with fallbacks
+      const alertId = alert?.alert?.id || alert?.id || Math.random().toString();
+      const roomNumber = alert?.alert?.roomNumber || alert?.roomNumber || 'Unknown';
+      
+      return {
+        id: alertId,
+        name: `Patient in Room ${roomNumber}`,
+        age: Math.floor(Math.random() * 50) + 20,
+        condition: (alert?.alert?.urgencyLevel || alert?.urgencyLevel || 3) <= 2 ? 'critical' : 'stable',
+        roomNumber: roomNumber,
+        vitalSigns: {
+          heartRate: 75 + Math.floor(Math.random() * 20),
+          bloodPressure: '120/80',
+          temperature: 98.6 + (Math.random() * 2 - 1),
+          oxygenSaturation: 95 + Math.floor(Math.random() * 5),
+        },
+        lastChecked: new Date(alert?.alert?.createdAt || alert?.createdAt || Date.now()),
+        trend: Math.random() > 0.5 ? 'improving' : 'stable' as const,
+        alerts: (alert?.alert?.status || alert?.status) === 'active' ? 1 : 0,
+      };
+    });
   }, [alertsData]);
 
   // Calculate stats
@@ -104,7 +115,38 @@ export function ActivePatients() {
     };
   }, [patients]);
   
-  // Remove manual animation triggers as they're handled by the useAnimation hook
+  // Don't render if no user or no permissions
+  if (!user || !canViewPatients || !isMedicalStaff) {
+    return null;
+  }
+
+  // Check if user has organization
+  if (!activeOrganization && !orgLoading) {
+    return (
+      <Animated.View 
+        style={[
+          Platform.OS !== 'web' && shadowMd,
+          blockFadeStyle,
+          { backgroundColor: 'white', borderRadius: 12, padding: spacing[4] }
+        ]}
+      >
+        <VStack gap={spacing[3] as any} align="center">
+          <Symbol name="building.2" size={48} color="muted" />
+          <Text size="lg" weight="semibold" align="center">No Organization</Text>
+          <Text colorTheme="mutedForeground" align="center">
+            Please join an organization to view patient data
+          </Text>
+          <Button
+            variant="default"
+            size="sm"
+            onPress={() => router.push('/(app)/organization/settings')}
+          >
+            Join Organization
+          </Button>
+        </VStack>
+      </Animated.View>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -306,14 +348,20 @@ export function ActivePatients() {
           </Animated.View>
 
           {/* Patient List */}
-          <ScrollView 
-            showsVerticalScrollIndicator={false}
-            style={{ maxHeight: isLargeScreen ? 400 : 300 }}
-          >
+          {scrollEnabled ? (
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: isLargeScreen ? 400 : 300 }}
+            >
+              <VStack gap={3}>
+                {patients?.slice(0, 5).map((patient: any, index: number) => renderPatientCard(patient, index))}
+              </VStack>
+            </ScrollView>
+          ) : (
             <VStack gap={3}>
               {patients?.slice(0, 5).map((patient: any, index: number) => renderPatientCard(patient, index))}
             </VStack>
-          </ScrollView>
+          )}
 
           {/* Empty State */}
           {(!patients || patients.length === 0) && (

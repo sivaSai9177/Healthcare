@@ -53,6 +53,7 @@ export const BaseUserSchema = z.object({
   department: z.string().max(50).optional(),
   jobTitle: z.string().max(100).optional(),
   bio: z.string().max(500).optional(),
+  defaultHospitalId: z.string().uuid().optional(),
   needsProfileCompletion: z.boolean().default(false),
   status: UserStatusSchema.default('active'),
   createdAt: z.date(),
@@ -127,12 +128,21 @@ export const CompleteProfileInputSchema = z.object({
   organizationCode: z.string().min(4).max(12).regex(/^[A-Z0-9]+$/).optional(),
   organizationName: z.string().min(2).max(100).trim().optional(),
   organizationId: z.string().optional(),
+  defaultHospitalId: z.string().uuid().optional(),
   acceptTerms: z.literal(true),
   acceptPrivacy: z.literal(true),
   phoneNumber: z.string().optional(),
   department: z.string().max(50).optional(),
   jobTitle: z.string().max(100).optional(),
   bio: z.string().max(500).optional(),
+  licenseNumber: z.string().min(5).max(50).optional(),
+  availabilityStatus: z.enum(['available', 'busy', 'offline']).default('available').optional(),
+  contactPreferences: z.object({
+    email: z.boolean().default(true),
+    push: z.boolean().default(true),
+    sms: z.boolean().default(false),
+  }).optional(),
+  profilePhotoUrl: z.string().url('Invalid photo URL').optional(),
 }).refine(data => {
   if ((data.role === 'manager' || data.role === 'admin') && !data.organizationName) {
     return false;
@@ -141,6 +151,23 @@ export const CompleteProfileInputSchema = z.object({
 }, {
   message: 'Organization name is required for managers and admins',
   path: ['organizationName'],
+});
+
+// ========================================
+// Hospital Management Schemas
+// ========================================
+
+export const SelectHospitalInputSchema = z.object({
+  hospitalId: z.string().uuid('Invalid hospital ID format'),
+});
+
+export const HospitalResponseSchema = z.object({
+  id: z.string().uuid(),
+  organizationId: z.string().uuid(),
+  name: z.string(),
+  code: z.string(),
+  isDefault: z.boolean(),
+  isActive: z.boolean(),
 });
 
 // ========================================
@@ -258,6 +285,14 @@ export const UserResponseSchema = z.object({
   department: z.string().nullable().optional(),
   jobTitle: z.string().nullable().optional(),
   bio: z.string().nullable().optional(),
+  licenseNumber: z.string().nullable().optional(),
+  availabilityStatus: z.enum(['available', 'busy', 'offline']).nullable().optional(),
+  contactPreferences: z.object({
+    email: z.boolean(),
+    push: z.boolean(),
+    sms: z.boolean(),
+  }).nullable().optional(),
+  profilePhotoUrl: z.string().nullable().optional(),
   needsProfileCompletion: z.boolean().default(false),
   status: UserStatusSchema.default('active'),
   // Make dates flexible to handle string/Date conversion
@@ -271,6 +306,7 @@ export const UserResponseSchema = z.object({
   permissions: z.array(UserPermissionSchema).optional(),
   lastLoginAt: z.date().nullable().optional(),
   isEmailVerified: z.boolean().nullable().default(false),
+  defaultHospitalId: z.string().nullable().optional(),
 });
 
 export const AuthResponseSchema = z.object({

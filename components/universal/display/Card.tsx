@@ -5,6 +5,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
+  withRepeat,
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
@@ -28,7 +29,7 @@ export interface CardProps extends ViewProps {
   
   // Style props
   className?: string;
-  variant?: 'default' | 'outline' | 'ghost' | 'elevated';
+  variant?: 'default' | 'outline' | 'ghost' | 'elevated' | 'glass' | 'glass-subtle' | 'glass-strong';
   size?: 'sm' | 'md' | 'lg';
   rounded?: 'none' | 'sm' | 'md' | 'lg' | 'xl';
   
@@ -36,9 +37,13 @@ export interface CardProps extends ViewProps {
   shadow?: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   shadowColor?: 'default' | 'primary' | 'secondary' | 'destructive' | 'success' | 'warning';
   
+  // Glass props
+  glassIntensity?: 'subtle' | 'medium' | 'strong';
+  glowEffect?: boolean;
+  
   // Animation props
   animated?: boolean;
-  animationType?: 'lift' | 'scale' | 'tilt' | 'glow' | 'none';
+  animationType?: 'lift' | 'scale' | 'tilt' | 'glow' | 'glass-shimmer' | 'none';
   useHaptics?: boolean;
   
   // Content props
@@ -51,6 +56,9 @@ const cardVariants = {
   outline: 'border border-border bg-transparent',
   ghost: 'bg-transparent',
   elevated: 'bg-card text-card-foreground',
+  glass: 'glass glass-hover glass-press',
+  'glass-subtle': 'glass-subtle glass-hover glass-press',
+  'glass-strong': 'glass-strong glass-hover glass-press',
 };
 
 // Size configurations with density support
@@ -86,6 +94,18 @@ const roundedClasses = {
   xl: 'rounded-xl',
 };
 
+const getGlassClasses = (intensity: string, shadowColor?: string) => {
+  const baseClass = intensity === 'subtle' ? 'glass-subtle' : 
+                    intensity === 'strong' ? 'glass-strong' : 'glass';
+  
+  const colorClass = shadowColor === 'destructive' ? 'glass-urgent' :
+                     shadowColor === 'warning' ? 'glass-warning' :
+                     shadowColor === 'success' ? 'glass-success' :
+                     shadowColor === 'primary' ? 'glass-info' : '';
+  
+  return cn(baseClass, colorClass);
+};
+
 export const Card = React.forwardRef<View, CardProps>(({
   pressable = false,
   onPress,
@@ -96,6 +116,8 @@ export const Card = React.forwardRef<View, CardProps>(({
   rounded = 'lg',
   shadow = 'md',
   shadowColor = 'default',
+  glassIntensity = 'medium',
+  glowEffect = false,
   animated = true,
   animationType = 'lift',
   useHaptics = true,
@@ -106,9 +128,10 @@ export const Card = React.forwardRef<View, CardProps>(({
   const { shouldAnimate, getAnimationDuration, enableAnimations } = useAnimationStore();
   const { density } = useSpacing();
   
-  // Get shadow styles
+  // Get shadow styles - glass variants have their own shadow handling
+  const isGlassVariant = variant.includes('glass');
   const staticShadow = useShadow({ 
-    size: variant === 'elevated' ? 'xl' : shadow, 
+    size: variant === 'elevated' ? 'xl' : isGlassVariant ? 'none' : shadow, 
     color: shadowColor 
   });
   
@@ -118,8 +141,8 @@ export const Card = React.forwardRef<View, CardProps>(({
     isHovered,
     isPressed: isShadowPressed,
   } = useInteractiveShadow(
-    variant === 'elevated' ? 'xl' : shadow,
-    variant === 'elevated' ? '2xl' : 'lg',
+    variant === 'elevated' ? 'xl' : isGlassVariant ? 'none' : shadow,
+    variant === 'elevated' ? '2xl' : isGlassVariant ? 'none' : 'lg',
     { color: shadowColor }
   );
   
@@ -128,6 +151,7 @@ export const Card = React.forwardRef<View, CardProps>(({
   const translateY = useSharedValue(0);
   const rotateX = useSharedValue(0);
   const glowOpacity = useSharedValue(0);
+  const shimmerProgress = useSharedValue(0);
   const isPressed = useSharedValue(0);
   
   // Use entrance animation
@@ -151,6 +175,13 @@ export const Card = React.forwardRef<View, CardProps>(({
         break;
       case 'glow':
         glowOpacity.value = withTiming(0.2, { duration: 200 });
+        break;
+      case 'glass-shimmer':
+        shimmerProgress.value = withRepeat(
+          withTiming(1, { duration: 2000 }),
+          -1,
+          false
+        );
         break;
     }
   }, [animated, enableAnimations, animationType, translateY, scale, rotateX, glowOpacity]);
@@ -260,6 +291,13 @@ export const Card = React.forwardRef<View, CardProps>(({
     sizeClass,
     'relative overflow-hidden',
     pressable && 'cursor-pointer',
+    // Glass-specific classes
+    isGlassVariant && getGlassClasses(glassIntensity, shadowColor),
+    isGlassVariant && glowEffect && shadowColor === 'destructive' && 'glass-glow-urgent',
+    isGlassVariant && glowEffect && shadowColor === 'warning' && 'glass-glow-warning',
+    isGlassVariant && glowEffect && shadowColor === 'success' && 'glass-glow-success',
+    isGlassVariant && glowEffect && !shadowColor && 'glass-glow',
+    animationType === 'glass-shimmer' && 'glass-shimmer',
     // Focus styles for accessibility
     pressable && 'web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
     className
@@ -302,7 +340,29 @@ export const Card = React.forwardRef<View, CardProps>(({
     >
       {/* Glow effect overlay */}
       {animationType === 'glow' && animated && (
-        <AnimatedView style={[glowStyle]} pointerEvents="none" />
+        <AnimatedView style={[glowStyle] as any} pointerEvents="none" />
+      )}
+      
+      {/* Glass shimmer overlay for native */}
+      {animationType === 'glass-shimmer' && animated && Platform.OS !== 'web' && (
+        <AnimatedView 
+          style={[
+            {
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              opacity: interpolate(
+                shimmerProgress.value,
+                [0, 0.5, 1],
+                [0, 0.1, 0]
+              ),
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            }
+          ]} 
+          pointerEvents="none" 
+        />
       )}
       
       {/* Card content */}
@@ -318,7 +378,7 @@ export const CardHeader = React.forwardRef<View, ViewProps & { className?: strin
   ({ className, ...props }, ref) => (
     <View
       ref={ref}
-      className={cn('flex-col space-y-1.5 pb-4', className)}
+      className={cn('flex-col space-y-1.5 pb-4', className) as string}
       {...props}
     />
   )
@@ -329,7 +389,7 @@ export const CardTitle = React.forwardRef<View, { children: React.ReactNode; cla
   ({ className, children, ...props }, ref) => (
     <Text
       ref={ref as any}
-      className={cn('text-2xl font-semibold leading-none tracking-tight', className)}
+      className={cn('text-2xl font-semibold leading-none tracking-tight', className) as string}
       {...props}
     >
       {children}
@@ -342,7 +402,7 @@ export const CardDescription = React.forwardRef<View, { children: React.ReactNod
   ({ className, children, ...props }, ref) => (
     <Text
       ref={ref as any}
-      className={cn('text-sm text-muted-foreground', className)}
+      className={cn('text-sm text-muted-foreground', className) as string}
       {...props}
     >
       {children}
@@ -353,7 +413,7 @@ CardDescription.displayName = 'CardDescription';
 
 export const CardContent = React.forwardRef<View, ViewProps & { className?: string }>(
   ({ className, ...props }, ref) => (
-    <View ref={ref} className={cn('pt-0', className)} {...props} />
+    <View ref={ref} className={cn('pt-0', className) as string} {...props} />
   )
 );
 CardContent.displayName = 'CardContent';
@@ -362,7 +422,7 @@ export const CardFooter = React.forwardRef<View, ViewProps & { className?: strin
   ({ className, ...props }, ref) => (
     <View
       ref={ref}
-      className={cn('flex-row items-center pt-4', className)}
+      className={cn('flex-row items-center pt-4', className) as string}
       {...props}
     />
   )

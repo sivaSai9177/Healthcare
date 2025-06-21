@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, ScrollView, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Badge } from '@/components/universal/display';
 import { Button } from '@/components/universal/interaction';
-import { Input, Select, Switch, FormItem } from '@/components/universal/form';
+import { Input, Select, Switch } from '@/components/universal/form';
 import { Label, Text } from '@/components/universal/typography';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/universal/navigation';
 import { VStack, HStack, Separator } from '@/components/universal/layout';
@@ -13,7 +13,6 @@ import { Alert, AlertDescription } from '@/components/universal/feedback';
 import { Symbol } from '@/components/universal/display/Symbols';
 import { api } from '@/lib/api/trpc';
 import { useSpacing } from '@/lib/stores/spacing-store';
-import { SpacingScale } from '@/lib/stores/spacing-types';
 
 // Form schemas
 const GeneralSettingsSchema = z.object({
@@ -70,7 +69,7 @@ type SecuritySettings = z.infer<typeof SecuritySettingsSchema>;
 type FeatureFlags = z.infer<typeof FeatureFlagsSchema>;
 
 export function SystemSettingsBlock() {
-  const { spacing } = useSpacing();
+  useSpacing();
   const [activeTab, setActiveTab] = useState('general');
   const [testEmailTo, setTestEmailTo] = useState('');
 
@@ -88,33 +87,33 @@ export function SystemSettingsBlock() {
   // Forms
   const generalForm = useForm<GeneralSettings>({
     resolver: zodResolver(GeneralSettingsSchema),
-    defaultValues: config?.general,
+    defaultValues: (config as any)?.general,
   });
 
   const emailForm = useForm<EmailConfig>({
     resolver: zodResolver(EmailConfigSchema),
-    defaultValues: config?.email,
+    defaultValues: (config as any)?.email,
   });
 
   const securityForm = useForm<SecuritySettings>({
     resolver: zodResolver(SecuritySettingsSchema),
-    defaultValues: config?.security,
+    defaultValues: (config as any)?.security,
   });
 
   const featureForm = useForm<FeatureFlags>({
     resolver: zodResolver(FeatureFlagsSchema),
-    defaultValues: config?.features,
+    defaultValues: (config as any)?.features,
   });
 
   // Update form values when data loads
   React.useEffect(() => {
     if (config) {
-      generalForm.reset(config.general);
-      emailForm.reset(config.email);
-      securityForm.reset(config.security);
-      featureForm.reset(config.features);
+      generalForm.reset((config as any).general);
+      emailForm.reset((config as any).email);
+      securityForm.reset((config as any).security);
+      featureForm.reset((config as any).features);
     }
-  }, [config]);
+  }, [config, generalForm, emailForm, securityForm, featureForm]);
 
   if (isLoading) {
     return (
@@ -203,8 +202,8 @@ export function SystemSettingsBlock() {
 
           {/* General Settings */}
           <TabsContent value="general">
-              <VStack spacing="md" as SpacingScale>
-                <VStack spacing="sm" as SpacingScale>
+              <VStack gap={4 as any}>
+                <VStack gap={2 as any}>
                   <Label>Site Name</Label>
                   <Controller
                     control={generalForm.control}
@@ -219,7 +218,7 @@ export function SystemSettingsBlock() {
                   />
                 </VStack>
 
-                <VStack spacing="sm" as SpacingScale>
+                <VStack gap={2 as any}>
                   <Label>Site URL</Label>
                   <Controller
                     control={generalForm.control}
@@ -234,7 +233,7 @@ export function SystemSettingsBlock() {
                   />
                 </VStack>
 
-                <VStack spacing="sm" as SpacingScale>
+                <VStack gap={2 as any}>
                   <Label>Support Email</Label>
                   <Controller
                     control={generalForm.control}
@@ -249,8 +248,8 @@ export function SystemSettingsBlock() {
                   />
                 </VStack>
 
-                <HStack spacing="md" as SpacingScale>
-                  <VStack spacing="sm" as SpacingScale className="flex-1">
+                <HStack gap={4 as any}>
+                  <VStack gap={2 as any} className="flex-1">
                     <Label>Date Format</Label>
                     <Controller
                       control={generalForm.control}
@@ -269,7 +268,7 @@ export function SystemSettingsBlock() {
                     />
                   </VStack>
 
-                  <VStack spacing="sm" as SpacingScale className="flex-1">
+                  <VStack gap={2 as any} className="flex-1">
                     <Label>Time Format</Label>
                     <Controller
                       control={generalForm.control}
@@ -290,7 +289,7 @@ export function SystemSettingsBlock() {
 
                 <Button
                   onPress={generalForm.handleSubmit(handleGeneralSubmit)}
-                  loading={updateGeneralMutation.isPending}
+                  isLoading={updateGeneralMutation.isPending}
                   className="w-full"
                 >
                   Save General Settings
@@ -300,8 +299,8 @@ export function SystemSettingsBlock() {
 
           {/* Email Configuration */}
           <TabsContent value="email">
-              <VStack spacing="md" as SpacingScale>
-                <VStack spacing="sm" as SpacingScale>
+              <VStack gap={4 as any}>
+                <VStack gap={2 as any}>
                   <Label>Email Provider</Label>
                   <Controller
                     control={emailForm.control}
@@ -321,7 +320,7 @@ export function SystemSettingsBlock() {
                   />
                 </VStack>
 
-                <VStack spacing="sm" as SpacingScale>
+                <VStack gap={2 as any}>
                   <Label>From Email</Label>
                   <Controller
                     control={emailForm.control}
@@ -338,8 +337,8 @@ export function SystemSettingsBlock() {
 
                 {emailForm.watch('provider') === 'smtp' && (
                   <>
-                    <HStack spacing="md" as SpacingScale>
-                      <VStack spacing="sm" as SpacingScale className="flex-1">
+                    <HStack gap={4 as any}>
+                      <VStack gap={2 as any} className="flex-1">
                         <Label>SMTP Host</Label>
                         <Controller
                           control={emailForm.control}
@@ -350,7 +349,7 @@ export function SystemSettingsBlock() {
                         />
                       </VStack>
 
-                      <VStack spacing="sm" as SpacingScale className="flex-1">
+                      <VStack gap={2 as any} className="flex-1">
                         <Label>SMTP Port</Label>
                         <Controller
                           control={emailForm.control}
@@ -358,6 +357,7 @@ export function SystemSettingsBlock() {
                           render={({ field }) => (
                             <Input
                               {...field}
+                              value={String(field.value || '')}
                               keyboardType="numeric"
                               placeholder="587"
                               onChangeText={(value) => field.onChange(parseInt(value) || 0)}
@@ -367,7 +367,7 @@ export function SystemSettingsBlock() {
                       </VStack>
                     </HStack>
 
-                    <VStack spacing="sm" as SpacingScale>
+                    <VStack gap={2 as any}>
                       <Label>SMTP Username</Label>
                       <Controller
                         control={emailForm.control}
@@ -382,9 +382,9 @@ export function SystemSettingsBlock() {
 
                 <Separator />
 
-                <VStack spacing="sm" as SpacingScale>
+                <VStack gap={2 as any}>
                   <Label>Test Email Configuration</Label>
-                  <HStack spacing="md" as SpacingScale>
+                  <HStack gap={4 as any}>
                     <Input
                       value={testEmailTo}
                       onChangeText={setTestEmailTo}
@@ -394,7 +394,7 @@ export function SystemSettingsBlock() {
                     <Button
                       variant="outline"
                       onPress={handleTestEmail}
-                      loading={testEmailMutation.isPending}
+                      isLoading={testEmailMutation.isPending}
                     >
                       Send Test
                     </Button>
@@ -408,7 +408,7 @@ export function SystemSettingsBlock() {
 
                 <Button
                   onPress={emailForm.handleSubmit(handleEmailSubmit)}
-                  loading={updateEmailMutation.isPending}
+                  isLoading={updateEmailMutation.isPending}
                   className="w-full"
                 >
                   Save Email Configuration
@@ -418,8 +418,8 @@ export function SystemSettingsBlock() {
 
           {/* Security Settings */}
           <TabsContent value="security">
-              <VStack spacing="md" as SpacingScale>
-                <VStack spacing="sm" as SpacingScale>
+              <VStack gap={4 as any}>
+                <VStack gap={2 as any}>
                   <Label>Session Timeout (minutes)</Label>
                   <Controller
                     control={securityForm.control}
@@ -427,6 +427,7 @@ export function SystemSettingsBlock() {
                     render={({ field }) => (
                       <Input
                         {...field}
+                        value={String(field.value || '')}
                         keyboardType="numeric"
                         placeholder="30"
                         onChangeText={(value) => field.onChange(parseInt(value) || 0)}
@@ -435,11 +436,11 @@ export function SystemSettingsBlock() {
                   />
                 </VStack>
 
-                <VStack spacing="sm" as SpacingScale>
+                <VStack gap={2 as any}>
                   <Text weight="semibold">Password Policy</Text>
                   
-                  <HStack spacing="md" as SpacingScale>
-                    <VStack spacing="sm" as SpacingScale className="flex-1">
+                  <HStack gap={4 as any}>
+                    <VStack gap={2 as any} className="flex-1">
                       <Label>Minimum Length</Label>
                       <Controller
                         control={securityForm.control}
@@ -447,6 +448,7 @@ export function SystemSettingsBlock() {
                         render={({ field }) => (
                           <Input
                             {...field}
+                            value={String(field.value || '')}
                             keyboardType="numeric"
                             placeholder="12"
                             onChangeText={(value) => field.onChange(parseInt(value) || 0)}
@@ -455,7 +457,7 @@ export function SystemSettingsBlock() {
                       />
                     </VStack>
 
-                    <VStack spacing="sm" as SpacingScale className="flex-1">
+                    <VStack gap={2 as any} className="flex-1">
                       <Label>Max Age (days)</Label>
                       <Controller
                         control={securityForm.control}
@@ -463,6 +465,7 @@ export function SystemSettingsBlock() {
                         render={({ field }) => (
                           <Input
                             {...field}
+                            value={String(field.value || '')}
                             keyboardType="numeric"
                             placeholder="90"
                             onChangeText={(value) => field.onChange(parseInt(value) || 0)}
@@ -472,8 +475,8 @@ export function SystemSettingsBlock() {
                     </VStack>
                   </HStack>
 
-                  <VStack spacing="sm" as SpacingScale>
-                    <HStack justify="between" as SpacingScale>
+                  <VStack gap={2 as any}>
+                    <HStack justifyContent="space-between">
                       <Label>Require Uppercase</Label>
                       <Controller
                         control={securityForm.control}
@@ -487,7 +490,7 @@ export function SystemSettingsBlock() {
                       />
                     </HStack>
 
-                    <HStack justify="between" as SpacingScale>
+                    <HStack justifyContent="space-between">
                       <Label>Require Numbers</Label>
                       <Controller
                         control={securityForm.control}
@@ -501,7 +504,7 @@ export function SystemSettingsBlock() {
                       />
                     </HStack>
 
-                    <HStack justify="between" as SpacingScale>
+                    <HStack justifyContent="space-between">
                       <Label>Require Special Characters</Label>
                       <Controller
                         control={securityForm.control}
@@ -519,7 +522,7 @@ export function SystemSettingsBlock() {
 
                 <Separator />
 
-                <HStack justify="between" as SpacingScale>
+                <HStack justifyContent="space-between">
                   <Label>Require Two-Factor Authentication</Label>
                   <Controller
                     control={securityForm.control}
@@ -535,7 +538,7 @@ export function SystemSettingsBlock() {
 
                 <Button
                   onPress={securityForm.handleSubmit(handleSecuritySubmit)}
-                  loading={updateSecurityMutation.isPending}
+                  isLoading={updateSecurityMutation.isPending}
                   className="w-full"
                 >
                   Save Security Settings
@@ -545,7 +548,7 @@ export function SystemSettingsBlock() {
 
           {/* Feature Flags */}
           <TabsContent value="features">
-              <VStack spacing="md" as SpacingScale>
+              <VStack gap={4 as any}>
                 {Object.entries({
                   enableRegistration: 'User Registration',
                   enableOAuth: 'OAuth Authentication',
@@ -556,7 +559,7 @@ export function SystemSettingsBlock() {
                   enableAnalytics: 'Analytics',
                   enableDebugMode: 'Debug Mode',
                 }).map(([key, label]) => (
-                  <HStack key={key} justify="between" as SpacingScale>
+                  <HStack key={key} justifyContent="space-between">
                     <Label>{label}</Label>
                     <Controller
                       control={featureForm.control}
@@ -573,7 +576,7 @@ export function SystemSettingsBlock() {
 
                 <Button
                   onPress={featureForm.handleSubmit(handleFeatureSubmit)}
-                  loading={updateFeatureMutation.isPending}
+                  isLoading={updateFeatureMutation.isPending}
                   className="w-full"
                 >
                   Save Feature Flags
@@ -583,24 +586,24 @@ export function SystemSettingsBlock() {
 
           {/* Maintenance */}
           <TabsContent value="maintenance">
-            <VStack spacing="lg" as SpacingScale>
+            <VStack gap={5 as any}>
               <Card>
                 <CardHeader>
                   <CardTitle>Cache Management</CardTitle>
                   <CardDescription>Clear various system caches</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <VStack spacing="md" as SpacingScale>
+                  <VStack gap={4 as any}>
                     <Button
                       variant="outline"
                       onPress={() => handleClearCache('all')}
-                      loading={clearCacheMutation.isPending}
+                      isLoading={clearCacheMutation.isPending}
                       className="w-full"
                     >
-                      <Symbol name="trash-2" size={16} className="mr-2" />
+                      <Symbol name="trash" size={16} className="mr-2" />
                       Clear All Caches
                     </Button>
-                    <HStack spacing="md" as SpacingScale>
+                    <HStack gap={4 as any}>
                       <Button
                         variant="outline"
                         size="sm"
@@ -641,22 +644,22 @@ export function SystemSettingsBlock() {
                   <CardDescription>Current usage and limits</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <VStack spacing="md" as SpacingScale>
-                    <HStack justify="between" as SpacingScale>
+                  <VStack gap={4 as any}>
+                    <HStack justifyContent="space-between">
                       <Text size="sm">Max File Size</Text>
-                      <Badge>{config.limits.maxFileSize} MB</Badge>
+                      <Badge>{`${(config as any).limits.maxFileSize} MB`}</Badge>
                     </HStack>
-                    <HStack justify="between" as SpacingScale>
+                    <HStack justifyContent="space-between">
                       <Text size="sm">Max Organization Members</Text>
-                      <Badge>{config.limits.maxOrganizationMembers}</Badge>
+                      <Badge>{(config as any).limits.maxOrganizationMembers}</Badge>
                     </HStack>
-                    <HStack justify="between" as SpacingScale>
+                    <HStack justifyContent="space-between">
                       <Text size="sm">Max Storage per Org</Text>
-                      <Badge>{config.limits.maxStoragePerOrg} GB</Badge>
+                      <Badge>{`${(config as any).limits.maxStoragePerOrg} GB`}</Badge>
                     </HStack>
-                    <HStack justify="between" as SpacingScale>
+                    <HStack justifyContent="space-between">
                       <Text size="sm">Rate Limit</Text>
-                      <Badge>{config.limits.rateLimitRequests} req/{config.limits.rateLimitWindow}min</Badge>
+                      <Badge>{`${(config as any).limits.rateLimitRequests} req/${(config as any).limits.rateLimitWindow}min`}</Badge>
                     </HStack>
                   </VStack>
                 </CardContent>

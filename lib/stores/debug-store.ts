@@ -10,6 +10,8 @@ export interface DebugSettings {
   enableRouterLogging: boolean;
   enableAuthLogging: boolean;
   enablePerformanceLogging: boolean;
+  enableWebSocketLogging: boolean;
+  enableHealthcareLogging: boolean;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   
   // Display
@@ -50,6 +52,8 @@ const defaultSettings: DebugSettings = {
   enableRouterLogging: __DEV__,
   enableAuthLogging: __DEV__,
   enablePerformanceLogging: false,
+  enableWebSocketLogging: __DEV__,
+  enableHealthcareLogging: __DEV__,
   logLevel: 'debug',
   
   // Display
@@ -145,6 +149,7 @@ export const useDebugStore = create<DebugStore>()(
           enableRouterLogging: state.enableRouterLogging,
           enableAuthLogging: state.enableAuthLogging,
           enablePerformanceLogging: state.enablePerformanceLogging,
+          enableHealthcareLogging: state.enableHealthcareLogging,
           logLevel: state.logLevel,
           debugPanelPosition: state.debugPanelPosition,
           debugPanelOpacity: state.debugPanelOpacity,

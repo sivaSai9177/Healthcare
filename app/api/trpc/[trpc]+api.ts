@@ -2,12 +2,18 @@ import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { appRouter } from '@/src/server/routers';
 import { createContext } from '@/src/server/trpc';
 import { initializeBackgroundServices } from '@/src/server/services/server-startup';
+import { log } from '@/lib/core/debug/logger';
 
-// Initialize background services on first load
-let servicesInitialized = false;
-if (!servicesInitialized) {
+// Initialize background services on first load with proper singleton check
+// Use global to persist across hot reloads in development
+const globalForServices = global as unknown as {
+  servicesInitialized: boolean;
+};
+
+if (!globalForServices.servicesInitialized) {
   initializeBackgroundServices();
-  servicesInitialized = true;
+  globalForServices.servicesInitialized = true;
+  log.info('Background services initialized', 'API');
 }
 
 // Handle all tRPC requests with proper CORS

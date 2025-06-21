@@ -56,23 +56,62 @@ class RouterDebugger {
     
     // Wrap router methods to log navigation
     router.push = (href: any) => {
-      this.logNavigation('push', href);
-      return this.originalMethods.push!(href);
+      try {
+        this.logNavigation('push', href);
+        return this.originalMethods.push!(href);
+      } catch (error) {
+        log.error('[Router] Push navigation failed', 'NAVIGATION', {
+          href,
+          error: error?.message || error,
+          stack: error?.stack
+        });
+        throw error;
+      }
     };
     
     router.replace = (href: any) => {
-      this.logNavigation('replace', href);
-      return this.originalMethods.replace!(href);
+      try {
+        if (!href) {
+          log.warn('[Router] Replace called with null/undefined href', 'NAVIGATION');
+          return;
+        }
+        this.logNavigation('replace', href);
+        return this.originalMethods.replace!(href);
+      } catch (error) {
+        log.error('[Router] Replace navigation failed', 'NAVIGATION', {
+          href,
+          error: error?.message || error,
+          stack: error?.stack
+        });
+        throw error;
+      }
     };
     
     router.back = () => {
-      this.logNavigation('back', null);
-      return this.originalMethods.back!();
+      try {
+        this.logNavigation('back', null);
+        return this.originalMethods.back!();
+      } catch (error) {
+        log.error('[Router] Back navigation failed', 'NAVIGATION', {
+          error: error?.message || error,
+          stack: error?.stack
+        });
+        throw error;
+      }
     };
     
     router.setParams = (params: any) => {
-      this.logNavigation('setParams', params);
-      return this.originalMethods.setParams!(params);
+      try {
+        this.logNavigation('setParams', params);
+        return this.originalMethods.setParams!(params);
+      } catch (error) {
+        log.error('[Router] SetParams navigation failed', 'NAVIGATION', {
+          params,
+          error: error?.message || error,
+          stack: error?.stack
+        });
+        throw error;
+      }
     };
   }
   
@@ -83,8 +122,47 @@ class RouterDebugger {
     const debugStore = useDebugStore.getState();
     if (!debugStore.enableRouterLogging) return;
     
-    const pathname = typeof href === 'string' ? href : href?.pathname || 'unknown';
-    const params = typeof href === 'object' ? href.params : {};
+    // Handle null/undefined href
+    if (href === null || href === undefined) {
+      log.warn(`[Router] Navigation called with null/undefined href`, 'NAVIGATION', {
+        method,
+        href,
+        stack: this.getCallStack()
+      });
+      return;
+    }
+    
+    // Handle back navigation special case
+    if (method === 'back' && href === null) {
+      const debugInfo: RouteDebugInfo = {
+        method,
+        pathname: 'back',
+        params: {},
+        timestamp: Date.now(),
+        stackTrace: this.getStackTrace(),
+      };
+      
+      this.routeHistory.push(debugInfo);
+      if (this.routeHistory.length > 100) {
+        this.routeHistory = this.routeHistory.slice(-50);
+      }
+      
+      log.info(`[Router] Navigation: ${method}`, 'NAVIGATION', debugInfo);
+      return;
+    }
+    
+    const pathname = typeof href === 'string' ? href : (href && href.pathname) || 'unknown';
+    const params = typeof href === 'object' ? href?.params : {};
+    
+    // Log the raw href to debug the route issue
+    if (pathname.includes('login') || pathname.includes('auth')) {
+      log.info(`[Router] Auth navigation detected - raw href:`, 'NAVIGATION', {
+        method,
+        rawHref: href,
+        pathname,
+        hrefType: typeof href,
+      });
+    }
     
     const debugInfo: RouteDebugInfo = {
       pathname,

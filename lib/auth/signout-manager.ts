@@ -49,31 +49,18 @@ export class SignOutManager {
       // Note: There's a known issue with Better Auth v1.2.8 where sign-out may return 500
       // even though the sign-out is successful. This is handled gracefully.
       try {
-        // Try using the auth client's signOut method
-        await authClient.signOut({
-          fetchOptions: {
-            onSuccess: () => {
-              log.info('Better Auth signOut completed successfully', 'SIGNOUT');
-            },
-            onError: (context) => {
-              // Better Auth v1.2.8 has a known issue where sign-out returns 500
-              // but the sign-out is actually successful
-              if (context.response.status === 500) {
-                log.debug('Better Auth signOut returned 500 (known issue, signout successful)', 'SIGNOUT');
-              } else if (process.env.NODE_ENV === 'development') {
-                log.debug('Better Auth signOut API error', 'SIGNOUT', {
-                  status: context.response.status,
-                  statusText: context.response.statusText
-                });
-              }
-            }
-          }
-        });
-      } catch (error) {
+        // Call signOut without any options - Better Auth doesn't accept fetchOptions
+        await authClient.signOut();
+        log.info('Better Auth signOut completed successfully', 'SIGNOUT');
+      } catch (error: any) {
         // Better Auth v1.2.8 may throw on sign-out even when successful
         // This is a known issue and can be safely ignored
-        if (process.env.NODE_ENV === 'development') {
-          log.debug('Better Auth signOut exception (known issue, local signout successful)', 'SIGNOUT');
+        if (error?.response?.status === 500 || error?.status === 500) {
+          log.debug('Better Auth signOut returned 500 (known issue, signout successful)', 'SIGNOUT');
+        } else if (process.env.NODE_ENV === 'development') {
+          log.debug('Better Auth signOut exception (known issue, local signout successful)', 'SIGNOUT', {
+            error: error?.message || error
+          });
         }
       }
 

@@ -1,0 +1,44 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "allowJs": true,
+    "noEmit": false,
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "incremental": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/types/*": ["./types/*"]
+    },
+    "typeRoots": ["./node_modules/@types", "./types"],
+    "types": ["node"]
+  },
+  "include": [
+    "src/server/websocket/**/*",
+    "src/db/**/*",
+    "lib/core/**/*",
+    "types/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "app/**/*",
+    "components/**/*"
+  ]
+}

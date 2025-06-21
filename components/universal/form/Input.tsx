@@ -34,6 +34,10 @@ const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 const AnimatedView = Animated.View;
 
 interface InputProps extends TextInputProps {
+  // HTML attributes for better form handling
+  id?: string;
+  name?: string;
+  
   // Label and help text
   label?: string;
   error?: string;
@@ -399,18 +403,17 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
   return (
     <AnimatedView 
       className={containerClasses} 
-      style={[containerAnimatedStyle, containerStyle]}
+      style={[containerAnimatedStyle, containerStyle] as any}
     >
       {/* Floating Label */}
       {label && floatingLabel && (
         <AnimatedView 
-          style={labelAnimatedStyle}
-          pointerEvents="none"
+          style={[labelAnimatedStyle, { pointerEvents: "none" }] as any}
         >
           <Text
             size="sm"
             color={error ? 'destructive' : isFocused ? 'primary' : 'muted'}
-            className={cn('bg-background px-1', labelClassName)}
+            className={cn('bg-background px-1', labelClassName) as string}
           >
             {label}
             {isRequired && <Text color="destructive"> *</Text>}
@@ -452,7 +455,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
             !floatingLabel && {
               borderWidth: 1,
               borderColor: getBorderColor(),
-              borderRadius: 6,
+              borderRadius: 6 as any,
               backgroundColor: isDisabled ? theme.muted : theme.background,
               height: getHeight(),
               flexDirection: 'row',
@@ -463,9 +466,9 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
                 cursor: isDisabled ? 'not-allowed' : 'text',
               } as any),
             },
-            animated && floatingLabel && borderAnimatedStyle
+            animated && floatingLabel && borderAnimatedStyle,
+            { pointerEvents: "box-only" }
           ]}
-          pointerEvents="box-only"
         >
         {/* Left Icon/Element */}
         {leftIcon && (
@@ -592,7 +595,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
       
       {/* Error Message */}
       {error && (
-        <AnimatedView style={[floatingLabel && errorAnimatedStyle, !floatingLabel && { marginTop: 4 }]}>
+        <AnimatedView style={[floatingLabel && errorAnimatedStyle, !floatingLabel && { marginTop: 4 }] as any}>
           <Text 
             size="sm" 
             style={{ color: authStyles.colors.destructive }}

@@ -1,33 +1,19 @@
 import React from 'react';
+import { View, Text } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Register, useRegister } from '@/components/blocks/auth';
-import { logger } from '@/lib/core/debug/unified-logger';
+import { Register, useRegister, AuthCard } from '@/components/blocks/auth';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { register, checkEmail, isLoading, error } = useRegister();
-  
-  React.useEffect(() => {
-    logger.auth.debug('RegisterScreen mounted');
-    return () => {
-      logger.auth.debug('RegisterScreen unmounted');
-    };
-  }, []);
 
   const handleRegister = async (data: any) => {
-    logger.auth.info('Registration attempt', { 
-      email: data.email, 
-      name: data.name,
-      role: data.role,
-      hasOrganizationCode: !!data.organizationCode,
-      hasOrganizationName: !!data.organizationName
-    });
     try {
       await register(data);
-      // Navigation is handled by useRegister hook
+      // Navigation is handled by useRegister hook based on user state
     } catch (error) {
       // Error is already handled by useRegister hook
-      logger.auth.error('Registration error', error);
+      console.error('Registration error:', error);
     }
   };
 
@@ -36,17 +22,31 @@ export default function RegisterScreen() {
   };
 
   const handleSignIn = () => {
-    logger.auth.info('Navigating to login');
-    router.push('/(public)/auth/login');
+    router.push('/auth/login' as any);
   };
 
-  return (
-    <Register
-      onSubmit={handleRegister}
-        onCheckEmail={handleCheckEmail}
-        onSignIn={handleSignIn}
-        isLoading={isLoading}
-        error={error}
-    />
-  );
+  try {
+    return (
+      <AuthCard
+        title="Create Account"
+        subtitle="Get started with your healthcare platform"
+      >
+        <Register
+          onSubmit={handleRegister}
+          onCheckEmail={handleCheckEmail}
+          onSignIn={handleSignIn}
+          isLoading={isLoading}
+          error={error}
+        />
+      </AuthCard>
+    );
+  } catch (err) {
+    console.error('RegisterScreen render error:', err);
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text>Error loading register screen</Text>
+        <Text style={{ marginTop: 10, color: 'red' }}>{err?.toString()}</Text>
+      </View>
+    );
+  }
 }

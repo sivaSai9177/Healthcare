@@ -27,14 +27,14 @@ export interface StepperStep {
   title: string;
   description?: string;
   content?: React.ReactNode;
-  icon?: keyof typeof any;
+  icon?: string;
   optional?: boolean;
   disabled?: boolean;
   error?: boolean;
   completed?: boolean;
 }
 
-export type StepperAnimationType = 'progress' | 'fade' | 'slide' | 'none';
+export type StepperAnimationType = 'progress' | 'fade' | 'slide' | 'scale' | 'none';
 
 export interface StepperProps {
   steps: StepperStep[];
@@ -58,7 +58,7 @@ export interface StepperProps {
   animationType?: StepperAnimationType;
   animationDuration?: number;
   connectorAnimation?: boolean;
-  stepTransition?: 'slide' | 'fade' | 'scale';
+  stepTransition?: 'slide' | 'fade' | 'scale' | 'none';
   useHaptics?: boolean;
   animationConfig?: {
     duration?: number;
@@ -82,13 +82,16 @@ const StepConnector = ({
   connectorAnimation,
   progress,
 }: any) => {
-  const animatedConnectorStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolate(
+  const animatedConnectorStyle = useAnimatedStyle(() => {
+    const backgroundColor = interpolate(
       progress.value,
       [0, 1],
-      [theme.border, theme.success || theme.primary]
-    ),
-  }));
+      [0, 1]
+    );
+    return {
+      backgroundColor: backgroundColor === 0 ? theme.border : (theme.success || theme.primary),
+    };
+  });
   
   if (isLast) return null;
 
@@ -112,12 +115,10 @@ const StepConnector = ({
 
   return (
     <ConnectorComponent 
-      style={[
-        connectorStyle,
-        animated && isAnimated && shouldAnimate() && connectorAnimation
-          ? animatedConnectorStyle
-          : {},
-      ]} 
+      style={animated && isAnimated && shouldAnimate() && connectorAnimation
+        ? animatedConnectorStyle
+        : connectorStyle
+      } 
     />
   );
 };
@@ -206,7 +207,7 @@ const StepIcon = ({
   } else if (step.icon) {
     iconContent = (
       <Symbol
-        name="step.icon"
+        name={step.icon as any}
         size={iconSize * 0.6}
         color={status === 'active' ? theme.background : iconColor}
       />
@@ -271,7 +272,6 @@ export const Stepper = React.forwardRef<View, StepperProps>(
     // Get animation config
     const { config, isAnimated } = useAnimationVariant({
       variant: animationVariant,
-      overrides: animationConfig,
     });
     
     const duration = animationDuration ?? config.duration.normal;
@@ -289,10 +289,10 @@ export const Stepper = React.forwardRef<View, StepperProps>(
     const progress8 = useSharedValue(0);
     const progress9 = useSharedValue(0);
     
-    const connectorProgress = [
+    const connectorProgress = React.useMemo(() => [
       progress0, progress1, progress2, progress3, progress4,
       progress5, progress6, progress7, progress8, progress9
-    ];
+    ], [progress0, progress1, progress2, progress3, progress4, progress5, progress6, progress7, progress8, progress9]);
     
     // Content transition animation
     const contentOpacity = useSharedValue(1);
@@ -352,7 +352,7 @@ export const Stepper = React.forwardRef<View, StepperProps>(
         canNavigateToStep(stepIndex)
       ) {
         if (useHaptics) {
-          haptic('impact');
+          haptic('medium');
         }
         onStepChange(stepIndex);
       }
@@ -460,7 +460,7 @@ export const Stepper = React.forwardRef<View, StepperProps>(
             {variant !== 'dots' && (
               <View style={labelContainerStyle}>
                 <Text
-                  size={variant === 'compact' ? 'sm' : 'md'}
+                  size={variant === 'compact' ? 'sm' : 'base'}
                   weight={status === 'active' ? 'semibold' : 'medium'}
                   colorTheme={status === 'active' ? 'foreground' : 'mutedForeground'}
                   style={{ textAlign: orientation === 'horizontal' ? 'center' : 'left' }}
@@ -532,7 +532,7 @@ export const Stepper = React.forwardRef<View, StepperProps>(
           </Text>
 
           <Button
-            variant="solid"
+            variant="default"
             size="sm"
             onPress={handleNext}
             disabled={isLastStep || currentStep.disabled}

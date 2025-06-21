@@ -1,3 +1,4 @@
+import type { SpacingValue, ButtonVariant, BadgeVariant } from '@/types/components';
 import React from 'react';
 import { View, ScrollView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -13,6 +14,9 @@ import {
 } from '@/components/universal';
 import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/hooks/core/useSpacing';
+import { useHealthcareAccess } from '@/hooks/usePermissions';
+import { PermissionGuard } from '@/components/blocks/auth/PermissionGuard';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 interface PatientInfo {
   id: string;
@@ -58,6 +62,7 @@ const mockPatient: PatientInfo = {
 export default function PatientDetailsModal() {
   const { patientId } = useLocalSearchParams<{ patientId: string }>();
   const spacing = useSpacing();
+  const { canViewPatients } = useHealthcareAccess();
 
   // TODO: Fetch actual patient data based on patientId
   const patient = mockPatient;
@@ -67,8 +72,9 @@ export default function PatientDetailsModal() {
   };
 
   return (
-    <Container className="flex-1 bg-background">
-      <ScrollView
+    <PermissionGuard permission={PERMISSIONS.VIEW_PATIENTS}>
+      <Container className="flex-1 bg-background">
+        <ScrollView
         contentContainerStyle={{
           padding: spacing.md,
           paddingBottom: spacing.xl,
@@ -78,7 +84,7 @@ export default function PatientDetailsModal() {
           {/* Header */}
           <Stack spacing="sm" direction="row" align="center">
             <Avatar
-              size="lg"
+              size="default"
               fallback={patient.name.split(' ').map(n => n[0]).join('')}
             />
             <Stack spacing="xs" style={{ flex: 1 }}>
@@ -141,15 +147,15 @@ export default function PatientDetailsModal() {
                 </Stack>
                 <Stack direction="row" justify="between">
                   <Text variant="body">Heart Rate</Text>
-                  <Badge variant="secondary">{patient.vitals.heartRate} bpm</Badge>
+                  <Badge variant="secondary">{`${patient.vitals.heartRate} bpm`}</Badge>
                 </Stack>
                 <Stack direction="row" justify="between">
                   <Text variant="body">Temperature</Text>
-                  <Badge variant="secondary">{patient.vitals.temperature}°F</Badge>
+                  <Badge variant="secondary">{`${patient.vitals.temperature}°F`}</Badge>
                 </Stack>
                 <Stack direction="row" justify="between">
                   <Text variant="body">Oxygen Level</Text>
-                  <Badge variant="secondary">{patient.vitals.oxygenLevel}%</Badge>
+                  <Badge variant="secondary">{`${patient.vitals.oxygenLevel}%`}</Badge>
                 </Stack>
               </Stack>
             </Stack>
@@ -161,7 +167,7 @@ export default function PatientDetailsModal() {
               <Text variant="h4">Allergies</Text>
               <Stack direction="row" spacing="sm" style={{ flexWrap: 'wrap' }}>
                 {patient.allergies.map((allergy, index) => (
-                  <Badge key={index} variant="destructive">
+                  <Badge key={index} variant="error">
                     {allergy}
                   </Badge>
                 ))}
@@ -187,7 +193,7 @@ export default function PatientDetailsModal() {
           <Stack spacing="sm">
             <Button variant="default" onPress={() => {
               // TODO: Navigate to edit patient screen
-// TODO: Replace with structured logging - console.log('Edit patient');
+// TODO: Replace with structured logging - /* console.log('Edit patient') */;
             }}>
               Update Patient Information
             </Button>
@@ -198,5 +204,6 @@ export default function PatientDetailsModal() {
         </Stack>
       </ScrollView>
     </Container>
+    </PermissionGuard>
   );
 }

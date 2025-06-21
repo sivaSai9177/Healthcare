@@ -18,24 +18,10 @@ import {
 import { useTheme } from '@/lib/theme/provider';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { format } from 'date-fns';
+import { api } from '@/lib/api/trpc';
+import { AlertTimeline, EscalationTimeline } from '@/components/blocks/healthcare';
+import { log } from '@/lib/core/debug/logger';
 
-interface AlertEvent {
-  id: string;
-  timestamp: Date;
-  type: 'created' | 'acknowledged' | 'escalated' | 'resolved' | 'note_added';
-  user: {
-    id: string;
-    name: string;
-    role: string;
-    avatar?: string;
-  };
-  description: string;
-  metadata?: {
-    tier?: number;
-    note?: string;
-    responseTime?: number;
-  };
-}
 
 export default function AlertDetailsModal() {
   const { alertId } = useLocalSearchParams<{ alertId: string }>();
@@ -74,19 +60,19 @@ export default function AlertDetailsModal() {
     nextEscalation: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
   };
 
-  // Mock timeline events
-  const timeline: AlertEvent[] = [
+  // Mock timeline events for EscalationTimeline
+  const timeline = [
     {
       id: '1',
       timestamp: alert.createdAt,
-      type: 'created',
+      type: 'created' as const,
       user: alert.createdBy,
       description: 'Alert created',
     },
     {
       id: '2',
       timestamp: new Date(Date.now() - 12 * 60 * 1000),
-      type: 'acknowledged',
+      type: 'acknowledged' as const,
       user: {
         id: 'U002',
         name: 'Dr. Michael Chen',
@@ -132,7 +118,7 @@ export default function AlertDetailsModal() {
 
   const handleResolve = () => {
     // TODO: Implement resolve action
-// TODO: Replace with structured logging - console.log('Resolve alert:', alert.id);
+    log.info('Resolve alert requested', 'ALERT_DETAILS', { alertId: alert.id });
   };
 
   const getEventIcon = (type: AlertEvent['type']) => {
@@ -172,7 +158,7 @@ export default function AlertDetailsModal() {
   return (
     <Container style={{ flex: 1 }}>
       <ScrollView
-        contentContainerStyle={{ padding: spacing.md }}
+        contentContainerStyle={{ padding: spacing.md , paddingBottom: 20 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -184,7 +170,7 @@ export default function AlertDetailsModal() {
               <HStack justify="between" align="start">
                 <VStack spacing="xs" style={{ flex: 1 }}>
                   <HStack spacing="sm" align="center">
-                    <Badge variant="destructive">
+                    <Badge variant="error">
                       Level {alert.urgency} - {alert.type}
                     </Badge>
                     {alert.status === 'active' && (
@@ -235,15 +221,15 @@ export default function AlertDetailsModal() {
               {/* Alert Stats */}
               <HStack spacing="xl" justify="around">
                 <VStack spacing="xs" align="center">
-                  <Text size="lg" weight="bold">{alert.acknowledgments}</Text>
+                  <Text size="default" weight="bold">{alert.acknowledgments}</Text>
                   <Text size="xs" color="muted">Acknowledged</Text>
                 </VStack>
                 <VStack spacing="xs" align="center">
-                  <Text size="lg" weight="bold">Tier {alert.escalationTier}</Text>
+                  <Text size="default" weight="bold">Tier {alert.escalationTier}</Text>
                   <Text size="xs" color="muted">Escalation</Text>
                 </VStack>
                 <VStack spacing="xs" align="center">
-                  <Text size="lg" weight="bold">
+                  <Text size="default" weight="bold">
                     {Math.floor((Date.now() - alert.createdAt.getTime()) / 60000)}m
                   </Text>
                   <Text size="xs" color="muted">Duration</Text>
@@ -257,7 +243,7 @@ export default function AlertDetailsModal() {
             <Button
               onPress={handleAcknowledge}
               style={{ flex: 1 }}
-              size="lg"
+              size="default"
             >
               Acknowledge
             </Button>
@@ -265,80 +251,38 @@ export default function AlertDetailsModal() {
               onPress={handleResolve}
               variant="secondary"
               style={{ flex: 1 }}
-              size="lg"
+              size="default"
             >
               Resolve
             </Button>
           </HStack>
 
-          {/* Timeline */}
-          <Card>
-            <Stack spacing="md">
-              <Text size="lg" weight="semibold">Alert Timeline</Text>
-              <Separator />
-              
-              {timeline.map((event, index) => (
-                <View key={event.id}>
-                  <HStack spacing="md" align="start">
-                    <View style={{ paddingTop: spacing.xs }}>
-                      <Symbol
-                        name={getEventIcon(event.type)}
-                        size={20}
-                        color={getEventColor(event.type)}
-                      />
-                    </View>
-                    
-                    <VStack spacing="xs" style={{ flex: 1 }}>
-                      <HStack justify="between">
-                        <Text size="sm" weight="medium">
-                          {event.description}
-                        </Text>
-                        <Text size="xs" color="muted">
-                          {format(event.timestamp, 'HH:mm:ss')}
-                        </Text>
-                      </HStack>
-                      
-                      <HStack spacing="sm" align="center">
-                        <Text size="xs" color="muted">
-                          by {event.user.name} • {event.user.role}
-                        </Text>
-                        {event.metadata?.responseTime && (
-                          <Badge variant="outline" size="sm">
-                            {Math.floor(event.metadata.responseTime / 60)}m response
-                          </Badge>
-                        )}
-                      </HStack>
-                      
-                      {event.metadata?.note && (
-                        <Box
-                          style={{
-                            padding: spacing.sm,
-                            backgroundColor: theme.muted,
-                            borderRadius: spacing.xs,
-                            marginTop: spacing.xs,
-                          }}
-                        >
-                          <Text size="sm">{event.metadata.note}</Text>
-                        </Box>
-                      )}
-                    </VStack>
-                  </HStack>
-                  
-                  {index < timeline.length - 1 && (
-                    <View
-                      style={{
-                        marginLeft: 10,
-                        marginVertical: spacing.xs,
-                        width: 1,
-                        height: spacing.lg,
-                        backgroundColor: theme.border,
-                      }}
-                    />
-                  )}
-                </View>
-              ))}
-            </Stack>
-          </Card>
+          {/* Escalation Timeline */}
+          <EscalationTimeline 
+            alert={{
+              id: alert.id,
+              urgency: alert.urgency === 1 ? 'critical' : alert.urgency === 2 ? 'high' : 'medium',
+              status: alert.status,
+              createdAt: alert.createdAt.toISOString(),
+              createdByName: alert.createdBy.name,
+              createdByRole: alert.createdBy.role,
+              escalationLevel: alert.escalationTier,
+              acknowledgedAt: timeline.find(e => e.type === 'acknowledged')?.timestamp.toISOString(),
+              acknowledgedByName: timeline.find(e => e.type === 'acknowledged')?.user.name,
+              acknowledgedByRole: timeline.find(e => e.type === 'acknowledged')?.user.role,
+            }}
+            escalations={timeline
+              .filter(e => e.type === 'escalated')
+              .map(e => ({
+                id: e.id,
+                alertId: alert.id,
+                escalationLevel: e.metadata?.tier || 1,
+                escalatedAt: e.timestamp.toISOString(),
+                escalatedByName: e.user.name,
+                escalatedByRole: e.user.role,
+                reason: e.metadata?.note,
+              }))}
+          />
 
           {/* Created By */}
           <Card>
@@ -346,7 +290,7 @@ export default function AlertDetailsModal() {
               <Avatar
                 source={undefined}
                 fallback={alert.createdBy.name.charAt(0)}
-                size="md"
+                size="default"
               />
               <VStack spacing="xs" style={{ flex: 1 }}>
                 <Text size="sm" weight="medium">Created by</Text>

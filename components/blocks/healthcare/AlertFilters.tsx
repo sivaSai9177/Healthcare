@@ -4,11 +4,7 @@ import { HStack } from '@/components/universal/layout';
 import { Input, Select } from '@/components/universal/form';
 import { Button } from '@/components/universal/interaction';
 import { Text } from '@/components/universal/typography';
-import { 
-  Search, 
-  Filter,
-  X,
-} from '@/components/universal/display/Symbols';
+import { Symbol } from '@/components/universal/display/Symbols';
 import { SpacingScale } from '@/lib/design';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useResponsive } from '@/hooks/responsive';
@@ -56,7 +52,7 @@ export function AlertFilters({
             placeholder="Search by room or description..."
             value={searchQuery}
             onChangeText={onSearchChange}
-            leftIcon={<Search size={20} />}
+            leftIcon={<Symbol name="magnifyingglass" size={20} />}
           />
         </View>
         
@@ -115,7 +111,7 @@ export function AlertFilters({
             size="sm"
             onPress={onReset}
           >
-            <X size={16} />
+            <Symbol name="xmark" size={16} />
             <Text>Clear</Text>
           </Button>
         )}

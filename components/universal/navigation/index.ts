@@ -5,7 +5,7 @@ export {
   SimpleBreadcrumb,
   IconBreadcrumbItem
 } from './Breadcrumb';
-export { UniversalLink as Link, TextLink } from './Link';
+export { UniversalLink as Link } from './Link';
 export { Navbar } from './Navbar';
 export { NavigationMenu } from './NavigationMenu';
 export { Pagination } from './Pagination';
@@ -27,7 +27,7 @@ export {
   SidebarGroup,
   SidebarGroupLabel,
   NavMain,
-  UserProfile,
+  NavUser,
   TeamSwitcher as UniversalTeamSwitcher,
   useSidebar
 } from './Sidebar';

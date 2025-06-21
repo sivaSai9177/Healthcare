@@ -1,0 +1,60 @@
+# WebSocket Server Dockerfile
+# Simple setup using Bun with JavaScript fallback
+
+FROM oven/bun:1 AS base
+WORKDIR /app
+
+# Dependencies stage
+FROM base AS deps
+COPY package.json bun.lockb* ./
+RUN bun install --frozen-lockfile --production
+
+# Development dependencies stage
+FROM base AS dev-deps
+COPY package.json bun.lockb* ./
+RUN bun install --frozen-lockfile
+
+# Production stage
+FROM base AS production
+ENV NODE_ENV=production
+
+# Copy production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy source files
+COPY src ./src
+COPY lib ./lib
+COPY types ./types
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Switch to non-root user
+USER nodejs
+
+# Expose WebSocket port
+EXPOSE 3002
+
+# No health check for WebSocket server (uses TCP connection)
+
+# Start the WebSocket server directly with bun (try JS first, fallback to TS)
+CMD ["sh", "-c", "bun run src/server/websocket/start.js || bun run src/server/websocket/start.ts"]
+
+# Development stage with hot reload
+FROM base AS development
+ENV NODE_ENV=development
+
+# Copy all dependencies
+COPY --from=dev-deps /app/node_modules ./node_modules
+
+# Copy all source files
+COPY . .
+
+# Expose port
+EXPOSE 3002
+
+# No health check for WebSocket server (uses TCP connection)
+
+# Start with hot reload using bun (try JS first, fallback to TS)
+CMD ["sh", "-c", "bun --hot src/server/websocket/start.js || bun --hot src/server/websocket/start.ts"]

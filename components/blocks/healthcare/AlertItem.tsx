@@ -62,7 +62,7 @@ export const AlertItem: React.FC<AlertItemProps> = ({
   };
   
   const handleViewDetails = () => {
-    router.push(`/(healthcare)/alert-details?id=${alert.id}`);
+    router.push(`/(modals)/alert-details?id=${alert.id}`);
   };
   
   return (

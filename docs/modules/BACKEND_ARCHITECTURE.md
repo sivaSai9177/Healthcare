@@ -2,612 +2,487 @@
 
 ## Overview
 
-The Hospital Alert System backend is built with modern TypeScript technologies, focusing on type safety, real-time capabilities, and scalability. This document outlines the complete backend architecture, API design, and implementation details.
+The Hospital Alert System backend is built using Expo's built-in API routes with tRPC v11, providing type-safe APIs without a separate Node.js server. The architecture focuses on type safety, real-time capabilities, and seamless integration with React Native.
 
 ## Tech Stack
 
 ### Core Technologies
-- **Runtime**: Node.js with Bun (for development)
-- **Framework**: Express.js
-- **API Layer**: tRPC v10 (type-safe APIs)
-- **Database**: PostgreSQL
+- **Runtime**: Expo API Routes (no separate Node.js server)
+- **API Layer**: tRPC v11 (type-safe APIs)
+- **Database**: PostgreSQL (local Docker / Neon for production)
 - **ORM**: Drizzle ORM
-- **Authentication**: Better Auth
-- **Real-time**: WebSocket with tRPC subscriptions
+- **Authentication**: Better Auth v1.2.8
+- **Real-time**: WebSocket server (Docker container)
 - **Validation**: Zod schemas
-- **Background Jobs**: Bull (Redis-based)
+- **Caching**: Redis (Docker container)
 
 ### Infrastructure
-- **Hosting**: Vercel (serverless functions)
-- **Database**: Neon (serverless Postgres)
-- **Cache**: Redis (for sessions and queues)
-- **File Storage**: Local (MVP), S3 (production ready)
-- **Monitoring**: Console logging (MVP)
+- **Development**: Expo Dev Server (port 8081)
+- **Database**: PostgreSQL in Docker
+- **WebSocket**: Standalone server in Docker (port 3002)
+- **Redis**: Docker container for sessions/caching
+- **Email Service**: Docker container (development)
 
 ## Architecture Overview
 
 ```
-server/
-├── routers/              # tRPC routers (API endpoints)
-│   ├── auth.ts          # Authentication endpoints
-│   ├── user.ts          # User management
-│   ├── organization.ts  # Organization CRUD
-│   ├── healthcare.ts    # Healthcare-specific APIs
-│   └── notifications.ts # Notification management
-├── services/            # Business logic layer
-│   ├── auth/           # Authentication services
-│   ├── healthcare/     # Healthcare domain logic
-│   ├── notifications/  # Push notification service
-│   ├── websocket/      # Real-time communication
-│   └── email/          # Email service
-├── db/                  # Database layer
-│   ├── schema.ts       # Drizzle schema definitions
-│   ├── migrations/     # Database migrations
-│   └── seed.ts         # Seed data
-├── middleware/         # Express middleware
-│   ├── auth.ts        # Authentication middleware
-│   ├── cors.ts        # CORS configuration
-│   └── rateLimit.ts   # Rate limiting
-└── utils/             # Utility functions
-    ├── validation.ts  # Input validation
-    ├── errors.ts      # Error handling
-    └── logger.ts      # Logging utilities
+app/
+├── api/                     # Expo API Routes
+│   ├── trpc/
+│   │   └── [trpc]+api.ts   # tRPC handler endpoint
+│   └── auth/
+│       └── [...auth]+api.ts # Better Auth handler
+│
+src/server/
+├── routers/                 # tRPC routers (API endpoints)
+│   ├── index.ts            # Root router combining all routers
+│   ├── auth.ts             # Authentication endpoints
+│   ├── healthcare.ts       # Healthcare-specific APIs
+│   ├── organization.ts     # Organization management
+│   ├── user.ts             # User profile management
+│   ├── patient.ts          # Patient management
+│   ├── admin.ts            # Admin operations
+│   ├── notification.ts     # Push notifications
+│   └── system.ts           # System health/config
+│
+├── services/               # Business logic layer
+│   ├── alert-subscriptions.ts  # Real-time alert handling
+│   ├── escalation-timer.ts     # Alert escalation logic
+│   ├── notifications.ts        # Multi-channel notifications
+│   └── server-startup.ts       # Service initialization
+│
+├── middleware/             # tRPC middleware
+│   └── rate-limiter.ts    # Rate limiting per operation
+│
+├── websocket/             # WebSocket server (separate)
+│   └── server.ts          # Socket.io implementation
+│
+└── trpc.ts               # tRPC context and setup
 ```
 
 ## Database Schema
 
 ### Core Tables
 
-#### Users
+#### Users (Better Auth)
 ```sql
 CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id TEXT PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
   name VARCHAR(255),
   image TEXT,
-  emailVerified TIMESTAMP,
-  role VARCHAR(50) DEFAULT 'user',
+  emailVerified BOOLEAN DEFAULT FALSE,
   createdAt TIMESTAMP DEFAULT NOW(),
   updatedAt TIMESTAMP DEFAULT NOW()
 );
-```
 
-#### Healthcare Users
-```sql
-CREATE TABLE healthcare_users (
-  userId UUID PRIMARY KEY REFERENCES users(id),
-  role VARCHAR(50) NOT NULL, -- operator, nurse, doctor, head_doctor
-  hospitalId UUID REFERENCES hospitals(id),
-  department VARCHAR(100),
-  licenseNumber VARCHAR(50),
-  isOnDuty BOOLEAN DEFAULT false,
-  shiftStartTime TIME,
-  shiftEndTime TIME
+CREATE TABLE sessions (
+  id TEXT PRIMARY KEY,
+  userId TEXT REFERENCES users(id),
+  expiresAt TIMESTAMP NOT NULL,
+  token TEXT UNIQUE NOT NULL,
+  ipAddress TEXT,
+  userAgent TEXT
+);
+
+CREATE TABLE accounts (
+  id TEXT PRIMARY KEY,
+  userId TEXT REFERENCES users(id),
+  accountId TEXT NOT NULL,
+  providerId TEXT NOT NULL,
+  accessToken TEXT,
+  refreshToken TEXT,
+  expiresAt TIMESTAMP,
+  scope TEXT
 );
 ```
 
-#### Alerts
+#### Healthcare Domain
 ```sql
+CREATE TABLE healthcare_users (
+  userId TEXT PRIMARY KEY REFERENCES users(id),
+  role VARCHAR(50) NOT NULL, -- operator, nurse, doctor, manager, admin
+  hospitalId UUID REFERENCES hospitals(id),
+  organizationId UUID REFERENCES organizations(id),
+  department VARCHAR(100),
+  licenseNumber VARCHAR(50),
+  specialization VARCHAR(100),
+  phoneNumber VARCHAR(20),
+  isOnDuty BOOLEAN DEFAULT FALSE,
+  shiftStartedAt TIMESTAMP
+);
+
+CREATE TABLE hospitals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organizationId UUID REFERENCES organizations(id),
+  name VARCHAR(255) NOT NULL,
+  address TEXT,
+  phone VARCHAR(20),
+  isDefault BOOLEAN DEFAULT FALSE,
+  createdAt TIMESTAMP DEFAULT NOW()
+);
+
 CREATE TABLE alerts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hospitalId UUID REFERENCES hospitals(id),
   roomNumber VARCHAR(50) NOT NULL,
   alertType VARCHAR(50) NOT NULL,
-  urgencyLevel INTEGER NOT NULL, -- 1-5
+  urgencyLevel INTEGER NOT NULL CHECK (urgencyLevel BETWEEN 1 AND 5),
   description TEXT,
   status VARCHAR(50) DEFAULT 'active',
-  createdBy UUID REFERENCES users(id),
+  patientId UUID REFERENCES patients(id),
+  createdBy TEXT REFERENCES users(id),
   createdAt TIMESTAMP DEFAULT NOW(),
-  escalationLevel INTEGER DEFAULT 0,
-  escalatedAt TIMESTAMP
+  resolvedAt TIMESTAMP,
+  resolution TEXT,
+  escalationTier INTEGER DEFAULT 1,
+  nextEscalationAt TIMESTAMP
 );
-```
 
-#### Alert Acknowledgments
-```sql
 CREATE TABLE alert_acknowledgments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   alertId UUID REFERENCES alerts(id),
-  userId UUID REFERENCES users(id),
-  acknowledgedAt TIMESTAMP DEFAULT NOW(),
-  responseTime INTEGER, -- seconds
-  notes TEXT
+  userId TEXT REFERENCES users(id),
+  notes TEXT,
+  acknowledgedAt TIMESTAMP DEFAULT NOW()
 );
 ```
 
-### Relationships
-- Users → Healthcare Users (1:1)
-- Hospitals → Healthcare Users (1:N)
-- Hospitals → Alerts (1:N)
-- Alerts → Acknowledgments (1:N)
-- Users → Acknowledgments (1:N)
+## API Layer (tRPC)
 
-## API Design
-
-### tRPC Router Structure
-
-#### Authentication Router
-```typescript
-export const authRouter = router({
-  // Mutations
-  register: publicProcedure
-    .input(z.object({
-      email: z.string().email(),
-      password: z.string().min(8),
-      name: z.string(),
-    }))
-    .mutation(async ({ input }) => {
-      // Registration logic
-    }),
-    
-  login: publicProcedure
-    .input(z.object({
-      email: z.string().email(),
-      password: z.string(),
-    }))
-    .mutation(async ({ input }) => {
-      // Login logic
-    }),
-    
-  // Queries
-  me: protectedProcedure
-    .query(async ({ ctx }) => {
-      return ctx.user;
-    }),
+### Router Structure
+```ts
+// src/server/routers/index.ts
+export const appRouter = router({
+  auth: authRouter,
+  healthcare: healthcareRouter,
+  organization: organizationRouter,
+  user: userRouter,
+  patient: patientRouter,
+  admin: adminRouter,
+  notification: notificationRouter,
+  system: systemRouter,
 });
+
+export type AppRouter = typeof appRouter;
 ```
 
-#### Healthcare Router
-```typescript
-export const healthcareRouter = router({
-  // Alert Management
-  createAlert: protectedProcedure
-    .input(z.object({
-      roomNumber: z.string(),
-      alertType: z.enum(['cardiac_arrest', 'code_blue', 'fire', 'security', 'medical_emergency']),
-      urgencyLevel: z.number().min(1).max(5),
-      description: z.string().optional(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      // Create alert
-      // Send notifications
-      // Start escalation timer
-    }),
-    
-  acknowledgeAlert: protectedProcedure
-    .input(z.object({
-      alertId: z.string(),
-      notes: z.string().optional(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      // Record acknowledgment
-      // Update alert status
-      // Cancel escalation
-    }),
-    
-  // Queries
-  getActiveAlerts: protectedProcedure
-    .input(z.object({
-      hospitalId: z.string(),
-      role: z.string().optional(),
-    }))
-    .query(async ({ input }) => {
-      // Return filtered alerts
-    }),
-    
-  // Subscriptions
-  onAlertUpdate: protectedProcedure
-    .input(z.object({
-      hospitalId: z.string(),
-    }))
-    .subscription(async ({ input }) => {
-      // Real-time alert updates
-    }),
-});
-```
+### Context & Authentication
+```ts
+// src/server/trpc.ts
+export async function createContext(req: Request) {
+  const authRequest = auth.api.getSession({
+    headers: req.headers,
+  });
 
-### API Endpoints
+  const session = await authRequest;
+  
+  // Get hospital context if user is authenticated
+  let hospitalContext = null;
+  if (session?.user) {
+    hospitalContext = await getHospitalContext(session.user.id);
+  }
 
-#### Authentication
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `GET /api/auth/me` - Get current user
-- `POST /api/auth/refresh` - Refresh token
-
-#### User Management
-- `GET /api/users/:id` - Get user profile
-- `PATCH /api/users/:id` - Update user profile
-- `POST /api/users/complete-profile` - Complete onboarding
-
-#### Healthcare Operations
-- `POST /api/alerts` - Create new alert
-- `GET /api/alerts` - List alerts (filtered)
-- `GET /api/alerts/:id` - Get alert details
-- `POST /api/alerts/:id/acknowledge` - Acknowledge alert
-- `POST /api/alerts/:id/resolve` - Resolve alert
-- `GET /api/alerts/:id/timeline` - Get alert timeline
-
-#### Real-time Subscriptions
-- `WS /api/alerts/subscribe` - Subscribe to alert updates
-- `WS /api/alerts/:id/subscribe` - Subscribe to specific alert
-
-## Authentication & Authorization
-
-### Authentication Flow
-1. **Registration**
-   - Email/password validation
-   - Create user account
-   - Send verification email
-   - Create session
-
-2. **Login**
-   - Validate credentials
-   - Check email verification
-   - Create session token
-   - Return user data
-
-3. **Session Management**
-   - JWT tokens with refresh
-   - 8-hour access token
-   - 30-day refresh token
-   - Secure httpOnly cookies
-
-### Authorization Levels
-```typescript
-const permissions = {
-  operator: ['create_alert', 'view_alerts'],
-  nurse: ['view_alerts', 'acknowledge_alerts'],
-  doctor: ['view_alerts', 'acknowledge_alerts', 'resolve_alerts'],
-  head_doctor: ['all_permissions'],
-  admin: ['system_admin'],
-};
-```
-
-### Middleware Implementation
-```typescript
-export const requireRole = (roles: string[]) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    const user = req.user;
-    if (!user || !roles.includes(user.role)) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
-    }
-    next();
+  return {
+    req,
+    user: session?.user || null,
+    session,
+    hospitalContext,
   };
-};
+}
 ```
 
-## Real-time Communication
+### Protected Procedures
+```ts
+// Role-based access control
+export const protectedProcedure = t.procedure.use(isAuthed);
 
-### WebSocket Server
-```typescript
-const wss = new WebSocketServer({
-  server: httpServer,
-  path: '/ws',
-});
+export const operatorProcedure = protectedProcedure.use(
+  hasPermission('create_alerts')
+);
 
-wss.on('connection', (ws, req) => {
-  // Authenticate connection
-  const token = extractToken(req);
-  const user = await validateToken(token);
-  
-  // Subscribe to user's hospital alerts
-  subscribeToAlerts(ws, user.hospitalId);
-  
-  // Handle incoming messages
-  ws.on('message', (data) => {
-    handleWebSocketMessage(ws, data, user);
+export const healthcareProcedure = protectedProcedure.use(
+  hasRole(['doctor', 'nurse', 'admin'])
+);
+
+export const adminProcedure = protectedProcedure.use(
+  hasRole(['admin'])
+);
+```
+
+## Real-time Architecture
+
+### WebSocket Server (Docker)
+```ts
+// Runs separately in Docker container
+// Port: 3002
+// src/server/websocket/server.ts
+
+io.on('connection', (socket) => {
+  socket.on('auth', async ({ token }) => {
+    const user = await validateToken(token);
+    if (user) {
+      socket.join(`user:${user.id}`);
+      socket.join(`hospital:${user.hospitalId}`);
+    }
+  });
+
+  socket.on('subscribe:alerts', ({ hospitalId }) => {
+    socket.join(`hospital:${hospitalId}:alerts`);
   });
 });
 ```
 
-### Event Types
-```typescript
-enum WebSocketEvents {
-  ALERT_CREATED = 'alert.created',
-  ALERT_ACKNOWLEDGED = 'alert.acknowledged',
-  ALERT_ESCALATED = 'alert.escalated',
-  ALERT_RESOLVED = 'alert.resolved',
-  USER_STATUS_CHANGED = 'user.status_changed',
-}
+### Alert Broadcasting
+```ts
+// When alert is created
+io.to(`hospital:${hospitalId}:alerts`).emit('alert:new', alert);
+
+// When alert is acknowledged
+io.to(`hospital:${hospitalId}:alerts`).emit('alert:updated', alert);
+
+// When alert escalates
+io.to(`hospital:${hospitalId}:alerts`).emit('alert:escalated', {
+  alertId,
+  tier,
+  nextEscalationAt
+});
 ```
 
-## Business Logic Services
+## Service Layer
 
-### Alert Service
-```typescript
-class AlertService {
-  async createAlert(data: CreateAlertInput, userId: string) {
-    // 1. Validate input
-    // 2. Create alert record
-    // 3. Find on-duty staff
-    // 4. Send notifications
-    // 5. Start escalation timer
-    // 6. Log activity
-    return alert;
+### Alert Escalation Service
+```ts
+// Automatic escalation based on urgency
+const ESCALATION_TIMERS = {
+  5: [5, 10, 15],    // Critical: 5min intervals
+  4: [10, 20, 30],   // High: 10min intervals
+  3: [15, 30, 45],   // Medium: 15min intervals
+  2: [30, 60, 90],   // Low: 30min intervals
+  1: [60],           // Info: 60min only
+};
+
+// Background job checks every minute
+setInterval(async () => {
+  const alertsToEscalate = await getAlertsForEscalation();
+  for (const alert of alertsToEscalate) {
+    await escalateAlert(alert);
+    await notifyEscalation(alert);
   }
-  
-  async escalateAlert(alertId: string) {
-    // 1. Get current escalation level
-    // 2. Find next tier recipients
-    // 3. Send notifications
-    // 4. Update alert record
-    // 5. Schedule next escalation
-  }
-}
+}, 60000);
 ```
 
 ### Notification Service
-```typescript
-class NotificationService {
-  async sendAlertNotification(alert: Alert, recipients: User[]) {
-    const notifications = await Promise.allSettled([
-      this.sendPushNotifications(alert, recipients),
-      this.sendWebSocketNotifications(alert, recipients),
-      // Future: SMS, Email
-    ]);
-    
-    // Log notification results
-    await this.logNotificationResults(notifications);
-  }
+```ts
+// Multi-channel notifications
+export async function sendAlertNotification(alert: Alert) {
+  const recipients = await getAlertRecipients(alert);
   
-  private async sendPushNotifications(alert: Alert, users: User[]) {
-    const tokens = await this.getUserPushTokens(users);
-    return expo.sendPushNotificationsAsync(
-      tokens.map(token => ({
-        to: token,
-        title: `${alert.alertType} - Room ${alert.roomNumber}`,
-        body: alert.description,
-        data: { alertId: alert.id },
-        priority: 'high',
-        sound: 'default',
-      }))
-    );
-  }
+  await Promise.all([
+    // Push notifications
+    sendPushNotifications(recipients, alert),
+    
+    // Email notifications (if enabled)
+    sendEmailNotifications(recipients, alert),
+    
+    // In-app notifications
+    createInAppNotifications(recipients, alert),
+    
+    // WebSocket broadcast
+    broadcastToWebSocket(alert)
+  ]);
 }
 ```
 
-### Escalation Service
-```typescript
-class EscalationService {
-  private timers = new Map<string, NodeJS.Timeout>();
-  
-  startEscalation(alertId: string, level: number = 0) {
-    const timer = setTimeout(async () => {
-      await this.escalateAlert(alertId, level);
-    }, this.getEscalationDelay(level));
-    
-    this.timers.set(alertId, timer);
-  }
-  
-  cancelEscalation(alertId: string) {
-    const timer = this.timers.get(alertId);
-    if (timer) {
-      clearTimeout(timer);
-      this.timers.delete(alertId);
-    }
-  }
-  
-  private getEscalationDelay(level: number): number {
-    const delays = [3 * 60 * 1000, 5 * 60 * 1000, 10 * 60 * 1000];
-    return delays[level] || delays[delays.length - 1];
-  }
-}
+## Authentication Flow
+
+### Email/Password
 ```
+1. Client → POST /api/auth/sign-up
+2. Better Auth creates user
+3. Email verification sent
+4. User completes healthcare profile
+5. Session cookie set
+```
+
+### OAuth (Google/GitHub)
+```
+1. Client → GET /api/auth/sign-in/google
+2. Redirect to provider
+3. Callback → /api/auth/callback/google
+4. Better Auth creates/updates user
+5. Redirect to profile completion (if new)
+6. Session cookie set
+```
+
+### Session Management
+- Sessions stored in PostgreSQL
+- 7-day expiry with auto-refresh
+- Secure HTTP-only cookies
+- Hospital context loaded with session
 
 ## Error Handling
 
-### Error Types
-```typescript
-export class AppError extends Error {
-  constructor(
-    public statusCode: number,
-    public message: string,
-    public code?: string
-  ) {
-    super(message);
+### tRPC Error Codes
+```ts
+throw new TRPCError({
+  code: 'FORBIDDEN',
+  message: 'You do not have permission to perform this action',
+  cause: {
+    requiredPermission: 'create_alerts',
+    userPermissions: ctx.hospitalContext.permissions
   }
-}
-
-export class ValidationError extends AppError {
-  constructor(message: string, public errors: any[]) {
-    super(400, message, 'VALIDATION_ERROR');
-  }
-}
-
-export class AuthenticationError extends AppError {
-  constructor(message = 'Authentication required') {
-    super(401, message, 'AUTH_ERROR');
-  }
-}
-```
-
-### Global Error Handler
-```typescript
-export const errorHandler = (
-  err: Error,
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  if (err instanceof AppError) {
-    return res.status(err.statusCode).json({
-      error: {
-        message: err.message,
-        code: err.code,
-      },
-    });
-  }
-  
-  // Log unexpected errors
-  console.error('Unexpected error:', err);
-  
-  return res.status(500).json({
-    error: {
-      message: 'Internal server error',
-      code: 'INTERNAL_ERROR',
-    },
-  });
-};
-```
-
-## Security Measures
-
-### Input Validation
-- All inputs validated with Zod schemas
-- SQL injection prevention via parameterized queries
-- XSS prevention through output encoding
-
-### Authentication Security
-- Passwords hashed with bcrypt (10 rounds)
-- JWT secrets rotated regularly
-- Refresh tokens stored securely
-- Session invalidation on logout
-
-### API Security
-- Rate limiting per endpoint
-- CORS configuration for known origins
-- Request size limits
-- API versioning
-
-### Data Security
-- Sensitive data encrypted at rest
-- TLS/SSL for data in transit
-- Audit logs for all actions
-- PII data minimization
-
-## Performance Optimization
-
-### Database Optimization
-```sql
--- Indexes for common queries
-CREATE INDEX idx_alerts_hospital_status ON alerts(hospitalId, status);
-CREATE INDEX idx_alerts_created_at ON alerts(createdAt DESC);
-CREATE INDEX idx_acknowledgments_alert ON alert_acknowledgments(alertId);
-CREATE INDEX idx_healthcare_users_hospital ON healthcare_users(hospitalId);
-```
-
-### Caching Strategy
-```typescript
-// Redis caching for frequently accessed data
-const cache = {
-  async getHospitalStaff(hospitalId: string) {
-    const key = `staff:${hospitalId}`;
-    const cached = await redis.get(key);
-    if (cached) return JSON.parse(cached);
-    
-    const staff = await db.query.healthcareUsers.findMany({
-      where: eq(healthcareUsers.hospitalId, hospitalId),
-    });
-    
-    await redis.setex(key, 300, JSON.stringify(staff)); // 5 min cache
-    return staff;
-  },
-};
-```
-
-### Query Optimization
-- Use database views for complex queries
-- Implement pagination for list endpoints
-- Batch notifications for efficiency
-- Connection pooling for database
-
-## Monitoring & Logging
-
-### Logging Strategy
-```typescript
-const logger = {
-  info: (message: string, meta?: any) => {
-    console.log(JSON.stringify({ level: 'info', message, ...meta }));
-  },
-  error: (message: string, error?: Error, meta?: any) => {
-    console.error(JSON.stringify({ 
-      level: 'error', 
-      message, 
-      error: error?.stack,
-      ...meta 
-    }));
-  },
-};
-```
-
-### Metrics to Track
-- API response times
-- Alert acknowledgment times
-- Notification delivery rates
-- WebSocket connection counts
-- Error rates by endpoint
-
-## Testing Strategy
-
-### Unit Tests
-```typescript
-describe('AlertService', () => {
-  it('should create alert and send notifications', async () => {
-    const alert = await alertService.createAlert({
-      roomNumber: '101',
-      alertType: 'cardiac_arrest',
-      urgencyLevel: 5,
-    }, userId);
-    
-    expect(alert).toBeDefined();
-    expect(notificationService.send).toHaveBeenCalled();
-  });
 });
 ```
 
-### Integration Tests
-- Test API endpoints with real database
-- Test WebSocket connections
-- Test notification delivery
-- Test escalation timers
+### Global Error Handler
+```ts
+// In tRPC router setup
+onError: ({ error, type, path, input, ctx, req }) => {
+  logger.error('tRPC Error', {
+    code: error.code,
+    message: error.message,
+    type,
+    path,
+    userId: ctx?.user?.id
+  });
+}
+```
 
-### Load Testing
-- Simulate 1000 concurrent users
-- Test alert creation under load
-- Measure notification delivery times
-- Monitor database performance
+## Performance Optimizations
+
+### Database
+- Connection pooling with pg
+- Indexed queries on common filters
+- Prepared statements via Drizzle
+- Row-level security for multi-tenancy
+
+### Caching
+- Redis for session storage
+- Query result caching (5min TTL)
+- WebSocket connection state
+- Rate limit counters
+
+### API Optimizations
+- Batch queries with dataloader pattern
+- Pagination on all list endpoints
+- Selective field returns
+- Gzip compression
+
+## Security
+
+### Authentication
+- Better Auth v1.2.8 with latest security patches
+- Bcrypt password hashing (10 rounds)
+- JWT tokens for API access
+- Secure session cookies
+
+### Authorization
+- Role-based access control (RBAC)
+- Permission-based procedures
+- Hospital context validation
+- Organization isolation
+
+### Rate Limiting
+```ts
+// Per-operation limits
+const limits = {
+  'auth.signIn': { window: 60, max: 5 },
+  'auth.signUp': { window: 60, max: 3 },
+  'healthcare.createAlert': { window: 60, max: 30 },
+  'default': { window: 60, max: 100 }
+};
+```
+
+### Input Validation
+- Zod schemas for all inputs
+- SQL injection prevention via Drizzle
+- XSS protection on outputs
+- CORS configuration
 
 ## Deployment
 
-### Environment Variables
-```env
-# Database
-DATABASE_URL=postgresql://user:pass@host/db
-REDIS_URL=redis://localhost:6379
+### Development
+```bash
+# Start all services
+bun run local:healthcare
 
-# Auth
-JWT_SECRET=secret
-REFRESH_SECRET=refresh-secret
-
-# Services
-PUSH_NOTIFICATION_KEY=expo-key
-WEBSOCKET_PORT=3001
-
-# Environment
-NODE_ENV=production
+# This starts:
+# - Expo dev server (8081)
+# - PostgreSQL (5432)
+# - Redis (6379)
+# - WebSocket server (3002)
 ```
 
-### Deployment Process
-1. Run database migrations
-2. Build TypeScript code
-3. Deploy to Vercel
-4. Configure environment variables
-5. Verify health endpoints
-6. Monitor error rates
+### Production Considerations
+- Expo API routes deploy with app
+- PostgreSQL on Neon (serverless)
+- Redis on Upstash
+- WebSocket on dedicated server
+- Environment-based configuration
 
-## Future Enhancements
+## Monitoring
 
-### Planned Features
-1. **SMS/Email Notifications**: Integrate Twilio/SendGrid
-2. **Analytics Dashboard**: Real-time metrics
-3. **Multi-tenancy**: Support multiple hospitals
-4. **Offline Support**: Queue actions when offline
-5. **Advanced Scheduling**: Shift management
+### Logging
+```ts
+// Unified logger throughout
+logger.info('Alert created', {
+  alertId: alert.id,
+  hospitalId: alert.hospitalId,
+  urgency: alert.urgencyLevel,
+  userId: ctx.user.id
+});
+```
 
-### Scalability Considerations
-1. **Horizontal Scaling**: Add more server instances
-2. **Database Sharding**: Split by hospital
-3. **Message Queue**: Add RabbitMQ/Kafka
-4. **Microservices**: Split into smaller services
-5. **CDN**: Cache static assets
+### Metrics
+- API response times
+- Alert response times
+- Escalation rates
+- Error rates by endpoint
+
+### Health Checks
+```ts
+// GET /api/trpc/system.health
+{
+  status: 'healthy',
+  services: {
+    database: true,
+    redis: true,
+    websocket: true
+  },
+  timestamp: new Date()
+}
+```
+
+## Best Practices
+
+### Code Organization
+1. Routers contain only routing logic
+2. Business logic in service layer
+3. Database queries in dedicated functions
+4. Shared types in `/types` directory
+
+### Error Handling
+1. Use appropriate tRPC error codes
+2. Include helpful error messages
+3. Log errors with context
+4. Don't expose internal details
+
+### Performance
+1. Use pagination for lists
+2. Implement caching where appropriate
+3. Optimize database queries
+4. Monitor response times
+
+### Security
+1. Always validate inputs
+2. Use parameterized queries
+3. Implement rate limiting
+4. Follow principle of least privilege
+
+---
+
+For more details, see:
+- [API Documentation](../api/trpc-routes.md)
+- [Database Schema](../database/schema.md)
+- [Deployment Guide](../guides/deployment.md)

@@ -186,7 +186,7 @@ export function getDatabaseUrl(): string {
  */
 export function logEnvironment(): void {
   const config = getUnifiedEnvConfig();
-// TODO: Replace with structured logging - console.log('[UNIFIED ENV] Configuration:', {
+// TODO: Replace with structured logging - /* console.log('[UNIFIED ENV] Configuration:', {
     mode: config.mode,
     apiUrl: config.apiUrl,
     authUrl: config.authUrl,
@@ -194,5 +194,5 @@ export function logEnvironment(): void {
     isOAuthSafe: config.isOAuthSafe,
     platform: Platform.OS,
     isDev: __DEV__,
-  });
+  }) */;
 }

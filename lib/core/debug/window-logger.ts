@@ -84,12 +84,12 @@ export const windowDebugger = {
   // State management
   enable: () => {
     debugState.enabled = true;
-    console.log('🐛 Debug mode enabled');
+
   },
   
   disable: () => {
     debugState.enabled = false;
-    console.log('🐛 Debug mode disabled');
+
   },
   
   setLogLevel: (level: LogLevel | keyof typeof LogLevel) => {
@@ -98,40 +98,40 @@ export const windowDebugger = {
     } else {
       debugState.logLevel = level;
     }
-    console.log(`🐛 Log level set to ${LogLevel[debugState.logLevel]}`);
+
   },
   
   // Module management
   enableModule: (moduleName: string) => {
     debugState.enabledModules.add(moduleName);
-    console.log(`🐛 Enabled logging for module: ${moduleName}`);
+
   },
   
   disableModule: (moduleName: string) => {
     debugState.enabledModules.delete(moduleName);
-    console.log(`🐛 Disabled logging for module: ${moduleName}`);
+
   },
   
   enableAllModules: () => {
     debugState.enabledModules.clear();
     debugState.enabledModules.add('*');
-    console.log('🐛 Enabled logging for all modules');
+
   },
   
   disableAllModules: () => {
     debugState.enabledModules.clear();
-    console.log('🐛 Disabled logging for all modules');
+
   },
   
   listModules: () => {
     const modules = Array.from(moduleLoggers.keys());
-    console.log('🐛 Registered modules:', modules);
+
     return modules;
   },
   
   listEnabledModules: () => {
     const enabled = Array.from(debugState.enabledModules);
-    console.log('🐛 Enabled modules:', enabled);
+
     return enabled;
   },
   
@@ -142,12 +142,12 @@ export const windowDebugger = {
   
   clearHistory: () => {
     clearLogHistory();
-    console.log('🐛 Log history cleared');
+
   },
   
   exportHistory: () => {
     const logs = exportLogs();
-    console.log('🐛 Exporting log history...');
+
     return logs;
   },
   
@@ -169,40 +169,7 @@ export const windowDebugger = {
   
   // Print help
   help: () => {
-    console.log(`
-🐛 Debug Logger Help
-===================
 
-State Management:
-  .enable()              - Enable debug mode
-  .disable()             - Disable debug mode
-  .setLogLevel(level)    - Set log level (ERROR, WARN, INFO, DEBUG, TRACE)
-
-Module Management:
-  .enableModule(name)    - Enable logging for a specific module
-  .disableModule(name)   - Disable logging for a specific module
-  .enableAllModules()    - Enable logging for all modules
-  .disableAllModules()   - Disable logging for all modules
-  .listModules()         - List all registered modules
-  .listEnabledModules()  - List currently enabled modules
-
-Log History:
-  .getHistory(filter?)   - Get filtered log history
-  .clearHistory()        - Clear log history
-  .exportHistory()       - Export log history as text
-  .getErrors()           - Get only error logs
-  .getWarnings()         - Get only warning logs
-  .getModuleLogs(name)   - Get logs for a specific module
-
-Legacy Access:
-  .log                   - Access to base logger (auth, api, store)
-
-Examples:
-  window.debugger.enableModule('Auth')
-  window.debugger.getModuleLogs('Auth')
-  window.debugger.setLogLevel('DEBUG')
-  window.debugger.getErrors()
-    `);
   },
 };
 
@@ -213,8 +180,7 @@ if (Platform.OS === 'web' && (typeof window !== 'undefined')) {
     
     // Also expose individual module loggers for direct access
     (window as any).getLogger = getModuleLogger;
-    
-    console.log('🐛 Debug logger exposed to window. Type window.debugger.help() for usage.');
+
   }
 }
 

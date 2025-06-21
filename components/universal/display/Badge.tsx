@@ -150,7 +150,7 @@ export const Badge = React.forwardRef<View, BadgeProps>(({
   const scale = useSharedValue(1);
   const pulseScale = useSharedValue(1);
   const opacity = useSharedValue(1);
-  const [prevChildren, setPrevChildren] = React.useState(children);
+  const prevChildrenRef = React.useRef(children);
   
   // Animated styles - must be defined before conditionals
   const animatedStyle = useAnimatedStyle(() => ({
@@ -164,7 +164,7 @@ export const Badge = React.forwardRef<View, BadgeProps>(({
   
   // Trigger animation on content change
   useEffect(() => {
-    if (animateOnChange && prevChildren !== children && animated && isAnimated && shouldAnimate()) {
+    if (animateOnChange && prevChildrenRef.current !== children && animated && isAnimated && shouldAnimate()) {
       // Scale bounce animation
       scale.value = withSequence(
         withSpring(1.2, { ...config.spring, damping: 10 }),
@@ -176,8 +176,8 @@ export const Badge = React.forwardRef<View, BadgeProps>(({
         haptic('light');
       }
     }
-    setPrevChildren(children);
-  }, [children, animateOnChange, animated, isAnimated, shouldAnimate, useHaptics, config.spring, scale, prevChildren]);
+    prevChildrenRef.current = children;
+  }, [children, animateOnChange, animated, isAnimated, shouldAnimate, useHaptics, config.spring, scale]);
   
   // Pulse animation
   useEffect(() => {

@@ -196,7 +196,7 @@ export const RadarChart: React.FC<RadarChartProps> = ({
   }, [showLabels, data.labels, angleStep, centerX, centerY, radius, chartConfig]);
   
   return (
-    <View style={[{ width, height }, style]} testID={testID}>
+    <View style={[{ width, height }, style] as any} testID={testID}>
       <Svg width={width} height={height}>
         {/* Grid */}
         {gridLines}

@@ -9,7 +9,7 @@ export type { AuthClient } from './auth-client';
 export { sessionManager } from './auth-session-manager';
 
 // Server-side authentication (only for server/API routes)
-export { auth, withSecurityHeaders, sessionSecurity, sessionHooks } from './auth-server';
+export { auth } from './auth-server';
 export type { Auth } from './auth-server';
 
 // Security configuration

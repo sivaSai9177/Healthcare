@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { Alert, Platform } from 'react-native';
-import { Button } from '@/components/universal/interaction';
+import { Button, type ButtonProps } from '@/components/universal/interaction';
+import { Symbol } from '@/components/universal/display/Symbols';
 import { useAuth } from '@/hooks/useAuth';
 import { log } from '@/lib/core/debug/logger';
 import { haptic } from '@/lib/ui/haptics';
-import { MaterialIcons } from '@expo/vector-icons';
 
 export interface SignOutButtonProps extends Omit<ButtonProps, 'onPress'> {
   showConfirmation?: boolean;
@@ -92,7 +92,7 @@ export function SignOutButton({
       onPress={handlePress}
       isLoading={isLoading}
       isDisabled={!isAuthenticated || isLoading}
-      leftIcon={showIcon ? <MaterialIcons name="logout" size={18} /> : undefined}
+      leftIcon={showIcon ? <Symbol name="rectangle.portrait.and.arrow.right" size={18} /> : undefined}
       {...buttonProps}
     >
       {children}

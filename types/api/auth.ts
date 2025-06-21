@@ -1,7 +1,9 @@
 // Auth API types - specific to API layer
-import type { UserRole, CustomUser } from '../auth';
+import type { UserRole, ExtendedUser } from '../auth';
 
-export type { UserRole, CustomUser };
+export type CustomUser = ExtendedUser;
+
+export type { UserRole };
 
 // API-specific auth types
 export interface AuthResponse {

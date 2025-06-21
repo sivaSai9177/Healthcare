@@ -1,0 +1,127 @@
+{
+  "timestamp": "2025-06-19T08:59:26.118Z",
+  "totalTests": 17,
+  "passed": 2,
+  "failed": 15,
+  "results": [
+    {
+      "name": "Register doctor",
+      "category": "auth",
+      "status": "failure",
+      "duration": 28,
+      "error": "Registration failed: \"\""
+    },
+    {
+      "name": "Register nurse",
+      "category": "auth",
+      "status": "failure",
+      "duration": 13,
+      "error": "Registration failed: \"\""
+    },
+    {
+      "name": "Register admin",
+      "category": "auth",
+      "status": "failure",
+      "duration": 18,
+      "error": "Registration failed: \"\""
+    },
+    {
+      "name": "Login doctor",
+      "category": "auth",
+      "status": "failure",
+      "duration": 23,
+      "error": "Login failed: \"\""
+    },
+    {
+      "name": "Login nurse",
+      "category": "auth",
+      "status": "failure",
+      "duration": 21,
+      "error": "Login failed: \"\""
+    },
+    {
+      "name": "Login admin",
+      "category": "auth",
+      "status": "failure",
+      "duration": 15,
+      "error": "Login failed: \"\""
+    },
+    {
+      "name": "Validate session",
+      "category": "auth",
+      "status": "failure",
+      "duration": 139,
+      "error": "Invalid session data"
+    },
+    {
+      "name": "Get hospitals",
+      "category": "healthcare",
+      "status": "failure",
+      "duration": 36,
+      "error": "Failed to get hospitals"
+    },
+    {
+      "name": "Create alert",
+      "category": "healthcare",
+      "status": "failure",
+      "duration": 0,
+      "error": "No hospital available for alert creation"
+    },
+    {
+      "name": "Get active alerts",
+      "category": "healthcare",
+      "status": "failure",
+      "duration": 0,
+      "error": "No hospital available"
+    },
+    {
+      "name": "Toggle on duty",
+      "category": "healthcare",
+      "status": "failure",
+      "duration": 30,
+      "error": "Failed to toggle duty status"
+    },
+    {
+      "name": "Get on duty status",
+      "category": "healthcare",
+      "status": "failure",
+      "duration": 46,
+      "error": "Failed to get duty status"
+    },
+    {
+      "name": "Get user organizations",
+      "category": "organization",
+      "status": "failure",
+      "duration": 40,
+      "error": "Failed to get organizations"
+    },
+    {
+      "name": "Create organization",
+      "category": "organization",
+      "status": "failure",
+      "duration": 551,
+      "error": "Failed to create organization: {\"error\":{\"message\":\"Authentication required\",\"code\":-32001,\"data\":{\"code\":\"UNAUTHORIZED\",\"httpStatus\":401,\"stack\":\"TRPCError: Authentication required\\n    at middleware (/Users/sirigiri/Documents/coding-projects/my-expo/src/server/trpc.ts:207:11)\\n    at callRecursive (/Users/sirigiri/Documents/coding-projects/my-expo/node_modules/@trpc/server/dist/unstable-core-do-not-import/procedureBuilder.mjs:146:30)\\n    at next (/Users/sirigiri/Documents/coding-projects/my-expo/node_modules/@trpc/server/dist/unstable-core-do-not-import/procedureBuilder.mjs:152:24)\\n    at middleware (/Users/sirigiri/Documents/coding-projects/my-expo/src/server/trpc.ts:109:26)\\n    at callRecursive (/Users/sirigiri/Documents/coding-projects/my-expo/node_modules/@trpc/server/dist/unstable-core-do-not-import/procedureBuilder.mjs:146:30)\\n    at next (/Users/sirigiri/Documents/coding-projects/my-expo/node_modules/@trpc/server/dist/unstable-core-do-not-import/procedureBuilder.mjs:152:24)\\n    at middleware (/Users/sirigiri/Documents/coding-projects/my-expo/src/server/trpc.ts:87:26)\\n    at callRecursive (/Users/sirigiri/Documents/coding-projects/my-expo/node_modules/@trpc/server/dist/unstable-core-do-not-import/procedureBuilder.mjs:146:30)\\n    at next (/Users/sirigiri/Documents/coding-projects/my-expo/node_modules/@trpc/server/dist/unstable-core-do-not-import/procedureBuilder.mjs:152:24)\\n    at /Users/sirigiri/Documents/coding-projects/my-expo/src/server/trpc.ts:167:26\",\"path\":\"organization.create\"}}}"
+    },
+    {
+      "name": "WebSocket connection",
+      "category": "websocket",
+      "status": "failure",
+      "duration": 5016,
+      "error": "WebSocket connection timeout"
+    },
+    {
+      "name": "Invalid credentials",
+      "category": "errors",
+      "status": "success",
+      "duration": 18,
+      "error": null
+    },
+    {
+      "name": "Unauthorized access",
+      "category": "errors",
+      "status": "success",
+      "duration": 39,
+      "error": null
+    }
+  ]
+}

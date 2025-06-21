@@ -37,7 +37,7 @@ export default function ClearSession() {
       alert('Session cleared successfully!');
       
       // Redirect to login
-      router.replace('/(auth)/login');
+      router.replace('/auth/login' as any);
     } catch (error) {
       console.error('Error clearing session:', error);
       alert('Error clearing session');
@@ -56,7 +56,7 @@ export default function ClearSession() {
       </TouchableOpacity>
       
       <TouchableOpacity 
-        style={[styles.button, styles.secondaryButton]} 
+        style={[styles.button, styles.secondaryButton] as any} 
         onPress={() => router.back()}
       >
         <Text style={styles.buttonText}>Cancel</Text>

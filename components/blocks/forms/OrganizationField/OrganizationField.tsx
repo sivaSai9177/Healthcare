@@ -9,7 +9,6 @@ import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useShadow } from '@/hooks/useShadow';
 import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
-import { Platform } from 'react-native';
 import { useTheme } from '@/lib/theme/provider';
 
 interface OrganizationFieldProps {
@@ -28,9 +27,15 @@ export function OrganizationField({ form, role }: OrganizationFieldProps) {
     return null; // No organization field for guests
   }
 
-  if (role === 'user') {
+  // Healthcare roles (doctor, nurse, operator, head_doctor) and regular users
+  if (role === 'user' || role === 'doctor' || role === 'nurse' || role === 'operator' || role === 'head_doctor') {
     const organizationCode = form.watch('organizationCode');
-    const error = form.formState.errors.organizationCode?.message;
+    const errorObj = form.formState.errors.organizationCode;
+    const error = errorObj && typeof errorObj === 'object' && 'message' in errorObj 
+      ? errorObj.message 
+      : typeof errorObj === 'string' 
+      ? errorObj 
+      : undefined;
 
     return (
       <AnimatedView entering={FadeIn.springify()}>
@@ -42,7 +47,7 @@ export function OrganizationField({ form, role }: OrganizationFieldProps) {
             value={organizationCode || ''}
             onChangeText={(text) => form.setValue('organizationCode', text.toUpperCase(), { shouldValidate: true })}
             onBlur={() => form.trigger('organizationCode')}
-            error={error}
+            error={error as string | undefined}
             hint="Enter your organization's code to join their workspace"
             leftElement={<Building2 size={20} color={theme.mutedForeground} />}
             floatingLabel={false}
@@ -59,7 +64,9 @@ export function OrganizationField({ form, role }: OrganizationFieldProps) {
               <VStack gap={spacing[1] as any}>
                 <Info size={16} className="text-muted-foreground" />
                 <Text size="sm" colorTheme="mutedForeground">
-                  Don&apos;t have a code? No problem! You&apos;ll get your own personal workspace.
+                  {role === 'user' 
+                    ? "Don't have a code? No problem! You'll get your own personal workspace."
+                    : "Healthcare professionals can enter their organization code now or complete this step after registration."}
                 </Text>
               </VStack>
             </Card>
@@ -71,7 +78,12 @@ export function OrganizationField({ form, role }: OrganizationFieldProps) {
 
   if (role === 'manager' || role === 'admin') {
     const organizationName = form.watch('organizationName');
-    const error = form.formState.errors.organizationName?.message;
+    const errorObj = form.formState.errors.organizationName;
+    const error = errorObj && typeof errorObj === 'object' && 'message' in errorObj 
+      ? errorObj.message 
+      : typeof errorObj === 'string' 
+      ? errorObj 
+      : undefined;
 
     return (
       <AnimatedView entering={FadeIn.springify()} style={{ width: '100%' }}>
@@ -82,7 +94,7 @@ export function OrganizationField({ form, role }: OrganizationFieldProps) {
             value={organizationName || ''}
             onChangeText={(text) => form.setValue('organizationName', text, { shouldValidate: true })}
             onBlur={() => form.trigger('organizationName')}
-            error={error}
+            error={error as string | undefined}
             hint="This will create a new organization workspace"
             leftElement={<Building2 size={20} color={theme.mutedForeground} />}
             autoComplete="off"
@@ -99,7 +111,7 @@ export function OrganizationField({ form, role }: OrganizationFieldProps) {
               style={shadowSm}
             >
               <VStack gap={spacing[2] as any}>
-                <VStack gap={spacing[1] as any} align="start">
+                <VStack gap={spacing[1] as any} alignItems="flex-start">
                   <Sparkles size={20} className="text-accent animate-pulse" />
                   <Text size="sm" weight="semibold" className="text-accent-foreground">
                     Creating New Organization

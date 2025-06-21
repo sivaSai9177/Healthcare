@@ -17,7 +17,6 @@ import Animated, {
   FadeOut,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import { useSpacing } from '@/lib/stores/spacing-store';
 import { useSidebarStore } from '@/lib/stores/sidebar-store';
 import { Box } from '@/components/universal/layout/Box';
 import { VStack, HStack } from '@/components/universal/layout/Stack';
@@ -31,7 +30,6 @@ import { Symbol } from '@/components/universal/display/Symbols';
 import { SpacingScale } from '@/lib/design';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 import { haptic } from '@/lib/ui/haptics';
-import { useBreakpoint } from '@/hooks/responsive';
 import { cn } from '@/lib/core/utils';
 import { useTheme } from '@/lib/theme/provider';
 
@@ -44,12 +42,8 @@ export type SidebarAnimationType = 'slide' | 'fade' | 'none';
 export const useSidebar = () => {
   const {
     isOpen,
-    isMobileOpen,
     expandedGroups,
     setOpen,
-    toggleSidebar,
-    setMobileOpen,
-    toggleMobileSidebar,
     toggleGroup,
   } = useSidebarStore();
   
@@ -126,7 +120,7 @@ export const SidebarProvider: React.FC<SidebarProviderProps> = ({
   }, [defaultOpen, setOpen]);
 
   return (
-    <View className={cn("flex-1 flex-row", className)} style={style}>
+    <View className={cn("flex-1 flex-row", className) as string} style={style}>
       {children}
     </View>
   );
@@ -139,7 +133,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   defaultCollapsed = false,
   style,
 }) => {
-  const { spacing } = useSpacing();
   const { isCollapsed, isMobile, animated, animationType, animationDuration } = useSidebar();
   const { shouldAnimate } = useAnimationStore();
   const sidebarWidth = isCollapsed ? 60 : 280;
@@ -149,10 +142,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const contentOpacity = useSharedValue(defaultCollapsed ? 0 : 1);
   
   // Spring config
-  const springConfig = {
+  const springConfig = React.useMemo(() => ({
     damping: 20,
     stiffness: 300,
-  };
+  }), []);
 
   useEffect(() => {
     if (animated && shouldAnimate()) {
@@ -163,7 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         contentOpacity.value = withTiming(isCollapsed ? 0 : 1, { duration: animationDuration });
       }
     }
-  }, [isCollapsed, animated, shouldAnimate, animationType, animationDuration]);
+  }, [isCollapsed, animated, shouldAnimate, animationType, animationDuration, width, contentOpacity, springConfig]);
   
   const animatedStyle = useAnimatedStyle(() => ({
     width: animationType === 'slide' ? width.value : sidebarWidth,
@@ -213,7 +206,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
 // Sidebar Header
 export const SidebarHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { spacing } = useSpacing();
   return (
     <Box p={4 as SpacingScale} className="border-b border-border">
       {children}
@@ -234,7 +226,6 @@ export const SidebarContent: React.FC<{ children: React.ReactNode }> = ({ childr
 
 // Sidebar Footer
 export const SidebarFooter: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { spacing } = useSpacing();
   return (
     <Box p={4 as SpacingScale} className="border-t border-border">
       {children}
@@ -251,16 +242,16 @@ export const SidebarRail: React.FC = () => {
   const rotation = useSharedValue(isCollapsed ? 0 : 180);
   
   // Spring config
-  const springConfig = {
+  const springConfig = React.useMemo(() => ({
     damping: 20,
     stiffness: 300,
-  };
+  }), []);
   
   useEffect(() => {
     if (animated && shouldAnimate()) {
       rotation.value = withSpring(isCollapsed ? 0 : 180, springConfig);
     }
-  }, [isCollapsed, animated, shouldAnimate]);
+  }, [isCollapsed, animated, shouldAnimate, rotation, springConfig]);
   
   const animatedIconStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
@@ -281,7 +272,7 @@ export const SidebarRail: React.FC = () => {
           
           // Haptic feedback
           if (useHaptics && Platform.OS !== 'web') {
-            haptic('impact');
+            haptic('medium');
           }
           
           setIsCollapsed(!isCollapsed);
@@ -313,7 +304,7 @@ export const SidebarTrigger: React.FC<{ onPress?: () => void }> = ({ onPress }) 
   
   const handlePress = () => {
     if (useHaptics && Platform.OS !== 'web') {
-      haptic('impact');
+      haptic('medium');
     }
     
     if (onPress) {
@@ -347,10 +338,10 @@ const AnimatedChevron: React.FC<{ isOpen: boolean }> = ({ isOpen }) => {
   const { shouldAnimate } = useAnimationStore();
   
   // Spring config
-  const springConfig = {
+  const springConfig = React.useMemo(() => ({
     damping: 20,
     stiffness: 300,
-  };
+  }), []);
 
   useEffect(() => {
     if (animated && shouldAnimate()) {
@@ -358,7 +349,7 @@ const AnimatedChevron: React.FC<{ isOpen: boolean }> = ({ isOpen }) => {
     } else {
       rotation.value = isOpen ? 90 : 0;
     }
-  }, [isOpen, animated, shouldAnimate]);
+  }, [isOpen, animated, shouldAnimate, rotation, springConfig]);
   
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
@@ -387,13 +378,12 @@ interface NavMainProps {
 
 export const NavMain: React.FC<NavMainProps> = ({ items }) => {
   const router = useRouter();
-  const { spacing } = useSpacing();
   const { isCollapsed, openGroups, toggleGroup, useHaptics: useHapticsContext } = useSidebar();
 
   const handlePress = (item: SidebarNavItem) => {
     // Haptic feedback for navigation
     if (useHapticsContext && Platform.OS !== 'web') {
-      haptic('impact');
+      haptic('medium');
     }
     
     if (item.onPress) {
@@ -408,7 +398,7 @@ export const NavMain: React.FC<NavMainProps> = ({ items }) => {
   const NavItem: React.FC<{ item: SidebarNavItem; level?: number; index?: number }> = ({ item, level = 0, index = 0 }) => {
     const isOpen = openGroups.includes(item.id);
     const hasChildren = item.items && item.items.length > 0;
-    const { animated, animationType, animationDuration, useHaptics: contextUseHaptics } = useSidebar();
+    const { animated, animationType, animationDuration } = useSidebar();
     const { shouldAnimate } = useAnimationStore();
     
     // Animation values for item
@@ -417,10 +407,10 @@ export const NavMain: React.FC<NavMainProps> = ({ items }) => {
     const translateX = useSharedValue(-20);
     
     // Spring config
-    const springConfig = {
+    const springConfig = React.useMemo(() => ({
       damping: 20,
       stiffness: 300,
-    };
+    }), []);
 
     // Stagger animation on mount
     useEffect(() => {
@@ -440,7 +430,7 @@ export const NavMain: React.FC<NavMainProps> = ({ items }) => {
         opacity.value = 1;
         translateX.value = 0;
       }
-    }, [index, animated, shouldAnimate, animationType, animationDuration]);
+    }, [index, animated, shouldAnimate, animationType, animationDuration, opacity, translateX, springConfig]);
     
     // Hover/press animation
     const handlePressIn = () => {
@@ -475,7 +465,7 @@ export const NavMain: React.FC<NavMainProps> = ({ items }) => {
         )}
         style={[
           {
-            marginLeft: level * spacing[4],
+            marginLeft: level * 16,
             ...(Platform.OS === 'web' && {
               cursor: 'pointer',
             }),
@@ -490,7 +480,7 @@ export const NavMain: React.FC<NavMainProps> = ({ items }) => {
             name={item.icon as any}
             size={20}
             className={item.isActive ? 'text-accent-foreground' : 'text-foreground'}
-            style={{ marginRight: isCollapsed ? 0 : spacing[3] }}
+            style={{ marginRight: isCollapsed ? 0 : 12 }}
           />
         )}
         {!isCollapsed && (
@@ -557,7 +547,6 @@ interface NavUserProps {
 }
 
 export const NavUser: React.FC<NavUserProps> = ({ user }) => {
-  const { spacing } = useSpacing();
   const { isCollapsed } = useSidebar();
   const router = useRouter();
 
@@ -567,7 +556,7 @@ export const NavUser: React.FC<NavUserProps> = ({ user }) => {
         <Pressable
           onPress={() => router.push('/(home)/settings' as any)}
           style={{
-            padding: spacing[2],
+            padding: 8,
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -688,7 +677,6 @@ export const SidebarMenuButton: React.FC<SidebarMenuButtonProps> = ({
   isActive = false,
   disabled = false,
 }) => {
-  const { spacing } = useSpacing();
   const { isCollapsed, useHaptics } = useSidebar();
   const [isHovered, setIsHovered] = useState(false);
   const theme = useTheme();
@@ -715,11 +703,9 @@ export const SidebarMenuButton: React.FC<SidebarMenuButtonProps> = ({
         disabled && "opacity-50"
       )}
       style={[
-        {
-          ...(Platform.OS === 'web' && {
-            cursor: disabled ? 'not-allowed' : 'pointer',
-          }),
-        },
+        Platform.OS === 'web' ? {
+          cursor: disabled ? 'not-allowed' : 'pointer',
+        } as any : {},
         (isHovered || isActive) && !disabled && {
           backgroundColor: theme.accent + '10', // 10% opacity
         },
@@ -825,7 +811,7 @@ export const SidebarMenuSubButton: React.FC<SidebarMenuSubButtonProps> = ({
         {
           paddingVertical: 6,
           paddingHorizontal: 12,
-          borderRadius: 6,
+          borderRadius: 6 as any,
           backgroundColor: isActive ? theme.accent + '20' : 'transparent', // 20% opacity
           opacity: disabled ? 0.5 : 1,
         },
@@ -846,11 +832,9 @@ export const SidebarMenuSubButton: React.FC<SidebarMenuSubButtonProps> = ({
         disabled && "opacity-50"
       )}
       style={[
-        {
-          ...(Platform.OS === 'web' && {
-            cursor: disabled ? 'not-allowed' : 'pointer',
-          }),
-        },
+        Platform.OS === 'web' ? {
+          cursor: disabled ? 'not-allowed' : 'pointer',
+        } as any : {},
         (isHovered || isActive) && !disabled && {
           backgroundColor: theme.accent + '10', // 10% opacity
         },

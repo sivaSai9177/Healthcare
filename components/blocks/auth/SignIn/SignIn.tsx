@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Pressable, Platform } from 'react-native';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,8 +10,7 @@ import Animated, {
   useSharedValue, 
   withSpring 
 } from 'react-native-reanimated';
-import { Input } from '@/components/universal/form';
-import { Checkbox } from '@/components/universal/form';
+import { Input , Checkbox } from '@/components/universal/form';
 import { Button } from '@/components/universal/interaction';
 import { Text } from '@/components/universal/typography';
 import { VStack, HStack } from '@/components/universal/layout';
@@ -80,12 +79,12 @@ export function SignIn({
     },
   });
 
-  const email = form.watch('email');
-  const password = form.watch('password');
   const formValues = form.watch();
+  const email = formValues.email || '';
+  const password = formValues.password || '';
   
   // Use centralized email validation hook
-  const { emailExists, isCheckingEmail, isValidEmail } = useEmailValidation(email, {
+  const { isValidEmail } = useEmailValidation(email, {
     onCheckEmail,
     debounceDelay: 500,
     minLength: 3
@@ -95,23 +94,23 @@ export function SignIn({
     logger.info('SignIn: Submit button clicked');
     
     const isValid = await form.trigger();
-    logger.info('SignIn: Form validation result', { isValid });
+    logger.debug('SignIn: Form validation result', { isValid });
     
     if (!isValid) {
-      logger.warn('SignIn: Form validation failed', { errors: form.formState.errors });
+      logger.warn('SignIn: Form validation failed', { errors: Object.keys(form.formState.errors) });
       haptic('error');
       return;
     }
 
     haptic('light');
     const data = form.getValues();
-    logger.info('SignIn: Submitting form', { data: { email: data.email, rememberMe: data.rememberMe } });
+    logger.debug('SignIn: Submitting form', { email: data.email, rememberMe: data.rememberMe });
     
     try {
       await onSubmit(data);
       logger.info('SignIn: Form submitted successfully');
     } catch (error) {
-      logger.error('SignIn: Form submission failed', { error });
+      logger.error('SignIn: Form submission failed', error);
     }
   }, [form, onSubmit]);
 
@@ -171,6 +170,8 @@ export function SignIn({
             {/* Email Field */}
             <View>
               <Input
+                id="signin-email"
+                name="email"
                 label="Email"
                 placeholder="your@email.com"
                 autoCapitalize="none"
@@ -193,10 +194,12 @@ export function SignIn({
             {/* Password Field */}
             <View>
               <Input
+                id="signin-password"
+                name="password"
                 label="Password"
                 placeholder="Enter your password"
                 secureTextEntry={!showPassword}
-                autoComplete="password"
+                autoComplete="current-password"
                 value={password}
                 onChangeText={(text) => form.setValue('password', text, { shouldValidate: true })}
                 onBlur={() => form.trigger('password')}
@@ -223,11 +226,11 @@ export function SignIn({
               {showRememberMe ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing[2] }}>
                   <Checkbox
-                    checked={form.watch('rememberMe') || false}
+                    checked={formValues.rememberMe || false}
                     onCheckedChange={(checked: boolean) => form.setValue('rememberMe', checked)}
                   />
                   <Pressable 
-                    onPress={() => form.setValue('rememberMe', !form.watch('rememberMe'))}
+                    onPress={() => form.setValue('rememberMe', !formValues.rememberMe)}
                     style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
                   >
                     <Text size="xs">Remember me</Text>

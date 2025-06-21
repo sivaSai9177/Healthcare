@@ -4,7 +4,7 @@ import {
   Button,
   Card,
   HStack,
-  Symbols as IconSymbol,
+  Symbol as IconSymbol,
   Progress,
   Text,
   VStack,
@@ -205,7 +205,7 @@ export function EscalationTimer({
               variant={isOverdue ? "error" : "outline"}
               size="sm"
             >
-              Tier {currentTier} - {getTierLabel(currentTier)}
+              {`Tier ${currentTier} - ${getTierLabel(currentTier)}`}
             </Badge>
           </HStack>
 
@@ -370,19 +370,19 @@ export function EscalationSummary({ hospitalId }: EscalationSummaryProps) {
             <Text size="lg" weight="semibold">
               Escalation Overview
             </Text>
-            <Badge size="lg">{escalations.totalActive} Active</Badge>
+            <Badge size="lg">{`${escalations.totalActive} Active`}</Badge>
           </HStack>
 
           {/* Quick Stats */}
           <HStack gap={3} className="flex-wrap">
             {escalations.overdue > 0 && (
               <Badge size="sm" variant="error">
-                {escalations.overdue} Overdue
+                {`${escalations.overdue} Overdue`}
               </Badge>
             )}
             {escalations.nextEscalationIn5Minutes > 0 && (
               <Badge size="sm" variant="warning">
-                {escalations.nextEscalationIn5Minutes} Escalating Soon
+                {`${escalations.nextEscalationIn5Minutes} Escalating Soon`}
               </Badge>
             )}
           </HStack>
@@ -396,7 +396,7 @@ export function EscalationSummary({ hospitalId }: EscalationSummaryProps) {
                     Tier {tier} ({getTierLabel(parseInt(tier))})
                   </Text>
                   <Badge size="sm" variant="outline">
-                    {(alerts as any[]).length} alerts
+                    {`${(alerts as any[]).length} alerts`}
                   </Badge>
                 </HStack>
               </Box>

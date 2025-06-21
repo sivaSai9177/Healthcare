@@ -44,7 +44,7 @@ const sizeMap: Record<SymbolSize, number> = {
   xxl: 48,
 };
 
-// Common icon name mappings for easy migration from lucide-react
+// Common icon name mappings for consistency across the app
 export const symbolNames = {
   // Navigation
   arrowLeft: 'arrow.left',
@@ -404,11 +404,11 @@ export const Symbol = React.forwardRef<View, SymbolProps>(({
 
 Symbol.displayName = 'Symbol';
 
-// Helper hook for easy icon name conversion
-export function useSymbolName(lucideName: string): string {
-  // Convert lucide-react style names to SF Symbols
-  const mappedName = symbolNames[lucideName as keyof typeof symbolNames];
-  return mappedName || lucideName;
+// Helper hook for icon name mapping
+export function useSymbolName(iconName: string): string {
+  // Map common icon names to SF Symbols
+  const mappedName = symbolNames[iconName as keyof typeof symbolNames];
+  return mappedName || iconName;
 }
 
 // Preset icon components for common use cases

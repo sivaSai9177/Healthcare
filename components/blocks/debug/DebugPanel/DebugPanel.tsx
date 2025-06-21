@@ -17,6 +17,7 @@ import { BlurView } from 'expo-blur';
 import { useSpacingStore } from '@/lib/stores/spacing-store';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 import { useDebugStore } from '@/lib/stores/debug-store';
+import { useThemeStore } from '@/lib/stores/theme-store';
 import { cn } from '@/lib/core/utils';
 import { Text } from '@/components/universal/typography';
 import { VStack, HStack } from '@/components/universal/layout';
@@ -29,6 +30,8 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { debugLog, type LogLevel, type DebugLog, exportLogs } from '../utils/logger';
 import { startConsoleInterception, stopConsoleInterception } from '../utils/console-interceptor';
 import { getNavigationHistory, clearNavigationHistory, getCurrentRoute } from '@/lib/core/debug/router-debug';
+import { webSocketLogger, type WebSocketLog } from '../utils/websocket-logger';
+import { useDebugLogs, useWebSocketLogs, useFilteredLogs } from '../hooks/useDebugLogs';
 
 const AnimatedView = Animated.View;
 
@@ -107,65 +110,25 @@ LogEntryItem.displayName = 'LogEntryItem';
 
 export function ConsolidatedDebugPanel() {
   const [visible, setVisible] = useState(false);
-  const [logs, setLogs] = useState<DebugLog[]>([]);
   const [logFilter, setLogFilter] = useState<LogLevel>('debug');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'logs' | 'router' | 'config'>('logs');
+  const [activeTab, setActiveTab] = useState<'logs' | 'router' | 'wsocket' | 'config'>('logs');
   const [consoleIntercept, setConsoleIntercept] = useState(false);
   const { user, isAuthenticated } = useAuth();
   const insets = useSafeAreaInsets();
   const spacingStore = useSpacingStore();
   const animationStore = useAnimationStore();
   const debugStore = useDebugStore();
+  const themeStore = useThemeStore();
   const shadowLg = useShadow({ size: 'lg' });
   
   // Defer search query for better performance
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
-  // Subscribe to log updates
-  useEffect(() => {
-    const unsubscribe = debugLog.subscribe(setLogs);
-    return () => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    };
-  }, []);
-
-  // Memoize filtered logs
-  const filteredLogs = useMemo(() => {
-    const searchLower = deferredSearchQuery.toLowerCase();
-    const levelPriority = { error: 0, warn: 1, info: 2, debug: 3 };
-    const filterPriority = levelPriority[logFilter];
-    
-    return logs.filter(log => {
-      const logPriority = levelPriority[log.level];
-      const matchesFilter = logPriority <= filterPriority;
-      if (!matchesFilter) return false;
-      
-      if (!searchLower) return true;
-      
-      const matchesSearch = 
-        log.message.toLowerCase().includes(searchLower) ||
-        (log.source && log.source.toLowerCase().includes(searchLower)) ||
-        (log.data && JSON.stringify(log.data).toLowerCase().includes(searchLower));
-      return matchesSearch;
-    });
-  }, [logs, logFilter, deferredSearchQuery]);
-
-  // Memoize error count
-  const errorCount = useMemo(() => 
-    debugLog.getErrorCount(),
-    [] // getErrorCount doesn't depend on logs state
-  );
-  
-  // Memoize log counts for filter buttons
-  const logCounts = useMemo(() => ({
-    error: logs.filter(l => l.level === 'error').length,
-    warn: logs.filter(l => l.level === 'warn').length,
-    info: logs.filter(l => l.level === 'info').length,
-    debug: logs.filter(l => l.level === 'debug').length,
-  }), [logs]);
+  // Use TanStack Query hooks for debug logs
+  const { logs, errorCount, logCounts, clearLogs } = useDebugLogs();
+  const { wsLogs, clearWebSocketLogs } = useWebSocketLogs(activeTab === 'wsocket' && debugStore.enableWebSocketLogging);
+  const { data: filteredLogs = [] } = useFilteredLogs(logs, logFilter, deferredSearchQuery);
 
   // Handle console interception toggle
   const handleConsoleInterceptToggle = useCallback((value: boolean) => {
@@ -226,8 +189,7 @@ export function ConsolidatedDebugPanel() {
           text: 'Clear', 
           style: 'destructive',
           onPress: () => {
-            debugLog.clear();
-            setLogs([]);
+            clearLogs();
           }
         },
       ]
@@ -239,7 +201,7 @@ export function ConsolidatedDebugPanel() {
       {/* Floating Debug Button */}
       <AnimatedView
         entering={FadeIn.delay(500).springify()}
-        className="absolute bottom-20 right-5 z-50"
+        className="absolute bottom-20 left-5 z-50"
         style={shadowLg}
       >
         <TouchableOpacity
@@ -330,10 +292,13 @@ Environment: ${process.env.EXPO_PUBLIC_ENVIRONMENT || 'dev'}`;
 
             {/* Tab Navigation */}
             <HStack className="bg-card p-2 border-b border-border">
-              {(['logs', 'router', 'config'] as const).map((tab) => (
+              {(debugStore.enableWebSocketLogging 
+                ? ['logs', 'api', 'wsocket', 'config'] as const
+                : ['logs', 'api', 'config'] as const
+              ).map((tab) => (
                 <TouchableOpacity
                   key={tab}
-                  onPress={() => setActiveTab(tab)}
+                  onPress={() => setActiveTab(tab as any)}
                   className={cn(
                     "flex-1 py-2 items-center rounded-md",
                     activeTab === tab && "bg-primary/10"
@@ -344,7 +309,7 @@ Environment: ${process.env.EXPO_PUBLIC_ENVIRONMENT || 'dev'}`;
                     weight={activeTab === tab ? 'semibold' : 'normal'}
                     className={activeTab === tab ? 'text-primary' : 'text-muted-foreground'}
                   >
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    {tab === 'wsocket' ? 'WSocket' : tab === 'api' ? 'API' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -432,9 +397,14 @@ Environment: ${process.env.EXPO_PUBLIC_ENVIRONMENT || 'dev'}`;
                   </Text>
                   
                   {filteredLogs.length === 0 ? (
-                    <Card className="p-8 items-center">
-                      <Symbol name="info.circle" size={48} className="text-muted-foreground mb-2" />
-                      <Text colorTheme="mutedForeground">No logs to display</Text>
+                    <Card className="p-12 items-center justify-center">
+                      <VStack gap={2} align="center">
+                        <Symbol name="info.circle" size={48} className="text-muted-foreground" />
+                        <Text colorTheme="mutedForeground" className="text-center">No logs to display</Text>
+                        <Text size="xs" colorTheme="mutedForeground" className="text-center">
+                          {searchQuery ? 'No logs match your search' : 'Logs will appear here as they are generated'}
+                        </Text>
+                      </VStack>
                     </Card>
                   ) : (
                     filteredLogs.map((log, index) => (
@@ -459,41 +429,224 @@ Environment: ${process.env.EXPO_PUBLIC_ENVIRONMENT || 'dev'}`;
               </VStack>
             )}
             
-            {activeTab === 'router' && (
+            {activeTab === 'api' && (
               <VStack className="p-4" gap={3}>
-                <Card className="p-4">
+                {/* TanStack Query Debug */}
+                <TanStackDebugInfo />
+              </VStack>
+            )}
+            
+            {activeTab === 'wsocket' && (
+              <VStack className="p-4" gap={3}>
+                {/* WebSocket Controls */}
+                <Card className="p-3">
                   <VStack gap={2}>
-                    <Text size="lg" weight="semibold">Navigation History</Text>
-                    <Text size="sm" colorTheme="mutedForeground">
-                      Current Route: {(() => {
-                        const route = getCurrentRoute();
-                        return typeof route === 'string' ? route : 'Unknown';
-                      })()}
-                    </Text>
+                    {/* WebSocket Info */}
+                    <HStack justify="between" align="center">
+                      <Text size="sm" weight="semibold">WebSocket Logs</Text>
+                      <Text size="xs" colorTheme="mutedForeground">
+                        {wsLogs.length} events
+                      </Text>
+                    </HStack>
                     
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onPress={() => {
-                        clearNavigationHistory();
-                        Alert.alert('Success', 'Navigation history cleared');
-                      }}
-                    >
-                      Clear History
-                    </Button>
-                    
-                    <VStack gap={1} className="mt-2">
-                      {getNavigationHistory().map((entry, index) => (
-                        <HStack key={index} className="py-2 border-b border-border">
-                          <Text size="xs" colorTheme="mutedForeground" className="w-20">
-                            {new Date(entry.timestamp).toLocaleTimeString()}
-                          </Text>
-                          <Text size="sm" className="flex-1">{entry.pathname}</Text>
+                    {/* Actions */}
+                    <HStack gap={2}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onPress={async () => {
+                          const logText = wsLogs.map(log => {
+                            const timestamp = log.timestamp.toLocaleTimeString();
+                            const url = new URL(log.url).pathname;
+                            let line = `[${timestamp}] ${log.type.toUpperCase()} ${url}`;
+                            
+                            if (log.type === 'message') {
+                              line += ` ${log.direction === 'send' ? '→' : '←'} ${log.messageType || 'unknown'} (${log.size || 0} bytes)`;
+                            }
+                            
+                            if (log.data) {
+                              line += `\nData: ${JSON.stringify(log.data, null, 2)}`;
+                            }
+                            
+                            if (log.error) {
+                              line += `\nError: ${log.error}`;
+                            }
+                            
+                            return line;
+                          }).join('\n\n');
+                          
+                          if (Platform.OS === 'web') {
+                            try {
+                              await navigator.clipboard.writeText(logText);
+                              Alert.alert('Success', 'WebSocket logs copied to clipboard');
+                            } catch {
+                              const blob = new Blob([logText], { type: 'text/plain' });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `ws-logs-${Date.now()}.txt`;
+                              a.click();
+                            }
+                          } else {
+                            await Clipboard.setStringAsync(logText);
+                            Alert.alert('Success', 'WebSocket logs copied to clipboard');
+                          }
+                        }}
+                        className="flex-1"
+                      >
+                        <HStack gap={1} align="center">
+                          <Symbol name="arrow.down.circle" size={16} />
+                          <Text>Export</Text>
                         </HStack>
-                      ))}
-                    </VStack>
+                      </Button>
+                      
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onPress={() => {
+                          Alert.alert(
+                            'Clear WebSocket Logs',
+                            'Are you sure you want to clear all WebSocket logs?',
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              { 
+                                text: 'Clear', 
+                                style: 'destructive',
+                                onPress: () => {
+                                  webSocketLogger.clearLogs();
+                                  setWsLogs([]);
+                                }
+                              },
+                            ]
+                          );
+                        }}
+                        className="flex-1"
+                      >
+                        <HStack gap={1} align="center">
+                          <Symbol name="trash" size={16} />
+                          <Text>Clear</Text>
+                        </HStack>
+                      </Button>
+                    </HStack>
                   </VStack>
                 </Card>
+                
+                {/* WebSocket Log Entries */}
+                <VStack gap={2}>
+                  {wsLogs.length === 0 ? (
+                    <Card className="p-12 items-center justify-center">
+                      <VStack gap={2} align="center">
+                        <Symbol name="wifi" size={48} className="text-muted-foreground" />
+                        <Text colorTheme="mutedForeground" className="text-center">No WebSocket activity</Text>
+                        <Text size="xs" colorTheme="mutedForeground" className="text-center">
+                          WebSocket logging is {debugStore.enableWebSocketLogging ? 'enabled' : 'disabled'}.
+                          {debugStore.enableWebSocketLogging && ' Waiting for WebSocket connections...'}
+                        </Text>
+                      </VStack>
+                    </Card>
+                  ) : (
+                    wsLogs.map((log, index) => {
+                      const url = new URL(log.url).pathname;
+                      const bgClass = log.type === 'error' ? 'bg-destructive/10' : 
+                                      log.type === 'connect' || log.type === 'open' ? 'bg-success/10' :
+                                      log.type === 'close' || log.type === 'disconnect' ? 'bg-warning/10' :
+                                      'bg-primary/10';
+                      
+                      return (
+                        <TouchableOpacity
+                          key={`${log.timestamp.getTime()}-${index}`}
+                          onPress={async () => {
+                            const details = `Type: ${log.type}
+URL: ${log.url}
+Time: ${log.timestamp.toLocaleString()}
+${log.direction ? `Direction: ${log.direction}` : ''}
+${log.messageType ? `Message Type: ${log.messageType}` : ''}
+${log.size !== undefined ? `Size: ${log.size} bytes` : ''}
+${log.data ? `\nData:\n${JSON.stringify(log.data, null, 2)}` : ''}
+${log.error ? `\nError: ${log.error}` : ''}`;
+                            
+                            Alert.alert(
+                              'WebSocket Event Details',
+                              details,
+                              [
+                                { 
+                                  text: 'Copy', 
+                                  onPress: async () => {
+                                    await Clipboard.setStringAsync(details);
+                                    Alert.alert('Copied', 'Event details copied to clipboard');
+                                  }
+                                },
+                                { text: 'OK' },
+                              ]
+                            );
+                          }}
+                          className={cn("mb-2 p-3 rounded-lg", bgClass)}
+                        >
+                          <HStack justify="between" className="mb-1">
+                            <HStack gap={2} align="center">
+                              <Text size="xs" weight="semibold">
+                                {log.type === 'connect' && '🔌'}
+                                {log.type === 'open' && '✅'}
+                                {log.type === 'close' && '❌'}
+                                {log.type === 'disconnect' && '🔌'}
+                                {log.type === 'error' && '⚠️'}
+                                {log.type === 'message' && (log.direction === 'send' ? '📤' : '📥')}
+                                {' '}{log.type.toUpperCase()}
+                              </Text>
+                              {log.messageType && (
+                                <Text size="xs" colorTheme="mutedForeground">
+                                  ({log.messageType})
+                                </Text>
+                              )}
+                            </HStack>
+                            <Text size="xs" colorTheme="mutedForeground">
+                              {log.timestamp.toLocaleTimeString()}
+                            </Text>
+                          </HStack>
+                          
+                          <Text size="sm" className="mb-1">
+                            {url}
+                          </Text>
+                          
+                          {log.type === 'message' && (
+                            <HStack gap={2}>
+                              <Text size="xs" colorTheme="mutedForeground">
+                                {log.direction === 'send' ? 'Sent' : 'Received'}: {log.size || 0} bytes
+                              </Text>
+                            </HStack>
+                          )}
+                          
+                          {log.type === 'close' && log.data && (
+                            <Text size="xs" colorTheme="mutedForeground">
+                              Code: {log.data.code} {log.data.reason ? `- ${log.data.reason}` : ''}
+                            </Text>
+                          )}
+                          
+                          {log.error && (
+                            <Text size="xs" className="text-destructive mt-1">
+                              Error: {typeof log.error === 'object' ? JSON.stringify(log.error) : log.error}
+                            </Text>
+                          )}
+                          
+                          {log.data && log.type === 'message' && (
+                            <Text 
+                              size="xs" 
+                              colorTheme="mutedForeground"
+                              style={{ fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) }}
+                              numberOfLines={3}
+                            >
+                              {typeof log.data === 'object' ? JSON.stringify(log.data, null, 2) : log.data}
+                            </Text>
+                          )}
+                          
+                          <Text size="xs" colorTheme="mutedForeground" className="mt-2 italic">
+                            Tap for details
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
+                </VStack>
               </VStack>
             )}
             
@@ -527,6 +680,29 @@ Environment: ${process.env.EXPO_PUBLIC_ENVIRONMENT || 'dev'}`;
                         onCheckedChange={(checked) => debugStore.updateSettings({ enableAuthLogging: checked })}
                       />
                     </HStack>
+                    
+                    <HStack justify="between" align="center">
+                      <Text size="sm">Enable WebSocket Logging</Text>
+                      <Switch
+                        checked={debugStore.enableWebSocketLogging}
+                        onCheckedChange={(checked) => {
+                          debugStore.updateSettings({ enableWebSocketLogging: checked });
+                          if (checked) {
+                            webSocketLogger.startInterception();
+                          } else {
+                            webSocketLogger.stopInterception();
+                          }
+                        }}
+                      />
+                    </HStack>
+                    
+                    <HStack justify="between" align="center">
+                      <Text size="sm">Enable Healthcare Logging</Text>
+                      <Switch
+                        checked={debugStore.enableHealthcareLogging}
+                        onCheckedChange={(checked) => debugStore.updateSettings({ enableHealthcareLogging: checked })}
+                      />
+                    </HStack>
                   </VStack>
                 </Card>
                 
@@ -535,7 +711,58 @@ Environment: ${process.env.EXPO_PUBLIC_ENVIRONMENT || 'dev'}`;
                   <VStack gap={3}>
                     <Text size="lg" weight="semibold">Theme & Display</Text>
                     
-                    {/* Theme selection removed - spacing store doesn't have theme */}
+                    {/* Theme Selection */}
+                    <VStack gap={2}>
+                      <Text size="sm">App Theme</Text>
+                      <HStack gap={2} style={{ flexWrap: 'wrap' }}>
+                        {Object.keys(themeStore.availableThemes).map((themeId) => (
+                          <Button
+                            key={themeId}
+                            size="sm"
+                            variant={themeStore.themeId === themeId ? 'default' : 'outline'}
+                            onPress={() => themeStore.setThemeId(themeId)}
+                          >
+                            {themeId.charAt(0).toUpperCase() + themeId.slice(1)}
+                          </Button>
+                        ))}
+                      </HStack>
+                    </VStack>
+                    
+                    {/* Color Scheme */}
+                    <VStack gap={2}>
+                      <HStack justify="between" align="center">
+                        <Text size="sm">Use System Theme</Text>
+                        <Switch
+                          checked={themeStore.useSystemTheme}
+                          onCheckedChange={(checked) => themeStore.setUseSystemTheme(checked)}
+                        />
+                      </HStack>
+                      
+                      {!themeStore.useSystemTheme && (
+                        <HStack gap={2}>
+                          <Button
+                            size="sm"
+                            variant={themeStore.colorScheme === 'light' ? 'default' : 'outline'}
+                            onPress={() => themeStore.setColorScheme('light')}
+                          >
+                            <HStack gap={1} align="center">
+                              <Symbol name="sun.max" size={16} />
+                              <Text>Light</Text>
+                            </HStack>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={themeStore.colorScheme === 'dark' ? 'default' : 'outline'}
+                            onPress={() => themeStore.setColorScheme('dark')}
+                          >
+                            <HStack gap={1} align="center">
+                              <Symbol name="moon" size={16} />
+                              <Text>Dark</Text>
+                            </HStack>
+                          </Button>
+                        </HStack>
+                      )}
+                    </VStack>
                     
                     <VStack gap={2}>
                       <Text size="sm">Spacing Density</Text>
@@ -616,8 +843,84 @@ Environment: ${process.env.EXPO_PUBLIC_ENVIRONMENT || 'dev'}`;
                   </VStack>
                 </Card>
                 
-                {/* TanStack Query Debug */}
-                <TanStackDebugInfo />
+                {/* Router & Navigation Settings */}
+                <Card className="p-4">
+                  <VStack gap={3}>
+                    <Text size="lg" weight="semibold">Router & Navigation</Text>
+                    
+                    <VStack gap={2}>
+                      <Text size="sm" colorTheme="mutedForeground">
+                        Current Route: {(() => {
+                          const route = getCurrentRoute();
+                          return route?.pathname || 'Unknown';
+                        })()}
+                      </Text>
+                      
+                      <HStack gap={2}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onPress={() => {
+                            clearNavigationHistory();
+                            Alert.alert('Success', 'Navigation history cleared');
+                          }}
+                        >
+                          Clear History
+                        </Button>
+                        
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onPress={() => {
+                            const { router } = require('expo-router');
+                            debugLog.info('Navigating to home screen from debug panel');
+                            router.replace('/(app)/(tabs)/home');
+                          }}
+                        >
+                          <HStack gap={1} align="center">
+                            <Symbol name="house.fill" size={16} />
+                            <Text>Go to Home</Text>
+                          </HStack>
+                        </Button>
+                      </HStack>
+                    </VStack>
+                    
+                    {/* Navigation History Summary */}
+                    <VStack gap={2}>
+                      <Text size="sm" weight="medium">Recent Navigation</Text>
+                      {getNavigationHistory().length === 0 ? (
+                        <Text size="xs" colorTheme="mutedForeground" className="italic">
+                          No navigation history
+                        </Text>
+                      ) : (
+                        <>
+                          {getNavigationHistory().slice(0, 5).map((entry, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              onPress={() => {
+                                const { router } = require('expo-router');
+                                router.push(entry.pathname);
+                              }}
+                              className="p-2 bg-muted/50 rounded-md"
+                            >
+                              <HStack justify="between" align="center">
+                                <Text size="xs">{entry.pathname}</Text>
+                                <Text size="xs" colorTheme="mutedForeground">
+                                  {new Date(entry.timestamp).toLocaleTimeString()}
+                                </Text>
+                              </HStack>
+                            </TouchableOpacity>
+                          ))}
+                          {getNavigationHistory().length > 5 && (
+                            <Text size="xs" colorTheme="mutedForeground" className="text-center">
+                              +{getNavigationHistory().length - 5} more entries
+                            </Text>
+                          )}
+                        </>
+                      )}
+                    </VStack>
+                  </VStack>
+                </Card>
               </VStack>
             )}
           </ScrollView>

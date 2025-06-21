@@ -1,0 +1,36 @@
+{
+  "timestamp": "2025-06-19T18:49:11.349Z",
+  "deploymentReady": false,
+  "checks": {
+    "total": 14,
+    "passed": 10,
+    "warnings": 1,
+    "failed": 3,
+    "critical": 3
+  },
+  "issues": [
+    {
+      "name": "Required Environment Variables",
+      "status": "fail",
+      "message": "Missing: DEPLOY_SERVER_IP, DEPLOY_DOMAIN, DOCKER_REGISTRY_USERNAME, DATABASE_URL",
+      "critical": true
+    },
+    {
+      "name": "Environment Placeholders",
+      "status": "warning",
+      "message": "Found 1 placeholder values"
+    },
+    {
+      "name": "Docker Build (Builder Stage)",
+      "status": "fail",
+      "message": "Failed to build Docker image",
+      "critical": true
+    },
+    {
+      "name": "Kamal Config Syntax",
+      "status": "fail",
+      "message": "Command failed: kamal config",
+      "critical": true
+    }
+  ]
+}

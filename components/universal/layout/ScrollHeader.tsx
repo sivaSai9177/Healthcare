@@ -138,7 +138,7 @@ export function ScrollHeader({
 
     return (
       <Animated.View
-        style={[styles.header, webStyle]}
+        style={[styles.header, webStyle] as any}
         className={cn(
           'bg-background/90',
           showBorder && 'border-b border-border'

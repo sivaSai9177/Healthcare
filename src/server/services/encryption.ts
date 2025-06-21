@@ -108,8 +108,8 @@ export class EncryptionService {
       // Generate random IV for each encryption
       const iv = crypto.randomBytes(ENCRYPTION_CONFIG.IV_LENGTH);
       
-      // Create cipher
-      const cipher = crypto.createCipher(ENCRYPTION_CONFIG.ALGORITHM, encryptionKey);
+      // Create cipher with IV
+      const cipher = crypto.createCipheriv(ENCRYPTION_CONFIG.ALGORITHM, encryptionKey, iv) as crypto.CipherGCM;
       cipher.setAAD(Buffer.from(effectiveKeyId)); // Additional authenticated data
       
       // Encrypt the data
@@ -143,8 +143,9 @@ export class EncryptionService {
       
       const encryptionKey = await this.getEncryptionKey(validated.keyId);
       
-      // Create decipher
-      const decipher = crypto.createDecipher(validated.algorithm, encryptionKey);
+      // Create decipher with IV
+      const iv = Buffer.from(validated.iv, 'base64');
+      const decipher = crypto.createDecipheriv(validated.algorithm, encryptionKey, iv) as crypto.DecipherGCM;
       decipher.setAAD(Buffer.from(validated.keyId));
       decipher.setAuthTag(Buffer.from(validated.tag, 'base64'));
       
@@ -300,7 +301,7 @@ export class EncryptionService {
     const key = this.deriveKey(password, salt);
     const iv = crypto.randomBytes(ENCRYPTION_CONFIG.IV_LENGTH);
     
-    const cipher = crypto.createCipher(ENCRYPTION_CONFIG.ALGORITHM, key);
+    const cipher = crypto.createCipheriv(ENCRYPTION_CONFIG.ALGORITHM, key, iv);
     let encrypted = cipher.update(plaintext, 'utf8', 'base64');
     encrypted += cipher.final('base64');
     
@@ -324,7 +325,8 @@ export class EncryptionService {
     const salt = Buffer.from(encryptedData.salt, 'base64');
     const key = this.deriveKey(password, salt);
     
-    const decipher = crypto.createDecipher(ENCRYPTION_CONFIG.ALGORITHM, key);
+    const iv = Buffer.from(encryptedData.iv, 'base64');
+    const decipher = crypto.createDecipheriv(ENCRYPTION_CONFIG.ALGORITHM, key, iv);
     decipher.setAuthTag(Buffer.from(encryptedData.tag, 'base64'));
     
     let decrypted = decipher.update(encryptedData.data, 'base64', 'utf8');
@@ -347,7 +349,7 @@ export class EncryptionService {
     this.currentKeyId = newKeyId;
     
     // In production, save key metadata to secure storage
-// TODO: Replace with structured logging - console.log(`[ENCRYPTION] Key rotated to ${newKeyId}`);
+// TODO: Replace with structured logging - /* console.log(`[ENCRYPTION] Key rotated to ${newKeyId}`) */;
     
     return newKeyId;
   }

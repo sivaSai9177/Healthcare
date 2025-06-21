@@ -28,7 +28,8 @@ export default function ModalsLayout() {
         name="create-alert"
         options={{
           title: 'Create Alert',
-          headerLeft: () => null, // Prevent back button, use cancel instead
+          presentation: 'modal',
+          headerRight: () => null,
         }}
       />
       <Stack.Screen

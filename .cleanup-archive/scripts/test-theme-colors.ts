@@ -35,14 +35,14 @@ function hslToHex(hsl: string): string {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
-// TODO: Replace with structured logging - console.log('Theme Colors Test:');
-// TODO: Replace with structured logging - console.log('Light Theme:');
-// TODO: Replace with structured logging - console.log('  primary:', hslToHex('222.2 47.4% 11.2%'));
-// TODO: Replace with structured logging - console.log('  primaryForeground:', hslToHex('210 40% 98%'));
-// TODO: Replace with structured logging - console.log('  secondary:', hslToHex('210 40% 96%'));
-// TODO: Replace with structured logging - console.log('  secondaryForeground:', hslToHex('222.2 84% 4.9%'));
-// TODO: Replace with structured logging - console.log('  foreground:', hslToHex('222.2 84% 4.9%'));
+// TODO: Replace with structured logging - /* console.log('Theme Colors Test:') */;
+// TODO: Replace with structured logging - /* console.log('Light Theme:') */;
+// TODO: Replace with structured logging - /* console.log('  primary:', hslToHex('222.2 47.4% 11.2%') */);
+// TODO: Replace with structured logging - /* console.log('  primaryForeground:', hslToHex('210 40% 98%') */);
+// TODO: Replace with structured logging - /* console.log('  secondary:', hslToHex('210 40% 96%') */);
+// TODO: Replace with structured logging - /* console.log('  secondaryForeground:', hslToHex('222.2 84% 4.9%') */);
+// TODO: Replace with structured logging - /* console.log('  foreground:', hslToHex('222.2 84% 4.9%') */);
 
-// TODO: Replace with structured logging - console.log('\nDark Theme:');
-// TODO: Replace with structured logging - console.log('  primary:', hslToHex('210 40% 98%'));
-// TODO: Replace with structured logging - console.log('  primaryForeground:', hslToHex('222.2 47.4% 11.2%'));
+// TODO: Replace with structured logging - /* console.log('\nDark Theme:') */;
+// TODO: Replace with structured logging - /* console.log('  primary:', hslToHex('210 40% 98%') */);
+// TODO: Replace with structured logging - /* console.log('  primaryForeground:', hslToHex('222.2 47.4% 11.2%') */);

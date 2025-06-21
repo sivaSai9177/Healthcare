@@ -9,6 +9,7 @@ export const CompleteProfileInputSchema = z.object({
   organizationId: z.string().optional(),
   organizationName: z.string().optional(),
   organizationCode: z.string().min(4).max(12).regex(/^[A-Z0-9]+$/, 'Organization code must contain only uppercase letters and numbers').optional(),
+  defaultHospitalId: z.string().optional(),
   department: z.string().optional(),
   phoneNumber: z.string().optional(),
   jobTitle: z.string().optional(),

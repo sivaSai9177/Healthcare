@@ -1,0 +1,67 @@
+# Logging Service Dockerfile
+# Centralized logging service with PostHog integration
+
+FROM oven/bun:1 AS base
+WORKDIR /app
+
+# Dependencies stage
+FROM base AS deps
+COPY package.json bun.lockb* ./
+RUN bun install --frozen-lockfile --production
+
+# Development dependencies stage
+FROM base AS dev-deps
+COPY package.json bun.lockb* ./
+RUN bun install --frozen-lockfile
+
+# Production stage
+FROM base AS production
+ENV NODE_ENV=production
+
+# Copy production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy source files
+COPY src ./src
+COPY lib ./lib
+COPY types ./types
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Switch to non-root user
+USER nodejs
+
+# Expose logging service port
+EXPOSE 3003
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3003/health || exit 1
+
+# Start the logging service
+CMD ["bun", "run", "src/server/logging/start-standalone.ts"]
+
+# Development stage with hot reload
+FROM base AS development
+ENV NODE_ENV=development
+
+# Install curl for health checks
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Copy all dependencies
+COPY --from=dev-deps /app/node_modules ./node_modules
+
+# Copy all source files
+COPY . .
+
+# Expose port
+EXPOSE 3003
+
+# Health check for development
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3003/health || exit 1
+
+# Start with hot reload using bun
+CMD ["bun", "--hot", "src/server/logging/start-standalone.ts"]

@@ -6,8 +6,6 @@ import {
   Platform,
   StyleSheet,
   ViewStyle,
-  TextStyle,
-  View,
 } from 'react-native';
 import { Link as ExpoLink, Href } from 'expo-router';
 import { Text, TextProps } from '@/components/universal/typography/Text';
@@ -15,25 +13,15 @@ import { useAnimationStore } from '@/lib/stores/animation-store';
 import { haptic } from '@/lib/ui/haptics';
 import { cn } from '@/lib/core/utils';
 import { sanitizeStyleForWeb } from '@/lib/core/platform/style-fixes';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
-// Only import Reanimated on native platforms
-let Animated: any;
-let useSharedValue: any;
-let useAnimatedStyle: any;
-let withSpring: any;
-let withTiming: any;
-
-if (Platform.OS !== 'web') {
-  const ReanimatedModule = require('react-native-reanimated');
-  Animated = ReanimatedModule.default;
-  useSharedValue = ReanimatedModule.useSharedValue;
-  useAnimatedStyle = ReanimatedModule.useAnimatedStyle;
-  withSpring = ReanimatedModule.withSpring;
-  withTiming = ReanimatedModule.withTiming;
-}
-
-const AnimatedPressable = Platform.OS !== 'web' && Animated ? Animated.createAnimatedComponent(Pressable) : Pressable;
-const AnimatedView = Platform.OS !== 'web' && Animated ? Animated.View : View;
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedView = Animated.View;
 
 export type LinkAnimationType = 'scale' | 'fade' | 'underline' | 'none';
 
@@ -96,16 +84,16 @@ export const UniversalLink = React.forwardRef<any, UniversalLinkProps>(({
   // Skip animations on web
   const useAnimations = Platform.OS !== 'web' && shouldAnimate() && animated;
   
-  // Animation values (only create on native)
-  const scale = useAnimations && useSharedValue ? useSharedValue(1) : null;
-  const opacity = useAnimations && useSharedValue ? useSharedValue(1) : null;
-  const underlineWidth = useAnimations && useSharedValue ? useSharedValue(0) : null;
+  // Animation values - always create hooks
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+  const underlineWidth = useSharedValue(0);
 
   // Spring config
-  const springConfig = {
+  const springConfig = React.useMemo(() => ({
     damping: 20,
     stiffness: 300,
-  };
+  }), []);
 
   // Get variant classes for Tailwind
   const variantClasses = {
@@ -133,20 +121,20 @@ export const UniversalLink = React.forwardRef<any, UniversalLinkProps>(({
 
   const currentVariant = variantClasses[variant] || variantClasses.default;
   
-  // Update animations when hover/press state changes (native only)
+  // Update animations when hover/press state changes
   useEffect(() => {
-    if (useAnimations && animationType !== 'none' && withSpring && withTiming) {
-      if (animationType === 'scale' && scale) {
+    if (useAnimations && animationType !== 'none') {
+      if (animationType === 'scale') {
         scale.value = withSpring(isPressed ? 0.95 : (isHovered ? 1.05 : 1), springConfig);
       }
-      if (animationType === 'fade' && opacity) {
+      if (animationType === 'fade') {
         opacity.value = withTiming(isPressed ? 0.7 : (isHovered ? 0.8 : 1), { duration: animationDuration });
       }
-      if (animationType === 'underline' && underlineWidth) {
+      if (animationType === 'underline') {
         underlineWidth.value = withTiming(isHovered || isPressed ? 100 : 0, { duration: animationDuration });
       }
     }
-  }, [isHovered, isPressed, useAnimations, animationType, animationDuration]);
+  }, [isHovered, isPressed, useAnimations, animationType, animationDuration, scale, opacity, underlineWidth, springConfig]);
 
   const handleHoverIn = () => {
     setIsHovered(true);
@@ -183,25 +171,27 @@ export const UniversalLink = React.forwardRef<any, UniversalLinkProps>(({
     return styles.length > 0 ? StyleSheet.flatten(styles) : undefined;
   }, [style, isHovered, hoverStyle, isPressed, pressStyle]);
   
-  // Create animated style only for native
-  const animatedStyle = useAnimations && useAnimatedStyle ? 
-    useAnimatedStyle(() => {
-      const styles: any = {};
-      
-      if (animationType === 'scale' && scale) {
-        styles.transform = [{ scale: scale.value }];
-      }
-      
-      if (animationType === 'fade' && opacity) {
-        styles.opacity = opacity.value;
-      }
-      
-      return styles;
-    }) : {};
+  // Create animated style
+  const animatedStyle = useAnimatedStyle(() => {
+    if (!useAnimations) return {};
+    
+    const styles: any = {};
+    
+    if (animationType === 'scale') {
+      styles.transform = [{ scale: scale.value }];
+    }
+    
+    if (animationType === 'fade') {
+      styles.opacity = opacity.value;
+    }
+    
+    return styles;
+  });
   
-  // Create underline style only for native
-  const underlineStyle = useAnimations && underlineWidth && useAnimatedStyle ? 
-    useAnimatedStyle(() => ({
+  // Create underline style
+  const underlineStyle = useAnimatedStyle(() => {
+    if (!useAnimations) return {};
+    return {
       position: 'absolute' as const,
       bottom: -2,
       left: 0,
@@ -211,7 +201,8 @@ export const UniversalLink = React.forwardRef<any, UniversalLinkProps>(({
         scaleX: underlineWidth.value / 100,
       }],
       width: '100%',
-    })) : {};
+    };
+  });
 
   // Component declarations moved here to avoid hoisting issues
   const PressableComponent = useAnimations && animationType !== 'none' 
@@ -257,7 +248,7 @@ export const UniversalLink = React.forwardRef<any, UniversalLinkProps>(({
               if (useAnimations && animationType !== 'none' && animationType !== 'underline') {
                 baseStyles.push(animatedStyle);
               }
-              return Platform.OS === 'web' ? sanitizeStyleForWeb(baseStyles) : baseStyles;
+              return Platform.OS === 'web' ? sanitizeStyleForWeb(baseStyles as any) : baseStyles;
             })()}
             {...props}
           >
@@ -267,7 +258,7 @@ export const UniversalLink = React.forwardRef<any, UniversalLinkProps>(({
           <PressableComponent
             ref={ref}
             disabled={disabled}
-            style={({ pressed }) => {
+            style={({ pressed }: any) => {
               const pressedStyles = [
                 combinedStyle,
                 { opacity: pressed && !useAnimations ? 0.7 : 1 },
@@ -299,7 +290,7 @@ export const UniversalLink = React.forwardRef<any, UniversalLinkProps>(({
   const content = typeof children === 'string' ? (
     <Text 
       {...textProps}
-      className={cn(textClasses, textProps.className)}
+      className={cn(textClasses, textProps.className) as string}
       style={textProps.style}
     >
       {children}
@@ -324,7 +315,7 @@ export const UniversalLink = React.forwardRef<any, UniversalLinkProps>(({
             if (useAnimations && animationType !== 'none' && animationType !== 'underline') {
               baseStyles.push(animatedStyle);
             }
-            return Platform.OS === 'web' ? sanitizeStyleForWeb(baseStyles) : baseStyles;
+            return Platform.OS === 'web' ? sanitizeStyleForWeb(baseStyles as any) : baseStyles;
           })()}
           onHoverIn={handleHoverIn}
           onHoverOut={handleHoverOut}
@@ -350,7 +341,7 @@ export const UniversalLink = React.forwardRef<any, UniversalLinkProps>(({
       <PressableComponent
         ref={ref}
         disabled={disabled}
-        style={({ pressed }) => {
+        style={({ pressed }: any) => {
           const pressedStyles = [
             combinedStyle,
             { opacity: pressed && !useAnimations ? 0.7 : 1 },
@@ -373,7 +364,7 @@ export const UniversalLink = React.forwardRef<any, UniversalLinkProps>(({
 UniversalLink.displayName = 'UniversalLink';
 
 // Convenience component for inline text links
-export const TextLink: React.FC<UniversalLinkProps & { size?: TextProps['size']; weight?: TextProps['weight'] }> = ({
+export const InlineLink: React.FC<UniversalLinkProps & { size?: TextProps['size']; weight?: TextProps['weight'] }> = ({
   children,
   size = 'sm',
   weight = 'medium',

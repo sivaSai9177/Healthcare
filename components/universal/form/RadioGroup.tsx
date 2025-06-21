@@ -302,7 +302,7 @@ export const RadioItem = React.forwardRef<View, RadioItemProps>(({
         {animated && shouldAnimate() ? (
           <AnimatedView 
             className={isSelected ? "bg-primary-foreground" : "bg-transparent"}
-            style={[innerNativeStyle, innerStyle]} 
+            style={[innerNativeStyle, innerStyle] as any} 
           />
         ) : (
           isSelected && (

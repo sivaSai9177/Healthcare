@@ -1,8 +1,14 @@
 import { 
   router, 
   protectedProcedure,
+  publicProcedure,
+  viewOrganizationProcedure,
+  manageOrganizationProcedure,
+  inviteMembersProcedure,
+  manageMembersProcedure,
 } from '../trpc';
 import { TRPCError } from '@trpc/server';
+import { z } from 'zod';
 import { db } from '../../db';
 import { 
   organization, 
@@ -14,7 +20,8 @@ import {
   organizationJoinRequest,
 } from '../../db/organization-schema';
 import { user } from '../../db/schema';
-import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
+import { healthcareUsers } from '../../db/healthcare-schema';
+import { eq, and, desc, sql, gte, lte, or } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { log } from '@/lib/core/debug/logger';
 import { orgAccess } from '../services/organization-access-control';
@@ -155,7 +162,7 @@ export const organizationRouter = router({
     .output(OrganizationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       // Rate limiting: 5 org creations per hour per user
-      checkRateLimit(`org-create:${ctx.user.id}`, 5, 3600000);
+      checkRateLimit(`org-create:${ctx.session.user.id}`, 5, 3600000);
       
       try {
         // Generate slug if not provided
@@ -183,14 +190,14 @@ export const organizationRouter = router({
             .values({
               ...input,
               slug,
-              createdBy: ctx.user.id,
+              createdBy: ctx.session.user.id,
             })
             .returning();
           
           // Add creator as owner
           await tx.insert(organizationMember).values({
             organizationId: newOrg.id,
-            userId: ctx.user.id,
+            userId: ctx.session.user.id,
             role: 'owner',
             status: 'active',
           });
@@ -203,7 +210,7 @@ export const organizationRouter = router({
           // Log creation
           await logActivity(
             newOrg.id,
-            ctx.user.id,
+            ctx.session.user.id,
             'organization.created',
             'organization',
             'organization',
@@ -218,7 +225,7 @@ export const organizationRouter = router({
               email: invite.email,
               role: invite.role,
               token: nanoid(32),
-              invitedBy: ctx.user.id,
+              invitedBy: ctx.session.user.id,
               expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
             }));
             
@@ -228,7 +235,7 @@ export const organizationRouter = router({
             
             await logActivity(
               newOrg.id,
-              ctx.user.id,
+              ctx.session.user.id,
               'member.invited',
               'member',
               undefined,
@@ -242,7 +249,7 @@ export const organizationRouter = router({
         
         log.info('Organization created', 'ORG_CREATE', { 
           organizationId: result.id, 
-          userId: ctx.user.id 
+          userId: ctx.session.user.id 
         });
         
         return {
@@ -253,7 +260,7 @@ export const organizationRouter = router({
       } catch (error) {
         log.error('Failed to create organization', 'ORG_CREATE', { 
           error, 
-          userId: ctx.user.id 
+          userId: ctx.session.user.id 
         });
         
         if (error instanceof TRPCError) {
@@ -267,13 +274,13 @@ export const organizationRouter = router({
       }
     }),
 
-  get: protectedProcedure
+  get: viewOrganizationProcedure
     .input(GetOrganizationSchema)
     .output(OrganizationResponseSchema)
     .query(async ({ input, ctx }) => {
       // Check access
       const canAccess = await orgAccess.canAccessOrganization(
-        ctx.user.id,
+        ctx.session.user.id,
         input.organizationId
       );
       
@@ -309,7 +316,7 @@ export const organizationRouter = router({
         );
       
       // Get user's role
-      const userRole = await orgAccess.getUserRole(ctx.user.id, input.organizationId);
+      const userRole = await orgAccess.getUserRole(ctx.session.user.id, input.organizationId);
       
       return {
         ...org,
@@ -318,13 +325,13 @@ export const organizationRouter = router({
       };
     }),
 
-  update: protectedProcedure
+  update: manageOrganizationProcedure
     .input(UpdateOrganizationSchema)
     .output(OrganizationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       // Check permission
       await orgAccess.requirePermission(
-        ctx.user.id,
+        ctx.session.user.id,
         input.organizationId,
         'organization.update'
       );
@@ -347,7 +354,7 @@ export const organizationRouter = router({
       
       await logActivity(
         input.organizationId,
-        ctx.user.id,
+        ctx.session.user.id,
         'organization.updated',
         'organization',
         'organization',
@@ -355,7 +362,7 @@ export const organizationRouter = router({
         { changes: input.data }
       );
       
-      const userRole = await orgAccess.getUserRole(ctx.user.id, input.organizationId);
+      const userRole = await orgAccess.getUserRole(ctx.session.user.id, input.organizationId);
       
       return {
         ...updatedOrg,
@@ -367,7 +374,7 @@ export const organizationRouter = router({
     .input(DeleteOrganizationSchema)
     .mutation(async ({ input, ctx }) => {
       // Only owner can delete organization
-      const userRole = await orgAccess.getUserRole(ctx.user.id, input.organizationId);
+      const userRole = await orgAccess.getUserRole(ctx.session.user.id, input.organizationId);
       
       if (userRole !== 'owner') {
         throw new TRPCError({
@@ -388,7 +395,7 @@ export const organizationRouter = router({
       
       await logActivity(
         input.organizationId,
-        ctx.user.id,
+        ctx.session.user.id,
         'organization.deleted',
         'organization',
         'organization',
@@ -397,7 +404,7 @@ export const organizationRouter = router({
       
       log.warn('Organization deleted', 'ORG_DELETE', {
         organizationId: input.organizationId,
-        userId: ctx.user.id,
+        userId: ctx.session.user.id,
       });
       
       return { success: true };
@@ -422,7 +429,7 @@ export const organizationRouter = router({
         )
         .where(
           and(
-            eq(organizationMember.userId, ctx.user.id),
+            eq(organizationMember.userId, ctx.session.user.id),
             eq(organizationMember.status, 'active'),
             statusFilter
           )
@@ -433,7 +440,7 @@ export const organizationRouter = router({
       const [dbUser] = await db
         .select({ organizationId: user.organizationId })
         .from(user)
-        .where(eq(user.id, ctx.user.id))
+        .where(eq(user.id, ctx.session.user.id))
         .limit(1);
 
       return {
@@ -449,12 +456,12 @@ export const organizationRouter = router({
   // Member Management
   // ==========================================
   
-  getMembers: protectedProcedure
+  getMembers: viewOrganizationProcedure
     .input(GetOrganizationMembersSchema)
     .query(async ({ input, ctx }) => {
       // Check permission
       await orgAccess.requirePermission(
-        ctx.user.id,
+        ctx.session.user.id,
         input.organizationId,
         'members.view'
       );
@@ -528,12 +535,100 @@ export const organizationRouter = router({
       };
     }),
 
-  inviteMembers: protectedProcedure
+  // Get members with healthcare data
+  getMembersWithHealthcare: protectedProcedure
+    .input(GetOrganizationMembersSchema)
+    .query(async ({ input, ctx }) => {
+      // Check permission
+      await orgAccess.requirePermission(
+        ctx.session.user.id,
+        input.organizationId,
+        'members.view'
+      );
+      
+      const { limit = 20, page = 1, search, role, status } = input;
+      const offset = (page - 1) * limit;
+      
+      // Build query conditions
+      const conditions = [
+        eq(organizationMember.organizationId, input.organizationId),
+      ];
+      
+      if (role) {
+        conditions.push(eq(organizationMember.role, role));
+      }
+      
+      if (status) {
+        conditions.push(eq(organizationMember.status, status));
+      }
+      
+      // Get members with user and healthcare data
+      const query = db
+        .select({
+          member: organizationMember,
+          user: user,
+          healthcare: healthcareUsers,
+        })
+        .from(organizationMember)
+        .innerJoin(user, eq(organizationMember.userId, user.id))
+        .leftJoin(healthcareUsers, eq(user.id, healthcareUsers.userId))
+        .where(and(...conditions))
+        .orderBy(desc(organizationMember.joinedAt))
+        .limit(limit)
+        .offset(offset);
+      
+      // Apply search if provided
+      if (search) {
+        query.where(
+          and(
+            ...conditions,
+            sql`${user.name} ILIKE ${`%${search}%`} OR ${user.email} ILIKE ${`%${search}%`}`
+          )
+        );
+      }
+      
+      const members = await query;
+      
+      // Get total count
+      const countResult = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(organizationMember)
+        .innerJoin(user, eq(organizationMember.userId, user.id))
+        .where(and(...conditions));
+      
+      const formattedMembers = members.map(({ member, user: userData, healthcare }) => ({
+        id: member.id,
+        userId: member.userId,
+        organizationId: member.organizationId,
+        name: userData.name,
+        email: userData.email,
+        image: userData.image,
+        role: member.role as OrganizationRole,
+        healthcareRole: userData.role as string,
+        permissions: member.permissions as string[],
+        status: member.status as any,
+        joinedAt: member.joinedAt,
+        lastActiveAt: member.lastActiveAt,
+        // Healthcare specific data
+        isOnDuty: healthcare?.isOnDuty || false,
+        department: healthcare?.department,
+        specialization: healthcare?.specialization,
+        shiftStartTime: healthcare?.shiftStartTime,
+        avatar: userData.image,
+      }));
+      
+      return {
+        members: formattedMembers,
+        total: Number(countResult[0]?.count || 0),
+      };
+    }),
+
+  inviteMembers: inviteMembersProcedure
     .input(InviteMembersSchema)
     .mutation(async ({ input, ctx }) => {
       // Check permission
       await orgAccess.requirePermission(
-        ctx.user.id,
+        ctx.session.user.id,
         input.organizationId,
         'members.invite'
       );
@@ -583,7 +678,7 @@ export const organizationRouter = router({
             email: invite.email,
             role: invite.role,
             token: nanoid(32),
-            invitedBy: ctx.user.id,
+            invitedBy: ctx.session.user.id,
             message: invite.message,
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
           });
@@ -607,7 +702,7 @@ export const organizationRouter = router({
       if (results.sent > 0) {
         await logActivity(
           input.organizationId,
-          ctx.user.id,
+          ctx.session.user.id,
           'member.invited',
           'member',
           undefined,
@@ -619,12 +714,12 @@ export const organizationRouter = router({
       return results;
     }),
 
-  updateMemberRole: protectedProcedure
+  updateMemberRole: manageMembersProcedure
     .input(UpdateMemberRoleSchema)
     .mutation(async ({ input, ctx }) => {
       // Check if actor can update this member's role
       const canUpdate = await orgAccess.canUpdateMemberRole(
-        ctx.user.id,
+        ctx.session.user.id,
         input.userId,
         input.organizationId,
         input.role
@@ -660,7 +755,7 @@ export const organizationRouter = router({
       
       await logActivity(
         input.organizationId,
-        ctx.user.id,
+        ctx.session.user.id,
         'member.role_changed',
         'member',
         'user',
@@ -691,18 +786,18 @@ export const organizationRouter = router({
       };
     }),
 
-  removeMember: protectedProcedure
+  removeMember: manageMembersProcedure
     .input(RemoveMemberSchema)
     .mutation(async ({ input, ctx }) => {
       // Check permission
       await orgAccess.requirePermission(
-        ctx.user.id,
+        ctx.session.user.id,
         input.organizationId,
         'members.remove'
       );
       
       // Can't remove yourself
-      if (ctx.user.id === input.userId) {
+      if (ctx.session.user.id === input.userId) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'Cannot remove yourself from the organization',
@@ -729,7 +824,7 @@ export const organizationRouter = router({
       
       await logActivity(
         input.organizationId,
-        ctx.user.id,
+        ctx.session.user.id,
         'member.removed',
         'member',
         'user',
@@ -744,12 +839,12 @@ export const organizationRouter = router({
   // Organization Settings
   // ==========================================
   
-  getSettings: protectedProcedure
+  getSettings: viewOrganizationProcedure
     .input(GetOrganizationSettingsSchema)
     .query(async ({ input, ctx }) => {
       // Check permission
       await orgAccess.requirePermission(
-        ctx.user.id,
+        ctx.session.user.id,
         input.organizationId,
         'settings.view'
       );
@@ -822,19 +917,19 @@ export const organizationRouter = router({
       };
     }),
 
-  updateSettings: protectedProcedure
+  updateSettings: manageOrganizationProcedure
     .input(UpdateOrganizationSettingsSchema)
     .mutation(async ({ input, ctx }) => {
       // Check permission
       await orgAccess.requirePermission(
-        ctx.user.id,
+        ctx.session.user.id,
         input.organizationId,
         'settings.update'
       );
       
       const updateData: any = {
         updatedAt: new Date(),
-        updatedBy: ctx.user.id,
+        updatedBy: ctx.session.user.id,
       };
       
       // Map settings to database columns
@@ -898,7 +993,7 @@ export const organizationRouter = router({
       
       await logActivity(
         input.organizationId,
-        ctx.user.id,
+        ctx.session.user.id,
         'settings.updated',
         'settings',
         'settings',
@@ -911,15 +1006,77 @@ export const organizationRouter = router({
     }),
 
   // ==========================================
+  // Active Organization Management
+  // ==========================================
+  
+  setActiveOrganization: protectedProcedure
+    .input(z.object({
+      organizationId: z.string().uuid(),
+    }))
+    .output(z.object({
+      success: z.boolean(),
+      organizationId: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // Verify user is a member of the organization
+      const [membership] = await db
+        .select()
+        .from(organizationMember)
+        .where(
+          and(
+            eq(organizationMember.organizationId, input.organizationId),
+            eq(organizationMember.userId, ctx.session.user.id),
+            eq(organizationMember.status, 'active')
+          )
+        )
+        .limit(1);
+      
+      if (!membership) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You are not a member of this organization',
+        });
+      }
+      
+      // Update user's default organization
+      await db
+        .update(user)
+        .set({
+          organizationId: input.organizationId,
+          updatedAt: new Date(),
+        })
+        .where(eq(user.id, ctx.session.user.id));
+      
+      await logActivity(
+        input.organizationId,
+        ctx.session.user.id,
+        'organization.switched',
+        'organization',
+        'organization',
+        input.organizationId
+      );
+      
+      log.info('Active organization switched', 'ORG_SWITCH', {
+        userId: ctx.session.user.id,
+        organizationId: input.organizationId,
+      });
+      
+      return {
+        success: true,
+        organizationId: input.organizationId,
+      };
+    }),
+
+  // ==========================================
   // Organization Code System
   // ==========================================
   
-  generateCode: protectedProcedure
+  generateCode: inviteMembersProcedure
     .input(GenerateOrganizationCodeSchema)
     .mutation(async ({ input, ctx }) => {
       // Check permission
       await orgAccess.requirePermission(
-        ctx.user.id,
+        ctx.session.user.id,
         input.organizationId,
         'codes.generate'
       );
@@ -947,12 +1104,12 @@ export const organizationRouter = router({
         type: input.type,
         maxUses: input.maxUses,
         expiresAt,
-        createdBy: ctx.user.id,
+        createdBy: ctx.session.user.id,
       });
       
       await logActivity(
         input.organizationId,
-        ctx.user.id,
+        ctx.session.user.id,
         'code.generated',
         'security',
         'code',
@@ -963,7 +1120,7 @@ export const organizationRouter = router({
       return { code, expiresAt };
     }),
 
-  joinByCode: protectedProcedure
+  joinByCode: publicProcedure
     .input(JoinByCodeSchema)
     .mutation(async ({ input, ctx }) => {
       // Find valid code
@@ -1013,7 +1170,7 @@ export const organizationRouter = router({
         .where(
           and(
             eq(organizationMember.organizationId, codeData.org.id),
-            eq(organizationMember.userId, ctx.user.id)
+            eq(organizationMember.userId, ctx.session.user.id)
           )
         )
         .limit(1);
@@ -1029,7 +1186,7 @@ export const organizationRouter = router({
       await db.transaction(async (tx) => {
         await tx.insert(organizationMember).values({
           organizationId: codeData.org.id,
-          userId: ctx.user.id,
+          userId: ctx.session.user.id,
           role: codeData.code.type as OrganizationRole,
           status: 'active',
         });
@@ -1046,11 +1203,11 @@ export const organizationRouter = router({
       
       await logActivity(
         codeData.org.id,
-        ctx.user.id,
+        ctx.session.user.id,
         'member.joined',
         'member',
         'user',
-        ctx.user.id,
+        ctx.session.user.id,
         { method: 'code', code: input.code }
       );
       
@@ -1067,12 +1224,12 @@ export const organizationRouter = router({
   // Metrics & Analytics
   // ==========================================
   
-  getMetrics: protectedProcedure
+  getMetrics: viewOrganizationProcedure
     .input(GetOrganizationMetricsSchema)
     .query(async ({ input, ctx }) => {
       // Check permission
       await orgAccess.requirePermission(
-        ctx.user.id,
+        ctx.session.user.id,
         input.organizationId,
         'organization.view'
       );
@@ -1146,12 +1303,12 @@ export const organizationRouter = router({
       return metrics[input.metric];
     }),
 
-  getActivityLog: protectedProcedure
+  getActivityLog: viewOrganizationProcedure
     .input(GetActivityLogSchema)
     .query(async ({ input, ctx }) => {
       // Check permission
       await orgAccess.requirePermission(
-        ctx.user.id,
+        ctx.session.user.id,
         input.organizationId,
         'activity.view'
       );
@@ -1233,10 +1390,10 @@ export const organizationRouter = router({
   // ==========================================
 
   // Search organizations (public endpoint for browsing)
-  searchOrganizations: protectedProcedure
+  searchOrganizations: publicProcedure
     .input(SearchOrganizationsSchema)
     .query(async ({ input, ctx }) => {
-      const { limit = 20, page = 1, query, type, size, industry, hasOpenRequests } = input;
+      const { limit = 20, page = 1, query, type, size, industry } = input;
       const offset = (page - 1) * limit;
       
       const conditions = [
@@ -1283,7 +1440,7 @@ export const organizationRouter = router({
         .from(organizationMember)
         .where(
           and(
-            eq(organizationMember.userId, ctx.user.id),
+            eq(organizationMember.userId, ctx.session.user.id),
             eq(organizationMember.status, 'active')
           )
         );
@@ -1294,7 +1451,7 @@ export const organizationRouter = router({
           status: organizationJoinRequest.status,
         })
         .from(organizationJoinRequest)
-        .where(eq(organizationJoinRequest.userId, ctx.user.id));
+        .where(eq(organizationJoinRequest.userId, ctx.session.user.id));
       
       const membershipSet = new Set(userMemberships.map(m => m.organizationId));
       const requestMap = new Map(userRequests.map(r => [r.organizationId, r.status]));
@@ -1331,7 +1488,7 @@ export const organizationRouter = router({
         .where(
           and(
             eq(organizationMember.organizationId, input.organizationId),
-            eq(organizationMember.userId, ctx.user.id)
+            eq(organizationMember.userId, ctx.session.user.id)
           )
         )
         .limit(1);
@@ -1350,7 +1507,7 @@ export const organizationRouter = router({
         .where(
           and(
             eq(organizationJoinRequest.organizationId, input.organizationId),
-            eq(organizationJoinRequest.userId, ctx.user.id),
+            eq(organizationJoinRequest.userId, ctx.session.user.id),
             eq(organizationJoinRequest.status, 'pending')
           )
         )
@@ -1373,7 +1530,7 @@ export const organizationRouter = router({
       const [userData] = await db
         .select({ email: user.email })
         .from(user)
-        .where(eq(user.id, ctx.user.id))
+        .where(eq(user.id, ctx.session.user.id))
         .limit(1);
       
       // Check if user's email domain is in allowed domains
@@ -1391,7 +1548,7 @@ export const organizationRouter = router({
         .insert(organizationJoinRequest)
         .values({
           organizationId: input.organizationId,
-          userId: ctx.user.id,
+          userId: ctx.session.user.id,
           requestedRole: input.requestedRole,
           message: input.message,
           status: autoApprove ? 'approved' : 'pending',
@@ -1405,24 +1562,24 @@ export const organizationRouter = router({
       if (autoApprove) {
         await db.insert(organizationMember).values({
           organizationId: input.organizationId,
-          userId: ctx.user.id,
+          userId: ctx.session.user.id,
           role: input.requestedRole,
           status: 'active',
         });
         
         await logActivity(
           input.organizationId,
-          ctx.user.id,
+          ctx.session.user.id,
           'member.joined',
           'member',
           'user',
-          ctx.user.id,
+          ctx.session.user.id,
           { method: 'auto_approved_request' }
         );
       } else {
         await logActivity(
           input.organizationId,
-          ctx.user.id,
+          ctx.session.user.id,
           'member.join_request_sent',
           'member',
           'join_request',
@@ -1473,12 +1630,12 @@ export const organizationRouter = router({
     }),
 
   // List join requests for an organization (admin view)
-  listJoinRequests: protectedProcedure
+  listJoinRequests: manageMembersProcedure
     .input(ListJoinRequestsSchema)
     .query(async ({ input, ctx }) => {
       // Check permission
       await orgAccess.requirePermission(
-        ctx.user.id,
+        ctx.session.user.id,
         input.organizationId,
         'members.manage'
       );
@@ -1602,7 +1759,7 @@ export const organizationRouter = router({
       const offset = (page - 1) * limit;
       
       const conditions = [
-        eq(organizationJoinRequest.userId, ctx.user.id),
+        eq(organizationJoinRequest.userId, ctx.session.user.id),
       ];
       
       if (status) {
@@ -1625,7 +1782,7 @@ export const organizationRouter = router({
       const [userData] = await db
         .select()
         .from(user)
-        .where(eq(user.id, ctx.user.id))
+        .where(eq(user.id, ctx.session.user.id))
         .limit(1);
       
       // Get reviewer data for requests
@@ -1685,7 +1842,7 @@ export const organizationRouter = router({
     }),
 
   // Review join request (approve/reject)
-  reviewJoinRequest: protectedProcedure
+  reviewJoinRequest: inviteMembersProcedure
     .input(ReviewJoinRequestSchema)
     .output(JoinRequestResponseSchema)
     .mutation(async ({ input, ctx }) => {
@@ -1712,7 +1869,7 @@ export const organizationRouter = router({
       
       // Check permission
       await orgAccess.requirePermission(
-        ctx.user.id,
+        ctx.session.user.id,
         request.organizationId,
         'members.manage'
       );
@@ -1721,17 +1878,16 @@ export const organizationRouter = router({
       const approvedRole = input.approvedRole || request.requestedRole;
       
       // Update request
-      const [updatedRequest] = await db
+      await db
         .update(organizationJoinRequest)
         .set({
           status: newStatus,
-          reviewedBy: ctx.user.id,
+          reviewedBy: ctx.session.user.id,
           reviewedAt: new Date(),
           reviewNote: input.reviewNote,
           updatedAt: new Date(),
         })
-        .where(eq(organizationJoinRequest.id, input.requestId))
-        .returning();
+        .where(eq(organizationJoinRequest.id, input.requestId));
       
       // If approved, add as member
       if (input.action === 'approve') {
@@ -1744,7 +1900,7 @@ export const organizationRouter = router({
         
         await logActivity(
           request.organizationId,
-          ctx.user.id,
+          ctx.session.user.id,
           'member.join_request_approved',
           'member',
           'join_request',
@@ -1757,7 +1913,7 @@ export const organizationRouter = router({
       } else {
         await logActivity(
           request.organizationId,
-          ctx.user.id,
+          ctx.session.user.id,
           'member.join_request_rejected',
           'member',
           'join_request',
@@ -1785,7 +1941,7 @@ export const organizationRouter = router({
       const [reviewer] = await db
         .select()
         .from(user)
-        .where(eq(user.id, ctx.user.id))
+        .where(eq(user.id, ctx.session.user.id))
         .limit(1);
       
       return {
@@ -1831,7 +1987,7 @@ export const organizationRouter = router({
         .where(
           and(
             eq(organizationJoinRequest.id, input.requestId),
-            eq(organizationJoinRequest.userId, ctx.user.id)
+            eq(organizationJoinRequest.userId, ctx.session.user.id)
           )
         )
         .limit(1);
@@ -1861,7 +2017,7 @@ export const organizationRouter = router({
       
       await logActivity(
         request.organizationId,
-        ctx.user.id,
+        ctx.session.user.id,
         'member.join_request_sent',
         'member',
         'join_request',

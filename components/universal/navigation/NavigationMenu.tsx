@@ -14,7 +14,6 @@ import { useSpacing } from '@/lib/stores/spacing-store';
 import { HStack, VStack } from '@/components/universal/layout/Stack';
 import { Text } from '@/components/universal/typography/Text';
 import { Symbol } from '@/components/universal/display/Symbols';
-import { SpacingScale } from '@/lib/design';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 import { haptic } from '@/lib/ui/haptics';
 import { cn } from '@/lib/core/utils';
@@ -77,12 +76,12 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
   
   const value = controlledValue ?? internalValue;
   
-  const handleValueChange = (newValue: string) => {
+  const handleValueChange = React.useCallback((newValue: string) => {
     if (!controlledValue) {
       setInternalValue(newValue);
     }
     onValueChange?.(newValue);
-  };
+  }, [controlledValue, onValueChange]);
   
   const contextValue = React.useMemo(
     () => ({ 
@@ -93,7 +92,7 @@ export const NavigationMenu: React.FC<NavigationMenuProps> = ({
       animationDuration,
       useHaptics,
     }),
-    [value, animated, animationType, animationDuration, useHaptics]
+    [value, animated, animationType, animationDuration, useHaptics, handleValueChange]
   );
   
   const Container = orientation === 'horizontal' ? HStack : VStack;
@@ -131,7 +130,6 @@ export const NavigationMenuItem: React.FC<NavigationMenuItemProps> = ({
   active: controlledActive,
   onPress,
 }) => {
-  const { spacing, componentSpacing } = useSpacing();
   const { value, onValueChange, animated, animationType, animationDuration, useHaptics: contextUseHaptics } = useNavigationMenu();
   const { shouldAnimate } = useAnimationStore();
   
@@ -143,10 +141,10 @@ export const NavigationMenuItem: React.FC<NavigationMenuItemProps> = ({
   const backgroundColor = useSharedValue(0);
   
   // Spring config
-  const springConfig = {
+  const springConfig = React.useMemo(() => ({
     damping: 20,
     stiffness: 300,
-  };
+  }), []);
 
   // Update animations when active state changes
   useEffect(() => {
@@ -159,7 +157,7 @@ export const NavigationMenuItem: React.FC<NavigationMenuItemProps> = ({
       }
       backgroundColor.value = withTiming(isActive ? 1 : 0, { duration: animationDuration });
     }
-  }, [isActive, animated, shouldAnimate, animationType, animationDuration]);
+  }, [isActive, animated, shouldAnimate, animationType, animationDuration, scale, opacity, backgroundColor, springConfig]);
   
   const handlePress = () => {
     if (!disabled) {
@@ -291,8 +289,8 @@ export const NavigationMenuContent: React.FC<NavigationMenuContentProps> = ({
   // Web CSS animations
   const webAnimationStyle = Platform.OS === 'web' && animated && shouldAnimate() ? {
     '@keyframes slideIn': {
-      from: { transform: 'translateY(20px)', opacity: 0 },
-      to: { transform: 'translateY(0)', opacity: 1 },
+      from: { transform: 'translateY(20px)', opacity: 0 as any },
+      to: { transform: 'translateY(0)', opacity: 1 as any },
     },
     animation: `slideIn ${animationDuration}ms ease-out`,
   } as any : {};
@@ -323,7 +321,6 @@ export interface NavigationMenuLinkProps {
 }
 
 export const NavigationMenuLink: React.FC<NavigationMenuLinkProps> = ({
-  href,
   onPress,
   children,
   disabled = false,
@@ -403,7 +400,7 @@ export const SimpleNavigationMenu: React.FC<SimpleNavigationMenuProps> = ({
   animationDuration = 300,
   useHaptics = true,
 }) => {
-  const { spacing, componentSpacing } = useSpacing();
+  const { componentSpacing } = useSpacing();
   const [activeValue, setActiveValue] = useState(defaultValue || items[0]?.value || '');
   
   return (
@@ -429,7 +426,7 @@ export const SimpleNavigationMenu: React.FC<SimpleNavigationMenuProps> = ({
               {item.icon && (
                 <Symbol
                   name={item.icon as any}
-                  size={componentSpacing.iconSize.sm}
+                  size={componentSpacing?.iconSize && typeof componentSpacing.iconSize === 'object' ? (componentSpacing.iconSize as any).sm : 16}
                   className={
                     activeValue === item.value
                       ? 'text-accent-foreground'

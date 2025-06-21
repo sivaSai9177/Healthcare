@@ -95,7 +95,7 @@ const SuggestionItem = React.memo(({
     style={({ pressed }) => ({
       flexDirection: 'row',
       alignItems: 'center',
-      padding: spacing[3],
+      padding: spacing[3] as any,
       backgroundColor: pressed ? undefined : 'transparent',
     })}
     className={({ pressed }) => cn(
@@ -195,7 +195,7 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
         height: 52,
         fontSize: 18,
         iconSize: 24,
-        padding: spacing[1],
+        padding: spacing[1] as any,
       },
     }[size]), [size]);
 
@@ -308,7 +308,7 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
       right: 0,
       maxHeight: 300,
       backgroundColor: theme.popover || theme.card,
-      borderRadius: 8,
+      borderRadius: 8 as any,
       borderWidth: 1,
       borderColor: theme.border,
       boxShadow: '0px 2px 8px theme.mutedForeground + "10"',
@@ -376,7 +376,7 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
     return (
       <View style={{ position: 'relative' }}>
         <ContainerView 
-      style={[containerStyle, shouldUseAnimation && animationType === 'expand' ? containerAnimatedStyle : {}]}
+      style={[containerStyle, shouldUseAnimation && animationType === 'expand' ? containerAnimatedStyle : {}] as any}
       className={cn(
         variantStyles.container,
         isFocused && 'ring-2 ring-ring'
@@ -386,7 +386,7 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
             name="magnifyingglass"
             size={sizeConfig.iconSize}
             className="text-muted-foreground"
-            style={[{ marginRight: spacing[2] }, shouldUseAnimation ? searchIconStyle : {}]}
+            style={[{ marginRight: spacing[2] }, shouldUseAnimation ? searchIconStyle : {}] as any}
             animated={shouldUseAnimation}
           />
 
@@ -400,7 +400,7 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
             editable={!disabled}
             autoFocus={autoFocus}
             returnKeyType="search"
-            style={[inputFieldStyle, isPending && { opacity: 0.7 }]}
+            style={[inputFieldStyle, isPending && { opacity: 0.7 as any }] as any}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setTimeout(() => setIsFocused(false), 200)}
             testID={testID}
@@ -421,7 +421,7 @@ export const Search = React.forwardRef<TextInput, SearchProps>(
           {showClearButton && shouldUseAnimation && (
             <AnimatedPressable
               onPress={handleClear}
-              style={[{ marginLeft: spacing[2] }, clearButtonStyle]}
+              style={[{ marginLeft: spacing[2] }, clearButtonStyle] as any}
             >
               <Symbol name="xmark.circle"
                 size={sizeConfig.iconSize}
@@ -541,7 +541,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            padding: spacing[4],
+            padding: spacing[4] as any,
             borderBottomWidth: 1,
             borderBottomColor: theme.border,
           }}
@@ -554,7 +554,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           </Text>
         </View>
 
-        <View style={{ padding: spacing[4] }}>
+        <View style={{ padding: spacing[4] as any }}>
           <Search {...searchProps} autoFocus />
         </View>
       </KeyboardAvoidingView>

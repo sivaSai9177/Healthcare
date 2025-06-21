@@ -85,7 +85,7 @@ export const Toggle = React.forwardRef<View, ToggleProps>(({
   // Size configuration
   const sizeConfig = {
     sm: {
-      padding: spacing[2],
+      padding: spacing[2] as any,
       minHeight: componentSizes.button.sm.height,
       fontSize: 12,
       iconSize: componentSpacing.iconSize.sm,
@@ -97,7 +97,7 @@ export const Toggle = React.forwardRef<View, ToggleProps>(({
       iconSize: componentSpacing.iconSize.md,
     },
     lg: {
-      padding: spacing[3],
+      padding: spacing[3] as any,
       minHeight: componentSizes.button.lg.height,
       fontSize: 16,
       iconSize: componentSpacing.iconSize.lg,
@@ -244,7 +244,7 @@ export const Toggle = React.forwardRef<View, ToggleProps>(({
           backgroundColor: colors.background,
           borderWidth: variant === 'outline' ? 1 : 0,
           borderColor: colors.border,
-          borderRadius: 6,
+          borderRadius: 6 as any,
           opacity: disabled ? 0.5 : 1,
         },
         isHovered && !disabled && {
@@ -315,7 +315,7 @@ export const ToggleGroup: React.FC<ToggleGroupProps> = ({
       style={[
         {
           flexDirection: orientation === 'horizontal' ? 'row' : 'column',
-          gap: spacing[1],
+          gap: spacing[1] as any,
         },
         style,
       ]}

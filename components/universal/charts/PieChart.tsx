@@ -156,7 +156,7 @@ export const PieChart: React.FC<PieChartProps> = ({
   }, [data, total, centerX, centerY, radius, innerRadius, labelPosition, chartConfig]);
   
   return (
-    <View style={[{ width, height }, style]} testID={testID}>
+    <View style={[{ width, height }, style] as any} testID={testID}>
       <Svg width={width} height={height}>
         {/* Slices */}
         {slices.map((slice, index) => (

@@ -153,7 +153,7 @@ export const ScrollArea = React.forwardRef<ScrollView, ScrollAreaProps>(({
   });
   
   return (
-    <View className={cn('relative flex-1', className)} style={style}>
+    <View className={cn('relative flex-1', className) as string} style={style}>
       <AnimatedScrollView
         ref={ref}
         onScroll={animated && shouldAnimate() ? scrollHandler : onScroll}

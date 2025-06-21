@@ -1,3 +1,4 @@
+import type { SpacingValue, ButtonVariant, BadgeVariant } from '@/types/components';
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
@@ -121,12 +122,12 @@ export default function SearchModal() {
         break;
       case 'alerts':
         // TODO: Navigate to alert details
-// TODO: Replace with structured logging - console.log('Navigate to alert:', result.id);
+// TODO: Replace with structured logging - /* console.log('Navigate to alert:', result.id) */;
         router.back();
         break;
       case 'documents':
         // TODO: Navigate to document viewer
-// TODO: Replace with structured logging - console.log('Navigate to document:', result.id);
+// TODO: Replace with structured logging - /* console.log('Navigate to document:', result.id) */;
         router.back();
         break;
     }
@@ -186,7 +187,7 @@ export default function SearchModal() {
           contentContainerStyle={{
             padding: spacing.md,
             paddingTop: 0,
-          }}
+            paddingBottom: 20 }}
           keyboardShouldPersistTaps="handled"
         >
           <Stack spacing="md">
@@ -256,7 +257,7 @@ export default function SearchModal() {
                       <Card>
                         <Stack direction="row" spacing="md" align="center">
                           {result.avatar ? (
-                            <Avatar size="md" fallback={result.avatar} />
+                            <Avatar size="default" fallback={result.avatar} />
                           ) : (
                             <Text variant="h4">{getResultIcon(result.type)}</Text>
                           )}

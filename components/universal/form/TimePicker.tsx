@@ -210,7 +210,7 @@ export const TimePicker = React.forwardRef<View, TimePickerProps>(
               alignItems: 'center',
               paddingHorizontal: spacing[3],
               paddingVertical: spacing[2.5],
-              borderRadius: 8,
+              borderRadius: 8 as any,
               opacity: disabled ? 0.5 : 1,
             },
             style,
@@ -245,7 +245,7 @@ export const TimePicker = React.forwardRef<View, TimePickerProps>(
               backgroundColor: 'rgba(0, 0, 0, 0.5)',
               justifyContent: 'center',
               alignItems: 'center',
-              padding: spacing[4],
+              padding: spacing[4] as any,
             }}
             onPress={() => setShowPicker(false)}
           >
@@ -262,7 +262,7 @@ export const TimePicker = React.forwardRef<View, TimePickerProps>(
                 className="bg-card"
                 style={{
                   width: 300,
-                  padding: spacing[4],
+                  padding: spacing[4] as any,
                 }}
               >
                 <Text size="lg" weight="semibold" className="text-center mb-4">
@@ -363,7 +363,7 @@ export const TimePicker = React.forwardRef<View, TimePickerProps>(
                 <View
                   style={{
                     flexDirection: 'row',
-                    gap: spacing[2],
+                    gap: spacing[2] as any,
                     marginTop: spacing[4],
                   }}
                 >

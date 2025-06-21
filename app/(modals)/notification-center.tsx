@@ -1,3 +1,4 @@
+import type { SpacingValue, ButtonVariant, BadgeVariant } from '@/types/components';
 import React, { useState } from 'react';
 import { View, ScrollView, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
@@ -174,7 +175,7 @@ export default function NotificationCenterModal() {
           contentContainerStyle={{
             padding: spacing.md,
             paddingTop: 0,
-          }}
+            paddingBottom: 20 }}
         >
           <Stack spacing="md">
             {filteredNotifications.length === 0 ? (

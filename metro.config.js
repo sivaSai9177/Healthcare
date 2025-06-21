@@ -14,13 +14,6 @@ if (process.env.PLATFORM === 'web') {
   config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
 }
 
-// Override server settings for web
-config.server = {
-  ...config.server,
-  // Force web to use localhost
-  host: 'localhost',
-};
-
 // Production optimizations
 if (process.env.NODE_ENV === 'production') {
   // Enable minification

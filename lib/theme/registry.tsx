@@ -265,6 +265,79 @@ export const oceanTheme: ThemeDefinition = {
   },
 };
 
+// Glass theme - Apple-inspired translucent design
+export const glassTheme: ThemeDefinition = {
+  id: 'glass',
+  name: 'Glass',
+  description: 'Apple-inspired liquid glass design with translucent surfaces',
+  colors: {
+    light: {
+      background: '#ffffff',
+      foreground: '#000000',
+      card: 'rgba(255, 255, 255, 0.7)',
+      cardForeground: '#000000',
+      popover: 'rgba(255, 255, 255, 0.85)',
+      popoverForeground: '#000000',
+      primary: '#007aff',
+      primaryForeground: '#ffffff',
+      secondary: 'rgba(0, 122, 255, 0.1)',
+      secondaryForeground: '#007aff',
+      muted: 'rgba(60, 60, 67, 0.1)',
+      mutedForeground: '#3c3c43',
+      accent: 'rgba(0, 122, 255, 0.15)',
+      accentForeground: '#007aff',
+      destructive: '#ff3b30',
+      destructiveForeground: '#ffffff',
+      border: 'rgba(60, 60, 67, 0.18)',
+      input: 'rgba(60, 60, 67, 0.12)',
+      ring: 'rgba(0, 122, 255, 0.5)',
+      success: '#34c759',
+      successForeground: '#ffffff',
+      // Glass-specific shadows
+      shadow2xs: '0 1px 3px rgba(0, 0, 0, 0.04)',
+      shadowXs: '0 1px 5px rgba(0, 0, 0, 0.06)',
+      shadowSm: '0 2px 10px rgba(0, 0, 0, 0.08)',
+      shadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+      shadowMd: '0 6px 20px rgba(0, 0, 0, 0.12)',
+      shadowLg: '0 10px 30px rgba(0, 0, 0, 0.15)',
+      shadowXl: '0 15px 40px rgba(0, 0, 0, 0.18)',
+      shadow2xl: '0 25px 50px rgba(0, 0, 0, 0.25)',
+    },
+    dark: {
+      background: '#000000',
+      foreground: '#ffffff',
+      card: 'rgba(28, 28, 30, 0.7)',
+      cardForeground: '#ffffff',
+      popover: 'rgba(44, 44, 46, 0.85)',
+      popoverForeground: '#ffffff',
+      primary: '#0a84ff',
+      primaryForeground: '#ffffff',
+      secondary: 'rgba(10, 132, 255, 0.1)',
+      secondaryForeground: '#0a84ff',
+      muted: 'rgba(99, 99, 102, 0.1)',
+      mutedForeground: '#8e8e93',
+      accent: 'rgba(10, 132, 255, 0.15)',
+      accentForeground: '#0a84ff',
+      destructive: '#ff453a',
+      destructiveForeground: '#ffffff',
+      border: 'rgba(99, 99, 102, 0.18)',
+      input: 'rgba(99, 99, 102, 0.12)',
+      ring: 'rgba(10, 132, 255, 0.5)',
+      success: '#32d74b',
+      successForeground: '#ffffff',
+      // Glass-specific shadows for dark mode
+      shadow2xs: '0 1px 3px rgba(0, 0, 0, 0.3)',
+      shadowXs: '0 1px 5px rgba(0, 0, 0, 0.35)',
+      shadowSm: '0 2px 10px rgba(0, 0, 0, 0.4)',
+      shadow: '0 4px 15px rgba(0, 0, 0, 0.45)',
+      shadowMd: '0 6px 20px rgba(0, 0, 0, 0.5)',
+      shadowLg: '0 10px 30px rgba(0, 0, 0, 0.55)',
+      shadowXl: '0 15px 40px rgba(0, 0, 0, 0.6)',
+      shadow2xl: '0 25px 50px rgba(0, 0, 0, 0.7)',
+    },
+  },
+};
+
 // Forest theme
 export const forestTheme: ThemeDefinition = {
   id: 'forest',
@@ -378,6 +451,7 @@ export const sunsetTheme: ThemeDefinition = {
 // Theme registry
 export const themes: Record<string, ThemeDefinition> = {
   default: defaultTheme,
+  glass: glassTheme,
   bubblegum: bubblegumTheme,
   ocean: oceanTheme,
   forest: forestTheme,

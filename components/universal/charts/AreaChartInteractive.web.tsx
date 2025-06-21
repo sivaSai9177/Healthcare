@@ -46,7 +46,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         backgroundColor: theme.popover,
         borderWidth: 1,
         borderColor: theme.border,
-        borderRadius: 6,
+        borderRadius: 6 as any,
         padding: 8,
         boxShadow: '0px 2px 4px theme.mutedForeground + "10"',
       }}>
@@ -62,7 +62,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
             <View style={{
               width: 8,
               height: 8,
-              borderRadius: 4,
+              borderRadius: 4 as any,
               backgroundColor: entry.color,
               marginRight: 6,
             }} />

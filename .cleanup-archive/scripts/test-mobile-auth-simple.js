@@ -15,14 +15,14 @@ class MobileAuthTester {
   addResult(test, passed, message, details = null) {
     this.results.push({ test, passed, message, details });
     const status = passed ? '✅ PASS' : '❌ FAIL';
-// TODO: Replace with structured logging - console.log(`${status} ${test}: ${message}`);
+// TODO: Replace with structured logging - /* console.log(`${status} ${test}: ${message}`) */;
     if (details && !passed) {
-// TODO: Replace with structured logging - console.log('  Details:', details);
+// TODO: Replace with structured logging - /* console.log('  Details:', details) */;
     }
   }
 
   async testAppSchemeConfiguration() {
-// TODO: Replace with structured logging - console.log('\n🔧 Testing App Scheme Configuration...');
+// TODO: Replace with structured logging - /* console.log('\n🔧 Testing App Scheme Configuration...') */;
     
     try {
       const appJsonPath = path.resolve(__dirname, '../app.json');
@@ -73,7 +73,7 @@ class MobileAuthTester {
   }
 
   async testAuthClientConfiguration() {
-// TODO: Replace with structured logging - console.log('\n🔐 Testing Auth Client Configuration...');
+// TODO: Replace with structured logging - /* console.log('\n🔐 Testing Auth Client Configuration...') */;
     
     try {
       const authClientPath = path.resolve(__dirname, '../lib/auth/auth-client.ts');
@@ -128,7 +128,7 @@ class MobileAuthTester {
   }
 
   async testOAuthConfiguration() {
-// TODO: Replace with structured logging - console.log('\n🌐 Testing OAuth Configuration...');
+// TODO: Replace with structured logging - /* console.log('\n🌐 Testing OAuth Configuration...') */;
     
     try {
       const requiredEnvVars = [
@@ -171,7 +171,7 @@ class MobileAuthTester {
   }
 
   async testMobileSpecificComponents() {
-// TODO: Replace with structured logging - console.log('\n📱 Testing Mobile-Specific Components...');
+// TODO: Replace with structured logging - /* console.log('\n📱 Testing Mobile-Specific Components...') */;
     
     try {
       const googleButtonPath = path.resolve(__dirname, '../components/GoogleSignInButton.tsx');
@@ -239,7 +239,7 @@ class MobileAuthTester {
   }
 
   async testCrossPlatformCompatibility() {
-// TODO: Replace with structured logging - console.log('\n🌍 Testing Cross-Platform Compatibility...');
+// TODO: Replace with structured logging - /* console.log('\n🌍 Testing Cross-Platform Compatibility...') */;
     
     const platforms = [
       {
@@ -273,7 +273,7 @@ class MobileAuthTester {
   }
 
   async testSecurityConfiguration() {
-// TODO: Replace with structured logging - console.log('\n🔒 Testing Security Configuration...');
+// TODO: Replace with structured logging - /* console.log('\n🔒 Testing Security Configuration...') */;
     
     try {
       const secureStoragePath = path.resolve(__dirname, '../lib/core/secure-storage.ts');
@@ -324,7 +324,7 @@ class MobileAuthTester {
   }
 
   async runAllTests() {
-// TODO: Replace with structured logging - console.log('🚀 Starting Mobile Authentication Flow Tests...\n');
+// TODO: Replace with structured logging - /* console.log('🚀 Starting Mobile Authentication Flow Tests...\n') */;
     
     await this.testAppSchemeConfiguration();
     await this.testAuthClientConfiguration();
@@ -337,31 +337,31 @@ class MobileAuthTester {
     const passedTests = this.results.filter(r => r.passed).length;
     const failedTests = totalTests - passedTests;
     
-// TODO: Replace with structured logging - console.log('\n📊 Test Summary:');
-// TODO: Replace with structured logging - console.log(`Total Tests: ${totalTests}`);
-// TODO: Replace with structured logging - console.log(`Passed: ${passedTests} ✅`);
-// TODO: Replace with structured logging - console.log(`Failed: ${failedTests} ❌`);
-// TODO: Replace with structured logging - console.log(`Success Rate: ${Math.round((passedTests / totalTests) * 100)}%`);
+// TODO: Replace with structured logging - /* console.log('\n📊 Test Summary:') */;
+// TODO: Replace with structured logging - /* console.log(`Total Tests: ${totalTests}`) */;
+// TODO: Replace with structured logging - /* console.log(`Passed: ${passedTests} ✅`) */;
+// TODO: Replace with structured logging - /* console.log(`Failed: ${failedTests} ❌`) */;
+// TODO: Replace with structured logging - /* console.log(`Success Rate: ${Math.round((passedTests / totalTests) */ * 100)}%`);
     
     if (failedTests > 0) {
-// TODO: Replace with structured logging - console.log('\n❌ Failed Tests:');
+// TODO: Replace with structured logging - /* console.log('\n❌ Failed Tests:') */;
       this.results
         .filter(r => !r.passed)
-// TODO: Replace with structured logging - .forEach(r => console.log(`  - ${r.test}: ${r.message}`));
+// TODO: Replace with structured logging - .forEach(r => /* console.log(`  - ${r.test}: ${r.message}`) */);
     }
     
-// TODO: Replace with structured logging - console.log('\n📱 Mobile Testing Instructions:');
-// TODO: Replace with structured logging - console.log('1. Create development build: bun run eas:build:dev');
-// TODO: Replace with structured logging - console.log('2. Install on device via TestFlight (iOS) or APK (Android)');
-// TODO: Replace with structured logging - console.log('3. Start development server: bun start');
-// TODO: Replace with structured logging - console.log('4. Test OAuth flow in the development build app');
-// TODO: Replace with structured logging - console.log('5. Verify profile completion and session management');
+// TODO: Replace with structured logging - /* console.log('\n📱 Mobile Testing Instructions:') */;
+// TODO: Replace with structured logging - /* console.log('1. Create development build: bun run eas:build:dev') */;
+// TODO: Replace with structured logging - /* console.log('2. Install on device via TestFlight (iOS) */ or APK (Android)');
+// TODO: Replace with structured logging - /* console.log('3. Start development server: bun start') */;
+// TODO: Replace with structured logging - /* console.log('4. Test OAuth flow in the development build app') */;
+// TODO: Replace with structured logging - /* console.log('5. Verify profile completion and session management') */;
     
-// TODO: Replace with structured logging - console.log('\n🔧 Required Setup for Mobile OAuth:');
-// TODO: Replace with structured logging - console.log('- Google Cloud Console: Add expo-starter://auth-callback to redirect URIs');
-// TODO: Replace with structured logging - console.log('- Environment: Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET');
-// TODO: Replace with structured logging - console.log('- Development Build: OAuth does not work in Expo Go');
-// TODO: Replace with structured logging - console.log('- Network: Ensure mobile device is on same network as dev server');
+// TODO: Replace with structured logging - /* console.log('\n🔧 Required Setup for Mobile OAuth:') */;
+// TODO: Replace with structured logging - /* console.log('- Google Cloud Console: Add expo-starter://auth-callback to redirect URIs') */;
+// TODO: Replace with structured logging - /* console.log('- Environment: Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET') */;
+// TODO: Replace with structured logging - /* console.log('- Development Build: OAuth does not work in Expo Go') */;
+// TODO: Replace with structured logging - /* console.log('- Network: Ensure mobile device is on same network as dev server') */;
     
     return {
       totalTests,

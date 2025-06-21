@@ -112,10 +112,15 @@ export function useGoogleSignIn() {
             throw webError;
           }
         } else {
-          // Mobile OAuth flow
+          // Mobile OAuth flow - add device info for Better Auth
+          const deviceInfo = {
+            device_id: Constants.sessionId || 'unknown',
+            device_name: `${Platform.OS}-${Constants.deviceName || 'mobile'}`
+          };
+          
           const result = await defaultAuthClient.signIn.social({
             provider: 'google',
-            callbackURL
+            callbackURL,
           });
           
           logger.auth.debug('OAuth initiated for mobile', { hasResult: !!result, platform: Platform.OS });
@@ -140,10 +145,10 @@ export function useGoogleSignIn() {
             // Navigate based on profile completion status from tRPC
             if (appUser.needsProfileCompletion) {
               logger.auth.debug('Navigating to profile completion');
-              router.replace('/(auth)/complete-profile');
+              router.replace('/auth/complete-profile');
             } else {
               logger.auth.debug('Navigating to home');
-              router.replace('/(home)');
+              router.replace('/');
             }
           } else {
             throw new Error('No session data received after OAuth');

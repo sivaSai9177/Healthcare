@@ -3,10 +3,24 @@ import { useAuth } from '@/hooks/useAuth';
 import { View, ActivityIndicator } from 'react-native';
 import { useTheme } from '@/lib/theme/provider';
 import { AuthScreenWrapper } from '@/components/blocks/auth/AuthScreenWrapper';
+import { logger } from '@/lib/core/debug/unified-logger';
+import { useEffect, useRef } from 'react';
 
 export default function PublicLayout() {
-  const { isAuthenticated, hasHydrated } = useAuth();
+  const { isAuthenticated, hasHydrated, user } = useAuth();
   const theme = useTheme();
+  const hasLoggedRef = useRef(false);
+
+  // Only log significant state changes to prevent render loops
+  useEffect(() => {
+    if (hasHydrated && isAuthenticated && user?.id && !hasLoggedRef.current) {
+      hasLoggedRef.current = true;
+      logger.router.navigate('(public)/_layout', '/home', { 
+        reason: 'already authenticated',
+        userId: user.id 
+      });
+    }
+  }, [hasHydrated, isAuthenticated, user?.id]); // Use specific properties instead of entire object
 
   // Show loading while checking auth state
   if (!hasHydrated) {
@@ -17,9 +31,9 @@ export default function PublicLayout() {
     );
   }
 
-  // Redirect to app if already authenticated
-  if (isAuthenticated) {
-    return <Redirect href="/(app)/(tabs)/home" />;
+  // Redirect authenticated users to app routes ONLY if profile is complete
+  if (isAuthenticated && user && !user.needsProfileCompletion) {
+    return <Redirect href="/home" />;
   }
 
   return (
@@ -30,7 +44,6 @@ export default function PublicLayout() {
       }}
     >
       <Stack.Screen name="auth" />
-      <Stack.Screen name="complete-profile" />
     </Stack>
   );
 }

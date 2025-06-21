@@ -85,11 +85,14 @@ export const EmailPreferencesBlock: React.FC<EmailPreferencesBlockProps> = ({
 
   // Get user email preferences
   const { data: userPreferences, isLoading: isLoadingPreferences } = 
-    api.user.getEmailPreferences.useQuery(undefined, {
-      onSuccess: (data) => {
-        setPreferences(data.preferences || {});
-      },
-    });
+    api.user.getEmailPreferences.useQuery();
+
+  // Update preferences when data is loaded
+  React.useEffect(() => {
+    if (userPreferences) {
+      setPreferences(userPreferences.preferences || {});
+    }
+  }, [userPreferences]);
 
   // Update email preferences
   const updatePreferencesMutation = api.user.updateEmailPreferences.useMutation({

@@ -13,7 +13,7 @@ export function GoogleSignInButton({
   showIcon = true, 
   text = "Continue with Google",
   variant = "outline",
-  size = "md",
+  size = "default",
   iconOnly = false,
   ...buttonProps 
 }: GoogleSignInProps) {
@@ -22,7 +22,7 @@ export function GoogleSignInButton({
   const scale = useSharedValue(1);
   
   // Adjust size based on device type
-  const responsiveSize = isMobile && size === "md" ? "lg" : size;
+  const responsiveSize = isMobile && size === "default" ? "lg" : size;
   
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -56,7 +56,7 @@ export function GoogleSignInButton({
       {...buttonProps}
     >
       {!isLoading && (
-        <HStack spacing={iconOnly || !text ? 0 : 2} alignItems="center" justifyContent="center">
+        <HStack gap={(iconOnly || !text ? 0 : 2) as any} alignItems="center" justifyContent="center">
           {/* Google Logo - Note: Google brand colors are intentionally hardcoded per brand guidelines */}
           {showIcon && (
             <Symbol 

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, Platform } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useEntranceAnimation } from '@/lib/ui/animations';
@@ -23,6 +23,13 @@ export function AnimatedLayout({
   className,
   style,
 }: AnimatedLayoutProps) {
+  // Call hook unconditionally at the top level
+  const { animatedStyle } = useEntranceAnimation({
+    type,
+    delay,
+    duration: 'normal',
+  });
+  
   if (Platform.OS === 'web') {
     // Web implementation - use Tailwind classes
     const animationMap = {
@@ -48,12 +55,6 @@ export function AnimatedLayout({
   }
   
   // Native implementation - use Reanimated
-  const { animatedStyle } = useEntranceAnimation({
-    type,
-    delay,
-    duration: 'normal',
-  });
-  
   return (
     <Animated.View style={[{ flex: 1 }, animatedStyle, style]} className={className}>
       {children}

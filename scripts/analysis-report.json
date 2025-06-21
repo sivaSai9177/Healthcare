@@ -1,0 +1,3856 @@
+{
+  "generated": "2025-06-19T12:51:28.819Z",
+  "summary": {
+    "total": 270,
+    "typescript": 215,
+    "shell": 46,
+    "withErrorHandling": 216,
+    "withHardcodedValues": 111
+  },
+  "scripts": [
+    {
+      "path": "scripts/analyze-scripts.ts",
+      "name": "analyze-scripts.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "fs/promises",
+        "path",
+        "./lib",
+        "./config/constants"
+      ],
+      "size": 8156,
+      "category": "analyze-scripts.ts"
+    },
+    {
+      "path": "scripts/auto-fix-colors.ts",
+      "name": "auto-fix-colors.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs",
+        "glob",
+        "path",
+        "@/lib/theme/provider"
+      ],
+      "size": 6717,
+      "category": "auto-fix-colors.ts"
+    },
+    {
+      "path": "scripts/auto-fix-responsive.ts",
+      "name": "auto-fix-responsive.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs",
+        "glob",
+        "path",
+        "@/hooks/responsive",
+        "@/hooks/responsive",
+        "@/hooks/responsive",
+        "@/lib/design/responsive"
+      ],
+      "size": 7650,
+      "category": "auto-fix-responsive.ts"
+    },
+    {
+      "path": "scripts/data/create-test-alert.ts",
+      "name": "create-test-alert.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/healthcare-schema",
+        "@/src/db/schema",
+        "drizzle-orm"
+      ],
+      "size": 2219,
+      "category": "data"
+    },
+    {
+      "path": "scripts/data/create-test-healthcare-data.ts",
+      "name": "create-test-healthcare-data.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/organization-schema",
+        "@/src/db/healthcare-schema",
+        "@/src/db/patient-schema",
+        "@/lib/core/debug/logger",
+        "nanoid"
+      ],
+      "size": 6708,
+      "category": "data"
+    },
+    {
+      "path": "scripts/data/seed-demo-data.ts",
+      "name": "seed-demo-data.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "@/src/db/patient-schema",
+        "drizzle-orm",
+        "bcryptjs",
+        "uuid",
+        "@faker-js/faker",
+        "date-fns"
+      ],
+      "size": 37566,
+      "category": "data"
+    },
+    {
+      "path": "scripts/data/test-analytics-data.ts",
+      "name": "test-analytics-data.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/healthcare-schema",
+        "drizzle-orm",
+        "date-fns"
+      ],
+      "size": 4471,
+      "category": "data"
+    },
+    {
+      "path": "scripts/database/management/add-default-hospital-column.ts",
+      "name": "add-default-hospital-column.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "drizzle-orm"
+      ],
+      "size": 1534,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/add-hospital-column.ts",
+      "name": "add-hospital-column.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 729,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/check-all-tables.ts",
+      "name": "check-all-tables.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 3782,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/check-auth-tables.ts",
+      "name": "check-auth-tables.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 3793,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/check-hospital-exists.ts",
+      "name": "check-hospital-exists.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 1447,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/check-hospitals-table.ts",
+      "name": "check-hospitals-table.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 987,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/check-local-db.ts",
+      "name": "check-local-db.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "drizzle-orm/node-postgres",
+        "pg",
+        "drizzle-orm",
+        "../../config/utils"
+      ],
+      "size": 4826,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/check-organization-structure.ts",
+      "name": "check-organization-structure.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 3664,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/check-tables.ts",
+      "name": "check-tables.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 911,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/check-test-users-simple.ts",
+      "name": "check-test-users-simple.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@neondatabase/serverless",
+        "drizzle-orm/neon-http",
+        "drizzle-orm"
+      ],
+      "size": 1816,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/drop-all-tables.ts",
+      "name": "drop-all-tables.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 1991,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/ensure-organization-hospitals.ts",
+      "name": "ensure-organization-hospitals.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/healthcare-schema",
+        "@/src/db/organization-schema",
+        "@/src/db/schema",
+        "drizzle-orm",
+        "@/lib/core/debug/unified-logger"
+      ],
+      "size": 3900,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/map-existing-users-roles.ts",
+      "name": "map-existing-users-roles.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "drizzle-orm"
+      ],
+      "size": 7846,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/set-default-hospital.ts",
+      "name": "set-default-hospital.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/healthcare-schema",
+        "drizzle-orm"
+      ],
+      "size": 657,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/sync-healthcare-hospital-assignments.ts",
+      "name": "sync-healthcare-hospital-assignments.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "drizzle-orm",
+        "@/lib/core/debug/unified-logger"
+      ],
+      "size": 2796,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/sync-organization-hospital.ts",
+      "name": "sync-organization-hospital.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "drizzle-orm",
+        "@/lib/core/debug/logger"
+      ],
+      "size": 3673,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/update-doremon-hospital.ts",
+      "name": "update-doremon-hospital.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "drizzle-orm"
+      ],
+      "size": 1092,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/update-hospitals-table-fix.ts",
+      "name": "update-hospitals-table-fix.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 2217,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/management/update-hospitals-table.ts",
+      "name": "update-hospitals-table.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 1778,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/migrations/apply-acknowledgment-migration.ts",
+      "name": "apply-acknowledgment-migration.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 1383,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/migrations/apply-indexes.ts",
+      "name": "apply-indexes.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm",
+        "@/lib/core/logger"
+      ],
+      "size": 3433,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/migrations/complete-migration.ts",
+      "name": "complete-migration.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs",
+        "path",
+        "@/hooks/useResponsive",
+        "@/lib/design/responsive",
+        "@/hooks/useShadow"
+      ],
+      "size": 6887,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/migrations/migrate-add-hospital-organization.ts",
+      "name": "migrate-add-hospital-organization.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/healthcare-schema",
+        "@/src/db/schema",
+        "drizzle-orm",
+        "uuid",
+        "@/lib/core/debug/unified-logger"
+      ],
+      "size": 4340,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/migrations/migrate-to-hospital-structure.ts",
+      "name": "migrate-to-hospital-structure.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "process",
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "@/src/db/organization-schema",
+        "drizzle-orm",
+        "@/lib/core/debug/unified-logger"
+      ],
+      "size": 7030,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/migrations/migrate-ui-components.ts",
+      "name": "migrate-ui-components.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs",
+        "path",
+        "react",
+        "react-native",
+        "@/lib/theme/enhanced-theme-provider",
+        "./Symbols",
+        "@/components/universal",
+        "@/components/universal",
+        "@/components/universal"
+      ],
+      "size": 4033,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/migrations/run-migration.ts",
+      "name": "run-migration.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "drizzle-orm/postgres-js",
+        "postgres",
+        "drizzle-orm/postgres-js/migrator",
+        "dotenv",
+        "path"
+      ],
+      "size": 925,
+      "category": "database"
+    },
+    {
+      "path": "scripts/database/reset-database.ts",
+      "name": "reset-database.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "child_process",
+        "util",
+        "readline",
+        "../config/utils",
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 4045,
+      "category": "database"
+    },
+    {
+      "path": "scripts/fix-database-role-default.ts",
+      "name": "fix-database-role-default.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "chalk"
+      ],
+      "size": 2547,
+      "category": "fix-database-role-default.ts"
+    },
+    {
+      "path": "scripts/fix-default-hospital-column.ts",
+      "name": "fix-default-hospital-column.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "drizzle-orm"
+      ],
+      "size": 1851,
+      "category": "fix-default-hospital-column.ts"
+    },
+    {
+      "path": "scripts/fix-doremon-user.ts",
+      "name": "fix-doremon-user.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm",
+        "@/lib/core/debug/unified-logger"
+      ],
+      "size": 4755,
+      "category": "fix-doremon-user.ts"
+    },
+    {
+      "path": "scripts/fix-existing-users-hospital.ts",
+      "name": "fix-existing-users-hospital.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "drizzle-orm/postgres-js",
+        "postgres",
+        "drizzle-orm",
+        "../lib/core/debug/unified-logger",
+        "../src/db/schema",
+        "../src/db/organization-schema",
+        "../src/db/healthcare-schema",
+        "process"
+      ],
+      "size": 7316,
+      "category": "fix-existing-users-hospital.ts"
+    },
+    {
+      "path": "scripts/fix-healthcare-router-types.ts",
+      "name": "fix-healthcare-router-types.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises"
+      ],
+      "size": 2797,
+      "category": "fix-healthcare-router-types.ts"
+    },
+    {
+      "path": "scripts/fix-hospital-data.ts",
+      "name": "fix-hospital-data.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 5205,
+      "category": "fix-hospital-data.ts"
+    },
+    {
+      "path": "scripts/fix-hospital-organization-id.ts",
+      "name": "fix-hospital-organization-id.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm",
+        "@/lib/core/debug/logger"
+      ],
+      "size": 3153,
+      "category": "fix-hospital-organization-id.ts"
+    },
+    {
+      "path": "scripts/fix-hospital-simple.ts",
+      "name": "fix-hospital-simple.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "drizzle-orm",
+        "../src/db/schema",
+        "../src/db/organization-schema",
+        "../src/db/healthcare-schema"
+      ],
+      "size": 3825,
+      "category": "fix-hospital-simple.ts"
+    },
+    {
+      "path": "scripts/fix-mobile-network.ts",
+      "name": "fix-mobile-network.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "child_process",
+        "util",
+        "fs",
+        "path"
+      ],
+      "size": 6009,
+      "category": "fix-mobile-network.ts"
+    },
+    {
+      "path": "scripts/fix-mobile-session.ts",
+      "name": "fix-mobile-session.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/lib/core/platform/secure-storage",
+        "@/lib/auth/auth-client"
+      ],
+      "size": 2781,
+      "category": "fix-mobile-session.ts"
+    },
+    {
+      "path": "scripts/fix-nurse-user-auth.ts",
+      "name": "fix-nurse-user-auth.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm",
+        "@/src/db/schema",
+        "@/lib/auth"
+      ],
+      "size": 3756,
+      "category": "fix-nurse-user-auth.ts"
+    },
+    {
+      "path": "scripts/fix-route-references.ts",
+      "name": "fix-route-references.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path"
+      ],
+      "size": 1701,
+      "category": "fix-route-references.ts"
+    },
+    {
+      "path": "scripts/fix-session-oauth.ts",
+      "name": "fix-session-oauth.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "chalk",
+        "drizzle-orm/postgres-js",
+        "postgres",
+        "../src/db/schema",
+        "drizzle-orm"
+      ],
+      "size": 8165,
+      "category": "fix-session-oauth.ts"
+    },
+    {
+      "path": "scripts/fix-shadow-props.ts",
+      "name": "fix-shadow-props.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path",
+        "@/lib/core/logger",
+        "react-native"
+      ],
+      "size": 6353,
+      "category": "fix-shadow-props.ts"
+    },
+    {
+      "path": "scripts/fix-style-syntax-errors.ts",
+      "name": "fix-style-syntax-errors.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path"
+      ],
+      "size": 2066,
+      "category": "fix-style-syntax-errors.ts"
+    },
+    {
+      "path": "scripts/fix-theme-consistency.ts",
+      "name": "fix-theme-consistency.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs",
+        "path",
+        "glob",
+        "@/lib/design",
+        "@/lib/design",
+        "@/lib/stores/spacing-store"
+      ],
+      "size": 11675,
+      "category": "fix-theme-consistency.ts"
+    },
+    {
+      "path": "scripts/fix-unescaped-entities.ts",
+      "name": "fix-unescaped-entities.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path"
+      ],
+      "size": 2544,
+      "category": "fix-unescaped-entities.ts"
+    },
+    {
+      "path": "scripts/fix-universal-components-types.ts",
+      "name": "fix-universal-components-types.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path"
+      ],
+      "size": 5265,
+      "category": "fix-universal-components-types.ts"
+    },
+    {
+      "path": "scripts/maintenance/imports/analyze-unused-imports.ts",
+      "name": "analyze-unused-imports.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [
+        "child_process"
+      ],
+      "size": 6291,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/imports/fix-imports.ts",
+      "name": "fix-imports.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path"
+      ],
+      "size": 2078,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/imports/fix-lucide-imports.ts",
+      "name": "fix-lucide-imports.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path",
+        "@/components/universal/Symbols"
+      ],
+      "size": 16408,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/imports/fix-spacing-imports.ts",
+      "name": "fix-spacing-imports.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path",
+        "@/lib/stores/spacing-store",
+        "@/lib/stores/spacing-store"
+      ],
+      "size": 3027,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/imports/fix-universal-imports.ts",
+      "name": "fix-universal-imports.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path",
+        "${path}"
+      ],
+      "size": 7660,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/imports/ionicons-to-symbol-map.ts",
+      "name": "ionicons-to-symbol-map.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 5616,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/imports/remove-console-logs.ts",
+      "name": "remove-console-logs.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs",
+        "path",
+        "@/lib/core/logger",
+        "@/lib/core/logger"
+      ],
+      "size": 6131,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/imports/remove-unused-imports.ts",
+      "name": "remove-unused-imports.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "fs",
+        "path",
+        "child_process",
+        "module",
+        "module",
+        "module",
+        "module"
+      ],
+      "size": 12278,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/imports/replace-icons.ts",
+      "name": "replace-icons.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path",
+        "./Symbols"
+      ],
+      "size": 5159,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/imports/replace-ionicons-with-symbol.ts",
+      "name": "replace-ionicons-with-symbol.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs",
+        "path",
+        "./Symbols"
+      ],
+      "size": 9091,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/imports/replace-lucide-icons.ts",
+      "name": "replace-lucide-icons.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path",
+        "@/components/universal/Symbols"
+      ],
+      "size": 8220,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/oauth/fix-oauth-env.ts",
+      "name": "fix-oauth-env.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "better-auth",
+        "better-auth/adapters/drizzle"
+      ],
+      "size": 3991,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/oauth/fix-oauth-healthcare.sh",
+      "name": "fix-oauth-healthcare.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 2673,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/oauth/fix-oauth-local.sh",
+      "name": "fix-oauth-local.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 2169,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/oauth/fix-oauth-now.sh",
+      "name": "fix-oauth-now.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 1190,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/organize-scripts.ts",
+      "name": "organize-scripts.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path",
+        "../config/utils"
+      ],
+      "size": 7871,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/typescript/analyze-typescript-errors.ts",
+      "name": "analyze-typescript-errors.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "child_process",
+        "util"
+      ],
+      "size": 5394,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/typescript/fix-app-typescript-comprehensive.ts",
+      "name": "fix-app-typescript-comprehensive.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path",
+        "@/types/components"
+      ],
+      "size": 6849,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/typescript/fix-app-typescript-errors.ts",
+      "name": "fix-app-typescript-errors.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path"
+      ],
+      "size": 3584,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/typescript/fix-final-typescript-errors.ts",
+      "name": "fix-final-typescript-errors.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path"
+      ],
+      "size": 2917,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/typescript/fix-test-typescript-comprehensive.ts",
+      "name": "fix-test-typescript-comprehensive.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path",
+        "@testing-library/react-native",
+        "@/types/components"
+      ],
+      "size": 6502,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/maintenance/typescript/fix-test-typescript-errors.ts",
+      "name": "fix-test-typescript-errors.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path"
+      ],
+      "size": 4085,
+      "category": "maintenance"
+    },
+    {
+      "path": "scripts/quick-fix-hospital.ts",
+      "name": "quick-fix-hospital.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "drizzle-orm/postgres-js",
+        "postgres",
+        "drizzle-orm",
+        "../src/db/schema",
+        "../src/db/organization-schema",
+        "../src/db/healthcare-schema"
+      ],
+      "size": 4066,
+      "category": "quick-fix-hospital.ts"
+    },
+    {
+      "path": "scripts/services/individual/start-api-server.ts",
+      "name": "start-api-server.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "http",
+        "../lib/auth/auth"
+      ],
+      "size": 2104,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/individual/start-auth-server.ts",
+      "name": "start-auth-server.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [
+        "express",
+        "cors",
+        "../lib/auth/auth",
+        "better-auth/node"
+      ],
+      "size": 1670,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/individual/start-email-server.ts",
+      "name": "start-email-server.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "nodemailer",
+        "fs",
+        "path"
+      ],
+      "size": 5505,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/individual/start-local-oauth.sh",
+      "name": "start-local-oauth.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 2850,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/individual/start-logging-service.sh",
+      "name": "start-logging-service.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 775,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/individual/start-logging-standalone.sh",
+      "name": "start-logging-standalone.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 747,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/individual/start-ngrok.sh",
+      "name": "start-ngrok.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 1833,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/individual/start-posthog.sh",
+      "name": "start-posthog.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 1605,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/individual/start-trpc-websocket.ts",
+      "name": "start-trpc-websocket.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/server/websocket/trpc-websocket",
+        "../lib/core/debug/logger",
+        "dotenv"
+      ],
+      "size": 1273,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/individual/start-websocket-docker.js",
+      "name": "start-websocket-docker.js",
+      "extension": ".js",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 389,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/individual/start-websocket-node.js",
+      "name": "start-websocket-node.js",
+      "extension": ".js",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 1788,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/individual/start-websocket-server.ts",
+      "name": "start-websocket-server.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/server/websocket",
+        "../lib/core/debug/logger",
+        "../lib/core/config"
+      ],
+      "size": 1241,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/individual/start-websocket-standalone.ts",
+      "name": "start-websocket-standalone.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/server/websocket/server",
+        "../lib/core/debug/logger",
+        "dotenv",
+        "path"
+      ],
+      "size": 970,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/individual/start-websocket-trpc.js",
+      "name": "start-websocket-trpc.js",
+      "extension": ".js",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 9399,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/start-unified.ts",
+      "name": "start-unified.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "child_process",
+        "../config/utils",
+        "util",
+        "child_process",
+        "os"
+      ],
+      "size": 9908,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/apply-env-changes-to-branch.sh",
+      "name": "apply-env-changes-to-branch.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [
+        "react-native",
+        "expo-constants",
+        "@/lib/core/unified-env",
+        "..\\/core\\/unified-env",
+        "\\"
+      ],
+      "size": 16274,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/cleanup-console-logs.sh",
+      "name": "cleanup-console-logs.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 799,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/cleanup-repository.sh",
+      "name": "cleanup-repository.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 2292,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/cleanup-services.sh",
+      "name": "cleanup-services.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 795,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/db-reset.sh",
+      "name": "db-reset.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 424,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/dev-start-demo.sh",
+      "name": "dev-start-demo.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 3793,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/dev-start.sh",
+      "name": "dev-start.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 4189,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/docker-reset.sh",
+      "name": "docker-reset.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 1429,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/docker-setup.sh",
+      "name": "docker-setup.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 4719,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/init-multiple-db.sh",
+      "name": "init-multiple-db.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 1019,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/migrate-organization-tables.sh",
+      "name": "migrate-organization-tables.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 1092,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/setup-database-local.sh",
+      "name": "setup-database-local.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 1839,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/start-expo-go-local.sh",
+      "name": "start-expo-go-local.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 2301,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/start-smart.sh",
+      "name": "start-smart.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 3564,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/start-unified.sh",
+      "name": "start-unified.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 595,
+      "category": "services"
+    },
+    {
+      "path": "scripts/services/startup/start-with-healthcare.sh",
+      "name": "start-with-healthcare.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 9317,
+      "category": "services"
+    },
+    {
+      "path": "scripts/setup/database/reset-database-complete.ts",
+      "name": "reset-database-complete.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 765,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/database/reset-database.ts",
+      "name": "reset-database.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 725,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/database/setup-database-fresh.ts",
+      "name": "setup-database-fresh.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm",
+        "uuid"
+      ],
+      "size": 11395,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/database/setup-test-db.ts",
+      "name": "setup-test-db.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "drizzle-orm",
+        "pg",
+        "dotenv"
+      ],
+      "size": 1967,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/environment/generate-env-files.js",
+      "name": "generate-env-files.js",
+      "extension": ".js",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 7578,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/environment/generate-local-credentials.sh",
+      "name": "generate-local-credentials.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 2110,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/environment/setup-eas.sh",
+      "name": "setup-eas.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 481,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/environment/setup-environment.sh",
+      "name": "setup-environment.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 3359,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/environment/setup-ios-credentials.sh",
+      "name": "setup-ios-credentials.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 1992,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/environment/setup-ngrok.sh",
+      "name": "setup-ngrok.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 4599,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/environment/setup-posthog.sh",
+      "name": "setup-posthog.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 2307,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/healthcare/setup-healthcare-complete.ts",
+      "name": "setup-healthcare-complete.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm",
+        "@/lib/core/debug/logger",
+        "@/src/db/schema",
+        "./ensure-organization-hospitals"
+      ],
+      "size": 15802,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/healthcare/setup-healthcare-db.ts",
+      "name": "setup-healthcare-db.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm",
+        "@/lib/core/logger"
+      ],
+      "size": 10238,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/healthcare/setup-healthcare-demo.ts",
+      "name": "setup-healthcare-demo.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "drizzle-orm",
+        "@/lib/core/logger"
+      ],
+      "size": 6592,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/healthcare/setup-healthcare-local.ts",
+      "name": "setup-healthcare-local.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm",
+        "@/lib/core/debug/logger",
+        "@/src/db/schema"
+      ],
+      "size": 8488,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/users/setup-demo-users.ts",
+      "name": "setup-demo-users.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "@/lib/core/logger",
+        "drizzle-orm",
+        "crypto"
+      ],
+      "size": 4950,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/users/setup-doremon-user.ts",
+      "name": "setup-doremon-user.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 4270,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/users/setup-test-users-api.ts",
+      "name": "setup-test-users-api.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm",
+        "@/lib/core/debug/logger"
+      ],
+      "size": 8193,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/users/setup-test-users-mvp.ts",
+      "name": "setup-test-users-mvp.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "better-auth",
+        "better-auth/adapters/drizzle",
+        "chalk",
+        "drizzle-orm",
+        "crypto"
+      ],
+      "size": 5097,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/setup/users/setup-test-users.ts",
+      "name": "setup-test-users.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm",
+        "@/lib/core/debug/logger",
+        "crypto"
+      ],
+      "size": 7354,
+      "category": "setup"
+    },
+    {
+      "path": "scripts/test/api/test-api-comprehensive.ts",
+      "name": "test-api-comprehensive.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/lib/api/trpc",
+        "@/lib/core/debug/unified-logger",
+        "@/src/db",
+        "chalk",
+        "ws"
+      ],
+      "size": 14063,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/api/test-api-simple.ts",
+      "name": "test-api-simple.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/lib/core/debug/logger",
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "@/src/db/patient-schema",
+        "drizzle-orm"
+      ],
+      "size": 5520,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/api/test-endpoints-direct.ts",
+      "name": "test-endpoints-direct.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/server/routers",
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "drizzle-orm",
+        "@/lib/core/debug/logger"
+      ],
+      "size": 7544,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/api/test-organization-api.ts",
+      "name": "test-organization-api.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "drizzle-orm/postgres-js",
+        "postgres",
+        "drizzle-orm",
+        "@/src/db/organization-schema",
+        "uuid",
+        "@/lib/core/logger"
+      ],
+      "size": 6677,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/api/test-organization-direct.ts",
+      "name": "test-organization-direct.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "../src/db",
+        "../src/db/schema",
+        "drizzle-orm"
+      ],
+      "size": 5082,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/api/test-trpc-websocket.ts",
+      "name": "test-trpc-websocket.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@trpc/client",
+        "../src/server/routers",
+        "../lib/core/debug/logger",
+        "../src/db",
+        "../src/db/healthcare-schema",
+        "drizzle-orm"
+      ],
+      "size": 5802,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/api/test-websocket-alerts.ts",
+      "name": "test-websocket-alerts.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@trpc/client",
+        "../src/server/routers",
+        "../lib/core/debug/logger",
+        "../src/db",
+        "../src/db/healthcare-schema",
+        "drizzle-orm"
+      ],
+      "size": 4048,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/api/test-websocket-simple.ts",
+      "name": "test-websocket-simple.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "ws"
+      ],
+      "size": 4839,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/auth/test-auth-e2e.ts",
+      "name": "test-auth-e2e.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "drizzle-orm/neon-http",
+        "@neondatabase/serverless",
+        "../src/db/schema",
+        "../src/db/combined-schema"
+      ],
+      "size": 5285,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/auth/test-auth-handler.ts",
+      "name": "test-auth-handler.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/lib/auth",
+        "@/lib/core/logger"
+      ],
+      "size": 1369,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/auth/test-auth-simple-clean.ts",
+      "name": "test-auth-simple-clean.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 0,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/auth/test-auth-simple.ts",
+      "name": "test-auth-simple.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "dotenv",
+        "../../config/test-users"
+      ],
+      "size": 2433,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/auth/test-auth-trpc.ts",
+      "name": "test-auth-trpc.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "dotenv"
+      ],
+      "size": 2228,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/auth/test-bearer-auth-simple.ts",
+      "name": "test-bearer-auth-simple.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 3418,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/auth/test-bearer-auth.ts",
+      "name": "test-bearer-auth.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../lib/auth/auth-server",
+        "../lib/auth/get-session-with-bearer"
+      ],
+      "size": 2589,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/auth/test-getsession.ts",
+      "name": "test-getsession.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 1193,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/auth/test-oauth-flow.ts",
+      "name": "test-oauth-flow.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "chalk"
+      ],
+      "size": 4921,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/auth/test-oauth-minimal.ts",
+      "name": "test-oauth-minimal.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 1739,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/auth/test-oauth-no-expo.ts",
+      "name": "test-oauth-no-expo.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 2572,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/auth/test-oauth-standalone.ts",
+      "name": "test-oauth-standalone.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "bun",
+        "better-auth",
+        "better-auth/adapters/drizzle",
+        "better-auth/plugins",
+        "@/src/db",
+        "@/src/db/schema"
+      ],
+      "size": 3222,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/auth/test-session-auth.ts",
+      "name": "test-session-auth.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "chalk"
+      ],
+      "size": 3969,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/auth/test-session-endpoint.ts",
+      "name": "test-session-endpoint.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 2023,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-alert-escalation.ts",
+      "name": "test-alert-escalation.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "../src/db/healthcare-schema",
+        "../src/db/schema",
+        "drizzle-orm",
+        "../src/server/services/escalation-timer"
+      ],
+      "size": 5396,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-alert-flow.ts",
+      "name": "test-alert-flow.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/healthcare-schema",
+        "@/src/db/schema",
+        "drizzle-orm",
+        "@/lib/core/debug/logger"
+      ],
+      "size": 4362,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-alerts-api.ts",
+      "name": "test-alerts-api.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/healthcare-schema",
+        "@/src/db/schema",
+        "drizzle-orm"
+      ],
+      "size": 2774,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-alerts-complete.ts",
+      "name": "test-alerts-complete.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/healthcare-schema",
+        "@/src/db/schema",
+        "drizzle-orm"
+      ],
+      "size": 5543,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-healthcare-api.ts",
+      "name": "test-healthcare-api.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 358,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-healthcare-complete.ts",
+      "name": "test-healthcare-complete.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../lib/core/debug/unified-logger",
+        "../src/db",
+        "../src/db/schema",
+        "../src/db/healthcare-schema",
+        "drizzle-orm",
+        "chalk"
+      ],
+      "size": 6750,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-healthcare-endpoints.ts",
+      "name": "test-healthcare-endpoints.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@trpc/client",
+        "@/src/server/routers",
+        "@/lib/core/debug/logger"
+      ],
+      "size": 3878,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-healthcare-flow.ts",
+      "name": "test-healthcare-flow.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "../lib/core/debug/unified-logger"
+      ],
+      "size": 6927,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-healthcare-integration.ts",
+      "name": "test-healthcare-integration.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@trpc/client",
+        "../src/server/routers",
+        "../lib/core/debug/unified-logger",
+        "superjson",
+        "zod"
+      ],
+      "size": 11660,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-healthcare-queries.ts",
+      "name": "test-healthcare-queries.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "../src/db/schema",
+        "../src/db/healthcare-schema",
+        "drizzle-orm"
+      ],
+      "size": 3053,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-healthcare-registration.ts",
+      "name": "test-healthcare-registration.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "process"
+      ],
+      "size": 2747,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-healthcare-runtime-simple.ts",
+      "name": "test-healthcare-runtime-simple.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "../src/db/schema",
+        "../src/db/healthcare-schema",
+        "drizzle-orm"
+      ],
+      "size": 3347,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-healthcare-runtime.ts",
+      "name": "test-healthcare-runtime.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../lib/core/debug/unified-logger",
+        "../src/db",
+        "../src/db/schema",
+        "../src/db/healthcare-schema",
+        "drizzle-orm"
+      ],
+      "size": 3654,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-healthcare-web.ts",
+      "name": "test-healthcare-web.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "../lib/core/debug/unified-logger"
+      ],
+      "size": 2709,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-shift-api.ts",
+      "name": "test-shift-api.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 4162,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-shift-db.ts",
+      "name": "test-shift-db.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "drizzle-orm/node-postgres",
+        "pg",
+        "../src/db/schema",
+        "../src/db/healthcare-schema",
+        "drizzle-orm"
+      ],
+      "size": 2973,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/healthcare/test-shift-flow.ts",
+      "name": "test-shift-flow.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "../src/db",
+        "../src/db/schema",
+        "../src/db/healthcare-schema",
+        "drizzle-orm",
+        "../lib/auth/auth-server"
+      ],
+      "size": 5566,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/integration/test-frontend-integration.ts",
+      "name": "test-frontend-integration.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "dotenv"
+      ],
+      "size": 9306,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/integration/test-mvp-apis.ts",
+      "name": "test-mvp-apis.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "chalk"
+      ],
+      "size": 14677,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/integration/test-mvp-comprehensive.ts",
+      "name": "test-mvp-comprehensive.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "../src/db/index",
+        "drizzle-orm",
+        "ws"
+      ],
+      "size": 21584,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/integration/test-mvp-features.ts",
+      "name": "test-mvp-features.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "../src/db/index",
+        "drizzle-orm"
+      ],
+      "size": 9647,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/integration/test-mvp-ready.ts",
+      "name": "test-mvp-ready.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "chalk"
+      ],
+      "size": 11146,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/integration/test-navigation.ts",
+      "name": "test-navigation.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [
+        "url",
+        "path",
+        "fs",
+        "chalk"
+      ],
+      "size": 6530,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/integration/test-screens.ts",
+      "name": "test-screens.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "child_process",
+        "util"
+      ],
+      "size": 1745,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/run-comprehensive-tests.sh",
+      "name": "run-comprehensive-tests.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 7863,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-and-fix-all-endpoints.ts",
+      "name": "test-and-fix-all-endpoints.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "chalk",
+        "fs"
+      ],
+      "size": 12792,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-current-auth.ts",
+      "name": "test-current-auth.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 2718,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-db-connection.ts",
+      "name": "test-db-connection.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "@/src/db/patient-schema",
+        "drizzle-orm",
+        "@/lib/core/debug/logger"
+      ],
+      "size": 2215,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-doctor-role.ts",
+      "name": "test-doctor-role.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 6529,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-email-docker.ts",
+      "name": "test-email-docker.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "../lib/core/debug/unified-logger"
+      ],
+      "size": 3513,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-email-service.ts",
+      "name": "test-email-service.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "../src/server/services/email",
+        "../src/server/services/healthcare-notifications",
+        "../lib/core/debug/logger",
+        "../src/db",
+        "../src/db/schema",
+        "drizzle-orm",
+        "dotenv",
+        "path"
+      ],
+      "size": 11010,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-error-handling.ts",
+      "name": "test-error-handling.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@trpc/client",
+        "../src/server/routers",
+        "../lib/core/debug/unified-logger"
+      ],
+      "size": 6862,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-google-auth-redirect.ts",
+      "name": "test-google-auth-redirect.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "drizzle-orm",
+        "chalk"
+      ],
+      "size": 5039,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-hospital-profile-completion.ts",
+      "name": "test-hospital-profile-completion.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "process",
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "drizzle-orm"
+      ],
+      "size": 3143,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-hybrid-queue-simple.ts",
+      "name": "test-hybrid-queue-simple.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "dotenv"
+      ],
+      "size": 1398,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-hybrid-queue.ts",
+      "name": "test-hybrid-queue.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "dotenv",
+        "../lib/core/debug/unified-logger",
+        "../src/server/services/queues"
+      ],
+      "size": 2246,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-logging-infrastructure.ts",
+      "name": "test-logging-infrastructure.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "path",
+        "module-alias"
+      ],
+      "size": 6333,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-logging-pipeline.ts",
+      "name": "test-logging-pipeline.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "module-alias",
+        "path"
+      ],
+      "size": 2271,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-logging-service.ts",
+      "name": "test-logging-service.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 3979,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-notification-service.ts",
+      "name": "test-notification-service.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "drizzle-orm/node-postgres",
+        "pg",
+        "../src/db/combined-schema",
+        "../src/server/services/email",
+        "../src/server/services/sms",
+        "../lib/core/config/env-config"
+      ],
+      "size": 3946,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-nurse-role.ts",
+      "name": "test-nurse-role.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "msw-trpc",
+        "@/src/server/routers"
+      ],
+      "size": 6616,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-plan-complete.ts",
+      "name": "test-plan-complete.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 6536,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-posthog-integration.ts",
+      "name": "test-posthog-integration.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/server/analytics/posthog-service",
+        "@/lib/core/debug/unified-logger"
+      ],
+      "size": 3961,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-profile-completion-hospital.ts",
+      "name": "test-profile-completion-hospital.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "process",
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "drizzle-orm",
+        "@/lib/core/debug/unified-logger"
+      ],
+      "size": 3028,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-push-notifications.ts",
+      "name": "test-push-notifications.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/notification-schema",
+        "@/src/server/services/notifications",
+        "@/src/server/services/push-notifications",
+        "drizzle-orm"
+      ],
+      "size": 4323,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-unified-logging.ts",
+      "name": "test-unified-logging.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../lib/core/debug/unified-logger"
+      ],
+      "size": 3822,
+      "category": "test"
+    },
+    {
+      "path": "scripts/test/unit/test-window-logger.ts",
+      "name": "test-window-logger.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../lib/core/debug/window-logger"
+      ],
+      "size": 1901,
+      "category": "test"
+    },
+    {
+      "path": "scripts/users/creation/create-better-auth-users.ts",
+      "name": "create-better-auth-users.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "chalk",
+        "crypto",
+        "bcryptjs"
+      ],
+      "size": 7748,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/creation/create-demo-users.ts",
+      "name": "create-demo-users.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 780,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/creation/create-doremon-user.ts",
+      "name": "create-doremon-user.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "drizzle-orm",
+        "uuid"
+      ],
+      "size": 3267,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/creation/create-healthcare-users.ts",
+      "name": "create-healthcare-users.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "@/lib/auth/auth-server",
+        "@/lib/core/debug/logger",
+        "drizzle-orm"
+      ],
+      "size": 4754,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/creation/create-test-healthcare-user.ts",
+      "name": "create-test-healthcare-user.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "../src/db",
+        "drizzle-orm",
+        "nanoid"
+      ],
+      "size": 3352,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/creation/create-test-users-all-roles.ts",
+      "name": "create-test-users-all-roles.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "drizzle-orm",
+        "uuid"
+      ],
+      "size": 5781,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/creation/create-test-users-simple.ts",
+      "name": "create-test-users-simple.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "drizzle-orm/postgres-js",
+        "postgres",
+        "drizzle-orm",
+        "bcrypt"
+      ],
+      "size": 2141,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/manage-users.ts",
+      "name": "manage-users.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../config/test-users",
+        "../config/utils",
+        "@/src/db",
+        "@/src/db/schema",
+        "drizzle-orm"
+      ],
+      "size": 8140,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/management/assign-healthcare-role.ts",
+      "name": "assign-healthcare-role.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "drizzle-orm"
+      ],
+      "size": 2587,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/management/delete-user.ts",
+      "name": "delete-user.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "../src/db/schema",
+        "drizzle-orm"
+      ],
+      "size": 1990,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/management/fix-healthcare-users.ts",
+      "name": "fix-healthcare-users.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "@/lib/core/logger",
+        "drizzle-orm"
+      ],
+      "size": 4537,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/management/fix-oauth-users.ts",
+      "name": "fix-oauth-users.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "drizzle-orm",
+        "chalk"
+      ],
+      "size": 4025,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/management/fix-user-organizations.ts",
+      "name": "fix-user-organizations.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "../src/db/schema",
+        "../src/db/organization-schema",
+        "../src/db/healthcare-schema",
+        "drizzle-orm"
+      ],
+      "size": 5767,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/management/fix-user-roles.ts",
+      "name": "fix-user-roles.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "../src/db/schema",
+        "drizzle-orm"
+      ],
+      "size": 1409,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/management/fix-users-and-invite.ts",
+      "name": "fix-users-and-invite.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "../src/db/schema",
+        "../src/db/organization-schema",
+        "../src/db/healthcare-schema",
+        "drizzle-orm",
+        "@/lib/core/debug/logger",
+        "nanoid"
+      ],
+      "size": 7647,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/management/make-user-admin.ts",
+      "name": "make-user-admin.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "../src/db/schema",
+        "drizzle-orm"
+      ],
+      "size": 1365,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/management/make-user-operator.ts",
+      "name": "make-user-operator.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "../src/db/schema",
+        "drizzle-orm"
+      ],
+      "size": 1067,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/management/update-doremon-user.ts",
+      "name": "update-doremon-user.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 3199,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/management/update-users-organization.ts",
+      "name": "update-users-organization.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "drizzle-orm",
+        "@/lib/core/debug/logger"
+      ],
+      "size": 3904,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/verification/check-doremon-user.ts",
+      "name": "check-doremon-user.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 2909,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/verification/check-nurse-user.ts",
+      "name": "check-nurse-user.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 5407,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/verification/check-user-hospital.ts",
+      "name": "check-user-hospital.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "@/src/db/healthcare-schema",
+        "drizzle-orm"
+      ],
+      "size": 3024,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/verification/check-user-status.ts",
+      "name": "check-user-status.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "../src/db/schema",
+        "drizzle-orm"
+      ],
+      "size": 3303,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/verification/check-users-local.ts",
+      "name": "check-users-local.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "drizzle-orm/postgres-js",
+        "postgres"
+      ],
+      "size": 1731,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/verification/check-users.ts",
+      "name": "check-users.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "drizzle-orm"
+      ],
+      "size": 1381,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/verification/find-doremon-user.ts",
+      "name": "find-doremon-user.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 1875,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/verification/find-hardcoded-colors.ts",
+      "name": "find-hardcoded-colors.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs",
+        "glob",
+        "path"
+      ],
+      "size": 5049,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/verification/find-hardcoded-spacing.ts",
+      "name": "find-hardcoded-spacing.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs",
+        "glob",
+        "path"
+      ],
+      "size": 5530,
+      "category": "users"
+    },
+    {
+      "path": "scripts/users/verification/list-users.ts",
+      "name": "list-users.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema"
+      ],
+      "size": 1033,
+      "category": "users"
+    },
+    {
+      "path": "scripts/utils/build/auto-build.sh",
+      "name": "auto-build.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 1863,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/build/build-development.sh",
+      "name": "build-development.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 992,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/build/eas-init.sh",
+      "name": "eas-init.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 1358,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/build/organize-root-directory.ts",
+      "name": "organize-root-directory.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs",
+        "path"
+      ],
+      "size": 6005,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/build/preview-build.sh",
+      "name": "preview-build.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 3986,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/build/sync-credentials-to-eas.sh",
+      "name": "sync-credentials-to-eas.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 2396,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/build/token-build.sh",
+      "name": "token-build.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 1060,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/build/update-eas-ngrok.sh",
+      "name": "update-eas-ngrok.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 1678,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/build/update-ip-address.js",
+      "name": "update-ip-address.js",
+      "extension": ".js",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 5583,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/build/update-route-references.ts",
+      "name": "update-route-references.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs",
+        "path"
+      ],
+      "size": 2130,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/cleanup/reset-profile-completion.ts",
+      "name": "reset-profile-completion.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "../src/db/schema",
+        "drizzle-orm"
+      ],
+      "size": 1619,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/cleanup/reset-project.js",
+      "name": "reset-project.js",
+      "extension": ".js",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "react-native",
+        "expo-router"
+      ],
+      "size": 3954,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/debug/browser-oauth-test.js",
+      "name": "browser-oauth-test.js",
+      "extension": ".js",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 2037,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/debug/clear-browser-storage.js",
+      "name": "clear-browser-storage.js",
+      "extension": ".js",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 3432,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/debug/debug-mobile-auth.ts",
+      "name": "debug-mobile-auth.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../lib/core/secure-storage"
+      ],
+      "size": 2941,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/debug/debug-mobile-storage.ts",
+      "name": "debug-mobile-storage.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "expo-secure-store",
+        "react-native"
+      ],
+      "size": 2312,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/debug/debug-oauth-server.ts",
+      "name": "debug-oauth-server.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/lib/core/logger"
+      ],
+      "size": 2830,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/debug/debug-oauth-session.ts",
+      "name": "debug-oauth-session.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "drizzle-orm",
+        "chalk"
+      ],
+      "size": 5033,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/debug/demo-trpc-logging.ts",
+      "name": "demo-trpc-logging.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/lib/core/debug/unified-logger"
+      ],
+      "size": 2658,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/debug/test-debug-system.sh",
+      "name": "test-debug-system.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 1905,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/docs/generate-api-docs.ts",
+      "name": "generate-api-docs.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs/promises",
+        "path",
+        "@/lib/api/trpc"
+      ],
+      "size": 3915,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/docs/healthcare-runtime-summary.ts",
+      "name": "healthcare-runtime-summary.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 2202,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/docs/manual-test-guide.ts",
+      "name": "manual-test-guide.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "chalk",
+        "readline"
+      ],
+      "size": 4583,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/docs/show-test-credentials.ts",
+      "name": "show-test-credentials.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema"
+      ],
+      "size": 3824,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/docs/test-api-curl.sh",
+      "name": "test-api-curl.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 1718,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/docs/test-auth-flow.sh",
+      "name": "test-auth-flow.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 1457,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/docs/test-complete-auth-flow.sh",
+      "name": "test-complete-auth-flow.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 2891,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/docs/test-db-setup.sh",
+      "name": "test-db-setup.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 744,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/docs/test-db-teardown.sh",
+      "name": "test-db-teardown.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 422,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/docs/test-migration.sh",
+      "name": "test-migration.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 1831,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/health/check-api-health.ts",
+      "name": "check-api-health.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 1192,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/health/check-build-environment.ts",
+      "name": "check-build-environment.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "fs",
+        "path",
+        "chalk"
+      ],
+      "size": 7601,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/health/check-port.sh",
+      "name": "check-port.sh",
+      "extension": ".sh",
+      "isTypeScript": false,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 700,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/health/check-runtime-errors.ts",
+      "name": "check-runtime-errors.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [],
+      "size": 1524,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/health/health-check.ts",
+      "name": "health-check.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "child_process",
+        "util"
+      ],
+      "size": 8455,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/health/monitor-auth-flow.ts",
+      "name": "monitor-auth-flow.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "ws"
+      ],
+      "size": 5455,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/health/verify-current-db-connection.ts",
+      "name": "verify-current-db-connection.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 2920,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/health/verify-database-setup.ts",
+      "name": "verify-database-setup.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "@/src/db",
+        "drizzle-orm"
+      ],
+      "size": 3275,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/health/verify-oauth-flow.ts",
+      "name": "verify-oauth-flow.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "chalk",
+        "fs",
+        "path"
+      ],
+      "size": 6376,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/health/verify-oauth-redirect.ts",
+      "name": "verify-oauth-redirect.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [
+        "chalk"
+      ],
+      "size": 3665,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/health/verify-scripts.ts",
+      "name": "verify-scripts.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": false,
+      "hasHardcodedValues": false,
+      "imports": [
+        "fs",
+        "path"
+      ],
+      "size": 2762,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/health/verify-setup.ts",
+      "name": "verify-setup.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "../src/db",
+        "drizzle-orm",
+        "chalk"
+      ],
+      "size": 1656,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/health/verify-user-organization.ts",
+      "name": "verify-user-organization.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "drizzle-orm",
+        "@/lib/core/debug/logger"
+      ],
+      "size": 1636,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/utils/health/verify-users-organization.ts",
+      "name": "verify-users-organization.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "@/src/db",
+        "@/src/db/schema",
+        "@/lib/core/debug/logger"
+      ],
+      "size": 1923,
+      "category": "utils"
+    },
+    {
+      "path": "scripts/websocket-server/index.js",
+      "name": "index.js",
+      "extension": ".js",
+      "isTypeScript": false,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": true,
+      "imports": [],
+      "size": 11258,
+      "category": "websocket-server"
+    },
+    {
+      "path": "scripts/websocket-server/trpc-ws-server.ts",
+      "name": "trpc-ws-server.ts",
+      "extension": ".ts",
+      "isTypeScript": true,
+      "hasErrorHandling": true,
+      "hasHardcodedValues": false,
+      "imports": [
+        "ws",
+        "dotenv",
+        "path"
+      ],
+      "size": 3694,
+      "category": "websocket-server"
+    }
+  ]
+}

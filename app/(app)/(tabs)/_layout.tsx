@@ -1,0 +1,151 @@
+import React from 'react';
+import { Tabs, usePathname , Slot } from 'expo-router';
+import { Platform, Dimensions , View } from 'react-native';
+import { useTheme } from '@/lib/theme/provider';
+import { useAuth } from '@/hooks/useAuth';
+import { HapticTab } from '@/components/universal/interaction/HapticTab';
+import TabBarBackground from '@/components/universal/navigation/TabBarBackground';
+import { Symbol } from '@/components/universal/display/Symbols';
+import { AnimatedTabs } from '@/components/navigation/AnimatedStack';
+import { useLayoutTransition } from '@/hooks/useLayoutTransition';
+import Animated from 'react-native-reanimated';
+import { 
+  SidebarProvider,
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarFooter,
+  SidebarInset,
+  SidebarRail,
+} from '@/components/universal/navigation/Sidebar';
+import { NavMain, NavUser, TeamSwitcher } from '@/components/blocks/navigation';
+import { EnhancedSidebar } from '@/components/blocks/navigation/EnhancedSidebar';
+import { FloatingAlertButton } from '@/components/blocks/healthcare';
+import { useHealthcareAccess, usePermission, PERMISSIONS } from '@/hooks/usePermissions';
+import { HealthcareErrorBoundary } from '@/components/blocks/errors/HealthcareErrorBoundary';
+
+export default function TabsLayout() {
+  const theme = useTheme();
+  const { user } = useAuth();
+  const pathname = usePathname();
+  
+  // Use permission hooks for access control
+  const { canViewAlerts, canViewPatients } = useHealthcareAccess();
+  const { hasPermission: canCreateAlerts } = usePermission(PERMISSIONS.CREATE_ALERTS);
+  
+  // Memoize permission values to prevent unnecessary re-renders
+  const permissions = React.useMemo(() => ({
+    canViewAlerts,
+    canViewPatients,
+    canCreateAlerts
+  }), [canViewAlerts, canViewPatients, canCreateAlerts]);
+  
+  // Desktop sidebar navigation
+  const { width: screenWidth } = Dimensions.get('window');
+  const isDesktop = Platform.OS === 'web' && screenWidth >= 1024;
+  
+  if (isDesktop) {
+    const sidebarItems = [
+      {
+        title: 'Home',
+        url: '/(app)/(tabs)/home',
+        icon: 'house.fill',
+        isActive: pathname === '/(app)/(tabs)/home',
+      },
+      ...(permissions.canViewAlerts ? [{
+        title: 'Alerts',
+        url: '/(app)/(tabs)/alerts',
+        icon: 'bell.badge',
+        isActive: pathname === '/(app)/(tabs)/alerts',
+      }] : []),
+      ...(permissions.canViewPatients ? [{
+        title: 'Patients',
+        url: '/(app)/(tabs)/patients',
+        icon: 'person.2',
+        isActive: pathname === '/(app)/(tabs)/patients',
+      }] : []),
+      {
+        title: 'Settings',
+        url: '/(app)/(tabs)/settings',
+        icon: 'gearshape',
+        isActive: pathname === '/(app)/(tabs)/settings',
+      },
+    ];
+
+    return (
+      <SidebarProvider defaultOpen={true}>
+        <View style={{ flex: 1, flexDirection: 'row' }}>
+          <EnhancedSidebar />
+          <SidebarInset>
+            <View style={{ flex: 1 }}>
+              <Slot />
+            </View>
+          </SidebarInset>
+        </View>
+      </SidebarProvider>
+    );
+  }
+
+  // Mobile tab navigation
+  return (
+    <HealthcareErrorBoundary>
+      <Tabs
+        screenOptions={{
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.mutedForeground,
+        tabBarStyle: {
+          backgroundColor: theme.background,
+          borderTopColor: theme.border,
+        },
+        headerShown: false,
+        tabBarButton: HapticTab,
+        tabBarBackground: TabBarBackground,
+        animation: 'shift',
+      }}
+    >
+      <Tabs.Screen
+        name="home"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color }) => (
+            <Symbol size={28} name="house.fill" color={color} />
+          ),
+        }}
+      />
+      
+      <Tabs.Screen
+        name="alerts"
+        options={{
+          title: 'Alerts',
+          tabBarIcon: ({ color }) => (
+            <Symbol size={28} name="bell.fill" color={color} />
+          ),
+          href: permissions.canViewAlerts ? undefined : null,
+        }}
+      />
+      
+      <Tabs.Screen
+        name="patients"
+        options={{
+          title: 'Patients',
+          tabBarIcon: ({ color }) => (
+            <Symbol size={28} name="person.2.fill" color={color} />
+          ),
+          href: permissions.canViewPatients ? undefined : null,
+        }}
+      />
+      
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color }) => (
+            <Symbol size={28} name="gearshape.fill" color={color} />
+          ),
+        }}
+      />
+    </Tabs>
+    {permissions.canCreateAlerts && <FloatingAlertButton />}
+    </HealthcareErrorBoundary>
+  );
+}

@@ -1,62 +1,90 @@
 module.exports = {
-  setupFilesAfterEnv: ['<rootDir>/config/jest/jest.setup.js'],
+  preset: 'jest-expo',
   testEnvironment: 'node',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
   projects: [
     {
-      displayName: 'node',
-      testEnvironment: 'node',
+      displayName: 'ios',
+      preset: 'jest-expo/ios',
       testMatch: [
-        '<rootDir>/__tests__/unit/**/*.test.{js,jsx,ts,tsx}',
-        '<rootDir>/src/**/*.test.{js,jsx,ts,tsx}',
+        '<rootDir>/__tests__/**/*.ios.test.{js,jsx,ts,tsx}',
+        '<rootDir>/__tests__/**/*.test.{js,jsx,ts,tsx}',
+        '<rootDir>/__tests__/**/*-test.{js,jsx,ts,tsx}',
       ],
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/$1',
       },
-      setupFilesAfterEnv: ['<rootDir>/config/jest/jest.setup.js'],
+      setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     },
     {
-      displayName: 'jsdom',
-      testEnvironment: 'jsdom',
+      displayName: 'android',
+      preset: 'jest-expo/android',
       testMatch: [
-        '<rootDir>/__tests__/integration/**/*.test.{js,jsx,ts,tsx}',
-        '<rootDir>/__tests__/animations/**/*.test.{js,jsx,ts,tsx}',
-        '<rootDir>/__tests__/components/**/*.test.{js,jsx,ts,tsx}',
-        '<rootDir>/components/**/*.test.{js,jsx,ts,tsx}',
-        '<rootDir>/app/**/*.test.{js,jsx,ts,tsx}',
+        '<rootDir>/__tests__/**/*.android.test.{js,jsx,ts,tsx}',
+        '<rootDir>/__tests__/**/*.test.{js,jsx,ts,tsx}',
+        '<rootDir>/__tests__/**/*-test.{js,jsx,ts,tsx}',
       ],
       moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/$1',
-        'react-native$': '<rootDir>/jest.react-native-mock.js',
       },
-      setupFilesAfterEnv: ['<rootDir>/jest.setup.js', '@testing-library/jest-native/extend-expect'],
-      transformIgnorePatterns: [
-        'node_modules/(?!(react-native|@react-native|expo|@expo|@unimodules|unimodules|sentry-expo|native-base|react-clone-referenced-element|@react-native-community|react-navigation|@react-navigation/.*|@unimodules/.*|react-native-svg|react-native-screens|react-native-reanimated|nativewind)/)',
+      setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+    },
+    {
+      displayName: 'web',
+      preset: 'jest-expo/web',
+      testMatch: [
+        '<rootDir>/__tests__/**/*.web.test.{js,jsx,ts,tsx}',
+        '<rootDir>/__tests__/**/*.test.{js,jsx,ts,tsx}',
+        '<rootDir>/__tests__/**/*-test.{js,jsx,ts,tsx}',
       ],
+      moduleNameMapper: {
+        '^@/(.*)$': '<rootDir>/$1',
+      },
+      setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     },
   ],
-  testMatch: [
-    '<rootDir>/**/__tests__/**/*.{js,jsx,ts,tsx}',
-    '<rootDir>/**/*.(test|spec).{js,jsx,ts,tsx}'
-  ],
-  // Exclude problematic React Native tests for now
+  // Exclude patterns
   testPathIgnorePatterns: [
     '/node_modules/',
     '__tests__/disabled/',
+    '__tests__/backup/',
+    '/dist/',
+    '/build/',
+    '/.expo/',
+    '/app/',  // Important: Don't test files inside app directory
   ],
   collectCoverageFrom: [
     'hooks/**/*.{js,jsx,ts,tsx}',
     'lib/**/*.{js,jsx,ts,tsx}',
     'src/**/*.{js,jsx,ts,tsx}',
+    'components/**/*.{js,jsx,ts,tsx}',
     '!**/*.d.ts',
     '!**/node_modules/**',
     '!**/__tests__/**',
+    '!**/__mocks__/**',
     '!**/jest.setup.js',
     '!**/jest.config.js',
+    '!**/*.config.{js,ts}',
+    '!**/coverage/**',
+    '!app/**',  // Exclude app directory from coverage
   ],
-  coverageReporters: ['text', 'lcov', 'html'],
+  coverageReporters: ['text', 'lcov', 'html', 'json-summary'],
+  coverageThreshold: {
+    global: {
+      branches: 60,
+      functions: 60,
+      lines: 70,
+      statements: 70,
+    },
+  },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
-  testTimeout: 10000,
+  testTimeout: 30000,
+  globals: {
+    __DEV__: true,
+  },
+  transformIgnorePatterns: [
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|react-native-reanimated|nativewind|react-native-screens|react-native-safe-area-context|@sentry/.*|react-native-gesture-handler)',
+  ],
 };

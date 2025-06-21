@@ -1,7 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/universal/display';
-import { Form, Input, Select } from '@/components/universal/form';
+import { Form, FormItem, Input, Select } from '@/components/universal/form';
 import { Button } from '@/components/universal/interaction';
 import { cn } from '@/lib/core/utils';
 import { haptic } from '@/lib/ui/haptics';

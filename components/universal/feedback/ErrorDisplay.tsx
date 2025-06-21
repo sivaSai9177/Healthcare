@@ -81,24 +81,24 @@ export function ErrorDisplay({
   
   const iconColor = 
     variant === 'error' ? theme.destructive :
-    variant === 'warning' ? theme.warning :
+    variant === 'warning' ? '#F59E0B' : // Amber warning color
     theme.primary;
   
   // Background colors
   const bgColor = 
     variant === 'error' ? theme.destructive + '10' :
-    variant === 'warning' ? theme.warning + '10' :
+    variant === 'warning' ? '#F59E0B10' : // Amber with 10% opacity
     theme.primary + '10';
   
   const borderColor = 
     variant === 'error' ? theme.destructive + '30' :
-    variant === 'warning' ? theme.warning + '30' :
+    variant === 'warning' ? '#F59E0B30' : // Amber with 30% opacity
     theme.primary + '30';
   
   // Render based on type
   if (type === 'full') {
     return (
-      <Animated.View style={[animatedStyle, { flex: 1 }]}>
+      <Animated.View style={[animatedStyle, { flex: 1 }] as any}>
         <Box 
           flex={1} 
           justifyContent="center" 

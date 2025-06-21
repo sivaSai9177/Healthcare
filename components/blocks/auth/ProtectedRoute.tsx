@@ -35,7 +35,7 @@ export function ProtectedRoute({
       // Check if user needs to complete profile, but DON'T redirect if we're already on complete-profile
       if (user.needsProfileCompletion && pathname !== "/complete-profile") {
         hasRedirectedRef.current = true;
-        router.replace("/(auth)/complete-profile");
+        router.replace("/auth/complete-profile");
         return;
       }
       

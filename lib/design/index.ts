@@ -6,3 +6,4 @@ export * from './spacing';
 export * from './responsive';
 export * from './animation-variants';
 export * from './tokens';
+export * from './typography';

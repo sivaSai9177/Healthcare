@@ -100,9 +100,9 @@ export function PushNotificationSettings() {
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center space-x-3">
             {isEnabled ? (
-              <Bell size={24} color={theme.colors.primary} />
+              <Bell size={24} color={theme.primary} />
             ) : (
-              <BellOff size={24} color={theme.colors.text} />
+              <BellOff size={24} color={theme.foreground} />
             )}
             <Text variant="h3">Push Notifications</Text>
           </View>
@@ -148,7 +148,7 @@ export function PushNotificationSettings() {
                   className="flex-row items-center justify-between bg-muted/50 rounded-lg p-3"
                 >
                   <View className="flex-row items-center space-x-2">
-                    <Smartphone size={16} color={theme.colors.mutedForeground} />
+                    <Smartphone size={16} color={theme.mutedForeground} />
                     <View>
                       <Text variant="caption">
                         {token.deviceName || 'Unknown Device'}
@@ -161,7 +161,7 @@ export function PushNotificationSettings() {
                       </Text>
                     </View>
                   </View>
-                  <Check size={16} color={theme.colors.success} />
+                  <Check size={16} color={theme.success} />
                 </View>
               ))}
           </View>

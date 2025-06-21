@@ -1,0 +1,70 @@
+appId: ${APP_ID}
+tags:
+  - healthcare
+  - alerts
+  - critical
+env:
+  PATIENT_NAME: "John Doe"
+  ALERT_DESCRIPTION: "Patient requires immediate attention - elevated heart rate"
+---
+# Create Alert Flow Test
+- runFlow: ../auth/login.yaml
+
+# Navigate to alerts
+- tapOn:
+    text: "Alerts"
+    
+# Create new alert
+- tapOn:
+    id: "create-alert-button"
+    
+- assertVisible:
+    text: "Create Alert"
+    timeout: 5000
+    
+# Select priority
+- tapOn:
+    id: "priority-select"
+- tapOn:
+    text: "High"
+    
+# Select patient
+- tapOn:
+    id: "patient-search"
+- inputText: ${PATIENT_NAME}
+- tapOn:
+    text: ${PATIENT_NAME}
+    index: 0
+    
+# Enter description
+- tapOn:
+    id: "description-input"
+- inputText: ${ALERT_DESCRIPTION}
+
+# Select alert type
+- tapOn:
+    id: "alert-type-select"
+- tapOn:
+    text: "Medical Emergency"
+    
+# Add additional notes
+- tapOn:
+    id: "notes-input"
+- inputText: "Heart rate: 120 bpm, BP: 150/90"
+
+# Submit alert
+- tapOn:
+    text: "Create Alert"
+    
+# Verify success
+- assertVisible:
+    text: "Alert created successfully"
+    timeout: 5000
+    
+# Verify alert appears in list
+- assertVisible:
+    text: ${PATIENT_NAME}
+- assertVisible:
+    text: "High Priority"
+    
+- takeScreenshot: alert-created

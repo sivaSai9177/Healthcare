@@ -1,3 +1,4 @@
+import type { SpacingValue, ButtonVariant, BadgeVariant } from '@/types/components';
 import React, { useState } from 'react';
 import { View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { router } from 'expo-router';
@@ -55,7 +56,7 @@ export default function ProfileEditModal() {
     setIsLoading(true);
     try {
       // TODO: Implement profile update logic
-// TODO: Replace with structured logging - console.log('Updating profile:', formData);
+// TODO: Replace with structured logging - /* console.log('Updating profile:', formData) */;
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
       router.back();
     } catch (error) {

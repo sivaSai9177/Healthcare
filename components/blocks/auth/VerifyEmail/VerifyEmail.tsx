@@ -7,16 +7,6 @@ import { Text } from '@/components/universal/typography';
 import { Button } from '@/components/universal/interaction';
 import { Input } from '@/components/universal/form';
 import { VStack, HStack } from '@/components/universal/layout';
-
-const Mail = ({ size, className }: { size: number; className?: string }) => (
-  <Symbols name="envelope.fill" size={size} className={className} />
-);
-const ArrowLeft = ({ size, className }: { size: number; className?: string }) => (
-  <Symbols name="chevron.left" size={size} className={className} />
-);
-const RefreshCw = ({ size, className }: { size: number; className?: string }) => (
-  <Symbols name="arrow.clockwise" size={size} className={className} />
-);
 import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { haptic } from '@/lib/ui/haptics';
@@ -32,6 +22,16 @@ import Animated, {
   withRepeat,
   withSequence
 } from 'react-native-reanimated';
+
+const Mail = ({ size, className }: { size: number; className?: string }) => (
+  <Symbols name="envelope.fill" size={size} className={className} />
+);
+const ArrowLeft = ({ size, className }: { size: number; className?: string }) => (
+  <Symbols name="chevron.left" size={size} className={className} />
+);
+const RefreshCw = ({ size, className }: { size: number; className?: string }) => (
+  <Symbols name="arrow.clockwise" size={size} className={className} />
+);
 
 const AnimatedView = Animated.View;
 

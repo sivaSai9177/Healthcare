@@ -1,8 +1,6 @@
 import React from "react";
 import { Platform, Pressable, View, StyleSheet } from "react-native";
-import { Text, VStack, HStack } from "@/components/universal";
-import { cn } from '@/lib/core/utils';
-import { useSpacing } from '@/lib/stores/spacing-store';
+import { Text, VStack } from "@/components/universal";
 import { haptic } from '@/lib/ui/haptics';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { authStyles } from '@/components/blocks/auth/styles/authStyles';
@@ -64,7 +62,6 @@ const healthcareRoleOptions: RoleOption[] = [
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function HealthcareRoleSelector({ selectedRole, onRoleSelect, className }: HealthcareRoleSelectorProps) {
-  const { spacing } = useSpacing();
   const theme = useTheme();
   const [hoveredRole, setHoveredRole] = React.useState<HealthcareUserRole | null>(null);
 
@@ -74,8 +71,8 @@ export function HealthcareRoleSelector({ selectedRole, onRoleSelect, className }
   };
 
   return (
-    <VStack gap={authStyles.spacing[2]} className={className}>
-      <VStack gap={authStyles.spacing[1]}>
+    <VStack gap={authStyles.spacing[2] as any} className={className}>
+      <VStack gap={authStyles.spacing[1] as any}>
         <Text size="sm" weight="medium">
           Select your healthcare role
         </Text>
@@ -112,7 +109,7 @@ export function HealthcareRoleSelector({ selectedRole, onRoleSelect, className }
                 }
               ]}
             >
-              <VStack gap={authStyles.spacing[1]} align="center">
+              <VStack gap={authStyles.spacing[1] as any} alignItems="center">
                 <Text size="3xl">{role.icon}</Text>
                 <Text 
                   size="sm" 

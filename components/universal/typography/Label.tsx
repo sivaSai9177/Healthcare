@@ -145,7 +145,7 @@ export const Label = React.forwardRef<View, LabelProps>(({
           colorTheme={colorTheme || undefined}
           className={textColorClass}
           style={[
-            disabled && { opacity: 0.6 },
+            disabled && { opacity: 0.6 as any },
             textProps.style,
           ]}
           {...textProps}

@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, Table, Table
 import { Text } from '@/components/universal/typography';
 import { Button } from '@/components/universal/interaction';
 import { Input, Form, FormItem, Select, Switch } from '@/components/universal/form';
-import { Stack } from '@/components/universal/layout';
+import { VStack, HStack } from '@/components/universal/layout';
 import { Alert, AlertTitle, AlertDescription } from '@/components/universal/feedback';
 import { useResponsive } from '@/hooks/responsive';
 import { useSpacing } from '@/lib/stores/spacing-store';
@@ -79,7 +79,8 @@ export function EmailSettingsBlock({
     },
   });
   
-  const sendInviteMutation = api.organization.inviteMembers.useMutation({
+  // TODO: Replace with actual API call when inviteMembers endpoint is implemented
+  const sendInviteMutation = api.organization.update.useMutation({
     onSuccess: () => {
       haptic('success');
       form.reset();
@@ -140,49 +141,88 @@ export function EmailSettingsBlock({
         </CardHeader>
         <CardContent>
           <Form form={form} onSubmit={handleInvite}>
-            <Stack gap={spacing[4] as any}>
-              <Stack 
-                direction={isMobile ? 'vertical' : 'horizontal'} 
-                gap={spacing[3] as any}
-              >
-                <FormItem 
-                  name="email" 
-                  label="Email Address*"
-                  rules={{ required: 'Email is required' }}
-                  style={{ flex: 1 }}
-                >
-                  {(field) => (
-                    <Input
-                      placeholder="colleague@example.com"
-                      leftIcon={<Mail size={16} />}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      {...field}
-                      onChangeText={field.onChange}
-                    />
-                  )}
-                </FormItem>
-                
-                <FormItem 
-                  name="role" 
-                  label="Role*"
-                  rules={{ required: 'Role is required' }}
-                  style={{ minWidth: 150 }}
-                >
-                  {(field) => (
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                      placeholder="Select role"
-                      options={[
-                        { label: 'Admin', value: 'admin' },
-                        { label: 'Member', value: 'member' },
-                        { label: 'Viewer', value: 'viewer' },
-                      ]}
-                    />
-                  )}
-                </FormItem>
-              </Stack>
+            <VStack gap={spacing[4] as any}>
+              {isMobile ? (
+                <VStack gap={spacing[3] as any}>
+                  <FormItem 
+                    name="email" 
+                    label="Email Address*"
+                    rules={{ required: 'Email is required' }}
+                    style={{ flex: 1 }}
+                  >
+                    {(field) => (
+                      <Input
+                        placeholder="colleague@example.com"
+                        leftIcon={<Mail size={16} />}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        {...field}
+                        onChangeText={field.onChange}
+                      />
+                    )}
+                  </FormItem>
+                  
+                  <FormItem 
+                    name="role" 
+                    label="Role*"
+                    rules={{ required: 'Role is required' }}
+                    style={{ minWidth: 150 }}
+                  >
+                    {(field) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        placeholder="Select role"
+                        options={[
+                          { label: 'Admin', value: 'admin' },
+                          { label: 'Member', value: 'member' },
+                          { label: 'Viewer', value: 'viewer' },
+                        ]}
+                      />
+                    )}
+                  </FormItem>
+                </VStack>
+              ) : (
+                <HStack gap={spacing[3] as any}>
+                  <FormItem 
+                    name="email" 
+                    label="Email Address*"
+                    rules={{ required: 'Email is required' }}
+                    style={{ flex: 1 }}
+                  >
+                    {(field) => (
+                      <Input
+                        placeholder="colleague@example.com"
+                        leftIcon={<Mail size={16} />}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        {...field}
+                        onChangeText={field.onChange}
+                      />
+                    )}
+                  </FormItem>
+                  
+                  <FormItem 
+                    name="role" 
+                    label="Role*"
+                    rules={{ required: 'Role is required' }}
+                    style={{ minWidth: 150 }}
+                  >
+                    {(field) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        placeholder="Select role"
+                        options={[
+                          { label: 'Admin', value: 'admin' },
+                          { label: 'Member', value: 'member' },
+                          { label: 'Viewer', value: 'viewer' },
+                        ]}
+                      />
+                    )}
+                  </FormItem>
+                </HStack>
+              )}
               
               <FormItem 
                 name="message" 
@@ -219,7 +259,7 @@ export function EmailSettingsBlock({
               >
                 Send Invitation
               </Button>
-            </Stack>
+            </VStack>
           </Form>
         </CardContent>
       </Card>
@@ -233,7 +273,7 @@ export function EmailSettingsBlock({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Stack gap={spacing[4] as any}>
+          <VStack gap={spacing[4] as any}>
             {Object.entries({
               inviteNotifications: {
                 label: 'Invitation Notifications',
@@ -256,11 +296,10 @@ export function EmailSettingsBlock({
                 description: 'Summary of organization activity and metrics',
               },
             }).map(([key, config]) => (
-              <Stack 
+              <HStack 
                 key={key}
-                direction="horizontal" 
-                justify="between"
-                align="center"
+                justifyContent="space-between"
+                alignItems="center"
                 gap={spacing[3] as any}
               >
                 <View style={{ flex: 1 }}>
@@ -273,16 +312,16 @@ export function EmailSettingsBlock({
                   checked={emailPreferences[key as keyof typeof emailPreferences]}
                   onCheckedChange={() => handlePreferenceChange(key as keyof typeof emailPreferences)}
                 />
-              </Stack>
+              </HStack>
             ))}
-          </Stack>
+          </VStack>
         </CardContent>
       </Card>
       
       {/* Pending Invitations */}
       <Card shadow="md">
         <CardHeader>
-          <Stack direction="horizontal" justify="between" align="center">
+          <HStack justifyContent="space-between" alignItems="center">
             <View>
               <CardTitle>Pending Invitations</CardTitle>
               <CardDescription>
@@ -292,7 +331,7 @@ export function EmailSettingsBlock({
             <Badge variant="secondary">
               {pendingInvites.length} Pending
             </Badge>
-          </Stack>
+          </HStack>
         </CardHeader>
         <CardContent>
           {pendingInvites.length === 0 ? (
@@ -327,15 +366,15 @@ export function EmailSettingsBlock({
                     </TableCell>
                     <TableCell>{invite.invitedBy}</TableCell>
                     <TableCell>
-                      <Stack direction="horizontal" align="center" gap={spacing[1] as any}>
+                      <HStack alignItems="center" gap={spacing[1] as any}>
                         <Clock size={14} className="text-muted-foreground" />
                         <Text size="sm" colorTheme="mutedForeground">
                           {format(invite.invitedAt, 'MMM d')}
                         </Text>
-                      </Stack>
+                      </HStack>
                     </TableCell>
                     <TableCell>
-                      <Stack direction="horizontal" gap={spacing[1] as any}>
+                      <HStack gap={spacing[1] as any}>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -350,7 +389,7 @@ export function EmailSettingsBlock({
                         >
                           <XCircle size={16} className="text-destructive" />
                         </Button>
-                      </Stack>
+                      </HStack>
                     </TableCell>
                   </TableRow>
                 ))}

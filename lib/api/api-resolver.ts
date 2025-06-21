@@ -5,7 +5,7 @@
 
 import { Platform } from 'react-native';
 import { getEnvironmentConfig, cacheEndpoint, getCachedEndpoint, type ApiEndpoint } from '@/lib/core/config/env-config';
-import { log } from '@/lib/core/debug/logger';
+import { logger, log } from '@/lib/core/debug/logger';
 import { getAllPossibleEndpoints } from '@/lib/core/config/network';
 
 interface TestResult {
@@ -46,16 +46,13 @@ class ApiResolver {
     const startTime = Date.now();
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
+    
+    const testUrl = endpoint.testPath 
+      ? `${endpoint.url}${endpoint.testPath}`
+      : `${endpoint.url}/api/health`;
 
     try {
-      const testUrl = endpoint.testPath 
-        ? `${endpoint.url}${endpoint.testPath}`
-        : `${endpoint.url}/api/health`;
-
-      log.api.request('Testing endpoint', { 
-        type: endpoint.type, 
-        url: testUrl 
-      });
+      logger.api.request('GET', testUrl);
 
       const response = await fetch(testUrl, {
         method: 'GET',
@@ -69,12 +66,7 @@ class ApiResolver {
       const responseTime = Date.now() - startTime;
 
       if (response.ok) {
-        log.api.response('Endpoint test successful', {
-          type: endpoint.type,
-          url: endpoint.url,
-          responseTime,
-          status: response.status
-        });
+        logger.api.response('GET', testUrl, response.status, responseTime);
 
         return {
           endpoint,
@@ -82,11 +74,7 @@ class ApiResolver {
           responseTime
         };
       } else {
-        log.api.error(`Endpoint test failed: HTTP ${response.status}`, {
-          type: endpoint.type,
-          url: endpoint.url,
-          status: response.status
-        });
+        logger.api.error('GET', testUrl, new Error(`HTTP ${response.status}`), responseTime);
 
         return {
           endpoint,
@@ -98,11 +86,7 @@ class ApiResolver {
       clearTimeout(timeoutId);
       
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      log.api.error(`Endpoint test error: ${errorMessage}`, {
-        type: endpoint.type,
-        url: endpoint.url,
-        error: errorMessage
-      });
+      logger.api.error('GET', testUrl, error instanceof Error ? error : new Error(errorMessage), Date.now() - startTime);
 
       return {
         endpoint,

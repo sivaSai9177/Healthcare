@@ -1,0 +1,77 @@
+# Queue Worker Dockerfile
+# Processes background jobs for the healthcare system
+
+FROM node:20-alpine AS base
+WORKDIR /app
+
+# Install essential packages
+RUN apk add --no-cache libc6-compat
+
+# Install Bun for better performance
+RUN npm install -g bun
+
+# Dependencies stage
+FROM base AS deps
+COPY package.json bun.lockb* package-lock.json* ./
+RUN bun install --frozen-lockfile || npm ci --only=production
+
+# Development dependencies stage
+FROM base AS dev-deps
+COPY package.json bun.lockb* package-lock.json* ./
+RUN bun install || npm ci
+
+# Build stage for TypeScript
+FROM base AS builder
+COPY --from=dev-deps /app/node_modules ./node_modules
+COPY tsconfig.json ./
+COPY src ./src
+COPY lib ./lib
+
+# Compile TypeScript
+RUN npx tsc --project tsconfig.json --outDir dist || \
+    bun build src/server/services/queues/worker.ts --outdir dist/server/services/queues --target node
+
+# Production stage
+FROM base AS production
+ENV NODE_ENV=production
+
+# Copy production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy compiled JavaScript
+COPY --from=builder /app/dist ./dist
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Switch to non-root user
+USER nodejs
+
+# No exposed ports (worker doesn't serve HTTP)
+
+# Health check via Redis connection
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "const redis = require('redis'); const client = redis.createClient({url: process.env.REDIS_URL}); client.connect().then(() => { client.quit(); process.exit(0); }).catch(() => process.exit(1));"
+
+# Start the worker
+CMD ["node", "dist/server/services/queues/worker.js"]
+
+# Development stage
+FROM base AS development
+ENV NODE_ENV=development
+
+# Copy all dependencies
+COPY --from=dev-deps /app/node_modules ./node_modules
+
+# Copy source files
+COPY . .
+
+# Install tsx for TypeScript execution
+RUN npm install -g tsx nodemon
+
+# Create worker entry point if it doesn't exist
+RUN mkdir -p src/server/services/queues
+
+# Start with hot reload
+CMD ["nodemon", "--watch", "src", "--watch", "lib", "--ext", "ts,js", "--exec", "tsx", "src/server/services/queues/worker.ts"]

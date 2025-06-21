@@ -1,0 +1,56 @@
+appId: ${APP_ID}
+tags:
+  - healthcare
+  - alerts
+  - critical
+---
+# Acknowledge Alert Flow Test
+- runFlow: ../auth/login.yaml
+
+# Navigate to alerts
+- tapOn:
+    text: "Alerts"
+    
+# Wait for alerts to load
+- assertVisible:
+    text: "Active Alerts"
+    timeout: 5000
+    
+# Tap on first alert
+- tapOn:
+    id: "alert-item-0"
+    
+# View alert details
+- assertVisible:
+    text: "Alert Details"
+    timeout: 5000
+    
+# Scroll to actions
+- scrollUntilVisible:
+    element:
+      text: "Acknowledge"
+    direction: DOWN
+    
+# Acknowledge alert
+- tapOn:
+    text: "Acknowledge"
+    
+# Add acknowledgment notes
+- assertVisible:
+    text: "Acknowledgment Notes"
+- inputText: "Patient has been attended to. Vitals stabilized."
+
+# Confirm acknowledgment
+- tapOn:
+    text: "Confirm Acknowledgment"
+    
+# Verify success
+- assertVisible:
+    text: "Alert acknowledged"
+    timeout: 5000
+    
+# Verify status change
+- assertVisible:
+    text: "Acknowledged"
+    
+- takeScreenshot: alert-acknowledged

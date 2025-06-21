@@ -1,9 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import "tailwindcss";
-@import "tw-animate-css";
  
 /* @custom-variant dark (&:is(.dark *)); */
 
@@ -135,5 +132,165 @@
     --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.2);
     --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.5);
     --shadow-inner: inset 0 2px 4px 0 rgb(0 0 0 / 0.1);
+  }
+
+  /* Liquid Glass Theme Variables */
+  :root {
+    /* Glass surface opacity values */
+    --glass-opacity-strong: 0.9;
+    --glass-opacity-medium: 0.7;
+    --glass-opacity-subtle: 0.5;
+    --glass-opacity-light: 0.3;
+    
+    /* Blur intensities */
+    --glass-blur-xs: 4px;
+    --glass-blur-sm: 8px;
+    --glass-blur-md: 12px;
+    --glass-blur-lg: 16px;
+    --glass-blur-xl: 24px;
+    --glass-blur-2xl: 32px;
+    
+    /* Glass border colors */
+    --glass-border-light: rgba(255, 255, 255, 0.2);
+    --glass-border-strong: rgba(255, 255, 255, 0.3);
+    
+    /* Healthcare-specific glass colors */
+    --glass-urgent: rgba(239, 68, 68, 0.1);
+    --glass-warning: rgba(245, 158, 11, 0.1);
+    --glass-success: rgba(16, 185, 129, 0.1);
+    --glass-info: rgba(59, 130, 246, 0.1);
+  }
+  
+  .dark {
+    /* Dark mode glass adjustments */
+    --glass-border-light: rgba(255, 255, 255, 0.1);
+    --glass-border-strong: rgba(255, 255, 255, 0.2);
+    
+    --glass-urgent: rgba(239, 68, 68, 0.15);
+    --glass-warning: rgba(245, 158, 11, 0.15);
+    --glass-success: rgba(16, 185, 129, 0.15);
+    --glass-info: rgba(59, 130, 246, 0.15);
+  }
+}
+
+/* Liquid Glass Utility Classes */
+@layer utilities {
+  /* Glass surfaces - primary variants */
+  .glass {
+    @apply bg-white/70 dark:bg-black/70 backdrop-blur-xl border border-white/20 dark:border-white/10;
+  }
+  
+  .glass-subtle {
+    @apply bg-white/50 dark:bg-black/50 backdrop-blur-md border border-white/20 dark:border-white/10;
+  }
+  
+  .glass-strong {
+    @apply bg-white/90 dark:bg-black/90 backdrop-blur-2xl border border-white/30 dark:border-white/20;
+  }
+  
+  .glass-light {
+    @apply bg-white/30 dark:bg-black/30 backdrop-blur-sm border border-white/10 dark:border-white/5;
+  }
+  
+  /* Colored glass variants for healthcare priorities */
+  .glass-urgent {
+    @apply bg-red-500/10 dark:bg-red-500/15 backdrop-blur-xl border border-red-500/20;
+  }
+  
+  .glass-warning {
+    @apply bg-amber-500/10 dark:bg-amber-500/15 backdrop-blur-xl border border-amber-500/20;
+  }
+  
+  .glass-success {
+    @apply bg-green-500/10 dark:bg-green-500/15 backdrop-blur-xl border border-green-500/20;
+  }
+  
+  .glass-info {
+    @apply bg-blue-500/10 dark:bg-blue-500/15 backdrop-blur-xl border border-blue-500/20;
+  }
+  
+  /* Glass inner glow effects */
+  .glass-glow {
+    box-shadow: 
+      inset 0 1px 1px 0 rgba(255, 255, 255, 0.1),
+      0 20px 25px -5px rgba(0, 0, 0, 0.1),
+      0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .glass-glow-urgent {
+    box-shadow: 
+      inset 0 1px 1px 0 rgba(255, 255, 255, 0.1),
+      0 0 20px rgba(239, 68, 68, 0.2),
+      0 20px 25px -5px rgba(239, 68, 68, 0.1);
+  }
+  
+  .glass-glow-warning {
+    box-shadow: 
+      inset 0 1px 1px 0 rgba(255, 255, 255, 0.1),
+      0 0 20px rgba(245, 158, 11, 0.2),
+      0 20px 25px -5px rgba(245, 158, 11, 0.1);
+  }
+  
+  .glass-glow-success {
+    box-shadow: 
+      inset 0 1px 1px 0 rgba(255, 255, 255, 0.1),
+      0 0 20px rgba(16, 185, 129, 0.2),
+      0 20px 25px -5px rgba(16, 185, 129, 0.1);
+  }
+  
+  /* Glass hover states */
+  .glass-hover:hover {
+    @apply bg-white/80 dark:bg-black/80 border-white/30 dark:border-white/20;
+    transform: translateY(-1px);
+    box-shadow: 
+      inset 0 1px 1px 0 rgba(255, 255, 255, 0.15),
+      0 25px 30px -5px rgba(0, 0, 0, 0.15);
+  }
+  
+  /* Glass press states */
+  .glass-press:active {
+    transform: translateY(0) scale(0.99);
+    box-shadow: 
+      inset 0 1px 2px 0 rgba(0, 0, 0, 0.1),
+      0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Animated glass shimmer effect */
+  @keyframes glass-shimmer {
+    0% {
+      background-position: -200% center;
+    }
+    100% {
+      background-position: 200% center;
+    }
+  }
+  
+  .glass-shimmer {
+    background: linear-gradient(
+      105deg,
+      transparent 40%,
+      rgba(255, 255, 255, 0.1) 50%,
+      transparent 60%
+    );
+    background-size: 200% 100%;
+    animation: glass-shimmer 2s ease-in-out infinite;
+  }
+  
+  /* Platform-specific adjustments */
+  @supports (-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px)) {
+    /* Supported - use full glass effects */
+  }
+  
+  @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    /* Fallback for browsers without backdrop-filter support */
+    .glass {
+      @apply bg-white/95 dark:bg-black/95;
+    }
+    .glass-subtle {
+      @apply bg-white/85 dark:bg-black/85;
+    }
+    .glass-strong {
+      @apply bg-white/95 dark:bg-black/95;
+    }
   }
 }

@@ -9,10 +9,10 @@ import { Platform } from 'react-native';
 export const securityConfig = {
   // Session configuration
   session: {
-    // Session duration
+    // Session duration (aligned with PRD requirement)
     maxAge: {
-      default: 7 * 24 * 60 * 60, // 7 days in seconds
-      rememberMe: 30 * 24 * 60 * 60, // 30 days in seconds
+      default: 8 * 60 * 60, // 8 hours in seconds (PRD requirement)
+      rememberMe: 24 * 60 * 60, // 24 hours in seconds
       admin: 8 * 60 * 60, // 8 hours for admin users
     },
     // Session refresh settings
@@ -224,7 +224,7 @@ export const securityConfig = {
     // Content Security Policy
     csp: {
       production: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';",
-      development: "default-src 'self' 'unsafe-inline' 'unsafe-eval' *; img-src * data:; connect-src *;",
+      development: "default-src 'self' 'unsafe-inline' 'unsafe-eval' *; img-src * data:; font-src * data: https://fonts.gstatic.com; connect-src *; style-src * 'unsafe-inline';",
     },
     // Other security headers
     hsts: 'max-age=31536000; includeSubDomains; preload',

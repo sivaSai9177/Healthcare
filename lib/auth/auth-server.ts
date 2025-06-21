@@ -8,34 +8,24 @@
 import 'dotenv/config';
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { oAuthProxy, organization, admin, magicLink, twoFactor, passkey, bearer } from "better-auth/plugins";
+// import { expo } from "@better-auth/expo"; // Temporarily disabled
+import { oAuthProxy, organization, admin, magicLink, twoFactor, passkey, bearer, multiSession } from "better-auth/plugins";
 import { db } from "@/src/db";
 import * as schema from "@/src/db/schema";
-import { eq } from "drizzle-orm";
-import { emailService } from "@/src/server/services/email-index";
-import { notificationService, NotificationType, Priority } from "@/src/server/services/notifications";
+// import { emailService } from "@/src/server/services/email-index";
+// import { notificationService, NotificationType, Priority } from "@/src/server/services/notifications";
 import crypto from "crypto";
 
-// Import unified logger
-import { logger } from '@/lib/core/debug/unified-logger';
+// Import server-safe logger
+import { logger } from '@/lib/core/debug/server-logger';
 
-// Server-safe base URL configuration with validation
+// Server-safe base URL configuration
 const getBaseURL = () => {
-  const url = process.env.BETTER_AUTH_BASE_URL || 'http://localhost:8081/api/auth';
+  // Better Auth v1 expects the base URL without /api/auth
+  // It will add /api/auth internally
   
-  // Validate URL format in production
-  if (process.env.NODE_ENV === 'production') {
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol !== 'https:') {
-        logger.auth.warn('Using non-HTTPS URL in production');
-      }
-    } catch (e) {
-      logger.auth.error('Invalid BETTER_AUTH_BASE_URL', { url });
-    }
-  }
-  
-  return url;
+  // Force localhost for OAuth to work properly
+  return 'http://localhost:8081';
 };
 
 const getTrustedOrigins = () => {
@@ -75,8 +65,10 @@ const getTrustedOrigins = () => {
   return origins;
 };
 
-// Debug environment variables on load
-if (process.env.NODE_ENV === 'development') {
+// Debug environment variables on load (only once)
+let hasLoggedConfig = false;
+if (process.env.NODE_ENV === 'development' && !hasLoggedConfig) {
+  hasLoggedConfig = true;
   logger.system.info('Auth server environment variables', {
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? `${process.env.GOOGLE_CLIENT_ID.substring(0, 10)}...` : 'NOT SET',
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT SET',
@@ -87,7 +79,7 @@ if (process.env.NODE_ENV === 'development') {
   // Validate OAuth configuration
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     logger.auth.info('Google OAuth configured', {
-      redirectURI: `${process.env.BETTER_AUTH_BASE_URL || "http://localhost:8081/api/auth"}/callback/google`
+      redirectURI: `${getBaseURL()}/api/auth/callback/google`
     });
     
     // Check if client ID looks valid
@@ -97,65 +89,82 @@ if (process.env.NODE_ENV === 'development') {
   }
 }
 
-// Security headers middleware
-const securityHeaders = {
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'X-XSS-Protection': '1; mode=block',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
-  ...(process.env.NODE_ENV === 'production' && {
-    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https: wss:;",
-  }),
-};
-
 export const auth = betterAuth({
   baseURL: getBaseURL(),
-  secret: process.env.BETTER_AUTH_SECRET || (() => {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('BETTER_AUTH_SECRET is required in production');
-    }
-    return "dev-secret-key-not-for-production";
-  })(),
+  secret: process.env.BETTER_AUTH_SECRET || "your-secret-key-change-in-production",
   
-  // Security configuration
-  ...(process.env.NODE_ENV === "development" ? {
-    // Development-specific settings
-    disableCsrf: true, // Only for tunnel URLs in dev
-  } : {
-    // Production security settings
-    secureCookies: true,
-    cookiePrefix: '__Secure-', // Cookie prefix for secure cookies
+  // Disable CSRF check in development for tunnel URLs
+  ...(process.env.NODE_ENV === "development" && {
+    disableCsrf: true,
   }),
   
-  // Advanced security options
-  advanced: {
-    generateId: () => crypto.randomUUID(), // Use crypto UUID for session IDs
-    crossSubDomainCookies: {
-      enabled: process.env.ENABLE_CROSS_SUBDOMAIN === 'true',
-      domain: process.env.COOKIE_DOMAIN || '.yourdomain.com',
+  database: drizzleAdapter(db, {
+    provider: "pg",
+    schema: { ...schema },
+  }),
+  
+  // Email and password configuration
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: process.env.EXPO_PUBLIC_REQUIRE_EMAIL_VERIFICATION === 'true',
+    sendResetPassword: async ({ user, url }) => {
+      logger.auth.info('Password reset link generated', { email: user.email, url });
+      
+      // Send password reset email using our notification service
+      // await notificationService.send({
+      //   type: NotificationType.AUTH_RESET_PASSWORD,
+      //   recipient: {
+      //     userId: user.id,
+      //     email: user.email,
+      //   },
+      //   priority: Priority.HIGH,
+      //   data: {
+      //     name: user.name || user.email,
+      //     resetUrl: url,
+      //     expirationTime: '1 hour',
+      //     ipAddress: 'System Generated',
+      //     userAgent: 'Hospital Alert System',
+      //   },
+      // });
+      console.log('Password reset email would be sent to:', user.email, 'with URL:', url);
     },
-    disableWebAuthnPasswordless: false, // Enable WebAuthn for passwordless
-    disableGeneratedOAuthRedirect: false,
+    sendVerificationEmail: async ({ user, url }) => {
+      logger.auth.info('Email verification link generated', { email: user.email, url });
+      
+      // Send verification email using our notification service
+      // await notificationService.send({
+      //   type: NotificationType.AUTH_VERIFY_EMAIL,
+      //   recipient: {
+      //     userId: user.id,
+      //     email: user.email,
+      //   },
+      //   priority: Priority.HIGH,
+      //   data: {
+      //     name: user.name || user.email,
+      //     verificationUrl: url,
+      //     expirationTime: '24 hours',
+      //   },
+      // });
+      console.log('Verification email would be sent to:', user.email, 'with URL:', url);
+    },
   },
   
+  // Social providers
   socialProviders: {
-    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && {
-      google: {
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        scope: ["openid", "email", "profile"],
-      },
-    }),
+    google: (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) ? {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      // redirectURI is automatically set by Better Auth
+    } : undefined,
   },
   
+  // User configuration
   user: {
     additionalFields: {
       role: {
         type: "string",
         required: false,
-        defaultValue: "guest", // Changed from "user" to "guest" to match profile completion logic
+        defaultValue: null,
       },
       organizationId: {
         type: "string",
@@ -164,223 +173,108 @@ export const auth = betterAuth({
       needsProfileCompletion: {
         type: "boolean",
         required: true,
-        defaultValue: true, // All new users need profile completion
+        defaultValue: true,
+      },
+      defaultHospitalId: {
+        type: "string",
+        required: false,
+      },
+      contactPreferences: {
+        type: "string",
+        required: false,
+        defaultValue: '{"email": true, "push": true, "sms": false}',
       },
     },
   },
   
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: process.env.EXPO_PUBLIC_REQUIRE_EMAIL_VERIFICATION === 'true',
-    sendResetPassword: async ({ user, url }) => {
-      logger.auth.info('Password reset link generated', { email: user.email, url });
-      
-      // Send password reset email using our notification service
-      await notificationService.send({
-        type: NotificationType.AUTH_RESET_PASSWORD,
-        recipient: {
-          userId: user.id,
-          email: user.email,
-        },
-        priority: Priority.HIGH,
-        data: {
-          name: user.name || user.email,
-          resetUrl: url,
-          expirationTime: '1 hour',
-          ipAddress: 'System Generated',
-          userAgent: 'Hospital Alert System',
-        },
-      });
-    },
-    sendVerificationEmail: async ({ user, url }) => {
-      logger.auth.info('Email verification link generated', { email: user.email, url });
-      
-      // Send verification email using our notification service
-      await notificationService.send({
-        type: NotificationType.AUTH_VERIFY_EMAIL,
-        recipient: {
-          userId: user.id,
-          email: user.email,
-        },
-        priority: Priority.HIGH,
-        data: {
-          name: user.name || user.email,
-          verificationUrl: url,
-          expirationTime: '24 hours',
-        },
-      });
-    },
-  },
-  
-  database: drizzleAdapter(db, {
-    provider: "pg",
-    schema: { ...schema },
-  }),
-  
+  // Session configuration
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // 1 day - refresh session if older than this
-    // Disable cookie cache to avoid issues with OAuth
+    updateAge: 60 * 60 * 24, // 1 day
     cookieCache: {
-      enabled: false,
-    },
-    // Session security
-    storeSessionInDatabase: true, // Store sessions in DB for better control
-    // Enable session fingerprinting for additional security
-    enableSessionFingerprinting: process.env.NODE_ENV === 'production',
-  },
-  
-  cookies: {
-    sessionToken: {
-      name: process.env.NODE_ENV === 'production' ? '__Secure-better-auth.session_token' : 'better-auth.session_token',
-      httpOnly: true, // Always httpOnly for security
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // Strict in production
-      secure: process.env.NODE_ENV === 'production', // Secure in production
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      domain: process.env.COOKIE_DOMAIN || (process.env.NODE_ENV === 'production' ? '.yourdomain.com' : undefined),
-      // Additional security attributes
-      ...(process.env.NODE_ENV === 'production' && {
-        priority: 'high', // Cookie priority hint
-        partitioned: true, // CHIPS - Cookies Having Independent Partitioned State
-      }),
-    },
-    sessionRefreshToken: {
-      name: process.env.NODE_ENV === 'production' ? '__Host-better-auth.refresh_token' : 'better-auth.refresh_token',
-      httpOnly: true, // Always HttpOnly
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-      // No domain for __Host- prefixed cookies
-      ...(process.env.NODE_ENV !== 'production' && {
-        domain: undefined,
-      }),
-    },
-    state: {
-      name: 'better-auth.state',
-      httpOnly: true, // Make state cookie HttpOnly
-      sameSite: 'lax', // Lax for OAuth redirects
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 10, // 10 minutes
-    },
-    csrf: {
-      name: process.env.NODE_ENV === 'production' ? '__Host-better-auth.csrf' : 'better-auth.csrf',
-      httpOnly: true, // CSRF token should be HttpOnly
-      sameSite: 'strict', // Strict for CSRF protection
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60 * 24, // 24 hours
-    },
-    // Additional cookie for remember me functionality
-    rememberMe: {
-      name: 'better-auth.remember',
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 90, // 90 days
+      enabled: true,
+      maxAge: 5 * 60, // 5 minutes
     },
   },
   
+  // Plugins
   plugins: [
-    // Note: expo() plugin removed as it causes server-side issues
+    // expo(), // Temporarily disabled - causing issues
     bearer(), // Enable Bearer token authentication for mobile
-    oAuthProxy(),
-    // multiSession removed - it was causing cookie naming issues
+    oAuthProxy(), // Enable OAuth proxy for mobile
+    multiSession({ 
+      maximumSessions: 5 
+    }),
     organization({
       allowUserToCreateOrganization: true,
       membershipLimits: {
         'free': 5,
         'pro': 50,
         'enterprise': -1,
-      },
-      // Organization security settings
-      invitationExpiresIn: 60 * 60 * 24 * 7, // 7 days
-      requireEmailVerification: true,
+      }
     }),
     admin({
       defaultRole: 'user',
-      adminUserIds: process.env.ADMIN_USER_IDS?.split(',') || [],
-      // Admin security settings
-      requireTwoFactor: process.env.NODE_ENV === 'production',
-    }),
-    magicLink({
-      sendMagicLink: async ({ email, url, token }) => {
-        logger.auth.info('Magic link generated', { email, url });
-        
-        // Find user by email to get userId
-        const [user] = await db
-          .select()
-          .from(schema.users)
-          .where(eq(schema.users.email, email))
-          .limit(1);
-        
-        // Send magic link email using our notification service
-        await notificationService.send({
-          type: NotificationType.AUTH_MAGIC_LINK,
-          recipient: {
-            userId: user?.id || 'anonymous',
-            email: email,
-          },
-          priority: Priority.HIGH,
-          data: {
-            name: user?.name || email,
-            magicLinkUrl: url,
-            expirationTime: '10 minutes',
-            // Add security notice
-            securityNote: 'If you did not request this link, please ignore this email.',
-          },
-        });
-      },
-      // Magic link security settings
-      expiresIn: 60 * 10, // 10 minutes
-      requestLimit: {
-        window: 60 * 60, // 1 hour
-        max: 5, // 5 requests per hour
-      },
-    }),
-    // Two-factor authentication plugin
-    ...(process.env.ENABLE_TWO_FACTOR === 'true' ? [twoFactor({
-      issuer: process.env.APP_NAME || 'Hospital Alert System',
-      // Custom TOTP settings
-      totpOptions: {
-        period: 30,
-        digits: 6,
-        algorithm: 'SHA1',
-      },
-      // Backup codes
-      backupCodes: {
-        quantity: 10,
-        length: 8,
-      },
-      // Force 2FA for certain roles
-      forceTwoFactor: (user) => {
-        const userRole = (user as any).role;
-        return userRole === 'admin' || userRole === 'manager';
-      },
-    })] : []),
-    // Passkey/WebAuthn support
-    ...(process.env.ENABLE_PASSKEYS === 'true' ? [passkey({
-      rpName: process.env.APP_NAME || 'Hospital Alert System',
-      rpID: process.env.RP_ID || 'localhost',
-      origin: process.env.BETTER_AUTH_BASE_URL || 'http://localhost:8081',
-      // Passkey settings
-      authenticatorSelection: {
-        authenticatorAttachment: 'platform',
-        userVerification: 'preferred',
-        residentKey: 'preferred',
-        requireResidentKey: false,
-      },
-    })] : []),
+      adminUserIds: process.env.ADMIN_USER_IDS?.split(',') || []
+    })
   ],
   
-  // Use static array to avoid the async function issue
+  // Trusted origins for CORS
   trustedOrigins: getTrustedOrigins(),
   
+  // Advanced configuration
+  advanced: {
+    // Cookie configuration based on Better Auth v1 documentation
+    // https://www.better-auth.com/docs/concepts/cookies
+    cookies: {
+      // Session token cookie
+      "better-auth.session-token": {
+        name: "better-auth.session-token",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+      },
+      // CSRF token cookie
+      "better-auth.csrf": {
+        name: "better-auth.csrf",
+        httpOnly: true,
+        sameSite: "strict",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+      },
+      // Session data cookie (for client-side access)
+      "better-auth.session-data": {
+        name: "better-auth.session-data",
+        httpOnly: false, // Allow client-side access
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+      },
+    },
+    // Generate session ID
+    generateSessionId: () => crypto.randomBytes(32).toString('hex'),
+    // Disable CSRF in development for easier testing
+    csrf: {
+      enabled: process.env.NODE_ENV === "production",
+    },
+  },
+  
+  // Rate limiting
+  rateLimit: {
+    window: 15 * 60,
+    max: process.env.NODE_ENV === "production" ? 100 : 1000,
+    storage: "memory",
+  },
+  
+  // CORS configuration
   cors: {
     origin: (origin: string) => {
+      // Allow all origins in development
+      if (process.env.NODE_ENV === "development") {
+        return true;
+      }
+      
       const staticOrigins = getTrustedOrigins();
       if (staticOrigins.includes(origin)) {
         return true;
@@ -396,71 +290,17 @@ export const auth = betterAuth({
       return tunnelPatterns.some(pattern => pattern.test(origin));
     },
     credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-CSRF-Token"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   },
   
-  rateLimit: {
-    enabled: true,
-    window: 15 * 60 * 1000, // 15 minutes in milliseconds
-    max: process.env.NODE_ENV === 'production' ? 100 : 1000,
-    standardHeaders: true, // Return rate limit info in headers
-    legacyHeaders: false, // Disable legacy headers
-    storage: process.env.NODE_ENV === 'production' ? 'database' : 'memory', // Use DB in production
-    // Custom rate limits per endpoint
-    customRules: [
-      {
-        path: '/sign-in',
-        window: 5 * 60 * 1000, // 5 minutes
-        max: 10, // 10 attempts per 5 minutes - increased to handle logout-login flow
-        skipSuccessfulRequests: true, // Don't count successful logins toward limit
-      },
-      {
-        path: '/sign-up',
-        window: 60 * 60 * 1000, // 1 hour
-        max: 3, // 3 signups per hour
-      },
-      {
-        path: '/forgot-password',
-        window: 15 * 60 * 1000, // 15 minutes
-        max: 3, // 3 attempts per 15 minutes
-      },
-      {
-        path: '/verify-email',
-        window: 60 * 60 * 1000, // 1 hour
-        max: 10, // 10 attempts per hour
-      },
-      {
-        path: '/sign-out',
-        window: 60 * 1000, // 1 minute
-        max: 20, // 20 signouts per minute - generous limit
-        clearOnSuccess: true, // Clear rate limit counters after successful signout
-      },
-    ],
-    // Skip rate limiting for certain conditions
-    skip: (req) => {
-      // Skip for health checks
-      if (req.url.includes('/health')) return true;
-      // Skip for static assets
-      if (req.url.match(/\.(js|css|png|jpg|jpeg|gif|ico)$/)) return true;
-      return false;
-    },
-    // Custom key generator for rate limiting
-    keyGenerator: (req) => {
-      // Use a combination of IP and user ID if authenticated
-      const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 
-                 req.headers.get('x-real-ip') || 
-                 'unknown';
-      const userId = req.headers.get('x-user-id');
-      return userId ? `${ip}:${userId}` : ip;
-    },
-  },
-  
+  // Logging
   logger: {
     level: process.env.NODE_ENV === "production" ? "error" : "debug",
     disabled: false,
   },
   
+  // Error handling
   onError: (error: any, request: Request) => {
     logger.auth.error('Authentication error', error);
     
@@ -477,12 +317,6 @@ export const auth = betterAuth({
     
     logger.auth.error('Auth error details', errorContext);
     
-    // Log to monitoring service in production
-    if (process.env.NODE_ENV === 'production' && process.env.SENTRY_DSN) {
-      // Would send to Sentry or similar monitoring service
-      // sentryCapture(error, errorContext);
-    }
-    
     // Rate limit specific error handling
     if (error.code === 'RATE_LIMIT_EXCEEDED') {
       return {
@@ -493,7 +327,7 @@ export const auth = betterAuth({
     }
     
     // Handle specific error types with appropriate messages
-    const errorMessages = {
+    const errorMessages: Record<string, string> = {
       INVALID_CREDENTIALS: 'Invalid email or password',
       EMAIL_NOT_VERIFIED: 'Please verify your email address',
       ACCOUNT_LOCKED: 'Account temporarily locked due to suspicious activity',
@@ -515,279 +349,62 @@ export const auth = betterAuth({
     };
   },
   
+  // Callbacks for user management
   callbacks: {
-    session: {
-      async fetchSession({ session, user }) {
-        logger.auth.debug('Fetching session', {
-          sessionId: session?.id,
-          userId: user?.id,
-          userEmail: user?.email,
-        });
-        
-        // Add session security checks
-        if (session && process.env.NODE_ENV === 'production') {
-          // Check session age and force re-authentication if too old
-          const sessionAge = Date.now() - new Date(session.createdAt).getTime();
-          const maxSessionAge = 60 * 60 * 24 * 30 * 1000; // 30 days
-          
-          if (sessionAge > maxSessionAge) {
-            logger.auth.info('Session too old, forcing re-authentication', {
-              sessionId: session.id,
-              sessionAge: sessionAge / 1000 / 60 / 60 / 24, // days
-            });
-            return { session: null, user: null };
-          }
-          
-          // Check for suspicious activity
-          const currentIp = session.ipAddress;
-          const lastIp = (session as any).lastIpAddress;
-          if (lastIp && currentIp !== lastIp) {
-            logger.auth.info('IP address changed during session', {
-              sessionId: session.id,
-              currentIp,
-              lastIp,
-            });
-            // Could force re-authentication or send security alert
-          }
-        }
-        
-        return { session, user };
-      }
-    },
-    signOut: {
-      async before({ user, session }) {
-        logger.auth.debug('Sign-out initiated', {
-          userId: user?.id,
-          sessionId: session?.id,
-          isOAuthSession: !!(session as any)?.provider,
-          provider: (session as any)?.provider,
-        });
-        
-        // Clean up OAuth-specific session data to prevent JSON parsing errors
-        if (session && (session as any)?.provider) {
-          logger.auth.info('OAuth session sign-out detected', {
-            provider: (session as any).provider,
-            userId: user?.id
-          });
-          
-          // Return clean objects without circular references or non-serializable data
-          return {
-            user: user ? {
-              id: user.id,
-              email: user.email,
-              name: user.name
-            } : undefined,
-            session: session ? {
-              id: session.id,
-              userId: session.userId
-            } : undefined
-          };
-        }
-        
-        return { user, session };
-      },
-      async after({ user }) {
-        logger.auth.info('Sign-out completed', {
-          userId: user?.id,
-        });
-        
-        // Clean user object for OAuth sessions
-        if (user && (user as any)?.accounts?.some((acc: any) => acc.provider === 'google')) {
-          return {
-            user: {
-              id: user.id,
-              email: user.email,
-              name: user.name
-            }
-          };
-        }
-        
-        return { user };
-      }
-    },
     signIn: {
       async before({ user, isNewUser }) {
-        // Enhanced logging for OAuth callback debugging
-        logger.auth.debug('Sign-in initiated', {
+        logger.auth.debug('[AUTH CALLBACK] Sign in before', { 
           userId: user?.id, 
-          email: user?.email,
           isNewUser,
           existingRole: user?.role,
-          existingNeedsProfileCompletion: user?.needsProfileCompletion,
+          existingNeedsProfileCompletion: user?.needsProfileCompletion
         });
         
+        // For new OAuth users, set profile completion requirement
         if (isNewUser) {
-          logger.auth.info('New OAuth user detected, setting guest role', {
-            userId: user?.id,
-            email: user?.email,
-            beforeRole: user?.role,
-            beforeNeedsProfileCompletion: user?.needsProfileCompletion
-          });
-          
-          user.role = 'guest';
+          // Set a temporary role that indicates profile completion is needed
+          user.role = 'user'; // Basic role until they complete profile
+          // New OAuth users need to complete their profile
           user.needsProfileCompletion = true;
-          
-          logger.auth.debug('Guest role applied', {
-            userId: user?.id,
-            afterRole: user?.role,
-            afterNeedsProfileCompletion: user?.needsProfileCompletion
+          logger.auth.debug('[AUTH CALLBACK] New OAuth user, setting needsProfileCompletion=true, role=user');
+        } else if (!user.role || user.role === 'user' || user.role === 'guest' || !user.organizationId) {
+          // For existing users without proper role/org, also require profile completion
+          user.needsProfileCompletion = true;
+          user.role = user.role || 'user';
+          logger.auth.debug('[AUTH CALLBACK] Existing user needs profile completion', {
+            userId: user.id,
+            role: user.role,
+            hasOrganization: !!user.organizationId
           });
+        } else {
+          // Check if existing user is healthcare role without organization/hospital
+          const healthcareRoles = ['doctor', 'nurse', 'head_doctor', 'operator'];
+          if (healthcareRoles.includes(user.role) && (!user.organizationId || !user.defaultHospitalId)) {
+            user.needsProfileCompletion = true;
+            logger.auth.debug('[AUTH CALLBACK] Healthcare user without proper setup, setting needsProfileCompletion=true', {
+              userId: user.id,
+              role: user.role,
+              hasOrganization: !!user.organizationId,
+              hasHospital: !!user.defaultHospitalId
+            });
+          } else {
+            // For existing users with completed profiles, preserve their status
+            logger.auth.debug('[AUTH CALLBACK] Existing user with completed profile');
+          }
         }
-        
-        return { user };
       },
       async after({ user, session, request }) {
-        const isOAuthCallback = request.url.includes('/callback/google');
-        
-        logger.auth.info('Sign-in completed', {
-          userId: user?.id,
-          userRole: user?.role,
-          userNeedsProfileCompletion: user?.needsProfileCompletion,
-          sessionId: session?.id,
-          isOAuthCallback,
+        logger.auth.info('User signed in', {
+          userId: user.id,
+          email: user.email,
+          role: user.role,
+          needsProfileCompletion: user.needsProfileCompletion,
+          method: request?.method,
+          userAgent: request?.headers?.get('user-agent')
         });
-        
-        const userAgent = request.headers.get('user-agent') || '';
-        const isMobileOAuth = userAgent.includes('Expo') || userAgent.includes('okhttp');
-        
-        if (isMobileOAuth && session) {
-          return {
-            redirect: true,
-            url: `/api/auth/mobile-oauth-success?token=${session.token}`,
-          };
-        }
-        
-        // For web OAuth, redirect to auth-callback page
-        if (!isMobileOAuth && session) {
-          logger.auth.info('Web OAuth successful, redirecting to auth-callback', {
-            userId: user?.id,
-            needsProfileCompletion: user?.needsProfileCompletion,
-            role: user?.role
-          });
-          
-          // Add a delay parameter to ensure session is properly saved before redirect
-          // This helps with the timing issue where the session might not be immediately available
-          return {
-            redirect: true,
-            url: '/auth-callback?oauth=true&delay=500',
-          };
-        }
-        
-        return { user, session };
-      },
-    },
+      }
+    }
   },
 });
 
 export type Auth = typeof auth;
-
-// Helper function to apply security headers to responses
-export function withSecurityHeaders(response: Response): Response {
-  const newResponse = new Response(response.body, response);
-  
-  Object.entries(securityHeaders).forEach(([key, value]) => {
-    newResponse.headers.set(key, value);
-  });
-  
-  return newResponse;
-}
-
-// Session security utilities
-export const sessionSecurity = {
-  // Validate session fingerprint
-  validateFingerprint: (session: any, request: Request): boolean => {
-    if (process.env.NODE_ENV !== 'production') return true;
-    
-    const currentFingerprint = generateFingerprint(request);
-    const sessionFingerprint = session.fingerprint;
-    
-    return currentFingerprint === sessionFingerprint;
-  },
-  
-  // Generate session fingerprint from request
-  generateFingerprint: (request: Request): string => {
-    const userAgent = request.headers.get('user-agent') || '';
-    const acceptLanguage = request.headers.get('accept-language') || '';
-    const acceptEncoding = request.headers.get('accept-encoding') || '';
-    
-    // Create a fingerprint from stable request characteristics
-    const data = `${userAgent}|${acceptLanguage}|${acceptEncoding}`;
-    
-    // Hash the fingerprint data
-    return crypto.createHash('sha256').update(data).digest('hex');
-  },
-  
-  // Check for session anomalies
-  checkAnomalies: (session: any, request: Request): { suspicious: boolean; reasons: string[] } => {
-    const reasons: string[] = [];
-    
-    // Check IP address changes
-    const currentIp = request.headers.get('x-forwarded-for')?.split(',')[0] || 
-                     request.headers.get('x-real-ip') || 'unknown';
-    if (session.ipAddress && session.ipAddress !== currentIp) {
-      reasons.push('IP address changed');
-    }
-    
-    // Check user agent changes
-    const currentUA = request.headers.get('user-agent') || '';
-    if (session.userAgent && session.userAgent !== currentUA) {
-      reasons.push('User agent changed');
-    }
-    
-    // Check for impossible travel (simplified version)
-    if (session.lastActivity) {
-      const timeDiff = Date.now() - new Date(session.lastActivity).getTime();
-      const locationChanged = session.ipAddress !== currentIp;
-      
-      // If location changed in less than 5 minutes, it might be suspicious
-      if (locationChanged && timeDiff < 5 * 60 * 1000) {
-        reasons.push('Impossible travel detected');
-      }
-    }
-    
-    return {
-      suspicious: reasons.length > 0,
-      reasons,
-    };
-  },
-};
-
-// Export helper to generate fingerprint
-const generateFingerprint = sessionSecurity.generateFingerprint;
-
-// Advanced session management hooks
-export const sessionHooks = {
-  // Before creating a session
-  beforeCreate: async (user: any, request: Request) => {
-    // Add session metadata
-    const metadata = {
-      ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0] || 
-                 request.headers.get('x-real-ip') || 'unknown',
-      userAgent: request.headers.get('user-agent') || 'unknown',
-      fingerprint: generateFingerprint(request),
-      createdAt: new Date(),
-      lastActivity: new Date(),
-    };
-    
-    return metadata;
-  },
-  
-  // After session is created
-  afterCreate: async (session: any, user: any) => {
-    // Log session creation for audit
-    logger.auth.info('Session created', {
-      sessionId: session.id,
-      userId: user.id,
-      userEmail: user.email,
-    });
-  },
-  
-  // Before destroying a session
-  beforeDestroy: async (session: any) => {
-    // Log session destruction
-    logger.auth.info('Session destroyed', {
-      sessionId: session.id,
-      userId: session.userId,
-    });
-  },
-};

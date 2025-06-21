@@ -1,4 +1,4 @@
-import React, { Suspense, useDeferredValue, useTransition, useEffect } from 'react';
+import React, { Suspense, useTransition, useEffect } from 'react';
 import { Platform } from 'react-native';
 import Animated, { 
   useAnimatedStyle, 
@@ -6,7 +6,6 @@ import Animated, {
   withTiming, 
   withSpring,
   interpolate,
-  Extrapolate,
 } from 'react-native-reanimated';
 import {
   Card,
@@ -19,11 +18,10 @@ import {
   Grid,
   Progress,
 } from '@/components/universal';
-import { useSpacing } from '@/lib/stores/spacing-store';
 import { cn } from '@/lib/core/utils';
 import { useShadow } from '@/hooks/useShadow';
+import { useAuthStore } from '@/lib/stores/auth-store';
 
-import { api } from '@/lib/api/trpc';
 import { create } from 'zustand';
 import { devtools, subscribeWithSelector } from 'zustand/middleware';
 import { log } from '@/lib/core/debug/logger';
@@ -31,7 +29,8 @@ import { log } from '@/lib/core/debug/logger';
 import { useFadeAnimation, useEntranceAnimation } from '@/lib/ui/animations';
 import { haptic } from '@/lib/ui/haptics';
 import { SpacingScale } from '@/lib/design';
-import { useAuthStore } from '@/lib/stores/auth-store';
+import { useHealthcareAccess } from '@/hooks/usePermissions';
+import { useMetrics } from '@/hooks/healthcare';
 
 // Metrics store with Zustand
 interface MetricsState {
@@ -73,12 +72,11 @@ const PrimaryMetricCard = ({
   variant: 'destructive' | 'secondary' | 'default' | 'success';
   icon: string;
 }) => {
-  const { spacing, componentSizes } = useSpacing();
   const shadowStyle = useShadow({ size: 'lg' });
   
   // Animation for card entrance
   const { animatedStyle: cardEntranceStyle, fadeIn } = useFadeAnimation({ 
-    duration: 600,
+    duration: 'normal' as any,
     delay: 100 
   });
   
@@ -109,7 +107,7 @@ const PrimaryMetricCard = ({
         animatedValue.value,
         [0, value],
         [0.5, 1],
-        Extrapolate.CLAMP
+        'clamp'
       ),
     };
   });
@@ -127,7 +125,7 @@ const PrimaryMetricCard = ({
       style={shadowStyle}
     >
       <HStack justifyContent="space-between" alignItems="flex-start">
-        <VStack gap={spacing[3]}>
+        <VStack gap={3 as any}>
           <Animated.Text style={[{ fontSize: 48, fontWeight: 'bold' }, animatedTextStyle]} className="text-foreground">
             {Math.round(animatedValue.value)}
           </Animated.Text>
@@ -137,17 +135,17 @@ const PrimaryMetricCard = ({
       </HStack>
       
       {capacity !== undefined && (
-        <VStack gap={spacing[2]}>
+        <VStack gap={2 as any}>
           <HStack justifyContent="space-between">
             <Text size="xs" colorTheme="mutedForeground">Capacity</Text>
             <Text size="xs" weight="medium">{Math.round((value / capacity) * 100)}%</Text>
           </HStack>
-          <Progress value={(value / capacity) * 100} variant={variant} />
+          <Progress value={(value / capacity) * 100} variant={variant as any} />
         </VStack>
       )}
       
       {trend !== undefined && (
-        <HStack gap={spacing[2]} alignItems="center">
+        <HStack gap={2 as any} alignItems="center">
           <Text size="sm" colorTheme={trend > 0 ? "destructive" : "success"}>
             {trend > 0 ? '↑' : '↓'}
           </Text>
@@ -173,7 +171,6 @@ const SecondaryMetricCard = ({
   unit?: string;
   status?: 'good' | 'warning' | 'critical';
 }) => {
-  const { spacing, componentSizes } = useSpacing();
   const shadowStyle = useShadow({ size: 'md' });
   const getStatusVariant = (status: 'good' | 'warning' | 'critical') => {
     switch (status) {
@@ -192,7 +189,7 @@ const SecondaryMetricCard = ({
   const { animatedStyle: slideInStyle } = useEntranceAnimation({
     type: 'slide',
     delay: 200,
-    duration: 400,
+    duration: 'normal' as const,
     from: 'right',
   });
   
@@ -211,7 +208,7 @@ const SecondaryMetricCard = ({
       }, shadowStyle]}
     >
       <Text size="xs" colorTheme="mutedForeground">{label}</Text>
-      <HStack gap={spacing[2]} alignItems="baseline">
+      <HStack gap={2 as any} alignItems="baseline">
         <Text size="2xl" weight="bold">{value}</Text>
         {unit && <Text size="sm" colorTheme="mutedForeground">{unit}</Text>}
       </HStack>
@@ -222,19 +219,18 @@ const SecondaryMetricCard = ({
 
 // Mini stat component
 const MiniStat = ({ label, value, variant, index }: { label: string; value: number; variant: 'destructive' | 'secondary' | 'default' | 'success'; index: number }) => {
-  const { spacing, componentSizes } = useSpacing();
   
   // Staggered fade in for mini stats
   const { animatedStyle } = useEntranceAnimation({
     type: 'fade',
     delay: 300 + (index * 100),
-    duration: 400,
+    duration: 'normal' as const,
   });
   
   return (
     <Animated.View style={animatedStyle}>
       <HStack
-      gap={spacing[4]}
+      gap={4 as any}
       alignItems="center"
       className={cn(
         "p-3 rounded-md",
@@ -269,17 +265,15 @@ const MiniStat = ({ label, value, variant, index }: { label: string; value: numb
 
 // Metrics skeleton loader
 const MetricsSkeleton = () => {
-  const { spacing, componentSizes } = useSpacing();
   const { animatedStyle: pulseStyle } = useFadeAnimation({
-    duration: 1000,
+    duration: 'slow' as const,
     loop: true,
-    reverseOnComplete: true,
   });
   
   return (
     <Grid
-      columns={Platform.OS === 'web' ? "1.618fr 1fr 0.618fr" : "1fr"}
-      gap={spacing[6]}
+      columns={Platform.OS === 'web' ? 3 : 1}
+      gap={6 as any}
     >
       {[1, 2, 3].map((i) => (
         <Animated.View key={i} style={pulseStyle}>
@@ -288,7 +282,9 @@ const MetricsSkeleton = () => {
             style={{
               height: 156, // componentSizes.button.lg.height * 3
             }}
-          />
+          >
+            <></>
+          </Card>
         </Animated.View>
       ))}
     </Grid>
@@ -297,59 +293,52 @@ const MetricsSkeleton = () => {
 
 // Main metrics content
 const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
-  const { spacing } = useSpacing();
-  const { timeRange, department, refreshInterval, setTimeRange } = useMetricsStore();
+  const { timeRange, refreshInterval, setTimeRange } = useMetricsStore();
   const [isPending, startTransition] = useTransition();
-  const { user, isAuthenticated, hasHydrated } = useAuthStore();
+  const { isHealthcareRole, canViewAlerts, isLoading, isAuthenticated, user } = useHealthcareAccess();
   
   // Deferred values for smooth interactions
-  const deferredTimeRange = useDeferredValue(timeRange);
-  const deferredDepartment = useDeferredValue(department);
+  // const deferredTimeRange = useDeferredValue(timeRange);
+  // const deferredDepartment = useDeferredValue(department);
+  
+  // Use enhanced hook for metrics with offline support
+  const metricsQuery = useMetrics({
+    hospitalId,
+    enabled: !!user && isAuthenticated && isHealthcareRole && !isLoading,
+    refetchInterval: refreshInterval,
+  });
   
   // Early return if auth is not ready
-  if (!hasHydrated || !isAuthenticated || !user) {
+  if (isLoading || !isAuthenticated || !user) {
     return <MetricsSkeleton />;
   }
   
-  // Fetch metrics data
-  const { data: metrics, error } = api.healthcare.getMetrics.useQuery(
-    {
-      timeRange: deferredTimeRange,
-      department: deferredDepartment,
-    },
-    {
-      refetchInterval: refreshInterval,
-      refetchIntervalInBackground: true,
-      suspense: false, // Disable suspense to handle errors gracefully
-      enabled: !!user && isAuthenticated, // Only fetch if user is authenticated
-      retry: 1, // Limit retries
-      retryDelay: 1000,
-    }
-  );
-  
-  // Real-time subscription (only if WebSocket is enabled)
-  const wsEnabled = process.env.EXPO_PUBLIC_ENABLE_WS === 'true';
-  
-  api.healthcare.subscribeToMetrics.useSubscription(
-    undefined,
-    {
-      enabled: wsEnabled && isAuthenticated && !!user, // Only subscribe if WebSocket is enabled and user is authenticated
-      onData: (update) => {
-        log.info('Metrics update received', 'METRICS', update);
-      },
-      onError: (err) => {
-        log.error('Metrics subscription error', 'METRICS', err);
-      },
-    }
-  );
-  
-  // Handle error state
-  if (error) {
-    log.error('Failed to fetch metrics', 'METRICS', error);
+  // Check if user has healthcare role and can view alerts
+  if (!isHealthcareRole || !canViewAlerts) {
     return (
       <Card>
-        <Box p={spacing[4]}>
-          <VStack gap={spacing[3]} alignItems="center">
+        <Box p={4}>
+          <VStack gap={3 as any} alignItems="center">
+            <Text size="lg" colorTheme="mutedForeground">Healthcare Access Required</Text>
+            <Text size="sm" colorTheme="mutedForeground">
+              This section is only available to healthcare professionals with alert viewing permissions
+            </Text>
+          </VStack>
+        </Box>
+      </Card>
+    );
+  }
+  
+  // Use cached data when offline
+  const displayMetrics = (metricsQuery as any).data || (metricsQuery as any).cachedData;
+  
+  // Handle error state
+  if ((metricsQuery as any).error) {
+    log.error('Failed to fetch metrics', 'METRICS', (metricsQuery as any).error);
+    return (
+      <Card>
+        <Box p={4}>
+          <VStack gap={3 as any} alignItems="center">
             <Text size="lg" colorTheme="destructive">Unable to load metrics</Text>
             <Text size="sm" colorTheme="mutedForeground">Please check your connection and try again</Text>
           </VStack>
@@ -358,14 +347,32 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
     );
   }
   
-  if (!metrics) {
+  if (!displayMetrics && (metricsQuery as any).isLoading) {
     return <MetricsSkeleton />;
+  }
+  
+  if (!displayMetrics) {
+    return (
+      <Card>
+        <Box p={4}>
+          <VStack gap={3 as any} alignItems="center">
+            <Text size="lg" colorTheme="mutedForeground">No metrics available</Text>
+            <Text size="sm" colorTheme="mutedForeground">
+              {(metricsQuery as any).isOffline ? 'You are currently offline' : 'Please try again later'}
+            </Text>
+            {(metricsQuery as any).isOffline && (metricsQuery as any).cachedData && (
+              <Badge variant="outline" size="sm">Using cached data</Badge>
+            )}
+          </VStack>
+        </Box>
+      </Card>
+    );
   }
   
   return (
     <>
       {/* Time range selector */}
-      <HStack gap={spacing[4]} justifyContent="flex-end">
+      <HStack gap={4 as any} justifyContent="flex-end">
         {(['1h', '6h', '24h', '7d'] as const).map((range) => (
           <Button
             key={range}
@@ -377,7 +384,7 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
                 setTimeRange(range);
               });
             }}
-            loading={isPending && timeRange === range}
+            isLoading={(isPending && timeRange === range) as any}
           >
             {range.toUpperCase()}
           </Button>
@@ -386,55 +393,55 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
       
       {/* Main metrics grid */}
       <Grid
-        columns={Platform.OS === 'web' ? "1.618fr 1fr 0.618fr" : "1fr"}
-        gap={spacing[6]}
+        columns={Platform.OS === 'web' ? 3 : 1}
+        gap={6 as any}
         style={{ minHeight: 180 }} // componentSizes.button.xl.height * 3
       >
         {/* Primary Metric */}
         <PrimaryMetricCard
-          value={metrics.activeAlerts}
+          value={displayMetrics.activeAlerts}
           label="Active Alerts"
-          trend={metrics.alertsTrend}
-          capacity={metrics.alertCapacity}
+          trend={displayMetrics.alertsTrend}
+          capacity={displayMetrics.alertCapacity}
           variant="destructive"
           icon="🚨"
         />
         
         {/* Secondary Metrics */}
-        <VStack gap={spacing[4]}>
+        <VStack gap={4 as any}>
           <SecondaryMetricCard
-            value={metrics.avgResponseTime}
+            value={displayMetrics.avgResponseTime}
             label="Avg Response Time"
             unit="min"
-            status={metrics.avgResponseTime <= 3 ? 'good' : metrics.avgResponseTime <= 5 ? 'warning' : 'critical'}
+            status={displayMetrics.avgResponseTime <= 3 ? 'good' : displayMetrics.avgResponseTime <= 5 ? 'warning' : 'critical'}
           />
           <SecondaryMetricCard
-            value={metrics.staffOnline}
+            value={displayMetrics.staffOnline}
             label="Staff Online"
-            unit={`/ ${metrics.totalStaff}`}
-            status={metrics.staffOnline >= metrics.minStaffRequired ? 'good' : 'critical'}
+            unit={`/ ${displayMetrics.totalStaff}`}
+            status={displayMetrics.staffOnline >= displayMetrics.minStaffRequired ? 'good' : 'critical'}
           />
         </VStack>
         
         {/* Mini Stats */}
-        <VStack gap={spacing[3]}>
+        <VStack gap={3 as any}>
           <Text size="sm" weight="medium">By Priority</Text>
-          <MiniStat label="Critical" value={metrics.criticalAlerts} variant="destructive" index={0} />
-          <MiniStat label="Urgent" value={metrics.urgentAlerts} variant="secondary" index={1} />
-          <MiniStat label="Standard" value={metrics.standardAlerts} variant="default" index={2} />
-          <MiniStat label="Resolved" value={metrics.resolvedToday} variant="success" index={3} />
+          <MiniStat label="Critical" value={displayMetrics.criticalAlerts} variant="destructive" index={0} />
+          <MiniStat label="Urgent" value={displayMetrics.urgentAlerts} variant="secondary" index={1} />
+          <MiniStat label="Standard" value={displayMetrics.standardAlerts} variant="default" index={2} />
+          <MiniStat label="Resolved" value={displayMetrics.resolvedToday} variant="success" index={3} />
         </VStack>
       </Grid>
       
       {/* Department breakdown */}
-      <Card padding={spacing[6]} gap={spacing[4]}>
+      <Card style={{ padding: 24 }}>
         <Text weight="medium">Department Performance</Text>
-        <Grid columns={Platform.OS === 'web' ? 4 : 2} gap={spacing[4]}>
-          {metrics.departmentStats.map((dept) => (
-            <VStack key={dept.id} gap={spacing[2]}>
+        <Grid columns={Platform.OS === 'web' ? 4 : 2} gap={4 as any}>
+          {(displayMetrics.departmentStats || []).map((dept) => (
+            <VStack key={dept.id} gap={2 as any}>
               <HStack justifyContent="space-between">
                 <Text size="sm">{dept.name}</Text>
-                <Badge size="sm" variant={dept.alerts > 0 ? "destructive" : "outline"}>
+                <Badge size="sm" variant={dept.alerts > 0 ? "error" : "outline"}>
                   {dept.alerts}
                 </Badge>
               </HStack>
@@ -456,8 +463,7 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
 
 // Main component with Suspense boundary
 export const MetricsOverviewBlock = ({ hospitalId }: { hospitalId: string }) => {
-  const { spacing } = useSpacing();
-  const { animatedStyle: blockFadeStyle, fadeIn } = useFadeAnimation({ duration: 500 });
+  const { animatedStyle: blockFadeStyle, fadeIn } = useFadeAnimation({ duration: 'fast' as any });
   const { user, isAuthenticated, hasHydrated } = useAuthStore();
   
   useEffect(() => {
@@ -471,7 +477,7 @@ export const MetricsOverviewBlock = ({ hospitalId }: { hospitalId: string }) => 
   
   return (
     <Animated.View style={blockFadeStyle}>
-      <VStack gap={spacing[6]}>
+      <VStack gap={6 as any}>
       <HStack justifyContent="space-between" alignItems="center">
         <Text size="xl" weight="bold">System Metrics</Text>
         <Badge variant="outline" size="sm">

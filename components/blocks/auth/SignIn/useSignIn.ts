@@ -19,7 +19,7 @@ export function useSignIn() {
   // Sign in mutation
   const signInMutation = api.auth.signIn.useMutation({
     onSuccess: async (data: any) => {
-      log.auth.login('Sign in successful via tRPC', { userId: data?.user?.id });
+      log.auth.login('Sign in successful via tRPC');
       
       if (data?.user) {
         // Convert user to AppUser with safe defaults
@@ -36,20 +36,55 @@ export function useSignIn() {
         };
         updateAuth(appUser, session);
         
-        // For mobile, manually store the token as Better Auth plugin might not be working
-        if (Platform.OS !== 'web' && (data.token || data.sessionToken)) {
-          const { mobileStorage } = require('@/lib/core/secure-storage');
+        // Manually store the token as Better Auth endpoints are not working
+        if (data.token || data.sessionToken) {
           const token = data.token || data.sessionToken;
           
-          // Store in multiple formats to ensure compatibility
-          mobileStorage.setItem('better-auth_session-token', token);
-          mobileStorage.setItem('better-auth.session-token', token);
-          mobileStorage.setItem('better-auth_cookie', `better-auth.session-token=${token}; Path=/`);
-          
-          log.debug('Manually stored session token for mobile', 'SIGN_IN', {
-            tokenPreview: token.substring(0, 20) + '...',
-            storageKeys: ['better-auth_session-token', 'better-auth.session-token', 'better-auth_cookie']
-          });
+          if (Platform.OS !== 'web') {
+            const { mobileStorage } = require('@/lib/core/secure-storage');
+            
+            // Store in multiple formats to ensure compatibility
+            mobileStorage.setItem('better-auth_session-token', token);
+            mobileStorage.setItem('better-auth.session-token', token);
+            mobileStorage.setItem('better-auth_cookie', `better-auth.session-token=${token}; Path=/`);
+            
+            log.debug('Manually stored session token for mobile', 'SIGN_IN', {
+              tokenPreview: token.substring(0, 20) + '...',
+              storageKeys: ['better-auth_session-token', 'better-auth.session-token', 'better-auth_cookie']
+            });
+          } else {
+            // On web, store the token in localStorage as a temporary fix
+            // This is not ideal for security but necessary until Better Auth cookies work
+            try {
+              localStorage.setItem('auth-token', token);
+              localStorage.setItem('auth-token-timestamp', Date.now().toString());
+              
+              // Also store in the auth store's expected format
+              const authStorage = localStorage.getItem('app-auth-storage');
+              if (authStorage) {
+                try {
+                  const parsed = JSON.parse(authStorage);
+                  parsed.state = {
+                    ...parsed.state,
+                    session: {
+                      ...parsed.state?.session,
+                      token: token
+                    }
+                  };
+                  localStorage.setItem('app-auth-storage', JSON.stringify(parsed));
+                } catch (e) {
+                  log.error('Failed to update auth storage', 'SIGN_IN', e);
+                }
+              }
+              
+              log.debug('Manually stored session token for web', 'SIGN_IN', {
+                tokenPreview: token.substring(0, 20) + '...',
+                storageKeys: ['auth-token', 'app-auth-storage']
+              });
+            } catch (e) {
+              log.error('Failed to store token on web', 'SIGN_IN', e);
+            }
+          }
         }
         
         // Debug: Check cookies on web
@@ -63,7 +98,7 @@ export function useSignIn() {
           });
         }
         
-        log.auth.login('Login successful - better-auth handles session storage');
+        log.auth.login('Login successful - better-auth handles session storage', 'AUTH');
       }
     },
     onError: (error) => {
@@ -126,7 +161,7 @@ export function useSignIn() {
         email: data.email,
         password: data.password,
       });
-      log.auth.login('Login process completed successfully');
+      log.auth.login('Login process completed successfully', 'AUTH');
     } catch (error: any) {
       log.auth.error('Login process failed', error);
       throw error;

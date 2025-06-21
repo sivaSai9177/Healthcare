@@ -5,7 +5,6 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
-  interpolate,
   FadeIn,
 } from 'react-native-reanimated';
 import { Text } from '@/components/universal/typography/Text';
@@ -16,7 +15,6 @@ import { useAnimationStore } from '@/lib/stores/animation-store';
 import { haptic } from '@/lib/ui/haptics';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const AnimatedView = Animated.View;
 
 export type PaginationAnimationType = 'scale' | 'fade' | 'slide' | 'none';
 
@@ -62,7 +60,6 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
       testID,
       animated = true,
       animationType = 'scale',
-      animationDuration,
       useHaptics = true,
       animationConfig,
     },
@@ -163,7 +160,7 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
       height: sizeConfig.buttonSize,
       justifyContent: 'center',
       alignItems: 'center',
-      borderRadius: 8,
+      borderRadius: 8 as any,
       borderWidth: 1,
       borderColor: 'transparent',
     };
@@ -175,7 +172,6 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
       iconName, 
       iconSize,
       animated: localAnimated,
-      animationType: localAnimationType,
       animationConfig: localAnimationConfig,
     }: { 
       onPress: () => void;
@@ -183,7 +179,6 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
       iconName: any;
       iconSize: number;
       animated: boolean;
-      animationType: PaginationAnimationType;
       animationConfig?: any;
     }) => {
       const scale = useSharedValue(1);
@@ -246,10 +241,10 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
           }
           
           if (animationType === 'fade') {
-            opacity.value = withTiming(isActive ? 1 : 0.6, { duration: config.duration.normal });
+            opacity.value = withTiming(isActive ? 1 : 0.6, { duration: typeof config.duration === 'number' ? config.duration : config.duration.normal });
           }
         }
-      }, [isActive, animated, shouldAnimate, animationType, config]);
+      }, [isActive, scale, opacity]);
       
       const handlePressIn = () => {
         if (animated && shouldAnimate() && animationType === 'scale') {
@@ -270,7 +265,7 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
       
       if (page === '...') {
         return (
-          <View style={[buttonStyle, { borderColor: 'transparent' }]}>
+          <View style={[buttonStyle, { borderColor: 'transparent' }] as any}>
             <Text size={sizeConfig.fontSize as any} className="text-muted-foreground">
               •••
             </Text>
@@ -288,7 +283,7 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
           onPressOut={handlePressOut}
           disabled={isDisabled}
           entering={Platform.OS !== 'web' && animated && shouldAnimate() 
-            ? FadeIn.duration(config.duration.fast).delay(50)
+            ? FadeIn.duration(typeof config.duration === 'number' ? config.duration : config.duration.fast).delay(50)
             : undefined}
           style={[
             buttonStyle,
@@ -319,7 +314,7 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
         <View ref={ref} style={containerStyle} testID={testID}>
           <Button
             variant="outline"
-            size={size}
+            size={size === 'md' ? 'default' : size}
             onPress={() => handlePagePress(currentPage - 1)}
             disabled={disabled || currentPage === 1}
             leftIcon={<Symbol name="chevron.left" size={sizeConfig.iconSize} />}
@@ -335,7 +330,7 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
           
           <Button
             variant="outline"
-            size={size}
+            size={size === 'md' ? 'default' : size}
             onPress={() => handlePagePress(currentPage + 1)}
             disabled={disabled || currentPage === totalPages}
             rightIcon={<Symbol name="chevron.right" size={sizeConfig.iconSize} />}
@@ -353,12 +348,13 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
             const DotButton = () => {
               const width = useSharedValue(page === currentPage ? 24 : 8);
               const scale = useSharedValue(1);
+              const isCurrentPage = page === currentPage;
               
               useEffect(() => {
                 if (animated && shouldAnimate()) {
-                  width.value = withSpring(page === currentPage ? 24 : 8, config.spring);
+                  width.value = withSpring(isCurrentPage ? 24 : 8, config.spring);
                 }
-              }, [page === currentPage]);
+              }, [isCurrentPage, width]);
               
               const handlePressIn = () => {
                 if (animated && shouldAnimate()) {
@@ -386,7 +382,7 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
                   style={[
                     {
                       height: 8,
-                      borderRadius: 4,
+                      borderRadius: 4 as any,
                       opacity: page === currentPage ? 1 : 0.3,
                     },
                     animated && shouldAnimate() ? animatedStyle : { width: page === currentPage ? 24 : 8 },
@@ -415,7 +411,6 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
             iconName="play-back"
             iconSize={sizeConfig.iconSize}
             animated={animated}
-            animationType={animationType}
             animationConfig={animationConfig}
           />
         )}
@@ -427,7 +422,6 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
             iconName="chevron-back"
             iconSize={sizeConfig.iconSize}
             animated={animated}
-            animationType={animationType}
             animationConfig={animationConfig}
           />
         )}
@@ -447,7 +441,6 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
             iconName="chevron-forward"
             iconSize={sizeConfig.iconSize}
             animated={animated}
-            animationType={animationType}
             animationConfig={animationConfig}
           />
         )}
@@ -459,7 +452,6 @@ export const Pagination = React.forwardRef<View, PaginationProps>(
             iconName="play-forward"
             iconSize={sizeConfig.iconSize}
             animated={animated}
-            animationType={animationType}
             animationConfig={animationConfig}
           />
         )}
@@ -499,7 +491,7 @@ export const PaginationInfo: React.FC<PaginationInfoProps> = ({
 
   return (
     <View style={style}>
-      <Text size={textSize} className="text-muted-foreground">
+      <Text size={textSize === 'md' ? 'base' : textSize} className="text-muted-foreground">
         Showing {start}-{end} of {totalItems} items
       </Text>
     </View>

@@ -95,6 +95,7 @@ export const HEALTHCARE_ESCALATION_TIERS: EscalationConfig[] = [
 // Alert Type Configuration
 export const ALERT_TYPE_CONFIG = {
   cardiac_arrest: {
+    label: 'Cardiac Arrest',
     defaultUrgency: 1,
     color: '#FF0000',
     icon: '🚨',
@@ -102,6 +103,7 @@ export const ALERT_TYPE_CONFIG = {
     requiresConfirmation: true,
   },
   code_blue: {
+    label: 'Code Blue',
     defaultUrgency: 2,
     color: '#0000FF',
     icon: '🚑',
@@ -109,6 +111,7 @@ export const ALERT_TYPE_CONFIG = {
     requiresConfirmation: true,
   },
   fire: {
+    label: 'Fire Emergency',
     defaultUrgency: 1,
     color: '#FF4500',
     icon: '🔥',
@@ -116,6 +119,7 @@ export const ALERT_TYPE_CONFIG = {
     requiresConfirmation: true,
   },
   security: {
+    label: 'Security Alert',
     defaultUrgency: 2,
     color: '#800080',
     icon: '🔒',
@@ -123,6 +127,7 @@ export const ALERT_TYPE_CONFIG = {
     requiresConfirmation: true,
   },
   medical_emergency: {
+    label: 'Medical Emergency',
     defaultUrgency: 3,
     color: '#FFA500',
     icon: '⚕️',
@@ -133,20 +138,34 @@ export const ALERT_TYPE_CONFIG = {
 
 // Urgency Level Configuration
 export const URGENCY_LEVEL_CONFIG = {
-  1: { label: 'Critical', color: '#FF0000', textColor: '#FFFFFF' },
-  2: { label: 'High', color: '#FF4500', textColor: '#FFFFFF' },
-  3: { label: 'Medium', color: '#FFA500', textColor: '#000000' },
-  4: { label: 'Low', color: '#32CD32', textColor: '#000000' },
-  5: { label: 'Information', color: '#4169E1', textColor: '#FFFFFF' },
+  1: { label: 'Critical', color: '#FF0000', textColor: '#FFFFFF', escalationMinutes: 5 },
+  2: { label: 'High', color: '#FF4500', textColor: '#FFFFFF', escalationMinutes: 10 },
+  3: { label: 'Moderate', color: '#FFA500', textColor: '#000000', escalationMinutes: 15 },
+  4: { label: 'Low', color: '#32CD32', textColor: '#000000', escalationMinutes: 30 },
+  5: { label: 'Information', color: '#4169E1', textColor: '#FFFFFF', escalationMinutes: 60 },
 };
 
 // Healthcare-specific validation schemas
+
+/**
+ * Schema for creating a new alert
+ * @property roomNumber - The room number where the alert originates (e.g., "302", "ICU-1")
+ * @property alertType - Type of alert (cardiac_arrest, code_blue, fire, security, medical_emergency)
+ * @property urgencyLevel - Urgency level from 1 (Critical) to 5 (Information)
+ * @property description - Optional additional context for the alert (max 500 chars)
+ * @property hospitalId - UUID of the hospital/organization creating the alert
+ */
 export const CreateAlertSchema = z.object({
-  roomNumber: z.string().min(1, "Room number is required").max(10),
+  roomNumber: z.string()
+    .min(1, "Room number is required")
+    .max(10, "Room number cannot exceed 10 characters")
+    .regex(/^[A-Z0-9]{1,4}(-[A-Z0-9]{1,3})?$/i, "Invalid room format (e.g., 302, ICU-1)"),
   alertType: AlertType,
   urgencyLevel: UrgencyLevel,
-  description: z.string().optional(),
-  hospitalId: z.string().uuid(),
+  description: z.string()
+    .max(500, "Description cannot exceed 500 characters")
+    .optional(),
+  hospitalId: z.string().uuid("Invalid hospital ID format"),
 });
 
 // Urgency Assessment Options
@@ -164,29 +183,99 @@ export const ResponseAction = z.enum([
   'monitoring'       // Monitoring remotely
 ]);
 
+/**
+ * Schema for acknowledging an alert
+ * @property alertId - UUID of the alert being acknowledged
+ * @property urgencyAssessment - Assessment of urgency (maintain, increase, decrease)
+ * @property responseAction - Action being taken (responding, delayed, delegating, monitoring)
+ * @property estimatedResponseTime - Time in minutes (1-999), required for responding/delayed actions
+ * @property delegateTo - UUID of user to delegate to, required for delegating action
+ * @property notes - Optional notes about the acknowledgment (max 500 chars)
+ */
 export const AcknowledgeAlertSchema = z.object({
-  alertId: z.string().uuid(),
+  alertId: z.string().uuid("Invalid alert ID format"),
   urgencyAssessment: UrgencyAssessment,
   responseAction: ResponseAction,
-  estimatedResponseTime: z.number().min(1).max(999).optional(), // in minutes, required for responding/delayed
-  delegateTo: z.string().uuid().optional(), // required when delegating
-  notes: z.string().min(1).max(500).optional(),
-});
+  estimatedResponseTime: z.number()
+    .min(1, "Response time must be at least 1 minute")
+    .max(999, "Response time cannot exceed 999 minutes")
+    .optional(),
+  delegateTo: z.string().uuid("Invalid user ID format").optional(),
+  notes: z.string()
+    .min(1, "Notes cannot be empty")
+    .max(500, "Notes cannot exceed 500 characters")
+    .optional(),
+}).refine(
+  (data) => {
+    // Validate required fields based on response action
+    if ((data.responseAction === 'responding' || data.responseAction === 'delayed') && !data.estimatedResponseTime) {
+      return false;
+    }
+    if (data.responseAction === 'delegating' && !data.delegateTo) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: "Missing required fields for selected response action",
+    path: ["responseAction"],
+  }
+);
 
+/**
+ * Schema for updating a user's healthcare role
+ * @property userId - UUID of the user to update
+ * @property role - New healthcare role (operator, doctor, nurse, head_doctor, admin)
+ * @property hospitalId - UUID of the hospital/organization
+ * @property department - Department assignment (required for medical roles)
+ * @property licenseNumber - Medical license number (required for medical roles)
+ */
 export const UpdateUserRoleSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.string().uuid("Invalid user ID format"),
   role: HealthcareUserRole,
-  hospitalId: z.string().uuid(),
-  department: z.string().optional(),
-  licenseNumber: z.string().optional(),
-});
+  hospitalId: z.string().uuid("Invalid hospital ID format"),
+  department: z.string()
+    .min(2, "Department name must be at least 2 characters")
+    .optional(),
+  licenseNumber: z.string()
+    .min(5, "License number must be at least 5 characters")
+    .max(15, "License number cannot exceed 15 characters")
+    .optional(),
+}).refine(
+  (data) => {
+    // Medical roles require department and license
+    const medicalRoles = ['doctor', 'nurse', 'head_doctor'];
+    if (medicalRoles.includes(data.role)) {
+      return !!(data.department && data.licenseNumber);
+    }
+    return true;
+  },
+  {
+    message: "Medical roles require department and license number",
+    path: ["role"],
+  }
+);
 
-// Healthcare User Profile Schema
+/**
+ * Schema for healthcare user profile
+ * @property hospitalId - UUID of the hospital/organization
+ * @property licenseNumber - Medical license number (5-15 characters)
+ * @property department - Department assignment (e.g., Emergency, ICU, Cardiology)
+ * @property specialization - Optional area of specialization
+ * @property isOnDuty - Whether the user is currently on duty
+ */
 export const HealthcareProfileSchema = z.object({
-  hospitalId: z.string().uuid(),
-  licenseNumber: z.string().min(5, "License number must be at least 5 characters"),
-  department: z.string().min(2, "Department is required"),
-  specialization: z.string().optional(),
+  hospitalId: z.string().uuid("Invalid hospital ID format"),
+  licenseNumber: z.string()
+    .min(5, "License number must be at least 5 characters")
+    .max(15, "License number cannot exceed 15 characters")
+    .regex(/^[A-Z0-9]+$/i, "License number can only contain letters and numbers"),
+  department: z.string()
+    .min(2, "Department is required")
+    .max(50, "Department name is too long"),
+  specialization: z.string()
+    .max(100, "Specialization is too long")
+    .optional(),
   isOnDuty: z.boolean().default(false),
 });
 
@@ -196,5 +285,69 @@ export type AcknowledgeAlertInput = z.infer<typeof AcknowledgeAlertSchema>;
 export type UpdateUserRoleInput = z.infer<typeof UpdateUserRoleSchema>;
 export type HealthcareProfileInput = z.infer<typeof HealthcareProfileSchema>;
 
+// Response schemas for API validation
+
+/**
+ * Schema for alert creation response
+ */
+export const CreateAlertResponseSchema = z.object({
+  success: z.boolean(),
+  alert: z.object({
+    id: z.string().uuid(),
+    roomNumber: z.string(),
+    alertType: AlertType,
+    urgencyLevel: UrgencyLevel,
+    status: AlertStatus,
+    createdAt: z.date(),
+    hospitalId: z.string().uuid(),
+  }),
+});
+
+/**
+ * Schema for alert acknowledgment response
+ */
+export const AcknowledgeAlertResponseSchema = z.object({
+  success: z.boolean(),
+  responseTimeSeconds: z.number().positive(),
+});
+
+/**
+ * Schema for active alerts query response
+ */
+export const ActiveAlertsResponseSchema = z.object({
+  alerts: z.array(z.object({
+    id: z.string().uuid(),
+    alertType: AlertType,
+    urgencyLevel: UrgencyLevel,
+    roomNumber: z.string(),
+    patientId: z.string().uuid().nullable(),
+    patientName: z.string().nullable(),
+    description: z.string().nullable(),
+    status: AlertStatus,
+    hospitalId: z.string().uuid(),
+    createdAt: z.date(),
+    createdBy: z.string(),
+    acknowledgedBy: z.string().nullable(),
+    acknowledgedAt: z.date().nullable(),
+    currentEscalationTier: z.number(),
+    nextEscalationAt: z.date().nullable(),
+    escalationLevel: z.number(),
+    resolvedAt: z.date().nullable(),
+  })),
+  total: z.number().nonnegative(),
+});
+
 // Re-export common types
 export type { Alert, AlertWithRelations } from './common';
+
+// Re-export utility functions
+export {
+  getAlertPriority,
+  calculateEscalationTime,
+  formatAlertMessage,
+  isHighPriorityAlert,
+  getResponseTimeTarget,
+  getTimeToEscalation,
+  getAlertSeverity,
+  validateAlertInput,
+} from '@/lib/healthcare/alert-utils';

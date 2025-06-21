@@ -1,0 +1,56 @@
+appId: ${APP_ID}
+tags:
+  - healthcare
+  - escalation
+---
+# Escalation Flow Test
+- runFlow: ../auth/login.yaml
+
+# Create an alert first
+- runFlow: create-alert.yaml
+
+# Wait for escalation timer
+- assertVisible:
+    text: "Escalation in"
+    timeout: 10000
+    
+# Let timer run for a bit
+- wait:
+    seconds: 5
+    
+# Check escalation warning
+- assertVisible:
+    text: "Requires immediate attention"
+    
+# Tap on escalating alert
+- tapOn:
+    id: "escalating-alert-0"
+    
+# View escalation details
+- assertVisible:
+    text: "Escalation Timer"
+    
+# Escalate to supervisor
+- tapOn:
+    text: "Escalate Now"
+    
+# Select escalation level
+- tapOn:
+    text: "Supervisor"
+    
+# Add escalation reason
+- inputText: "Patient condition not improving, requires senior intervention"
+
+# Confirm escalation
+- tapOn:
+    text: "Confirm Escalation"
+    
+# Verify escalation
+- assertVisible:
+    text: "Alert escalated"
+    timeout: 5000
+    
+- assertVisible:
+    text: "Escalated to Supervisor"
+    
+- takeScreenshot: alert-escalated

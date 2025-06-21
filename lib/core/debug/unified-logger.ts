@@ -3,10 +3,29 @@
  * Centralizes all logging and integrates with DebugPanel
  */
 
-import { debugLog as debugPanel } from '@/components/blocks/debug/utils/logger';
 import type { LogLevel, DebugLog } from '@/components/blocks/debug/utils/logger';
+import { loggingConfig } from './logging-config';
 
-export type LogCategory = 'AUTH' | 'API' | 'TRPC' | 'STORE' | 'ROUTER' | 'SYSTEM' | 'ERROR';
+// Conditionally import debug panel only on client side
+let debugPanel: any = null;
+if (typeof window !== 'undefined') {
+  import('@/components/blocks/debug/utils/logger').then(module => {
+    debugPanel = module.debugLog;
+  });
+}
+
+// Platform detection without importing React Native
+const getPlatform = () => {
+  if (typeof window !== 'undefined') {
+    return 'web';
+  } else if (typeof global !== 'undefined' && global.__fbBatchedBridge) {
+    return 'mobile';
+  } else {
+    return 'server';
+  }
+};
+
+export type LogCategory = 'AUTH' | 'API' | 'TRPC' | 'STORE' | 'ROUTER' | 'SYSTEM' | 'ERROR' | 'HEALTHCARE' | 'STORAGE' | 'ANALYTICS' | 'API_ERROR_BOUNDARY' | 'TEST';
 
 interface UnifiedLogEntry {
   timestamp: Date;
@@ -24,7 +43,11 @@ interface UnifiedLogEntry {
 class UnifiedLogger {
   private isDevelopment = process.env.NODE_ENV === 'development';
   private isDebugMode = process.env.EXPO_PUBLIC_DEBUG_MODE === 'true';
-  private enabledCategories: Set<LogCategory> = new Set(['AUTH', 'API', 'TRPC', 'ERROR']);
+  private enabledCategories: Set<LogCategory> = new Set(['AUTH', 'API', 'TRPC', 'ERROR', 'HEALTHCARE']);
+  private posthogClient: any = null;
+  private posthogEnabled = false;
+  private logBuffer: UnifiedLogEntry[] = [];
+  private flushTimer: any = null;
 
   constructor() {
     // Load enabled categories from debug store if available
@@ -34,7 +57,87 @@ class UnifiedLogger {
         if (store.enableAuthLogging) this.enabledCategories.add('AUTH');
         if (store.enableTRPCLogging) this.enabledCategories.add('TRPC');
         if (store.enableRouterLogging) this.enabledCategories.add('ROUTER');
+        if (store.enableHealthcareLogging) this.enabledCategories.add('HEALTHCARE');
       });
+    }
+
+    // Initialize PostHog integration
+    this.initializePostHog();
+    
+    // Start batch timer for logging service
+    const config = loggingConfig.getConfig();
+    if (config.enabled && config.serviceUrl) {
+      this.startBatchTimer();
+    }
+  }
+  
+  private startBatchTimer(): void {
+    const config = loggingConfig.getConfig();
+    this.flushTimer = setInterval(() => {
+      this.flushLogs();
+    }, config.flushInterval || 5000);
+  }
+  
+  private bufferLog(entry: UnifiedLogEntry): void {
+    this.logBuffer.push(entry);
+    const config = loggingConfig.getConfig();
+    
+    // Flush if we've reached batch size
+    if (this.logBuffer.length >= (config.batchSize || 50)) {
+      this.flushLogs();
+    }
+  }
+  
+  private async flushLogs(): Promise<void> {
+    if (this.logBuffer.length === 0) return;
+    
+    const logs = [...this.logBuffer];
+    this.logBuffer = [];
+    const config = loggingConfig.getConfig();
+    
+    try {
+      const response = await fetch(`${config.serviceUrl}/log/batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Source': 'unified-logger',
+        },
+        body: JSON.stringify({ 
+          events: logs.map(log => ({
+            ...log,
+            timestamp: log.timestamp.toISOString(),
+            environment: process.env.NODE_ENV || 'development',
+          }))
+        }),
+      });
+      
+      if (!response.ok) {
+        // Re-add logs to buffer on failure
+        this.logBuffer.unshift(...logs);
+        console.error(`[UnifiedLogger] Failed to send logs: ${response.status}`);
+      }
+    } catch (error) {
+      // Re-add logs to buffer on error
+      this.logBuffer.unshift(...logs);
+      console.error('[UnifiedLogger] Error sending logs:', error);
+    }
+  }
+
+  private async initializePostHog() {
+    // Skip PostHog initialization on server
+    if (getPlatform() === 'server') return;
+    
+    try {
+      // Check if PostHog is enabled
+      const posthogEnabled = process.env.EXPO_PUBLIC_POSTHOG_ENABLED === 'true' || 
+                            process.env.POSTHOG_ENABLED === 'true';
+      
+      if (!posthogEnabled) return;
+
+      // PostHog will be initialized by PostHogProvider on client
+      this.posthogEnabled = posthogEnabled;
+    } catch (error) {
+      console.warn('[UnifiedLogger] Failed to initialize PostHog:', error);
     }
   }
 
@@ -82,41 +185,93 @@ class UnifiedLogger {
       source: fullEntry.source || fullEntry.category,
     };
 
-    // Use appropriate DebugPanel method
-    switch (entry.level) {
-      case 'error':
-        debugPanel.error(formattedMessage, entry.data);
-        break;
-      case 'warn':
-        debugPanel.warn(formattedMessage, entry.data);
-        break;
-      case 'info':
-        debugPanel.info(formattedMessage, entry.data);
-        break;
-      case 'debug':
-        debugPanel.debug(formattedMessage, entry.data);
-        break;
-    }
-
-    // Also log to console in development
-    if (this.isDevelopment) {
-      const consoleData = { ...entry.data, category: entry.category };
+    // Use appropriate DebugPanel method (only if available)
+    if (debugPanel) {
       switch (entry.level) {
         case 'error':
-          console.error(formattedMessage, consoleData);
+          debugPanel.error(formattedMessage, entry.data);
           break;
         case 'warn':
-          console.warn(formattedMessage, consoleData);
+          debugPanel.warn(formattedMessage, entry.data);
           break;
         case 'info':
-          console.info(formattedMessage, consoleData);
+          debugPanel.info(formattedMessage, entry.data);
           break;
         case 'debug':
-          if (this.isDebugMode) {
-            console.debug(formattedMessage, consoleData);
-          }
+          debugPanel.debug(formattedMessage, entry.data);
           break;
       }
+    }
+
+    // Buffer log for sending to logging service
+    const config = loggingConfig.getConfig();
+    if (config.enabled && config.serviceUrl) {
+      this.bufferLog(fullEntry);
+    }
+
+    // Send to PostHog if enabled (skip on server)
+    if (this.posthogEnabled && this.posthogClient && getPlatform() !== 'server') {
+      try {
+        // Send as custom event to PostHog
+        const eventName = `log_${entry.category.toLowerCase()}_${entry.level}`;
+        const eventProperties = {
+          category: entry.category,
+          level: entry.level,
+          message: entry.message,
+          timestamp: fullEntry.timestamp.toISOString(),
+          userId: entry.userId,
+          sessionId: entry.sessionId,
+          requestId: entry.requestId,
+          duration: entry.duration,
+          source: entry.source,
+          ...(entry.data && { data: JSON.stringify(entry.data) }),
+        };
+
+        // Remove undefined values
+        Object.keys(eventProperties).forEach(key => {
+          if (eventProperties[key as keyof typeof eventProperties] === undefined) {
+            delete eventProperties[key as keyof typeof eventProperties];
+          }
+        });
+
+        // Send to PostHog
+        this.posthogClient.capture(eventName, eventProperties);
+
+        // For errors, also send as error event
+        if (entry.level === 'error') {
+          this.posthogClient.capture('$exception', {
+            ...eventProperties,
+            $exception_message: entry.message,
+            $exception_type: entry.category,
+          });
+        }
+      } catch (error) {
+        // Silently fail to avoid infinite loops
+        if (this.isDevelopment) {
+          console.warn('[UnifiedLogger] Failed to send log to PostHog:', error);
+        }
+      }
+    }
+
+    // Send to Docker console in development
+    if (this.isDevelopment && process.env.EXPO_PUBLIC_DOCKER_CONSOLE === 'true') {
+      const dockerLog = {
+        service: 'expo-app',
+        timestamp: fullEntry.timestamp.toISOString(),
+        level: entry.level,
+        category: entry.category,
+        message: formattedMessage,
+        metadata: {
+          userId: entry.userId,
+          sessionId: entry.sessionId,
+          requestId: entry.requestId,
+          duration: entry.duration,
+          data: entry.data,
+        },
+      };
+      
+      // Log as structured JSON for Docker log drivers
+
     }
   }
 
@@ -231,6 +386,18 @@ class UnifiedLogger {
       message: `${storeName}.${action}`,
       data,
     }),
+    debug: (storeName: string, action: string, data?: any) => this.log({
+      level: 'debug',
+      category: 'STORE',
+      message: `${storeName}.${action}`,
+      data,
+    }),
+    warn: (storeName: string, action: string, data?: any) => this.log({
+      level: 'warn',
+      category: 'STORE',
+      message: `${storeName}.${action}`,
+      data,
+    }),
     error: (storeName: string, action: string, error: any) => this.log({
       level: 'error',
       category: 'STORE',
@@ -250,7 +417,73 @@ class UnifiedLogger {
       level: 'error',
       category: 'ROUTER',
       message: `Navigation error: ${path}`,
-      data: { path, error: error?.message || error },
+      data: { 
+        path, 
+        error: error?.message || error,
+        errorType: error?.name,
+        stack: error?.stack
+      },
+    }),
+    screenNotFound: (screen: string, availableScreens?: string[]) => this.log({
+      level: 'error',
+      category: 'ROUTER',
+      message: `Screen doesn't exist: ${screen}`,
+      data: {
+        attemptedScreen: screen,
+        availableScreens,
+        suggestion: 'Use the "Go to Home" button in the debug panel to recover'
+      }
+    }),
+    recovered: (from: string, to: string) => this.log({
+      level: 'info',
+      category: 'ROUTER',
+      message: `Navigation recovered: ${from} → ${to}`,
+      data: { from, to }
+    }),
+  };
+
+  healthcare = {
+    info: (message: string, data?: any) => this.log({
+      level: 'info',
+      category: 'HEALTHCARE',
+      message,
+      data,
+    }),
+    error: (message: string, error?: any) => this.log({
+      level: 'error',
+      category: 'HEALTHCARE',
+      message,
+      data: error,
+    }),
+    warn: (message: string, data?: any) => this.log({
+      level: 'warn',
+      category: 'HEALTHCARE',
+      message,
+      data,
+    }),
+    debug: (message: string, data?: any) => this.log({
+      level: 'debug',
+      category: 'HEALTHCARE',
+      message,
+      data,
+    }),
+    alertCreated: (alertData: any) => this.log({
+      level: 'info',
+      category: 'HEALTHCARE',
+      message: `Alert created: ${alertData.alertType} - Room ${alertData.roomNumber}`,
+      data: alertData,
+    }),
+    alertAcknowledged: (alertId: string, userId: string) => this.log({
+      level: 'info',
+      category: 'HEALTHCARE',
+      message: `Alert acknowledged`,
+      data: { alertId, userId },
+    }),
+    alertResolved: (alertId: string, userId: string) => this.log({
+      level: 'info',
+      category: 'HEALTHCARE',
+      message: `Alert resolved`,
+      data: { alertId, userId },
     }),
   };
 

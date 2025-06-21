@@ -222,31 +222,31 @@ export const Alert = React.forwardRef<View, AlertProps>(({
               animationType === 'slideRight' ? `slideInRight ${duration}ms ease-out ${animationDelay}ms` :
               animationType === 'fade' ? `fadeIn ${duration}ms ease-out ${animationDelay}ms` : undefined,
     '@keyframes slideInDown': {
-      from: { transform: 'translateY(-100%)', opacity: 0 },
-      to: { transform: 'translateY(0)', opacity: 1 },
+      from: { transform: 'translateY(-100%)', opacity: 0 as any },
+      to: { transform: 'translateY(0)', opacity: 1 as any },
     },
     '@keyframes slideInUp': {
-      from: { transform: 'translateY(100%)', opacity: 0 },
-      to: { transform: 'translateY(0)', opacity: 1 },
+      from: { transform: 'translateY(100%)', opacity: 0 as any },
+      to: { transform: 'translateY(0)', opacity: 1 as any },
     },
     '@keyframes slideInLeft': {
-      from: { transform: 'translateX(-100%)', opacity: 0 },
-      to: { transform: 'translateX(0)', opacity: 1 },
+      from: { transform: 'translateX(-100%)', opacity: 0 as any },
+      to: { transform: 'translateX(0)', opacity: 1 as any },
     },
     '@keyframes slideInRight': {
-      from: { transform: 'translateX(100%)', opacity: 0 },
-      to: { transform: 'translateX(0)', opacity: 1 },
+      from: { transform: 'translateX(100%)', opacity: 0 as any },
+      to: { transform: 'translateX(0)', opacity: 1 as any },
     },
     '@keyframes fadeIn': {
-      from: { opacity: 0 },
-      to: { opacity: 1 },
+      from: { opacity: 0 as any },
+      to: { opacity: 1 as any },
     },
   } as any : {};
 
   return (
     <AnimatedBox
       ref={ref}
-      className={cn("border", styles.container)}
+      className={cn("border", styles.container) as string}
       style={[
         {
           padding: componentSpacing.containerPadding,
@@ -280,7 +280,7 @@ export const Alert = React.forwardRef<View, AlertProps>(({
           {description && (
             <Text 
               size="sm" 
-              className={cn(styles.text, "opacity-90")}
+              className={cn(styles.text, "opacity-90") as string}
             >
               {description}
             </Text>
@@ -303,7 +303,7 @@ export const Alert = React.forwardRef<View, AlertProps>(({
             {({ pressed }) => (
               <Symbol name="xmark" 
                 size={Math.round(componentSpacing.iconSize * 0.8)} 
-                className={cn(styles.icon, pressed && 'opacity-70')}
+                className={cn(styles.icon, pressed && 'opacity-70') as string}
               />
             )}
           </Pressable>

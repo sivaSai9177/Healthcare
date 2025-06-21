@@ -215,7 +215,7 @@ const CommandItemComponent = ({
               style={{
                 paddingHorizontal: spacing[1.5],
                 paddingVertical: spacing[0.5],
-                borderRadius: 4,
+                borderRadius: 4 as any,
                 marginLeft: idx > 0 ? spacing[1] : 0,
               }}
             >
@@ -597,7 +597,7 @@ export const Command = React.memo(React.forwardRef<View, CommandProps>(
                       ListEmptyComponent={
                         <View
                           style={{
-                            padding: spacing[8],
+                            padding: spacing[8] as any,
                             alignItems: 'center',
                           }}
                         >
@@ -680,7 +680,7 @@ export const CommandTrigger: React.FC<CommandTriggerProps> = ({
           alignItems: 'center',
           paddingHorizontal: spacing[3],
           paddingVertical: spacing[2],
-          borderRadius: 8,
+          borderRadius: 8 as any,
         },
         style,
         shouldAnimate() ? animatedStyle : {},
@@ -707,7 +707,7 @@ export const CommandTrigger: React.FC<CommandTriggerProps> = ({
           style={{
             paddingHorizontal: spacing[2],
             paddingVertical: spacing[1],
-            borderRadius: 4,
+            borderRadius: 4 as any,
           }}
         >
           <UniversalText

@@ -1,0 +1,92 @@
+version: '3.8'
+
+# Simplified PostHog Configuration for Local Development
+# This uses the all-in-one PostHog image which is easier for development
+
+services:
+  # PostHog All-in-One (includes everything needed)
+  posthog:
+    image: posthog/posthog:latest
+    container_name: myexpo-posthog
+    depends_on:
+      postgres-posthog:
+        condition: service_healthy
+      redis-posthog:
+        condition: service_healthy
+    environment:
+      # Database
+      DATABASE_URL: postgres://posthog:posthog@postgres-posthog:5432/posthog
+      
+      # Redis
+      REDIS_URL: redis://redis-posthog:6379/
+      
+      # PostHog Configuration
+      SECRET_KEY: ${POSTHOG_SECRET_KEY:-insecure-local-dev-key-change-in-production}
+      SITE_URL: ${POSTHOG_SITE_URL:-http://localhost:8000}
+      IS_BEHIND_PROXY: false
+      DISABLE_SECURE_SSL_REDIRECT: true
+      SECURE_COOKIES: false
+      
+      # Development settings
+      DEBUG: 0
+      CAPTURE_CONSOLE_LOG_ENABLED: true
+      SESSION_RECORDING_ENABLED: true
+      
+      # Disable email for local dev
+      EMAIL_ENABLED: false
+      
+      # Use SQLite for ClickHouse in dev (simpler setup)
+      CLICKHOUSE_DISABLE_EXTERNAL_SCHEMAS: true
+    ports:
+      - "${POSTHOG_PORT:-8000}:8000"
+    networks:
+      - myexpo-local
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/_health/"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - posthog_data:/var/lib/posthog
+
+  # PostgreSQL for PostHog
+  postgres-posthog:
+    image: postgres:15-alpine
+    container_name: myexpo-postgres-posthog
+    environment:
+      POSTGRES_USER: posthog
+      POSTGRES_PASSWORD: posthog
+      POSTGRES_DB: posthog
+    volumes:
+      - posthog_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U posthog"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - myexpo-local
+
+  # Redis for PostHog
+  redis-posthog:
+    image: redis:7-alpine
+    container_name: myexpo-redis-posthog
+    command: redis-server --maxmemory-policy allkeys-lru --maxmemory 200mb
+    volumes:
+      - posthog_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - myexpo-local
+
+networks:
+  myexpo-local:
+    external: true
+
+volumes:
+  posthog_data:
+  posthog_postgres_data:
+  posthog_redis_data:

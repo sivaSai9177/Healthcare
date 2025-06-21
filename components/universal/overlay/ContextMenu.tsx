@@ -347,7 +347,7 @@ export const ContextMenu = React.forwardRef<View, ContextMenuProps>(
             ]}
           >
             <Card
-              style={[menuStyle]}
+              style={[menuStyle] as any}
               p={1 as SpacingScale}
             >
               <ScrollView showsVerticalScrollIndicator={false}>

@@ -8,3 +8,6 @@ export { ScrollHeader } from './ScrollHeader';
 export { Separator } from './Separator';
 export { Spacer } from './Spacer';
 export { Stack, VStack, HStack, ZStack } from './Stack';
+
+// Type exports
+export type * from './types';

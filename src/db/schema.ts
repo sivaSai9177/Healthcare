@@ -1,4 +1,46 @@
-import { boolean, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, text, timestamp, uuid, pgEnum } from "drizzle-orm/pg-core";
+
+// Department enum
+export const departmentEnum = pgEnum('department_type', [
+  // Healthcare departments
+  'emergency',
+  'icu',
+  'cardiology',
+  'pediatrics',
+  'surgery',
+  'radiology',
+  'pharmacy',
+  'laboratory',
+  'maternity',
+  'oncology',
+  'neurology',
+  'orthopedics',
+  'psychiatry',
+  'general_medicine',
+  
+  // Emergency/Dispatch departments
+  'dispatch_center',
+  'emergency_response',
+  'fire_dispatch',
+  'police_dispatch',
+  'medical_dispatch',
+  
+  // Administrative departments
+  'administration',
+  'human_resources',
+  'finance',
+  'it_support',
+  'facilities',
+  
+  // General departments
+  'engineering',
+  'marketing',
+  'sales',
+  'customer_service',
+  'operations',
+  'product',
+  'research'
+]);
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -10,16 +52,21 @@ export const user = pgTable("user", {
   image: text("image"),
   role: text("role").default("guest"), // admin, manager, user, guest - defaults to 'guest' for new users
   organizationId: uuid("organization_id"), // Changed to UUID to match organization table
+  defaultHospitalId: uuid("default_hospital_id"), // Default hospital within the organization
   needsProfileCompletion: boolean("needs_profile_completion")
     .$defaultFn(() => true)
     .notNull(),
   
   // Additional user fields
   phoneNumber: text("phone_number"),
-  department: text("department"),
+  department: departmentEnum("department"),
   organizationName: text("organization_name"),
   jobTitle: text("job_title"),
   bio: text("bio"),
+  licenseNumber: text("license_number"), // Medical license for healthcare staff
+  availabilityStatus: text("availability_status").default("available"), // available, busy, offline
+  contactPreferences: text("contact_preferences").default('{"email": true, "push": true, "sms": false}'), // JSON string
+  profilePhotoUrl: text("profile_photo_url"),
   isActive: boolean("is_active").notNull().default(true),
   lastLoginAt: timestamp("last_login_at"),
   passwordChangedAt: timestamp("password_changed_at"),

@@ -12,6 +12,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
+  withSequence,
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
@@ -23,12 +24,13 @@ import { useAnimationStore } from '@/lib/stores/animation-store';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useResponsive } from '@/hooks/responsive/index';
 import { useShadow } from '@/hooks/useShadow';
+import { useTheme } from '@/lib/theme/provider';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export interface ButtonProps extends Omit<PressableProps, 'style'> {
   // Variants match shadcn/ui patterns
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link' | 'glass' | 'glass-primary' | 'glass-destructive';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   
   // State props
@@ -66,6 +68,9 @@ const buttonVariants = {
   secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
   ghost: 'hover:bg-accent hover:text-accent-foreground',
   link: 'text-primary underline-offset-4 hover:underline',
+  glass: 'glass glass-hover glass-press text-foreground',
+  'glass-primary': 'glass-info glass-hover glass-press text-primary-foreground',
+  'glass-destructive': 'glass-urgent glass-hover glass-press text-destructive-foreground',
 };
 
 // Disabled variants for better visual feedback
@@ -76,6 +81,9 @@ const disabledVariants = {
   secondary: 'bg-secondary/50 text-secondary-foreground/70',
   ghost: 'text-foreground/50',
   link: 'text-primary/50',
+  glass: 'opacity-50 backdrop-blur-sm',
+  'glass-primary': 'opacity-50 backdrop-blur-sm',
+  'glass-destructive': 'opacity-50 backdrop-blur-sm',
 };
 
 const buttonSizes = {
@@ -92,17 +100,17 @@ const buttonSizes = {
 const pressFeedback = {
   ios: {
     scale: 0.96,
-    opacity: 0.9,
+    opacity: 0.9 as any,
     duration: 100,
   },
   android: {
     scale: 0.98,
-    opacity: 0.8,
+    opacity: 0.8 as any,
     duration: 150,
   },
   web: {
     scale: 0.98,
-    opacity: 1,
+    opacity: 1 as any,
     duration: 100,
   },
 };
@@ -131,6 +139,7 @@ export const Button = React.forwardRef<View, ButtonProps>(({
   shadow = variant === 'ghost' || variant === 'link' ? 'none' : 'sm',
   ...props
 }, ref) => {
+  const theme = useTheme();
   const { shouldAnimate, getAnimationDuration } = useAnimationStore();
   
   // Resolve responsive size
@@ -145,10 +154,14 @@ export const Button = React.forwardRef<View, ButtonProps>(({
   const translateY = useSharedValue(0);
   const isPressed = useSharedValue(0);
   const isHovered = useSharedValue(0);
+  const glassShimmer = useSharedValue(0);
   
   // Ripple effect for Android
   const rippleScale = useSharedValue(0);
   const rippleOpacity = useSharedValue(0);
+  
+  // Glass variant detection
+  const isGlassVariant = variant.includes('glass');
   
   // Get platform-specific feedback config
   const feedback = useMemo(() => {
@@ -179,6 +192,14 @@ export const Button = React.forwardRef<View, ButtonProps>(({
           damping: 15,
           stiffness: 400,
         });
+      }
+      
+      // Glass shimmer effect
+      if (isGlassVariant) {
+        glassShimmer.value = withSequence(
+          withTiming(0.3, { duration: 200 }),
+          withTiming(0, { duration: 400 })
+        );
       }
       
       // Android ripple effect
@@ -269,7 +290,7 @@ export const Button = React.forwardRef<View, ButtonProps>(({
     left: '50%',
     width: 100,
     height: 100,
-    borderRadius: 50,
+    borderRadius: 50 as any,
     backgroundColor: variant === 'default' || variant === 'destructive' 
       ? 'rgba(255, 255, 255, 0.3)' 
       : 'rgba(0, 0, 0, 0.1)',
@@ -282,7 +303,8 @@ export const Button = React.forwardRef<View, ButtonProps>(({
   }));
 
   // Loading indicator color based on variant
-  const loadingColor = variant === 'default' || variant === 'destructive' ? '#ffffff' : '#0a0a0a';
+  const loadingColor = variant === 'default' || variant === 'destructive' || variant === 'glass-primary' || variant === 'glass-destructive' 
+    ? '#ffffff' : '#0a0a0a';
 
   // Text size classes based on responsive button size
   const textSizeClass = useMemo(() => {
@@ -308,10 +330,17 @@ export const Button = React.forwardRef<View, ButtonProps>(({
     buttonSizes[responsiveSize],
     fullWidth && 'w-full',
     (isDisabled || isLoading) && 'pointer-events-none',
+    // Glass-specific classes
+    isGlassVariant && [
+      'shadow-lg',
+      variant === 'glass-primary' && 'glass-glow-info',
+      variant === 'glass-destructive' && 'glass-glow-urgent',
+    ],
     // Web-specific cursor styles
     Platform.OS === 'web' && [
       (isDisabled || isLoading) ? 'cursor-not-allowed' : 'cursor-pointer',
-      'transition-all duration-200 ease-in-out'
+      'transition-all duration-200 ease-in-out',
+      isGlassVariant && 'glass-shimmer'
     ],
     className
   );
@@ -320,7 +349,7 @@ export const Button = React.forwardRef<View, ButtonProps>(({
     <AnimatedPressable
       ref={ref as any}
       className={buttonClasses}
-      style={[shadowStyle, combinedStyle]}
+      style={[shadowStyle, combinedStyle] as any}
       onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
@@ -368,6 +397,15 @@ export const Button = React.forwardRef<View, ButtonProps>(({
               )}
               numberOfLines={1}
               adjustsFontSizeToFit
+              style={{ 
+                color: variant === 'default' || variant === 'destructive' 
+                  ? theme.primaryForeground || '#ffffff'
+                  : variant === 'outline' || variant === 'ghost' || variant === 'secondary'
+                  ? theme.foreground
+                  : variant === 'link'
+                  ? theme.primary
+                  : theme.foreground
+              }}
             >
               {children}
             </Text>

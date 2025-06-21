@@ -41,7 +41,7 @@ class ExpoPushNotificationService {
     // Validate tokens and create messages
     for (const token of tokens) {
       if (!Expo.isExpoPushToken(token)) {
-        log.warn('Invalid Expo push token', 'PUSH', { token: token.substring(0, 10) + '...' });
+        log.warn('Invalid Expo push token', 'PUSH', { token: String(token).substring(0, 10) + '...' });
         errors.push(new Error(`Invalid push token: ${token}`));
         continue;
       }
@@ -262,3 +262,19 @@ class ExpoPushNotificationService {
 
 // Export singleton instance
 export const expoPushService = new ExpoPushNotificationService();
+export const pushService = expoPushService; // Alias for compatibility
+
+// Export function for queue worker compatibility
+export const sendPushNotification = async (userId: string, notification: {
+  title: string;
+  body: string;
+  data?: any;
+}) => {
+  // In a real app, you'd fetch user's push tokens from database
+  // For now, this is a placeholder
+  log.warn('sendPushNotification called but user tokens not implemented', 'PUSH', { userId });
+  return {
+    success: false,
+    error: 'User push tokens not implemented',
+  };
+};

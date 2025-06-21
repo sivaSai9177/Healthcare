@@ -136,8 +136,8 @@ const AnimatedFilePreview = ({
       style={[{
         flexDirection: 'row',
         alignItems: 'center',
-        padding: spacing[3],
-        borderRadius: 8,
+        padding: spacing[3] as any,
+        borderRadius: 8 as any,
         marginBottom: spacing[2],
       }, animatedStyle]}
       className="bg-muted"
@@ -148,7 +148,7 @@ const AnimatedFilePreview = ({
           style={{
             width: 40,
             height: 40,
-            borderRadius: 4,
+            borderRadius: 4 as any,
             marginRight: spacing[2],
           }}
         />
@@ -337,8 +337,8 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
             {
               borderWidth: 2,
               borderStyle: 'dashed',
-              borderRadius: 8,
-              padding: spacing[8],
+              borderRadius: 8 as any,
+              padding: spacing[8] as any,
               alignItems: 'center',
               opacity: loading ? 0.7 : 1,
             },
@@ -407,7 +407,7 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
           style={{
             flexDirection: 'row',
             flexWrap: 'wrap',
-            gap: spacing[2],
+            gap: spacing[2] as any,
           }}
         >
           <Button
@@ -441,7 +441,7 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
           showsHorizontalScrollIndicator={false}
           style={{ marginTop: spacing[3] }}
         >
-          <View style={{ flexDirection: 'row', gap: spacing[2] }}>
+          <View style={{ flexDirection: 'row', gap: spacing[2] as any }}>
             {value.map((file, index) => (
               <Card
                 key={`${file.uri}-${index}`}
@@ -460,7 +460,7 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
                     style={{
                       width: '100%',
                       height: 80,
-                      borderRadius: 4,
+                      borderRadius: 4 as any,
                       marginBottom: spacing[2],
                     }}
                     resizeMode="cover"
@@ -471,7 +471,7 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
                     style={{
                       width: '100%',
                       height: 80,
-                      borderRadius: 4,
+                      borderRadius: 4 as any,
                       justifyContent: 'center',
                       alignItems: 'center',
                       marginBottom: spacing[2],
@@ -513,7 +513,7 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
                       position: 'absolute',
                       top: spacing[1],
                       right: spacing[1],
-                      borderRadius: 12,
+                      borderRadius: 12 as any,
                       padding: spacing[0.5],
                       opacity: pressed ? 0.7 : 1,
                     })}
@@ -568,7 +568,7 @@ export const FilePicker = React.forwardRef<View, FilePickerProps>(
             style={[{
               height: 4,
               marginTop: spacing[2],
-              borderRadius: 2,
+              borderRadius: 2 as any,
             }, uploadProgressStyle]}
           />
         )}
@@ -643,7 +643,7 @@ export const FileUploadProgress: React.FC<FileUploadProgressProps> = ({
               className="bg-muted"
               style={{
                 height: 4,
-                borderRadius: 2,
+                borderRadius: 2 as any,
                 overflow: 'hidden',
               }}
             >

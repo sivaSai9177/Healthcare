@@ -1,0 +1,24 @@
+#!/bin/bash
+# Pre-connect hook - Run before connecting to servers
+
+echo "🔌 Pre-connect: Verifying server connectivity..."
+
+# Check if required environment variables are set
+required_vars=("DEPLOY_SERVER_IP" "DEPLOY_DOMAIN" "DOCKER_REGISTRY_USERNAME")
+
+for var in "${required_vars[@]}"; do
+    if [ -z "${!var}" ]; then
+        echo "❌ Error: $var is not set"
+        exit 1
+    fi
+done
+
+echo "✅ Environment variables verified"
+
+# Test SSH connection to deployment server
+if ssh -o ConnectTimeout=5 -o BatchMode=yes "root@${DEPLOY_SERVER_IP}" "echo '✅ SSH connection successful'"; then
+    echo "✅ Server connectivity confirmed"
+else
+    echo "❌ Cannot connect to server ${DEPLOY_SERVER_IP}"
+    exit 1
+fi

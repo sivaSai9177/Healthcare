@@ -78,8 +78,8 @@ export function ThemedText({
   if (animated) {
     return (
       <AnimatedText
-        className={cn(typeToClasses[type], className)}
-        style={[combinedStyle, animatedStyle]}
+        className={cn(typeToClasses[type], className) as string}
+        style={[combinedStyle, animatedStyle] as any}
         {...rest}
       />
     );
@@ -87,7 +87,7 @@ export function ThemedText({
   
   return (
     <Text
-      className={cn(typeToClasses[type], className)}
+      className={cn(typeToClasses[type], className) as string}
       style={combinedStyle}
       {...rest}
     />

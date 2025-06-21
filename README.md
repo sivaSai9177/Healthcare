@@ -1,259 +1,260 @@
-# Hospital Alert System
+# Healthcare Alert System
 
-<div align="center">
-  <img src="./assets/images/icon.png" alt="Hospital Alert System" width="120" height="120" />
-  <h3>Modern Healthcare Alert Management Platform</h3>
-  <p>Built with React Native, Expo, and TypeScript</p>
-  
-  [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
-  [![React Native](https://img.shields.io/badge/React%20Native-0.74-61DAFB)](https://reactnative.dev/)
-  [![Expo](https://img.shields.io/badge/Expo-SDK%2051-000020)](https://expo.dev/)
-  [![License](https://img.shields.io/badge/License-MIT-green)](./LICENSE)
-</div>
+> A real-time healthcare alert management system built with Expo, React Native, and TypeScript.
+
+[![Expo](https://img.shields.io/badge/Expo-SDK%2052-000.svg?style=flat&logo=expo)](https://expo.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-007ACC.svg?style=flat&logo=typescript)](https://www.typescriptlang.org)
+[![React Native](https://img.shields.io/badge/React%20Native-0.76-61DAFB.svg?style=flat&logo=react)](https://reactnative.dev)
 
 ## 🚀 Quick Start
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/hospital-alert-system.git
-cd hospital-alert-system
+git clone https://github.com/your-org/healthcare-alert-system.git
+cd healthcare-alert-system
 
 # Install dependencies
 npm install
 
-# Start healthcare MVP environment
-npm run local:healthcare
+# Set up environment
+cp .env.example .env.local
+# Edit .env.local with your configuration
+
+# Start development
+npm run dev
 ```
 
-This will automatically:
-- ✅ Set up the PostgreSQL database
-- ✅ Run migrations and seed data
-- ✅ Start the API server
-- ✅ Launch the Expo development server
-- ✅ Open the app in your simulator/device
+## 📱 Features
 
-## 📋 Prerequisites
+### Core Functionality
+- **Real-time Alerts**: Instant push notifications for critical patient alerts
+- **Role-based Access**: Separate interfaces for nurses, doctors, and administrators
+- **WebSocket Integration**: Live updates without page refresh
+- **Offline Support**: Works seamlessly even with intermittent connectivity
 
-- **Node.js** 20.x LTS (required)
-- **PostgreSQL** 15+ (for local development)
-- **iOS Simulator** (Mac only) or **Android Studio**
-- **Expo Go** app on your physical device (optional)
+### Technical Highlights
+- **Cross-platform**: iOS, Android, and Web from single codebase
+- **Type-safe**: Full TypeScript with strict mode
+- **Modern Stack**: Expo SDK 52, React Native 0.76
+- **Scalable Architecture**: Microservices-ready with Docker support
 
-## 🏗️ Project Structure
+## 🏗️ Architecture
 
 ```
-my-expo/
-├── 📱 app/              # Expo Router screens
-├── 🧩 components/       # Reusable React components
-├── 🎨 assets/          # Images, fonts, and static files
-├── 🔧 lib/             # Core libraries and utilities
-├── 🖥️ src/             # Backend server code
-├── 📝 types/           # TypeScript type definitions
-├── 📚 docs/            # Comprehensive documentation
-└── 🧪 __tests__/       # Test suites
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Mobile Apps   │     │   Web Client    │     │  Admin Portal   │
+│  (iOS/Android)  │     │  (React Native) │     │   (React Web)   │
+└────────┬────────┘     └────────┬────────┘     └────────┬────────┘
+         │                       │                         │
+         └───────────────────────┴─────────────────────────┘
+                                 │
+                         ┌───────┴────────┐
+                         │   API Gateway  │
+                         │    (tRPC)      │
+                         └───────┬────────┘
+                                 │
+        ┌────────────────────────┼────────────────────────┐
+        │                        │                        │
+┌───────┴────────┐     ┌────────┴────────┐     ┌────────┴────────┐
+│  Auth Service  │     │  Alert Service  │     │   WebSocket     │
+│  (Better Auth) │     │   (Business)    │     │    Server       │
+└────────────────┘     └─────────────────┘     └─────────────────┘
+        │                        │                        │
+        └────────────────────────┼────────────────────────┘
+                                 │
+                         ┌───────┴────────┐
+                         │   PostgreSQL   │
+                         │   + Redis      │
+                         └────────────────┘
 ```
-
-## 🌟 Key Features
-
-### Healthcare Operations
-- 🚨 **Real-time Alert System** - Create and manage critical alerts
-- 👥 **Role-based Access** - Operator, Nurse, Doctor, Head Doctor roles
-- ⏱️ **Smart Escalation** - Automatic alert escalation with timers
-- 📊 **Analytics Dashboard** - Track response times and metrics
-- 🔔 **Push Notifications** - Instant alert delivery
-
-### Technical Features
-- 📱 **Cross-platform** - iOS, Android, and Web from single codebase
-- 🔐 **Secure Authentication** - Better Auth v1.2.8 with OAuth 2.0 (Google/Microsoft/Apple)
-- 🛡️ **Enterprise Security** - Rate limiting, audit logging, session management
-- 🌐 **Real-time Updates** - WebSocket subscriptions
-- 🎨 **Modern UI/UX** - Tailwind CSS with animations
-- ♿ **Accessibility** - WCAG 2.1 AA compliant
-- 🌍 **Offline Support** - Work without internet connection
-
-## 🛠️ Tech Stack
-
-### Frontend
-- **React Native** + **Expo SDK 51**
-- **TypeScript** for type safety
-- **Tailwind CSS** via NativeWind
-- **React Native Reanimated** for animations
-- **Zustand** for state management
-- **React Query** for server state
-
-### Backend
-- **Node.js** with Express
-- **tRPC** for type-safe APIs
-- **PostgreSQL** with Drizzle ORM
-- **Better Auth** for authentication
-- **WebSockets** for real-time features
-- **Redis** for caching and sessions
 
 ## 📖 Documentation
 
-Comprehensive documentation is available in the `/docs` directory:
+### Getting Started
+- [Quick Start Guide](docs/guides/QUICK_START.md)
+- [Development Setup](docs/guides/development/setup.md)
+- [Environment Configuration](docs/guides/development/environment.md)
 
-### Architecture Guides
-- 📐 [Frontend Architecture](./docs/modules/FRONTEND_ARCHITECTURE.md)
-- 🏗️ [Backend Architecture](./docs/modules/BACKEND_ARCHITECTURE.md)
-- 🔐 [Authentication Module](./docs/modules/AUTH_MODULE.md) **✅ Production Ready**
-- 🎨 [Design System](./docs/modules/DESIGN_SYSTEM.md)
-- 🔧 [Tech Stack Details](./docs/modules/TECH_STACK.md)
-- 📁 [Project Structure](./docs/PROJECT_STRUCTURE.md)
+### Development
+- [Project Structure](docs/PROJECT_STRUCTURE.md)
+- [Development Workflow](docs/guides/development/workflow.md)
+- [Testing Guide](docs/guides/testing-setup.md)
+- [Scripts Guide](docs/guides/development/SCRIPTS_GUIDE_COMPLETE.md)
 
-### Development Guides
-- 🚀 [Getting Started](./docs/guides/development/GETTING_STARTED.md)
-- 🧪 [Testing Guide](./docs/guides/development/TESTING.md)
-- 🎯 [Best Practices](./docs/guides/development/BEST_PRACTICES.md)
+### Deployment
+- [Deployment Overview](docs/guides/deployment/README.md)
+- [EAS Build Guide](docs/guides/EAS_DEPLOYMENT_GUIDE.md)
+- [Kamal Deployment](docs/guides/deployment/kamal.md)
+- [Staging Deployment](docs/guides/deployment/staging.md)
 
-### Deployment Guides
-- 📦 [Production Deployment](./docs/guides/deployment/PRODUCTION.md)
-- ☁️ [Cloud Setup](./docs/guides/deployment/CLOUD_SETUP.md)
-- 📊 [Monitoring Setup](./docs/guides/deployment/MONITORING.md)
+### API & Architecture
+- [API Documentation](docs/api/README.md)
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [Database Schema](docs/api/database-schema.md)
 
-## 🚀 Development Commands
+### More Resources
+- [Full Documentation Index](docs/INDEX.md)
+- [Contributing Guide](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
 
-### Essential Commands
+## 🛠️ Technology Stack
+
+### Frontend
+- **Framework**: Expo SDK 52 + React Native 0.76
+- **Language**: TypeScript 5.3
+- **Navigation**: Expo Router (file-based)
+- **State**: Zustand + TanStack Query
+- **Styling**: NativeWind (Tailwind for RN)
+
+### Backend
+- **Runtime**: Bun + Node.js
+- **API**: tRPC with Better Auth
+- **Database**: PostgreSQL + Drizzle ORM
+- **Cache**: Redis
+- **WebSocket**: Native WebSocket server
+
+### Infrastructure
+- **Containerization**: Docker + Docker Compose
+- **Deployment**: Kamal (formerly MRSK)
+- **Mobile Builds**: EAS Build
+- **Analytics**: PostHog
+- **Monitoring**: Custom health checks
+
+## 🚀 Commands
+
+### Development
 ```bash
-# Start development environment
-npm run local:healthcare    # All-in-one healthcare dev environment
-npm run dev                # Start Expo only
-npm run server:dev         # Start API server only
+npm run dev              # Start development server
+npm run ios             # Run on iOS simulator
+npm run android         # Run on Android emulator
+npm run web             # Run web version
+```
 
-# Platform-specific
-npm run ios               # Run on iOS simulator
-npm run android          # Run on Android emulator
-npm run web             # Run in web browser
+### Testing
+```bash
+npm test                # Run all tests
+npm run test:unit       # Unit tests only
+npm run test:e2e        # E2E tests
+npm run lint            # Lint code
+npm run typecheck       # TypeScript checks
+```
 
-# Database
-npm run db:setup        # Initialize database
-npm run db:migrate      # Run migrations
-npm run db:seed         # Seed test data
-npm run db:reset        # Reset database
-
-# Code Quality
-npm run lint            # Run ESLint
-npm run type-check      # Check TypeScript
-npm run test            # Run test suite
-npm run test:watch      # Run tests in watch mode
-
-# Build & Deploy
+### Building
+```bash
 npm run build:web       # Build for web
-npm run build:ios       # Build iOS app
-npm run build:android   # Build Android app
+npm run build:ios       # Build iOS (via EAS)
+npm run build:android   # Build Android (via EAS)
 ```
 
-## 🔧 Configuration
-
-### Environment Variables
-
-1. Copy the example file:
+### Deployment
 ```bash
-cp .env.example .env.local
-```
+# EAS Builds
+./scripts/deployment/eas-quick-setup.sh
 
-2. Configure your environment:
-```env
-# Database
-DATABASE_URL=postgresql://user:pass@localhost:5432/hospital_alerts
+# Staging Deployment
+./scripts/deployment/setup-staging.sh
+./deploy-staging.sh
 
-# API Configuration
-EXPO_PUBLIC_API_URL=http://localhost:3000
-EXPO_PUBLIC_WS_URL=ws://localhost:3001
-
-# Authentication (Better Auth v1.2.8)
-BETTER_AUTH_SECRET=your-secret-key
-BETTER_AUTH_BASE_URL=http://localhost:8081
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-# Email Service
-EMAIL_FROM=noreply@hospital-alerts.com
-RESEND_API_KEY=your-resend-api-key
-
-# Push Notifications
-EXPO_PUBLIC_PUSH_KEY=your-expo-push-key
-```
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-npm test
-
-# Run specific test suites
-npm test -- --testNamePattern="Button"
-npm test -- --testPathPattern="healthcare"
-
-# Coverage report
-npm run test:coverage
+# Production Deployment
+bun scripts/deployment/manage-deploy.ts deploy --env=production
 ```
 
 ## 📱 Mobile Development
 
-### iOS Development
-```bash
-# Install iOS dependencies
-cd ios && pod install && cd ..
+### Prerequisites
+- Xcode 15+ (for iOS development)
+- Android Studio (for Android development)
+- EAS CLI: `npm install -g eas-cli`
 
-# Run on specific simulator
-npm run ios -- --simulator="iPhone 15 Pro"
+### Development Builds
+```bash
+# Create development build
+eas build --profile development --platform all
+
+# Run on device
+eas build --profile preview --platform ios
 ```
 
-### Android Development
-```bash
-# Start Android emulator first
-# Then run:
-npm run android
+### App Distribution
+- **iOS**: TestFlight for beta testing
+- **Android**: Internal testing track
+- **Web**: Deployed via Docker/Kamal
 
-# Or specify device
-npm run android -- --deviceId="emulator-5554"
+## 🔧 Configuration
+
+### Environment Variables
+```env
+# Core Configuration
+DATABASE_URL=postgresql://user:pass@localhost:5432/healthcare
+BETTER_AUTH_SECRET=your-secret-key-min-32-chars
+
+# API Configuration  
+EXPO_PUBLIC_API_URL=http://localhost:8081
+EXPO_PUBLIC_WS_URL=ws://localhost:3002
+
+# Optional Services
+POSTHOG_API_KEY=your-posthog-key
+GOOGLE_CLIENT_ID=your-google-oauth-id
 ```
+
+See [Environment Configuration Guide](docs/guides/development/environment.md) for full details.
+
+## 🧪 Testing
+
+The project uses a comprehensive testing strategy:
+
+- **Unit Tests**: Jest + React Native Testing Library
+- **Integration Tests**: API and service layer testing
+- **E2E Tests**: Detox for mobile, Playwright for web
+- **Performance Tests**: Custom performance monitoring
+
+See [Testing Guide](docs/guides/testing-setup.md) for details.
 
 ## 🚢 Deployment
 
-### Production Build
-```bash
-# Web deployment
-npm run build:web
-vercel deploy ./dist
+### Staging
+1. Configure staging environment: `./scripts/deployment/setup-staging.sh`
+2. Run deployment tests: `bun scripts/deployment/test-staging-deployment.ts`
+3. Deploy: `./deploy-staging.sh`
 
-# Mobile deployment
-eas build --platform ios --profile production
-eas build --platform android --profile production
-```
+### Production
+1. Build mobile apps: `eas build --profile production`
+2. Deploy backend: `kamal deploy`
+3. Submit to stores: `eas submit`
 
-### EAS Configuration
-The project is configured for Expo Application Services (EAS) for building and deploying mobile apps. See `eas.json` for configuration details.
+See [Deployment Guide](docs/guides/deployment/README.md) for detailed instructions.
+
+## 📊 Project Status
+
+- **Current Version**: 0.1.0 (MVP)
+- **Production Ready**: 85%
+- **Test Coverage**: 73%
+- **Documentation**: Complete
+
+See [Project Status](docs/PROJECT_STATUS.md) for detailed metrics.
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-### Development Workflow
+### Development Process
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
+2. Create feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'feat: add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
 5. Open a Pull Request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- Built with [Expo](https://expo.dev/)
-- UI components inspired by [shadcn/ui](https://ui.shadcn.com/)
-- Icons from [Lucide](https://lucide.dev/)
-- Authentication by [Better Auth](https://better-auth.com/)
-
-## 📞 Support
-
-For support, email support@hospital-alerts.com or join our Slack channel.
+- Built with [Expo](https://expo.dev)
+- Authentication by [Better Auth](https://better-auth.com)
+- Deployment with [Kamal](https://kamal-deploy.org)
+- Analytics by [PostHog](https://posthog.com)
 
 ---
 
-<div align="center">
-  Made with ❤️ by the Hospital Alert System Team
-</div>
+For more information, visit our [full documentation](docs/INDEX.md).

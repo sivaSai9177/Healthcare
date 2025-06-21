@@ -207,7 +207,7 @@ export const RadialChart: React.FC<RadialChartProps> = ({
   
   if (animated && animationType !== 'none') {
     return (
-      <View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]} testID={testID}>
+      <View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style] as any} testID={testID}>
         <Svg width={size} height={size} style={{ position: 'absolute' }}>
           <G>
             {/* Background arc */}
@@ -229,7 +229,7 @@ export const RadialChart: React.FC<RadialChartProps> = ({
         </Svg>
         
         {/* Center content */}
-        <Animated.View style={[{ alignItems: 'center' }, animatedTextStyle]}>
+        <Animated.View style={[{ alignItems: 'center' }, animatedTextStyle] as any}>
           {showValue && (
             <Text
               style={{
@@ -258,7 +258,7 @@ export const RadialChart: React.FC<RadialChartProps> = ({
   }
   
   return (
-    <View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style]} testID={testID}>
+    <View style={[{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }, style] as any} testID={testID}>
       <Svg width={size} height={size} style={{ position: 'absolute' }}>
         <G>
           {/* Background arc */}
@@ -394,7 +394,7 @@ export const RadialBarChart: React.FC<RadialBarChartProps> = ({
   });
   
   return (
-    <View style={[{ width: size, height: size }, style]} testID={testID}>
+    <View style={[{ width: size, height: size }, style] as any} testID={testID}>
       <Svg width={size} height={size}>
         {bars.map((bar, index) => (
           <AnimatedRadialBar

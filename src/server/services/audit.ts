@@ -150,12 +150,12 @@ export class AuditService {
       // For development: temporarily disable actual database logging to prevent crashes
       if (process.env.NODE_ENV === 'development') {
         // TODO: Replace with structured logging
-        // console.log('[AUDIT] Development mode - logging to console only:', {
+        // /* console.log('[AUDIT] Development mode - logging to console only:', {
         //   id,
         //   action: entry.action,
         //   outcome: entry.outcome,
         //   description: entry.description,
-        //   timestamp: new Date().toISOString(),
+        //   timestamp: new Date() */.toISOString(),
         // });
         return id;
       }
@@ -170,7 +170,7 @@ export class AuditService {
       retentionUntil.setFullYear(retentionUntil.getFullYear() + this.retentionYears);
       
       // Merge context data
-      const auditData = {
+      const auditData: any = {
         id,
         ...validatedEntry,
         ...context,

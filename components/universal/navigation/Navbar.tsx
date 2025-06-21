@@ -249,13 +249,13 @@ const WebTabBarVariant: React.FC<NavbarProps> = ({
                 <Text size="xs" className="text-muted-foreground">{user.email}</Text>
               </Box>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onPress={() => router.push('/(home)/settings')}>
+              <DropdownMenuItem onPress={() => router.push('/(tabs)/settings' as any)}>
                 <HStack spacing={2} alignItems="center">
                   <Symbol name="gearshape" size={16} />
                   <Text>Settings</Text>
                 </HStack>
               </DropdownMenuItem>
-              <DropdownMenuItem onPress={() => router.push('/(home)')}>
+              <DropdownMenuItem onPress={() => router.push('/(tabs)/home' as any)}>
                 <HStack spacing={2} alignItems="center">
                   <Symbol name="house" size={16} />
                   <Text>Home</Text>

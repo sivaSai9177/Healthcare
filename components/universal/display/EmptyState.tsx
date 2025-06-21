@@ -154,7 +154,7 @@ export const EmptyState = React.forwardRef<View, EmptyStateProps>(
     const containerStyle: ViewStyle = {
       alignItems: 'center',
       justifyContent: 'center',
-      padding: spacing[6],
+      padding: spacing[6] as any,
       ...style,
     };
 
@@ -169,7 +169,7 @@ export const EmptyState = React.forwardRef<View, EmptyStateProps>(
 
     const actionContainerStyle: ViewStyle = {
       flexDirection: 'row',
-      gap: spacing[2],
+      gap: spacing[2] as any,
     };
 
     const renderIcon = () => {
@@ -218,14 +218,14 @@ export const EmptyState = React.forwardRef<View, EmptyStateProps>(
     // Web CSS animations
     const webAnimationStyle = Platform.OS === 'web' && animated && isAnimated && shouldAnimate() ? {
       '@keyframes fadeIn': {
-        from: { opacity: 0 },
-        to: { opacity: 1 },
+        from: { opacity: 0 as any },
+        to: { opacity: 1 as any },
       },
       '@keyframes bounceIn': {
-        '0%': { transform: 'scale(0.3) translateY(20px)', opacity: 0 },
+        '0%': { transform: 'scale(0.3) translateY(20px)', opacity: 0 as any },
         '50%': { transform: 'scale(1.05) translateY(-10px)' },
         '70%': { transform: 'scale(0.9) translateY(5px)' },
-        '100%': { transform: 'scale(1) translateY(0px)', opacity: 1 },
+        '100%': { transform: 'scale(1) translateY(0px)', opacity: 1 as any },
       },
     } as any : {};
 

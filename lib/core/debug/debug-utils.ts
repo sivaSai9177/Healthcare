@@ -91,9 +91,9 @@ class Logger {
         break;
       default:
         if (data !== undefined && data !== null) {
-// TODO: Replace with structured logging - console.log(consoleMessage, data);
+// TODO: Replace with structured logging - /* console.log(consoleMessage, data) */;
         } else {
-// TODO: Replace with structured logging - console.log(consoleMessage);
+// TODO: Replace with structured logging - /* console.log(consoleMessage) */;
         }
     }
 

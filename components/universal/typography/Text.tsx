@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import { Text as RNText, TextProps as RNTextProps, TextStyle, Platform, Pressable, View } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -10,11 +10,19 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import { cn } from '@/lib/core/utils';
-import { FontSize, FontWeight } from '@/lib/design';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { haptic } from '@/lib/ui/haptics';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 import { useResponsive, useResponsiveValue } from '@/hooks/responsive';
+import { useTypography, useSystemFontScale } from '@/hooks/useTypography';
+import { 
+  TypographySize, 
+  FontWeight, 
+  LineHeight, 
+  LetterSpacing,
+  TypographyPreset,
+  typographySystem 
+} from '@/lib/design/typography';
 
 // Create animated components with proper type handling
 const AnimatedText = Animated.createAnimatedComponent(RNText);
@@ -35,19 +43,22 @@ const flattenStyle = (style: any): any => {
 
 export interface TextProps extends RNTextProps {
   // Typography
-  size?: 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
-  weight?: 'normal' | 'medium' | 'semibold' | 'bold';
+  size?: TypographySize;
+  weight?: FontWeight;
   align?: TextStyle['textAlign'];
   transform?: TextStyle['textTransform'];
   decoration?: TextStyle['textDecorationLine'];
-  letterSpacing?: 'tighter' | 'tight' | 'normal' | 'wide' | 'wider' | 'widest';
-  lineHeight?: 'none' | 'tight' | 'snug' | 'normal' | 'relaxed' | 'loose';
+  letterSpacing?: LetterSpacing;
+  lineHeight?: LineHeight;
+  
+  // Typography preset (overrides individual props)
+  preset?: TypographyPreset;
   
   // Color - Now using Tailwind classes
   color?: 'foreground' | 'muted' | 'primary' | 'secondary' | 'destructive' | 'accent' | 'success' | 'warning' | 'info';
   
   // Font family
-  font?: 'sans' | 'serif' | 'mono';
+  font?: 'sans' | 'serif' | 'mono' | 'display' | 'text';
   
   // Interactive
   selectable?: boolean;
@@ -59,6 +70,9 @@ export interface TextProps extends RNTextProps {
   animateOnPress?: boolean;
   animateOnHover?: boolean; // Web only
   copyable?: boolean; // Adds copy-to-clipboard functionality
+  
+  // Accessibility
+  respectSystemScale?: boolean; // Apply system font scaling
   
   // Style
   className?: string;
@@ -73,7 +87,7 @@ export interface TextProps extends RNTextProps {
 }
 
 // Tailwind class mappings
-const sizeClasses = {
+const sizeClasses: Record<TypographySize, string> = {
   xs: 'text-xs',
   sm: 'text-sm',
   base: 'text-base',
@@ -83,13 +97,20 @@ const sizeClasses = {
   '3xl': 'text-3xl',
   '4xl': 'text-4xl',
   '5xl': 'text-5xl',
+  '6xl': 'text-6xl',
+  '7xl': 'text-7xl',
+  '8xl': 'text-8xl',
+  '9xl': 'text-9xl',
 };
 
-const weightClasses = {
+const weightClasses: Record<FontWeight, string> = {
+  thin: 'font-thin',
+  light: 'font-light',
   normal: 'font-normal',
   medium: 'font-medium',
   semibold: 'font-semibold',
   bold: 'font-bold',
+  black: 'font-black',
 };
 
 const colorClasses = {
@@ -108,9 +129,11 @@ const fontClasses = {
   sans: Platform.OS === 'web' ? 'font-sans' : '',
   serif: Platform.OS === 'web' ? 'font-serif' : '',
   mono: Platform.OS === 'web' ? 'font-mono' : '',
+  display: Platform.OS === 'web' ? 'font-sans' : '',
+  text: Platform.OS === 'web' ? 'font-sans' : '',
 };
 
-const letterSpacingClasses = {
+const letterSpacingClasses: Record<LetterSpacing, string> = {
   tighter: 'tracking-tighter',
   tight: 'tracking-tight',
   normal: 'tracking-normal',
@@ -119,7 +142,7 @@ const letterSpacingClasses = {
   widest: 'tracking-widest',
 };
 
-const lineHeightClasses = {
+const lineHeightClasses: Record<LineHeight, string> = {
   none: 'leading-none',
   tight: 'leading-tight',
   snug: 'leading-snug',
@@ -128,29 +151,9 @@ const lineHeightClasses = {
   loose: 'leading-loose',
 };
 
-// Font size mapping for native
-const fontSizeMap = {
-  xs: 12,
-  sm: 14,
-  base: 16,
-  lg: 18,
-  xl: 20,
-  '2xl': 24,
-  '3xl': 30,
-  '4xl': 36,
-  '5xl': 48,
-};
-
-// Font weight mapping for native - iOS specific weights for SF Pro
-const fontWeightMap = {
-  normal: Platform.OS === 'ios' ? '400' : '400',
-  medium: Platform.OS === 'ios' ? '500' : '500', 
-  semibold: Platform.OS === 'ios' ? '600' : '600',
-  bold: Platform.OS === 'ios' ? '700' : '700',
-};
-
 export const Text = React.forwardRef<RNText, TextProps>(({
   // Typography
+  preset,
   size = 'base',
   weight = 'normal',
   align,
@@ -177,6 +180,9 @@ export const Text = React.forwardRef<RNText, TextProps>(({
   animateOnHover = false,
   copyable = false,
   
+  // Accessibility
+  respectSystemScale = true,
+  
   // Style
   className,
   style,
@@ -188,7 +194,8 @@ export const Text = React.forwardRef<RNText, TextProps>(({
   ...props
 }, ref) => {
   const { enableAnimations } = useAnimationStore();
-  const { typographyScale } = useSpacing();
+  const typography = useTypography();
+  const systemScale = useSystemFontScale();
   const { isMobile, isTablet, isDesktop } = useResponsive();
   
   // Always call hooks - resolve responsive values
@@ -196,7 +203,7 @@ export const Text = React.forwardRef<RNText, TextProps>(({
   const responsiveWeight = useResponsiveValue(typeof weight === 'object' && weight !== null ? weight : undefined) || weight;
   const responsiveAlign = useResponsiveValue(typeof align === 'object' && align !== null ? align : undefined) || align;
   
-  // Animation values
+  // Animation values - create only when needed
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
   const [copied, setCopied] = useState(false);
@@ -204,15 +211,40 @@ export const Text = React.forwardRef<RNText, TextProps>(({
   // Handle legacy colorTheme prop
   const finalColor = colorTheme ? 'foreground' : color;
   
+  // Compute typography properties from preset or individual props
+  const typographyProps = useMemo(() => {
+    if (preset) {
+      const presetStyle = typography.getPresetStyle(preset);
+      return {
+        size: responsiveSize || (typographySystem.presets[preset].size as TypographySize),
+        weight: responsiveWeight || (typographySystem.presets[preset].weight as FontWeight),
+        font: font || typographySystem.presets[preset].family,
+        lineHeight: lineHeight || typographySystem.presets[preset].lineHeight,
+        letterSpacing: letterSpacing || typographySystem.presets[preset].letterSpacing,
+        transform: transform || typographySystem.presets[preset].transform,
+        decoration: decoration || typographySystem.presets[preset].decoration,
+      };
+    }
+    return {
+      size: responsiveSize || size,
+      weight: responsiveWeight || weight,
+      font,
+      lineHeight,
+      letterSpacing,
+      transform,
+      decoration,
+    };
+  }, [preset, responsiveSize, responsiveWeight, size, weight, font, lineHeight, letterSpacing, transform, decoration, typography]);
+  
   // Build className
   const textClassName = cn(
-    // Base styles - use resolved responsive values
-    sizeClasses[responsiveSize || size] || sizeClasses.base,
-    weightClasses[responsiveWeight || weight] || weightClasses.normal,
+    // Base styles - use computed typography props
+    sizeClasses[typographyProps.size] || sizeClasses.base,
+    weightClasses[typographyProps.weight] || weightClasses.normal,
     colorClasses[finalColor] || colorClasses.foreground,
-    fontClasses[font] || fontClasses.sans,
-    letterSpacingClasses[letterSpacing] || letterSpacingClasses.normal,
-    lineHeightClasses[lineHeight] || lineHeightClasses.normal,
+    fontClasses[typographyProps.font] || fontClasses.sans,
+    letterSpacingClasses[typographyProps.letterSpacing] || letterSpacingClasses.normal,
+    lineHeightClasses[typographyProps.lineHeight] || lineHeightClasses.normal,
     
     // Interactive styles
     onPress && 'active:opacity-80',
@@ -227,33 +259,32 @@ export const Text = React.forwardRef<RNText, TextProps>(({
     className
   );
   
-  // Get platform-specific font family
-  const getFontFamily = () => {
-    if (Platform.OS === 'ios') {
-      // Use SF Pro on iOS
-      const baseFont = font === 'mono' ? 'Menlo' : font === 'serif' ? 'Georgia' : 'System';
-      return baseFont;
-    } else if (Platform.OS === 'android') {
-      // Use system font on Android
-      const baseFont = font === 'mono' ? 'monospace' : font === 'serif' ? 'serif' : 'sans-serif';
-      return baseFont;
-    }
-    // Web uses CSS classes
-    return undefined;
-  };
-
   // Native style override for properties not supported by NativeWind
-  const nativeStyle: TextStyle = {
-    ...((responsiveAlign || align) && { textAlign: responsiveAlign || align }),
-    ...(transform && { textTransform: transform }),
-    ...(decoration && { textDecorationLine: decoration }),
-    // Apply actual font size and weight for native
-    ...(Platform.OS !== 'web' && {
-      fontSize: fontSizeMap[responsiveSize || size] || fontSizeMap.base,
-      fontWeight: fontWeightMap[responsiveWeight || weight] as TextStyle['fontWeight'],
-      fontFamily: getFontFamily(),
-    }),
-  };
+  const nativeStyle: TextStyle = useMemo(() => {
+    const fontSize = typography.sizes[typographyProps.size];
+    const scaledFontSize = respectSystemScale ? systemScale.scaleFont(fontSize) : fontSize;
+    
+    return {
+      ...((responsiveAlign || align) && { textAlign: responsiveAlign || align }),
+      ...(typographyProps.transform && { textTransform: typographyProps.transform }),
+      ...(typographyProps.decoration && { textDecorationLine: typographyProps.decoration }),
+      // Apply actual font size and weight for native
+      ...(Platform.OS !== 'web' && {
+        fontSize: scaledFontSize,
+        fontWeight: typographySystem.fontWeights[typographyProps.weight] as TextStyle['fontWeight'],
+        fontFamily: typographySystem.getFontFamily(typographyProps.font as any),
+        lineHeight: typography.getLineHeight(fontSize, typographyProps.lineHeight),
+        letterSpacing: typography.getLetterSpacing(fontSize, typographyProps.letterSpacing),
+      }),
+    };
+  }, [
+    typography, 
+    typographyProps, 
+    responsiveAlign, 
+    align, 
+    respectSystemScale, 
+    systemScale
+  ]);
   
   // Handle style prop safely
   const finalStyle = React.useMemo(() => {
@@ -384,83 +415,133 @@ export const Text = React.forwardRef<RNText, TextProps>(({
 
 Text.displayName = 'Text';
 
-// Convenience components
+// Convenience components using typography presets
 export const Heading = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="3xl" weight="bold" {...props} />
+  <Text ref={ref} preset="h1" {...props} />
 ));
 Heading.displayName = 'Heading';
 
 export const Heading1 = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="4xl" weight="bold" {...props} />
+  <Text ref={ref} preset="h1" {...props} />
 ));
 Heading1.displayName = 'Heading1';
 
 export const Heading2 = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="3xl" weight="bold" {...props} />
+  <Text ref={ref} preset="h2" {...props} />
 ));
 Heading2.displayName = 'Heading2';
 
 export const Heading3 = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="2xl" weight="semibold" {...props} />
+  <Text ref={ref} preset="h3" {...props} />
 ));
 Heading3.displayName = 'Heading3';
 
 export const Heading4 = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="xl" weight="semibold" {...props} />
+  <Text ref={ref} preset="h4" {...props} />
 ));
 Heading4.displayName = 'Heading4';
 
 export const Heading5 = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="lg" weight="medium" {...props} />
+  <Text ref={ref} preset="h5" {...props} />
 ));
 Heading5.displayName = 'Heading5';
 
 export const Heading6 = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="base" weight="medium" {...props} />
+  <Text ref={ref} preset="h6" {...props} />
 ));
 Heading6.displayName = 'Heading6';
 
-export const Title = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="2xl" weight="semibold" {...props} />
+// Display headings for marketing
+export const Display1 = React.forwardRef<RNText, TextProps>((props, ref) => (
+  <Text ref={ref} preset="display1" {...props} />
 ));
-Title.displayName = 'Title';
+Display1.displayName = 'Display1';
 
-export const Subtitle = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="xl" weight="medium" {...props} />
+export const Display2 = React.forwardRef<RNText, TextProps>((props, ref) => (
+  <Text ref={ref} preset="display2" {...props} />
 ));
-Subtitle.displayName = 'Subtitle';
+Display2.displayName = 'Display2';
+
+// Body text variants
+export const BodyLarge = React.forwardRef<RNText, TextProps>((props, ref) => (
+  <Text ref={ref} preset="bodyLarge" {...props} />
+));
+BodyLarge.displayName = 'BodyLarge';
 
 export const Body = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="base" weight="normal" {...props} />
+  <Text ref={ref} preset="body" {...props} />
 ));
 Body.displayName = 'Body';
 
-export const Paragraph = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="base" weight="normal" lineHeight="relaxed" {...props} />
+export const BodySmall = React.forwardRef<RNText, TextProps>((props, ref) => (
+  <Text ref={ref} preset="bodySmall" {...props} />
 ));
-Paragraph.displayName = 'Paragraph';
+BodySmall.displayName = 'BodySmall';
+
+// UI components
+export const Label = React.forwardRef<RNText, TextProps>((props, ref) => (
+  <Text ref={ref} preset="label" {...props} />
+));
+Label.displayName = 'Label';
 
 export const Caption = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="sm" weight="normal" color="muted" {...props} />
+  <Text ref={ref} preset="caption" color={props.color || "muted"} {...props} />
 ));
 Caption.displayName = 'Caption';
 
-export const TextLabel = React.forwardRef<RNText, TextProps>((props, ref) => (
-  <Text ref={ref} size="sm" weight="medium" {...props} />
+export const Overline = React.forwardRef<RNText, TextProps>((props, ref) => (
+  <Text ref={ref} preset="overline" {...props} />
 ));
+Overline.displayName = 'Overline';
+
+// Interactive text
+export const ButtonText = React.forwardRef<RNText, TextProps>((props, ref) => (
+  <Text ref={ref} preset="button" {...props} />
+));
+ButtonText.displayName = 'ButtonText';
+
+export const ButtonLargeText = React.forwardRef<RNText, TextProps>((props, ref) => (
+  <Text ref={ref} preset="buttonLarge" {...props} />
+));
+ButtonLargeText.displayName = 'ButtonLargeText';
+
+// Legacy aliases for backward compatibility
+export const Title = Heading2;
+Title.displayName = 'Title';
+
+export const Subtitle = Heading3;
+Subtitle.displayName = 'Subtitle';
+
+export const Paragraph = Body;
+Paragraph.displayName = 'Paragraph';
+
+export const TextLabel = Label;
 TextLabel.displayName = 'TextLabel';
 
+// Code components
 export const Code = React.forwardRef<RNText, TextProps>((props, ref) => (
   <Text 
     ref={ref} 
-    font="mono"
-    className={cn('bg-muted px-1 py-0.5 rounded', props.className)}
+    preset="code"
+    className={cn('bg-muted px-1 py-0.5 rounded', props.className) as string}
     copyable
     animated
     {...props} 
   />
 ));
 Code.displayName = 'Code';
+
+export const CodeBlock = React.forwardRef<RNText, TextProps>((props, ref) => (
+  <Text 
+    ref={ref} 
+    preset="codeBlock"
+    className={cn('bg-muted p-3 rounded-md', props.className) as string}
+    copyable
+    animated
+    {...props} 
+  />
+));
+CodeBlock.displayName = 'CodeBlock';
 
 // Animated text variants
 export const AnimatedHeading = React.forwardRef<RNText, TextProps & { delay?: number }>((
@@ -512,7 +593,7 @@ export const FadeInText = React.forwardRef<RNText, TextProps & { delay?: number;
     <AnimatedText
       ref={ref}
       className={className}
-      style={[animatedStyle, style]}
+      style={[animatedStyle, style] as any}
       {...props}
     />
   );
@@ -520,14 +601,15 @@ export const FadeInText = React.forwardRef<RNText, TextProps & { delay?: number;
 FadeInText.displayName = 'FadeInText';
 
 // Link component with animations
-export const Link = React.forwardRef<RNText, TextProps>((props, ref) => (
+export const TextLink = React.forwardRef<RNText, TextProps>((props, ref) => (
   <Text 
     ref={ref} 
-    color="primary"
-    className={cn('underline underline-offset-2', props.className)}
+    preset="link"
+    color={props.color || "primary"}
+    className={cn('underline underline-offset-2', props.className) as string}
     animateOnPress
     animated
     {...props} 
   />
 ));
-Link.displayName = 'Link';
+TextLink.displayName = 'TextLink';

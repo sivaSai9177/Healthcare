@@ -187,7 +187,7 @@ const Toast: React.FC<ToastProps> = ({
           maxWidth: 400,
           margin: 12,
         },
-        shouldAnimate() ? animatedStyle : { opacity: 1 },
+        shouldAnimate() ? animatedStyle : { opacity: 1 as any },
       ]}
     >
       <Box

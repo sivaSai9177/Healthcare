@@ -1,10 +1,10 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-import { auth } from '@/lib/auth/auth-server';
 import { getSessionWithBearer } from '@/lib/auth/get-session-with-bearer';
 import type { Session, User } from 'better-auth';
-import { logger } from '@/lib/core/debug/unified-logger';
-import { trpcLogger } from '@/lib/core/debug/trpc-logger';
-import { rateLimitMiddleware as createRateLimitMiddleware } from './middleware/rate-limit';
+import { logger } from '@/lib/core/debug/server-logger';
+import { trpcLogger } from '@/lib/core/debug/trpc-logger-enhanced';
+import { createRateLimitMiddleware } from './middleware/rate-limiter';
+import { hasPermission as checkPermission } from '@/lib/auth/permissions';
 
 // Base context type for tRPC procedures
 export interface Context {
@@ -13,6 +13,7 @@ export interface Context {
     user: User;
   } | null;
   req: Request;
+  res?: Response;
 }
 
 // Enhanced context type for protected procedures
@@ -24,6 +25,10 @@ export interface AuthenticatedContext extends Context {
   user: User;
   hasRole: (role: string) => boolean;
   hasPermission: (permission: string) => boolean;
+  hospitalContext?: {
+    userHospitalId?: string;
+    userOrganizationId?: string;
+  };
 }
 
 // Create context function
@@ -50,7 +55,7 @@ export async function createContext(req: Request): Promise<Context> {
     }
 
     return {
-      session: sessionData,
+      session: sessionData as any,
       req,
     };
   } catch (err) {
@@ -189,10 +194,10 @@ const performanceMiddleware = t.middleware(async ({ path, type, next }) => {
 });
 
 // Rate limiting middleware
-const rateLimitMiddleware = t.middleware(async ({ path, type, ctx, next }) => {
+const rateLimitMiddleware = t.middleware(async ({ ctx, next }) => {
   // Use our rate limiting middleware
   const middleware = createRateLimitMiddleware();
-  return middleware({ path, type, ctx, next });
+  return middleware({ ctx, next });
 });
 
 // Enhanced authentication middleware following tRPC best practices
@@ -207,29 +212,80 @@ const authMiddleware = t.middleware(async ({ ctx, next, path }) => {
   
   trpcLogger.logAuthEvent('authenticated_access', path, ctx);
   
+  // Get user's hospital context from database
+  let hospitalContext: AuthenticatedContext['hospitalContext'];
+  try {
+    const { db } = await import('@/src/db');
+    const { user: userTable } = await import('@/src/db/schema');
+    const { healthcareUsers } = await import('@/src/db/healthcare-schema');
+    const { eq } = await import('drizzle-orm');
+    
+    // First try to get from users table
+    const [dbUser] = await db
+      .select({
+        defaultHospitalId: userTable.defaultHospitalId,
+        organizationId: userTable.organizationId,
+        role: userTable.role,
+      })
+      .from(userTable)
+      .where(eq(userTable.id, ctx.session.user.id))
+      .limit(1);
+    
+    let hospitalId = dbUser?.defaultHospitalId;
+    
+    // If user is a healthcare role but has no defaultHospitalId, check healthcare_users table
+    const healthcareRoles = ['nurse', 'doctor', 'healthcare_admin', 'head_nurse', 'head_doctor', 'operator'];
+    if (dbUser && healthcareRoles.includes(dbUser.role) && !hospitalId) {
+      const [healthcareUser] = await db
+        .select({
+          hospitalId: healthcareUsers.hospitalId,
+        })
+        .from(healthcareUsers)
+        .where(eq(healthcareUsers.userId, ctx.session.user.id))
+        .limit(1);
+      
+      if (healthcareUser?.hospitalId) {
+        hospitalId = healthcareUser.hospitalId;
+        logger.info('Hospital context found in healthcare_users table', 'TRPC', {
+          userId: ctx.session.user.id,
+          hospitalId,
+          role: dbUser.role,
+        });
+      }
+    }
+    
+    if (dbUser) {
+      hospitalContext = {
+        userHospitalId: hospitalId || undefined,
+        userOrganizationId: dbUser.organizationId || undefined,
+      };
+      
+      logger.debug('Hospital context resolved', 'TRPC', {
+        userId: ctx.session.user.id,
+        hospitalId: hospitalContext.userHospitalId,
+        organizationId: hospitalContext.userOrganizationId,
+        role: dbUser.role,
+      });
+    }
+  } catch (error) {
+    logger.warn('Failed to fetch hospital context', 'TRPC', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      userId: ctx.session.user.id,
+    });
+  }
+  
   // Enhance context with type-safe user data
   return next({
     ctx: {
       ...ctx,
       session: ctx.session,
       user: ctx.session.user,
+      hospitalContext,
       // Add helper functions for authorization checks
       hasRole: (role: string) => (ctx.session.user as any).role === role,
       hasPermission: (permission: string) => {
         const userRole = (ctx.session.user as any).role || 'user';
-        const rolePermissions: Record<string, string[]> = {
-          admin: ['*'], // Admin can access everything
-          manager: ['manage_users', 'view_analytics', 'manage_content'],
-          user: ['view_content', 'edit_profile'],
-          guest: ['view_content'],
-          // Healthcare roles
-          operator: ['create_alerts', 'view_alerts', 'view_logs'],
-          doctor: ['view_patients', 'acknowledge_alerts', 'view_alerts'],
-          nurse: ['acknowledge_alerts', 'view_alerts', 'view_tasks'],
-          head_doctor: ['view_patients', 'acknowledge_alerts', 'view_analytics', 'manage_users', 'manage_departments'],
-        };
-        const permissions = rolePermissions[userRole] || [];
-        return permissions.includes('*') || permissions.includes(permission);
+        return checkPermission(userRole, permission as any);
       },
     },
   });
@@ -306,6 +362,64 @@ export const createPermissionProcedure = (requiredPermission: string) => {
 
 // Common permission-based procedures
 export const viewContentProcedure = createPermissionProcedure('view_content');
+
+// Hospital-specific procedure that requires hospital context
+export const hospitalProcedure = protectedProcedure.use(async ({ ctx, next, path }) => {
+  if (!ctx.hospitalContext?.userHospitalId) {
+    trpcLogger.logAuthEvent('no_hospital_assigned', path, ctx);
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Hospital assignment required. Please complete your profile.'
+    });
+  }
+  
+  return next({
+    ctx: {
+      ...ctx,
+      userHospitalId: ctx.hospitalContext.userHospitalId,
+      userOrganizationId: ctx.hospitalContext.userOrganizationId,
+    },
+  });
+});
+
+// Healthcare-specific procedure (doctor, nurse, operator, head_doctor)
+export const healthcareProcedure = hospitalProcedure.use(async ({ ctx, next, path }) => {
+  const userRole = (ctx.session.user as any).role || 'user';
+  const healthcareRoles = ['doctor', 'nurse', 'operator', 'head_doctor'];
+  
+  if (!healthcareRoles.includes(userRole)) {
+    trpcLogger.logAuthEvent('non_healthcare_role', path, ctx, { userRole });
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Healthcare role required'
+    });
+  }
+  
+  return next();
+});
 export const manageUsersProcedure = createPermissionProcedure('manage_users');
 export const viewAnalyticsProcedure = createPermissionProcedure('view_analytics');
 export const manageContentProcedure = createPermissionProcedure('manage_content');
+
+// Healthcare-specific procedures
+export const viewPatientsProcedure = createPermissionProcedure('view_patients');
+export const managePatientsProcedure = createPermissionProcedure('manage_patients');
+export const viewHealthcareDataProcedure = createPermissionProcedure('view_healthcare_data');
+export const createAlertsProcedure = createPermissionProcedure('create_alerts');
+export const acknowledgeAlertsProcedure = createPermissionProcedure('acknowledge_alerts');
+export const resolveAlertsProcedure = createPermissionProcedure('resolve_alerts');
+
+// Organization procedures
+export const viewOrganizationProcedure = createPermissionProcedure('view_organization');
+export const manageOrganizationProcedure = createPermissionProcedure('manage_organization');
+export const inviteMembersProcedure = createPermissionProcedure('invite_members');
+export const manageMembersProcedure = createPermissionProcedure('manage_members');
+
+// Admin procedures
+export const viewAuditLogsProcedure = createPermissionProcedure('view_activity_logs');
+export const manageSystemSettingsProcedure = createPermissionProcedure('manage_system_settings');
+
+// Team/Shift procedures
+export const viewTeamProcedure = createPermissionProcedure('view_team');
+export const manageTeamProcedure = createPermissionProcedure('manage_team');
+export const manageScheduleProcedure = createPermissionProcedure('manage_schedule');

@@ -1,5 +1,5 @@
 import { pgTable, uuid, varchar, integer, timestamp, text, check, boolean, jsonb, index } from 'drizzle-orm/pg-core';
-import { users } from './schema';
+import { users, departmentEnum } from './schema';
 import { sql } from 'drizzle-orm';
 
 // Healthcare-specific user fields (extends base users table)
@@ -7,7 +7,7 @@ export const healthcareUsers = pgTable('healthcare_users', {
   userId: text('user_id').primaryKey().references(() => users.id),
   hospitalId: varchar('hospital_id', { length: 255 }).notNull(),
   licenseNumber: varchar('license_number', { length: 100 }),
-  department: varchar('department', { length: 100 }),
+  department: departmentEnum('department'),
   specialization: varchar('specialization', { length: 100 }),
   isOnDuty: boolean('is_on_duty').default(false),
   shiftStartTime: timestamp('shift_start_time'),
@@ -17,13 +17,20 @@ export const healthcareUsers = pgTable('healthcare_users', {
 // Hospitals/Organizations
 export const hospitals = pgTable('hospitals', {
   id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').notNull(), // Link to parent organization
   name: varchar('name', { length: 255 }).notNull(),
+  code: varchar('code', { length: 50 }).notNull(), // Unique hospital code within organization
   address: text('address'),
   contactInfo: jsonb('contact_info'),
   settings: jsonb('settings'),
+  isActive: boolean('is_active').default(true),
+  isDefault: boolean('is_default').default(false), // Default hospital for the organization
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
-});
+}, (table) => ({
+  orgDefaultIdx: index('idx_hospital_org_default').on(table.organizationId, table.isDefault),
+  codeIdx: index('idx_hospital_code').on(table.code),
+}));
 
 // Alert types enum
 export const alertTypeEnum = pgTable('alert_type_enum', {
@@ -40,6 +47,7 @@ export const alerts = pgTable('alerts', {
   createdBy: text('created_by').references(() => users.id).notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   status: varchar('status', { length: 20 }).default('active').notNull(),
+  targetDepartment: departmentEnum('target_department'), // Which department should handle this alert
   acknowledgedBy: text('acknowledged_by').references(() => users.id),
   acknowledgedAt: timestamp('acknowledged_at'),
   escalationLevel: integer('escalation_level').default(1),
@@ -54,6 +62,8 @@ export const alerts = pgTable('alerts', {
   alertTypeCheck: check('alert_type_check', sql`${table.alertType} IN ('cardiac_arrest', 'code_blue', 'fire', 'security', 'medical_emergency')`),
   urgencyLevelCheck: check('urgency_level_check', sql`${table.urgencyLevel} BETWEEN 1 AND 5`),
   statusCheck: check('status_check', sql`${table.status} IN ('active', 'acknowledged', 'resolved')`),
+  targetDepartmentIdx: index('idx_alerts_target_department').on(table.targetDepartment),
+  statusTargetDeptIdx: index('idx_alerts_status_target_dept').on(table.status, table.targetDepartment),
 }));
 
 // Alert escalations
@@ -99,9 +109,10 @@ export const healthcareAuditLogs = pgTable('healthcare_audit_logs', {
   ipAddress: varchar('ip_address', { length: 45 }),
   userAgent: text('user_agent'),
   hospitalId: uuid('hospital_id').references(() => hospitals.id),
+  severity: varchar('severity', { length: 20 }).notNull().default('info'),
 }, (table) => ({
-  actionCheck: check('action_check', sql`${table.action} IN ('alert_created', 'alert_acknowledged', 'alert_escalated', 'alert_resolved', 'alert_transferred', 'bulk_alert_acknowledged', 'user_login', 'user_logout', 'permission_changed', 'role_changed', 'patient_created', 'patient_updated', 'patient_discharged', 'vitals_recorded', 'care_team_assigned', 'shift_started', 'shift_ended')`),
-  entityTypeCheck: check('entity_type_check', sql`${table.entityType} IN ('alert', 'user', 'system', 'permission', 'patient')`),
+  severityCheck: check('severity_check', sql`${table.severity} IN ('info', 'warning', 'error', 'critical')`),
+  entityTypeCheck: check('entity_type_check', sql`${table.entityType} IN ('alert', 'user', 'system', 'permission', 'patient', 'auth', 'audit')`),
 }));
 
 // Departments

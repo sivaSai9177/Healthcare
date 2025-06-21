@@ -3,8 +3,7 @@ import type { Transporter, SendMailOptions } from 'nodemailer';
 import { log } from '@/lib/core/debug/logger';
 import { db } from '@/src/db';
 import { notificationLogs } from '@/src/db/notification-schema';
-import Bull from 'bull';
-import Handlebars from 'handlebars';
+import Redis from 'ioredis';
 import { z } from 'zod';
 
 // Email validation schema
@@ -58,7 +57,7 @@ interface RateLimitInfo {
 
 class EmailService {
   private transporter: Transporter | null = null;
-  private queue: Bull.Queue<EmailOptions> | null = null;
+  private redis: Redis | null = null;
   private templates: Map<string, EmailTemplate> = new Map();
   private rateLimits: Map<string, RateLimitInfo> = new Map();
   private isInitialized = false;
@@ -75,9 +74,9 @@ class EmailService {
       // Initialize transporter
       await this.initializeTransporter();
       
-      // Initialize queue if enabled
+      // Initialize Redis if enabled
       if (process.env.EMAIL_QUEUE_ENABLED === 'true') {
-        await this.initializeQueue();
+        await this.initializeRedis();
       }
       
       // Load templates
@@ -148,79 +147,27 @@ class EmailService {
     }
   }
 
-  private async initializeQueue() {
+  private async initializeRedis() {
     try {
       const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+      this.redis = new Redis(redisUrl);
       
-      this.queue = new Bull('email-notifications', redisUrl, {
-        defaultJobOptions: {
-          attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 2000,
-          },
-          removeOnComplete: true,
-          removeOnFail: false,
-        },
-      });
-
-      // Process queue
-      this.queue.process(async (job) => {
-        return await this.sendDirect(job.data);
-      });
-
-      // Queue event handlers
-      this.queue.on('completed', (job, result) => {
-        log.info('Email job completed', 'EMAIL_QUEUE', { 
-          jobId: job.id, 
-          messageId: result.messageId 
-        });
-      });
-
-      this.queue.on('failed', (job, err) => {
-        log.error('Email job failed', 'EMAIL_QUEUE', { 
-          jobId: job.id, 
-          error: err.message,
-          attempts: job.attemptsMade,
-        });
-      });
-
-      this.queue.on('stalled', (job) => {
-        log.warn('Email job stalled', 'EMAIL_QUEUE', { jobId: job.id });
-      });
-
-      log.info('Email queue initialized', 'EMAIL_QUEUE');
+      await this.redis.ping();
+      log.info('Redis connection established for email service', 'EMAIL');
     } catch (error) {
-      log.warn('Email queue initialization failed, falling back to direct sending', 'EMAIL_QUEUE', error);
-      this.queue = null;
+      log.warn('Redis initialization failed, email service will work without caching', 'EMAIL', error);
+      this.redis = null;
     }
   }
 
   private async loadTemplates() {
     // Import and register all templates
     try {
-      // Dynamic imports for templates
-      const templates = {
-        // Auth templates
-        'auth.welcome': await import('./email-templates/auth/welcome'),
-        'auth.verify': await import('./email-templates/auth/verify-email'),
-        'auth.reset': await import('./email-templates/auth/reset-password'),
-        'auth.magic-link': await import('./email-templates/auth/magic-link'),
-        
-        // Healthcare templates
-        'healthcare.alert': await import('./email-templates/healthcare/alert-notification'),
-        'healthcare.escalation': await import('./email-templates/healthcare/escalation-warning'),
-        'healthcare.shift-summary': await import('./email-templates/healthcare/shift-summary'),
-        
-        // Organization templates
-        'org.invitation': await import('./email-templates/organization/invitation'),
-        'org.role-change': await import('./email-templates/organization/role-change'),
-      };
-
-      for (const [name, module] of Object.entries(templates)) {
-        if (module.default) {
-          this.templates.set(name, module.default);
-        }
+      // Only load templates that exist
+      const alertTemplate = await import('./email-templates/healthcare/alert-notification');
+      if (alertTemplate.default) {
+        this.templates.set('healthcare.alert', alertTemplate.default);
+        this.templates.set('alert-notification', alertTemplate.default); // For backward compatibility
       }
 
       log.info(`Loaded ${this.templates.size} email templates`, 'EMAIL');
@@ -299,7 +246,8 @@ class EmailService {
       if (typeof field === 'function') {
         return field(data);
       }
-      return Handlebars.compile(field)(data);
+      // Simple template interpolation
+      return field.replace(/\{\{(\w+)\}\}/g, (match, key) => data[key] || match);
     };
 
     return {
@@ -336,12 +284,8 @@ class EmailService {
         options.to = devEmail;
       }
 
-      // Queue or send directly
-      if (this.queue && options.priority !== 'high') {
-        return await this.queueEmail(options);
-      } else {
-        return await this.sendDirect(options);
-      }
+      // Always send directly (queueing handled by hybrid-queue)
+      return await this.sendDirect(options);
     } catch (error) {
       log.error('Failed to send email', 'EMAIL', error);
       
@@ -360,35 +304,6 @@ class EmailService {
     }
   }
 
-  // Queue email for background sending
-  private async queueEmail(options: EmailOptions): Promise<EmailResult> {
-    if (!this.queue) {
-      return await this.sendDirect(options);
-    }
-
-    try {
-      const jobOptions: Bull.JobOptions = {
-        priority: options.priority === 'high' ? 1 : options.priority === 'low' ? 3 : 2,
-        delay: options.scheduledFor ? options.scheduledFor.getTime() - Date.now() : 0,
-      };
-
-      const job = await this.queue.add(options, jobOptions);
-
-      log.info('Email queued', 'EMAIL_QUEUE', { 
-        jobId: job.id,
-        to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
-      });
-
-      return {
-        success: true,
-        queueId: job.id.toString(),
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      log.error('Failed to queue email, sending directly', 'EMAIL_QUEUE', error);
-      return await this.sendDirect(options);
-    }
-  }
 
   // Send email directly
   private async sendDirect(options: EmailOptions): Promise<EmailResult> {
@@ -548,61 +463,13 @@ class EmailService {
     }
   }
 
-  // Get queue statistics
-  async getQueueStats(): Promise<any> {
-    if (!this.queue) {
-      return null;
-    }
-
-    const [waiting, active, completed, failed, delayed] = await Promise.all([
-      this.queue.getWaitingCount(),
-      this.queue.getActiveCount(),
-      this.queue.getCompletedCount(),
-      this.queue.getFailedCount(),
-      this.queue.getDelayedCount(),
-    ]);
-
-    return {
-      waiting,
-      active,
-      completed,
-      failed,
-      delayed,
-      total: waiting + active + delayed,
-    };
-  }
-
-  // Pause queue processing
-  async pauseQueue(): Promise<void> {
-    if (this.queue) {
-      await this.queue.pause();
-      log.info('Email queue paused', 'EMAIL_QUEUE');
-    }
-  }
-
-  // Resume queue processing
-  async resumeQueue(): Promise<void> {
-    if (this.queue) {
-      await this.queue.resume();
-      log.info('Email queue resumed', 'EMAIL_QUEUE');
-    }
-  }
-
-  // Clean old jobs
-  async cleanQueue(grace: number = 3600000): Promise<void> {
-    if (this.queue) {
-      await this.queue.clean(grace, 'completed');
-      await this.queue.clean(grace * 24, 'failed'); // Keep failed jobs longer
-      log.info('Email queue cleaned', 'EMAIL_QUEUE');
-    }
-  }
 
   // Shutdown gracefully
   async shutdown(): Promise<void> {
     log.info('Shutting down email service', 'EMAIL');
     
-    if (this.queue) {
-      await this.queue.close();
+    if (this.redis) {
+      await this.redis.quit();
     }
     
     if (this.transporter) {
@@ -618,3 +485,20 @@ export const emailService = new EmailService();
 
 // Export types
 export type { EmailService };
+
+// Export specific functions for queue worker compatibility
+export const sendAlertNotificationEmail = async (data: {
+  to: string;
+  alertType: string;
+  roomNumber: string;
+  urgencyLevel: number;
+  description: string;
+  createdAt: Date;
+}) => {
+  return emailService.send({
+    to: data.to,
+    subject: `🚨 Healthcare Alert: ${data.alertType}`,
+    template: 'alert-notification',
+    data,
+  });
+};

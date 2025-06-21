@@ -96,3 +96,71 @@ Thumbs.db
 # IDE
 *.sublime-*
 *.code-workspace
+
+# Documentation
+docs/archive/temp/
+*.backup.md
+.obsidian/
+.notion/
+
+# Generated documentation
+docs/generated/
+api-docs/
+typedoc/
+
+# Testing artifacts
+test-results/
+*.test-results.json
+e2e-screenshots/
+e2e-videos/
+.nyc_output/
+
+# Performance
+.lighthouse/
+bundle-stats/
+webpack-stats.json
+
+# Security
+.security/
+*.pem
+*.key
+*.cert
+security-audit/
+
+# AI/ML
+models/
+*.onnx
+*.pb
+.python-version
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Backups
+*.backup
+*.bak
+backup/
+backups/
+
+# Personal notes
+.notes/
+TODO.personal.md
+NOTES.personal.md
+
+# Kamal deployment
+.kamal/secrets.local
+.kamal/secrets.production
+.kamal/secrets.staging
+.kamal/build/
+.kamal/locks/
+
+# PostHog
+posthog_data/
+posthog_postgres_data/
+posthog_redis_data/

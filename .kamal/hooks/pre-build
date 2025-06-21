@@ -1,0 +1,37 @@
+#!/bin/bash
+# Pre-build hook - Run before building Docker images
+
+echo "🏗️  Pre-build: Preparing for Docker build..."
+
+# Ensure .env file exists
+if [ ! -f .env ]; then
+    echo "⚠️  Warning: .env file not found, using .env.example"
+    cp .env.example .env
+fi
+
+# Generate build timestamp
+BUILD_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+echo "BUILD_TIMESTAMP=${BUILD_TIMESTAMP}" >> .env
+
+# Ensure database migrations are up to date
+echo "📝 Generating database migrations..."
+bun run db:generate || {
+    echo "❌ Failed to generate database migrations"
+    exit 1
+}
+
+# Run tests before building
+echo "🧪 Running tests..."
+bun test || {
+    echo "❌ Tests failed. Fix errors before deployment."
+    exit 1
+}
+
+# Check for TypeScript errors
+echo "🔍 Checking TypeScript..."
+bun run typecheck || {
+    echo "❌ TypeScript errors found. Fix before deployment."
+    exit 1
+}
+
+echo "✅ Pre-build checks completed successfully!"

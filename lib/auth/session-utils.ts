@@ -6,7 +6,7 @@
 import { Platform } from 'react-native';
 import type { Session, User } from 'better-auth/types';
 import { authClient } from './auth-client';
-import { logger } from '@/lib/core/debug/unified-logger';
+import { logger } from '@/lib/core/debug/server-logger';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Session cache for performance

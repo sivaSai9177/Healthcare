@@ -350,7 +350,7 @@ export const Popover = React.forwardRef<View, PopoverProps>(
       borderRadius: componentSpacing.borderRadius,
       borderWidth: 1,
       borderColor: theme.border,
-      padding: spacing[3],
+      padding: spacing[3] as any,
       ...designSystem.shadows.md,
       top: position.top,
       left: position.left,
@@ -393,7 +393,7 @@ export const Popover = React.forwardRef<View, PopoverProps>(
                 defaultContentStyle, 
                 animated && shouldAnimate() && animationType !== 'none' 
                   ? animatedContentStyle 
-                  : { opacity: 1 },
+                  : { opacity: 1 as any },
                 Platform.OS === 'web' && animated && shouldAnimate() && {
                   transition: 'all 0.2s ease',
                   transformOrigin: getTransformOrigin(),
@@ -407,7 +407,7 @@ export const Popover = React.forwardRef<View, PopoverProps>(
             >
               {showArrow && <View style={arrowStyles} className="border-b-popover" />}
               {isLoading ? (
-                <View style={{ padding: spacing[4], alignItems: 'center' }}>
+                <View style={{ padding: spacing[4] as any, alignItems: 'center' }}>
                   <ActivityIndicator size="small" className="text-primary" />
                 </View>
               ) : (

@@ -1,63 +1,44 @@
 import { createTRPCReact } from '@trpc/react-query';
-import { httpBatchLink, TRPCClientError, wsLink, splitLink, createWSClient } from '@trpc/client';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import React, { useState } from 'react';
+import { httpBatchLink, TRPCClientError, wsLink, splitLink, createWSClient, TRPCLink } from '@trpc/client';
+import { observable } from '@trpc/server/observable';
+import { QueryClient, QueryClientProvider, HydrationBoundary, dehydrate } from '@tanstack/react-query';
+import React, { useState, useMemo } from 'react';
 import { Platform } from 'react-native';
 import type { AppRouter } from '@/src/server/routers';
-import { getApiUrl, getWebSocketUrl, isWebSocketEnabled } from '@/lib/core/config/unified-env';
+import { getApiUrl } from '@/lib/core/config/unified-env';
+import { getWebSocketConfig } from '@/lib/core/config/websocket-config';
 import { log } from '@/lib/core/debug/logger';
+import { logger } from '@/lib/core/debug/unified-logger';
 import { authClient } from '@/lib/auth/auth-client';
+// Removed broken import - createQueryClient will be defined inline
 
 // Create tRPC React hooks
 export const api = createTRPCReact<AppRouter>();
 
-// Optimized query client factory to prevent excessive refetching
+// Create query client with SSR-friendly defaults
 function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // Much longer stale time to reduce requests
-        staleTime: 10 * 60 * 1000, // 10 minutes
-        // Disable aggressive refetching
+        // With SSR, we usually want to set some sensible defaults
+        // to avoid refetching immediately on the client
+        staleTime: 60 * 1000, // 1 minute
+        gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+        retry: Platform.OS === 'web' ? 0 : 3, // Don't retry on web in SSR
         refetchOnWindowFocus: false,
-        refetchOnMount: false, // Only fetch when explicitly needed
-        refetchOnReconnect: false, // Prevents loader on network changes
-        // Disable background refetch
-        refetchInterval: false,
-        refetchIntervalInBackground: false,
-        // Conservative retry strategy
-        retry: (failureCount, error) => {
-          // Don't retry on auth errors
-          if (error instanceof TRPCClientError) {
-            const code = error.data?.code;
-            if (code === 'UNAUTHORIZED' || code === 'FORBIDDEN' || code === 'NOT_FOUND') {
-              return false;
-            }
-          }
-          return failureCount < 1; // Only retry once
-        },
-        retryDelay: 2000, // Fixed 2 second delay
-        // Longer cache time
-        gcTime: 15 * 60 * 1000, // 15 minutes
-      },
-      mutations: {
-        retry: false,
-        // Global error handling for mutations
-        onError: (error) => {
-          log.error('Mutation failed', 'TRPC', error);
-        },
-        // Global success handling
-        onSuccess: () => {
-          log.debug('Mutation completed successfully', 'TRPC');
-        },
-        // Prevent mutation caching issues
-        gcTime: 0,
+        refetchOnMount: false,
       },
     },
   });
 }
 
-export function TRPCProvider({ children }: { children: React.ReactNode }) {
+// SSR support: Allow passing initial state
+interface TRPCProviderProps {
+  children: React.ReactNode;
+  dehydratedState?: any;
+}
+
+export function TRPCProvider({ children, dehydratedState }: TRPCProviderProps) {
   log.debug('TRPC Provider mounting', 'TRPC');
   
   const [queryClient] = useState(() => createQueryClient());
@@ -81,6 +62,51 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
   // Create stable tRPC client with proper error handling
   const trpcClient = React.useMemo(() => {
     try {
+
+      // Create error link to handle TRPC errors globally
+      const errorLink: TRPCLink<AppRouter> = () => {
+        return ({ next, op }) => {
+          return observable((observer) => {
+            const unsubscribe = next(op).subscribe({
+              next(value) {
+                observer.next(value);
+              },
+              error(err) {
+                logger.trpc.error(op.path, op.type, err);
+                
+                // Check for database connection errors
+                const errorMessage = err?.message || err?.toString() || '';
+                if (errorMessage.includes('too many clients already') || 
+                    errorMessage.includes('FATAL') ||
+                    errorMessage.includes('53300')) {
+                  logger.auth.error('Database connection exhausted', {
+                    operation: op.path,
+                    error: errorMessage
+                  });
+                  
+                  // Stop further session checks
+                  if (op.path === 'auth.getSession') {
+                    logger.auth.warn('Disabling session checks due to database exhaustion');
+                  }
+                }
+                
+                // Use the global error store to handle TRPC errors
+                // The store is set up by RootErrorStoreSetup component
+                const errorStore = (window as any).__errorDetectionStore;
+                if (errorStore?.handleTRPCError) {
+                  errorStore.handleTRPCError(err);
+                }
+                
+                observer.error(err);
+              },
+              complete() {
+                observer.complete();
+              },
+            });
+            return unsubscribe;
+          });
+        };
+      };
 
       // Create HTTP link configuration
       const httpLink = httpBatchLink({
@@ -111,10 +137,35 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
                   ...baseHeaders,
                   'Authorization': `Bearer ${token}`,
                 };
-                log.debug('Returning headers with auth', 'TRPC');
+                log.debug('Returning headers with auth', 'TRPC', {
+                  headers: Object.keys(headersWithAuth),
+                  hasAuth: !!headersWithAuth.Authorization
+                });
                 return headersWithAuth;
               } else {
                 log.debug('No session token available', 'TRPC');
+                
+                // Try to get cookie as fallback
+                const { waitForStorageInit, mobileStorage } = await import('../core/secure-storage');
+                await waitForStorageInit();
+                
+                const cookie = mobileStorage.getItem('better-auth_cookie') || 
+                              mobileStorage.getItem('better-auth.cookie');
+                
+                if (cookie) {
+                  log.debug('Found cookie, extracting token', 'TRPC');
+                  const tokenMatch = cookie.match(/better-auth\.session-token=([^;\s]+)/);
+                  if (tokenMatch && tokenMatch[1]) {
+                    const extractedToken = tokenMatch[1];
+                    log.debug('Extracted token from cookie', 'TRPC', {
+                      tokenPreview: extractedToken.substring(0, 20) + '...'
+                    });
+                    return {
+                      ...baseHeaders,
+                      'Authorization': `Bearer ${extractedToken}`,
+                    };
+                  }
+                }
               }
             } catch (error) {
               log.error('Failed to add auth headers', 'TRPC', error);
@@ -123,14 +174,45 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
             return baseHeaders;
           }
           
-          // On web, use cookies
-          log.debug('Web platform, using cookies', 'TRPC');
+          // On web, try to use Bearer token from localStorage as fallback
+          log.debug('Web platform, checking for auth', 'TRPC');
+          
+          // First try cookies
           const cookies = authClient.getCookie();
           if (cookies) {
+            log.debug('Using cookies for auth', 'TRPC');
             return {
               ...baseHeaders,
               'Cookie': cookies,
             };
+          }
+          
+          // Fallback to Bearer token from localStorage
+          try {
+            const token = localStorage.getItem('auth-token');
+            if (token) {
+              // Check if token is not too old (24 hours)
+              const timestamp = localStorage.getItem('auth-token-timestamp');
+              if (timestamp) {
+                const age = Date.now() - parseInt(timestamp, 10);
+                if (age > 24 * 60 * 60 * 1000) {
+                  log.debug('Token too old, removing', 'TRPC');
+                  localStorage.removeItem('auth-token');
+                  localStorage.removeItem('auth-token-timestamp');
+                } else {
+                  log.debug('Using Bearer token from localStorage', 'TRPC', {
+                    tokenPreview: token.substring(0, 20) + '...',
+                    age: Math.round(age / 1000 / 60) + ' minutes'
+                  });
+                  return {
+                    ...baseHeaders,
+                    'Authorization': `Bearer ${token}`,
+                  };
+                }
+              }
+            }
+          } catch (e) {
+            log.error('Failed to get token from localStorage', 'TRPC', e);
           }
           
           return baseHeaders;
@@ -172,19 +254,16 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
         },
       });
 
-      // Only create WebSocket link if WebSocket is enabled and we're not in a test environment
-      const enableWebSocket = isWebSocketEnabled() && 
-                            typeof WebSocket !== 'undefined' &&
-                            process.env.NODE_ENV !== 'test';
+      // Get WebSocket configuration
+      const wsConfig = getWebSocketConfig();
       
-      if (enableWebSocket) {
+      if (wsConfig.enabled) {
         try {
-          const wsUrl = getWebSocketUrl();
-          log.debug('WebSocket URL configured', 'TRPC', { wsUrl });
+          log.debug('WebSocket URL configured', 'TRPC', { wsUrl: wsConfig.url });
           
           // Create WebSocket client
           const wsClient = createWSClient({
-            url: wsUrl,
+            url: wsConfig.url,
             connectionParams: async () => {
               // Use better-auth's universal cookie management for WebSocket
               const cookies = authClient.getCookie();
@@ -221,6 +300,51 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
             client: wsClient,
           });
 
+          // Custom logging link for healthcare operations
+          const loggingLink: TRPCLink<AppRouter> = () => {
+            return ({ next, op }) => {
+              // Log healthcare operations
+              if (op.path.includes('healthcare')) {
+                logger.healthcare.info(`TRPC ${op.type}: ${op.path}`, {
+                  type: op.type,
+                  path: op.path,
+                  input: op.input,
+                });
+              }
+              
+              return observable((observer) => {
+                const unsubscribe = next(op).subscribe({
+                  next(value) {
+                    if (op.path.includes('healthcare')) {
+                      logger.healthcare.info(`TRPC ${op.type} success: ${op.path}`, {
+                        type: op.type,
+                        path: op.path,
+                        result: value.result,
+                      });
+                    }
+                    observer.next(value);
+                  },
+                  error(err) {
+                    if (op.path.includes('healthcare')) {
+                      logger.healthcare.error(`TRPC ${op.type} error: ${op.path}`, {
+                        type: op.type,
+                        path: op.path,
+                        error: err,
+                        message: err?.message,
+                        code: err?.data?.code,
+                      });
+                    }
+                    observer.error(err);
+                  },
+                  complete() {
+                    observer.complete();
+                  },
+                });
+                return unsubscribe;
+              });
+            };
+          };
+
           // Use split link to route subscriptions through WebSocket
           const link = splitLink({
             condition: (op) => op.type === 'subscription',
@@ -229,21 +353,66 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           });
           
           return api.createClient({
-            links: [link],
+            links: [errorLink, loggingLink, link],
           });
         } catch (wsError) {
           log.error('Failed to create WebSocket link, falling back to HTTP only', 'TRPC', wsError);
           // Fall back to HTTP-only mode
           return api.createClient({
-            links: [httpLink],
+            links: [errorLink, httpLink],
           });
         }
       }
 
+      // Custom logging link for healthcare operations
+      const loggingLink: TRPCLink<AppRouter> = () => {
+        return ({ next, op }) => {
+          // Log healthcare operations
+          if (op.path.includes('healthcare')) {
+            logger.healthcare.info(`TRPC ${op.type}: ${op.path}`, {
+              type: op.type,
+              path: op.path,
+              input: op.input,
+            });
+          }
+          
+          return observable((observer) => {
+            const unsubscribe = next(op).subscribe({
+              next(value) {
+                if (op.path.includes('healthcare')) {
+                  logger.healthcare.info(`TRPC ${op.type} success: ${op.path}`, {
+                    type: op.type,
+                    path: op.path,
+                    result: value.result,
+                  });
+                }
+                observer.next(value);
+              },
+              error(err) {
+                if (op.path.includes('healthcare')) {
+                  logger.healthcare.error(`TRPC ${op.type} error: ${op.path}`, {
+                    type: op.type,
+                    path: op.path,
+                    error: err,
+                    message: err?.message,
+                    code: err?.data?.code,
+                  });
+                }
+                observer.error(err);
+              },
+              complete() {
+                observer.complete();
+              },
+            });
+            return unsubscribe;
+          });
+        };
+      };
+
       // Default to HTTP-only when WebSocket is disabled
       log.debug('WebSocket disabled, using HTTP-only mode', 'TRPC');
       return api.createClient({
-        links: [httpLink],
+        links: [errorLink, loggingLink, httpLink],
       });
     } catch (err) {
       log.error('Failed to create tRPC client', 'TRPC', err);
@@ -272,7 +441,9 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
   return (
     <api.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        {children}
+        <HydrationBoundary state={dehydratedState}>
+          {children}
+        </HydrationBoundary>
         {/* React Query DevTools not available for React Native */}
         {/* {__DEV__ && Platform.OS === 'web' && (
           <ReactQueryDevtools

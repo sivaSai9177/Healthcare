@@ -1,0 +1,46 @@
+appId: ${APP_ID}
+tags:
+  - navigation
+  - smoke
+---
+# Navigation Flow Test
+- runFlow: ../auth/login.yaml
+
+# Test main navigation
+- assertVisible:
+    text: "Dashboard"
+    
+# Navigate to Alerts
+- tapOn:
+    text: "Alerts"
+- assertVisible:
+    text: "Active Alerts"
+    timeout: 5000
+    
+# Navigate to Patients
+- tapOn:
+    text: "Patients"
+- assertVisible:
+    text: "Patient List"
+    timeout: 5000
+    
+# Navigate to Settings
+- tapOn:
+    text: "Settings"
+- assertVisible:
+    text: "Settings"
+    timeout: 5000
+    
+# Test back navigation
+- back
+- assertVisible:
+    text: "Patient List"
+    
+# Return to Dashboard
+- tapOn:
+    text: "Dashboard"
+- assertVisible:
+    text: "Welcome back"
+    timeout: 5000
+    
+- takeScreenshot: navigation-complete

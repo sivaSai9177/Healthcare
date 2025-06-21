@@ -1,0 +1,308 @@
+# Expo Ignore File - Optimized for Healthcare Alert System
+# Files and directories that should not be included in Expo builds
+# This significantly reduces bundle size and improves performance
+
+# Documentation (not needed in app)
+docs/
+*.md
+LICENSE
+CONTRIBUTING.md
+README.md
+
+# Testing (excluded from production)
+__tests__/
+__mocks__/
+testing/
+*.test.ts
+*.test.tsx
+*.test.js
+*.test.jsx
+*.spec.ts
+*.spec.tsx
+*.spec.js
+*.spec.jsx
+coverage/
+.nyc_output/
+jest.config.js
+jest.config.*.js
+jest.setup.js
+
+# Development tools
+.vscode/
+.idea/
+.claude/
+.github/
+.husky/
+.git/
+.gitattributes
+
+# Scripts and build configs
+scripts/
+*.sh
+.eslintrc*
+.prettierrc*
+.editorconfig
+eslint.config.js
+prettier.config.js
+.eslintignore
+.prettierignore
+
+# TypeScript configs (compiled already)
+tsconfig.json
+tsconfig.*.json
+*.tsbuildinfo
+
+# Build artifacts
+dist/
+build/
+out/
+web-build/
+
+# Database files
+drizzle/
+drizzle.config.ts
+*.sqlite
+*.sqlite3
+*.db
+migrations/
+seeds/
+
+# Docker and deployment
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+docker/
+.kamal/
+config/deploy*.yml
+ecosystem.config.js
+fly.toml
+vercel.json
+netlify.toml
+
+# CI/CD
+.circleci/
+.travis.yml
+.gitlab-ci.yml
+azure-pipelines.yml
+.buildkite/
+.drone.yml
+Jenkinsfile
+
+# Environment files (security)
+.env*
+.env.local
+.env.development
+.env.staging
+.env.production
+.env.test
+.env.example
+.env.*.example
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+.directory
+tmp/
+temp/
+.cache/
+
+# Backup files
+*.backup
+*.bak
+backup/
+backups/
+
+# Archives
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+
+# Analytics and monitoring
+posthog_data/
+posthog_postgres_data/
+posthog_redis_data/
+.lighthouse/
+bundle-stats/
+.datadog/
+.newrelic/
+.sentry/
+
+# Security files
+.security/
+*.pem
+*.key
+*.cert
+security-audit/
+credentials/
+credentials.json
+*.jks
+*.p12
+*.p8
+*.mobileprovision
+
+# Large assets
+*.psd
+*.sketch
+*.fig
+*.xd
+*.ai
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+raw-images/
+*.raw
+*.cr2
+*.nef
+
+# Data files
+*.csv
+*.xlsx
+*.xls
+data/
+datasets/
+test-data/
+mock-data/
+fixtures/
+
+# MVP temporary files
+MVP_*.md
+TESTING_*.md
+*_SUMMARY.md
+*_REPORT.md
+*_CHECKLIST.md
+*_QUICKSTART.md
+*_FIX.md
+*_PLAN.md
+*_GUIDE.md
+*_TRACKER.md
+TEST_RESULTS_*.md
+
+# Generated documentation
+api-docs/
+typedoc/
+storybook-static/
+.storybook/
+stories/
+
+# Package manager files (keep only bun.lockb)
+.npmrc
+.yarnrc
+.pnpm-workspace.yaml
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Platform specific (unused)
+windows/
+macos/
+linux/
+android/
+ios/
+
+# Other languages/tools
+__pycache__/
+*.py[cod]
+.Python
+.pyenv
+*.gem
+*.rbc
+.bundle/
+Gemfile.lock
+target/
+Cargo.lock
+*.exe
+*.dll
+*.so
+*.dylib
+*.class
+*.jar
+.gradle/
+gradle/
+
+# ML Models
+*.h5
+*.pkl
+*.model
+*.weights
+*.onnx
+*.pb
+models/
+
+# Infrastructure
+*.tf
+*.tfvars
+*.tfstate
+.terraform/
+k8s/
+helm/
+*.yaml
+*.yml
+!app.json
+!package.json
+!babel.config.js
+
+# Serverless
+serverless.yml
+.serverless/
+
+# Personal notes
+.notes/
+TODO.personal.md
+NOTES.personal.md
+
+# Archive folders
+archive/
+old/
+deprecated/
+
+# Performance reports
+webpack-stats.json
+bundle-report.html
+stats.json
+
+# Source maps
+*.map
+
+# Keep essential Expo files
+!.watchmanconfig
+!metro.config.js
+!app.config.js
+!tailwind.config.js
+
+# WebSocket server (separate deployment)
+src/server/websocket/
+
+# Email service files
+src/server/email/
+
+# Worker/queue files  
+src/server/services/queues/
+
+# SSR files (if not using)
+src/server/routers/ssr.ts
+app/api/ssr/
+
+# Unused hooks
+hooks/**/*.old.ts
+
+# Test credentials
+cookies.txt
+test-results-*.json
+
+# Kamal integration files
+KAMAL_*.md
+POSTHOG_*.md

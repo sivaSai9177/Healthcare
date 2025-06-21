@@ -14,7 +14,7 @@ const generateVerificationCode = () => {
 };
 
 // Verify expiry (15 minutes)
-const VERIFICATION_EXPIRY = 15 * 60 * 1000;
+// const VERIFICATION_EXPIRY = 15 * 60 * 1000; // Currently unused
 
 export const authExtensions = {
   // Reset password - send reset email
@@ -40,7 +40,7 @@ export const authExtensions = {
         }
 
         // Generate reset token using Better Auth
-        const response = await auth.api.forgetPassword({
+        await auth.api.forgetPassword({
           body: {
             email: input.email,
             redirectTo: process.env.EXPO_PUBLIC_APP_URL + '/auth/reset-password',
@@ -152,7 +152,7 @@ export const authExtensions = {
           //     expiresIn: '15 minutes',
           //   },
           // });
-          log.info('Email verification would be sent here', { email, code });
+          log.info('Email verification would be sent here', JSON.stringify({ email, code }));
         } catch (notifError) {
           log.error('Failed to send verification email via notification service', 'AUTH', notifError);
           // Continue without throwing - email might still be sent

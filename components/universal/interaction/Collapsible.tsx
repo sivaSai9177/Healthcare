@@ -293,8 +293,8 @@ export const Collapsible = React.forwardRef<View, CollapsibleProps>(
     return (
       <View
         ref={ref}
-        className={cn(variantClasses[variant], className)}
-        style={[variant === 'default' ? shadowStyle : {}, style]}
+        className={cn(variantClasses[variant], className) as string}
+        style={[variant === 'default' ? shadowStyle : {}, style] as any}
         testID={testID}
       >
         {animated && shouldAnimate() ? (

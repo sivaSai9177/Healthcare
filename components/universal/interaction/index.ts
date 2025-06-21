@@ -5,3 +5,6 @@ export { Command } from './Command';
 export { HapticTab } from './HapticTab';
 export { Search } from './Search';
 export * from './PrimaryButton';
+
+// Type exports
+export type * from './types';

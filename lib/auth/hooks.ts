@@ -58,7 +58,7 @@ export function useSecureSession() {
   const handleSessionExpired = useCallback(async (reason: string) => {
     try {
       await authClient.signOut();
-      router.replace('/login?reason=' + reason);
+      router.replace(`/(public)/auth/login?reason=${reason}` as any);
     } catch (error) {
       log.error('Failed to handle session expiration', 'AUTH_HOOKS', { error });
     }
@@ -297,7 +297,7 @@ export function useAuth() {
       setError(null);
       
       // Redirect to login
-      router.replace('/login');
+      router.replace('/(public)/auth/login' as any);
       
       log.info('User signed out successfully', 'AUTH_HOOKS', {
         everywhere: options?.everywhere,
@@ -483,7 +483,7 @@ export function useRequireAuth(options?: {
       log.info('Unauthenticated access attempt', 'AUTH_HOOKS', {
         redirectTo: options?.redirectTo || '/login',
       });
-      router.replace(options?.redirectTo || '/login');
+      router.replace(options?.redirectTo || '/(public)/auth/login' as any);
       setIsAuthorized(false);
       return;
     }

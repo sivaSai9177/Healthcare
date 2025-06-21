@@ -8,7 +8,7 @@ import { log } from '@/lib/core/debug/logger';
 // WebSocket server for real-time subscriptions
 export function createWebSocketServer(port: number = 3001) {
   // Create WebSocket server
-  const wss = new ws.Server({
+  const wss = new (ws as any).Server({
     port,
     path: '/api/trpc',
   });
@@ -48,10 +48,7 @@ export function createWebSocketServer(port: number = 3001) {
       const baseContext = await createContext({ 
         req: req as any, 
         res: mockRes,
-        headers: {
-          ...req.headers,
-          authorization,
-        },
+        headers: req.headers as any,
       });
       
       return {

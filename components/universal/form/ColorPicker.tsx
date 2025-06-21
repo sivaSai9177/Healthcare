@@ -335,7 +335,7 @@ export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
     //     style={{
     //       width: 200,
     //       height: 200,
-    //       borderRadius: 100,
+    //       borderRadius: 100 as any,
     //       overflow: 'hidden',
     //       marginBottom: spacing[4],
     //       alignSelf: 'center',
@@ -436,7 +436,7 @@ export const ColorPicker = React.forwardRef<View, ColorPickerProps>(
             style={{
               flexDirection: 'row',
               flexWrap: 'wrap',
-              gap: spacing[2],
+              gap: spacing[2] as any,
             }}
           >
             {presets.map((preset, index) => (

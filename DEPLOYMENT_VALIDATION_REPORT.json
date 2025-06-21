@@ -1,0 +1,13 @@
+{
+  "timestamp": "2025-06-19T18:32:00.776Z",
+  "environment": "development",
+  "database": "postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev",
+  "results": {
+    "total": 17,
+    "passed": 17,
+    "failed": 0,
+    "duration": 1297
+  },
+  "deploymentReady": true,
+  "failedChecks": []
+}

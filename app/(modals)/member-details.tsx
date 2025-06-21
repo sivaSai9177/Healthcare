@@ -1,3 +1,4 @@
+import type { SpacingValue, ButtonVariant, BadgeVariant } from '@/types/components';
 import React from 'react';
 import { View, ScrollView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -183,7 +184,7 @@ export default function MemberDetailsModal() {
               Edit Member
             </Button>
             <Button
-              variant="destructive"
+              variant="error"
               onPress={() => {
                 // TODO: Implement remove member logic
                 // Remove member logic

@@ -1,0 +1,30 @@
+# Staging-specific configuration
+# This overrides values in deploy.yml when deploying to staging
+
+servers:
+  web:
+    - <%= ENV['STAGING_SERVER_IP'] %>
+
+env:
+  clear:
+    APP_ENV: staging
+    NODE_ENV: production
+    EXPO_PUBLIC_API_URL: https://staging.<%= ENV['DEPLOY_DOMAIN'] %>
+    EXPO_PUBLIC_WS_URL: wss://staging.<%= ENV['DEPLOY_DOMAIN'] %>/ws
+    
+    # Use different PostHog project for staging
+    EXPO_PUBLIC_POSTHOG_PROJECT_ID: <%= ENV['STAGING_POSTHOG_PROJECT_ID'] %>
+
+# Staging uses a different database
+accessories:
+  postgres:
+    env:
+      clear:
+        POSTGRES_DB: healthcare_staging
+
+# Less retention for staging
+retain_containers: 3
+
+# Faster timeouts for staging
+deploy_timeout: 300
+drain_timeout: 15

@@ -425,7 +425,7 @@ export const RatingDisplay: React.FC<RatingDisplayProps> = ({
   const { spacing } = useSpacing();
 
   return (
-    <View style={[{ flexDirection: 'row', alignItems: 'center' }, style]}>
+    <View style={[{ flexDirection: 'row', alignItems: 'center' }, style] as any}>
       <Rating 
         value={value} 
         max={max} 
@@ -514,7 +514,7 @@ export const RatingStatistics: React.FC<RatingStatisticsProps> = ({
                   flex: 1,
                   height: 8,
                   backgroundColor: '#6b7280',
-                  borderRadius: 4,
+                  borderRadius: 4 as any,
                   marginHorizontal: spacing[2],
                   overflow: 'hidden',
                 }}
@@ -524,7 +524,7 @@ export const RatingStatistics: React.FC<RatingStatisticsProps> = ({
                     height: '100%',
                     width: `${(item.count / maxCount) * 100}%`,
                     backgroundColor: '#eab308',
-                    borderRadius: 4,
+                    borderRadius: 4 as any,
                     ...(Platform.OS === 'web' ? {
                       transition: 'width 0.3s ease-out',
                     } : {}),

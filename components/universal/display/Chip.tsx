@@ -273,7 +273,7 @@ export const Chip = React.forwardRef<View, ChipProps>(({
         <Symbol
           name={icon}
           size={config.iconSize}
-          className={cn(classes.text, 'mr-1')}
+          className={cn(classes.text, 'mr-1') as string}
         />
       )}
       
@@ -294,7 +294,7 @@ export const Chip = React.forwardRef<View, ChipProps>(({
         <Symbol
           name={icon}
           size={config.iconSize}
-          className={cn(classes.text, 'ml-1')}
+          className={cn(classes.text, 'ml-1') as string}
         />
       )}
       
@@ -308,7 +308,7 @@ export const Chip = React.forwardRef<View, ChipProps>(({
           <Symbol
             name="xmark"
             size={config.iconSize}
-            className={cn(classes.text, 'opacity-70')}
+            className={cn(classes.text, 'opacity-70') as string}
           />
         </Pressable>
       )}

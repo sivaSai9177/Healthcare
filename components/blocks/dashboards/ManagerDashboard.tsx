@@ -1,10 +1,9 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { Platform, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/lib/theme/provider';
-import { api } from '@/lib/api/trpc';
 import { 
   Container,
   VStack,
@@ -15,8 +14,6 @@ import {
   Box,
   Heading1,
   Avatar,
-  Badge,
-  Skeleton,
   Grid,
 } from '@/components/universal';
 import { useSpacing } from '@/lib/stores/spacing-store';
@@ -79,28 +76,28 @@ export default function ManagerDashboard() {
             <Text size="lg" weight="bold">Team Management</Text>
             <Grid columns={2} gap={2}>
               <Button
-                onPress={() => router.push('/(app)/team/members')}
+                onPress={() => router.push('/settings/members')}
                 variant="outline"
                 fullWidth
               >
                 Team Members
               </Button>
               <Button
-                onPress={() => router.push('/(app)/team/schedule')}
+                onPress={() => router.push('/shifts/handover')}
                 variant="outline"
                 fullWidth
               >
-                Schedule
+                Shift Schedule
               </Button>
               <Button
-                onPress={() => router.push('/(app)/reports')}
+                onPress={() => router.push('/analytics/response-analytics')}
                 variant="outline"
                 fullWidth
               >
-                Reports
+                Analytics
               </Button>
               <Button
-                onPress={() => router.push('/(organization)/dashboard')}
+                onPress={() => router.push('/organization/dashboard')}
                 variant="outline"
                 fullWidth
               >

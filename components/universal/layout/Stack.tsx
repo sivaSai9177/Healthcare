@@ -227,7 +227,7 @@ export const ZStack = React.forwardRef<View, ZStackProps>(({
   return (
     <Box
       ref={ref}
-      className={cn('relative', className)}
+      className={cn('relative', className) as string}
       {...props}
     >
       {childArray.map((child, index) => {
@@ -239,7 +239,7 @@ export const ZStack = React.forwardRef<View, ZStackProps>(({
         return (
           <View
             key={index}
-            className={cn('absolute', zAlignClasses[align])}
+            className={cn('absolute', zAlignClasses[align]) as string}
           >
             {child}
           </View>
@@ -269,7 +269,7 @@ export const Spacer = React.forwardRef<View, SpacerProps>(({
     return (
       <Box
         ref={ref}
-        className={cn(sizeClass, className)}
+        className={cn(sizeClass, className) as string}
         {...props}
       />
     );
@@ -279,7 +279,7 @@ export const Spacer = React.forwardRef<View, SpacerProps>(({
   return (
     <Box
       ref={ref}
-      className={cn('flex-1', className)}
+      className={cn('flex-1', className) as string}
       {...props}
     />
   );

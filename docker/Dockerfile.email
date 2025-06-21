@@ -1,0 +1,86 @@
+# Email Service Dockerfile
+# Production-ready email service for healthcare alerts
+
+FROM oven/bun:1 AS base
+WORKDIR /app
+
+# Dependencies stage
+FROM base AS deps
+COPY package.json bun.lockb* ./
+RUN bun install --frozen-lockfile --production
+
+# Development dependencies stage
+FROM base AS dev-deps
+COPY package.json bun.lockb* ./
+RUN bun install --frozen-lockfile
+
+# Build stage for TypeScript compilation
+FROM base AS builder
+COPY --from=dev-deps /app/node_modules ./node_modules
+COPY tsconfig.json ./
+COPY tsconfig.websocket.json ./
+COPY src ./src
+COPY lib ./lib
+COPY types ./types
+
+# Bundle the email service
+RUN bun build src/server/email/start.ts \
+    --outdir dist/server/email \
+    --target bun \
+    --format esm \
+    --sourcemap
+
+# Production stage
+FROM base AS production
+ENV NODE_ENV=production
+
+# Copy production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy bundled application
+COPY --from=builder /app/dist ./dist
+
+# Copy necessary source files for runtime
+COPY src/server/email/service.ts ./src/server/email/
+COPY lib ./lib
+COPY types ./types
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Switch to non-root user
+USER nodejs
+
+# Expose email service port
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3001/health || exit 1
+
+# Start the email service
+CMD ["bun", "run", "dist/server/email/start.js"]
+
+# Development stage with hot reload
+FROM base AS development
+ENV NODE_ENV=development
+
+# Copy all dependencies
+COPY --from=dev-deps /app/node_modules ./node_modules
+
+# Copy all source files
+COPY . .
+
+# Install bun-types for development
+RUN bun add -d @types/bun
+
+# Expose port
+EXPOSE 3001
+
+# Health check for development
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3001/health || exit 1
+
+# Start with hot reload
+CMD ["bun", "--hot", "src/server/email/start.ts"]

@@ -25,10 +25,10 @@ export { getApiUrlSync } from './core/config';
 // Debug utilities
 export { log } from './core/debug/logger';
 export { routerDebugger } from './core/debug/router-debug';
-export { trpcLogger } from './core/debug/trpc-logger';
+export { trpcLogger } from './core/debug/trpc-logger-enhanced';
 
 // Platform utilities
-export { secureStorage } from './core/platform/secure-storage';
+export { secureStorage } from './core/secure-storage';
 
 // Design System
 export * from './design';

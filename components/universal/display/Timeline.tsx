@@ -465,8 +465,8 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
 
   const cardStyle: ViewStyle = {
     backgroundColor: theme.card,
-    borderRadius: 8,
-    padding: spacing[3],
+    borderRadius: 8 as any,
+    padding: spacing[3] as any,
     borderWidth: 1,
     borderColor: theme.border,
     ...style,
@@ -510,7 +510,7 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({
                 backgroundColor: theme.muted,
                 paddingHorizontal: spacing[2],
                 paddingVertical: spacing[1],
-                borderRadius: 4,
+                borderRadius: 4 as any,
                 marginRight: spacing[1],
                 marginBottom: spacing[1],
               }}

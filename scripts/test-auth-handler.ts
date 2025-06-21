@@ -1,50 +1,45 @@
-#!/usr/bin/env bun
-import { auth } from '@/lib/auth';
-import { log } from '@/lib/core/logger';
+/**
+ * Test auth handler directly
+ */
+
+// Set NODE_ENV to avoid client-side imports
+process.env.NODE_ENV = 'production';
 
 async function testAuthHandler() {
-  log.info('Testing auth handler directly...', 'TEST');
-  
   try {
-    // Create a minimal request object
-    const request = new Request('http://localhost:8081/api/auth/sign-in/social', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        provider: 'google',
-        callbackURL: 'http://localhost:8081/auth-callback',
-      }),
-    });
+    console.log('Testing auth handler...\n');
     
-    log.info('Calling auth.handler with request', 'TEST', {
-      url: request.url,
-      method: request.method,
-      headers: Object.fromEntries(request.headers.entries()),
-    });
+    // Import auth
+    const { auth } = await import('../lib/auth/auth-server');
     
-    const response = await auth.handler(request);
+    console.log('Auth imported successfully');
+    console.log('Auth type:', typeof auth);
+    console.log('Auth handler type:', typeof auth?.handler);
+    console.log('Auth keys:', Object.keys(auth || {}));
     
-    log.info('Response from auth.handler', 'TEST', {
-      status: response.status,
-      statusText: response.statusText,
-    });
-    
-    const body = await response.text();
-    log.info('Response body', 'TEST', body);
-    
-  } catch (error) {
-    log.error('Error calling auth.handler', 'TEST', error);
+    if (auth && auth.handler) {
+      // Create a test request
+      const testRequest = new Request('http://localhost:8081/api/auth/session', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      console.log('\nCalling auth.handler...');
+      const response = await auth.handler(testRequest);
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      const text = await response.text();
+      console.log('Response body:', text);
+    } else {
+      console.error('Auth handler not available!');
+    }
+  } catch (error: any) {
+    console.error('Error:', error.message);
+    console.error('Stack:', error.stack);
   }
 }
-
-// Also test if auth object is correctly initialized
-log.info('Auth object check', 'TEST', {
-  hasAuth: !!auth,
-  hasHandler: typeof auth?.handler === 'function',
-  hasApi: !!auth?.api,
-  apiKeys: auth?.api ? Object.keys(auth.api) : [],
-});
 
 testAuthHandler();

@@ -9,11 +9,19 @@ import { log } from '../debug/logger';
 
 // Known network configurations
 export const NETWORK_CONFIGS = {
-  // Primary WiFi (original network)
-  primary: {
-    name: 'Primary WiFi',
+  // Current network (192.168.1.x)
+  current: {
+    name: 'Current WiFi',
     ipRange: '192.168.1.x',
-    expectedIPs: ['192.168.1.16', '192.168.1.101'],
+    expectedIPs: ['192.168.1.104', '192.168.1.16', '192.168.1.101'],
+    apiPort: 8081,
+    dbPort: 5432,
+  },
+  // Previous WiFi (192.168.0.x)
+  primary: {
+    name: 'Previous WiFi',
+    ipRange: '192.168.0.x',
+    expectedIPs: ['192.168.0.106', '192.168.0.105'],
     apiPort: 8081,
     dbPort: 5432,
   },

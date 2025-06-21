@@ -1,15 +1,14 @@
 import React, { useRef, useTransition, memo, useEffect } from 'react';
-import { Platform, FlatList, View, ScrollView } from 'react-native';
-import { Card, Badge } from '@/components/universal/display';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import { Platform, FlatList, ScrollView } from 'react-native';
+import { Badge } from '@/components/universal/display';
+import { GlassCard, AlertGlassCard } from '@/components/universal/display/GlassCard';
 import { VStack, HStack, Box } from '@/components/universal/layout';
 import { Text } from '@/components/universal/typography';
 import { Button } from '@/components/universal/interaction';
 import { useSpacing } from '@/lib/stores/spacing-store';
-import { useShadow } from '@/hooks/useShadow';
-import { api } from '@/lib/api/trpc';
 import { formatDistanceToNow } from 'date-fns';
 import { log } from '@/lib/core/debug/logger';
-import { showSuccessAlert, showErrorAlert } from '@/lib/core/alert';
 import { HealthcareUserRole } from '@/types/healthcare';
 import { cn } from '@/lib/core/utils';
 
@@ -17,7 +16,8 @@ import { cn } from '@/lib/core/utils';
 import { haptic } from '@/lib/ui/haptics';
 import { SpacingScale } from '@/lib/design';
 import { useAuthStore } from '@/lib/stores/auth-store';
-import { useAlertSubscription } from '@/hooks/healthcare/useAlertSubscription';
+import { useAlertWebSocket, useMobileAlertWebSocket, useHospitalContext } from '@/hooks/healthcare';
+import { useActiveAlerts, useAcknowledgeAlert, useResolveAlert } from '@/hooks/healthcare/useHealthcareApi';
 
 interface AlertItem {
   id: string;
@@ -35,6 +35,8 @@ interface AlertItem {
   resolvedBy?: string;
   resolvedByName?: string;
   createdByName: string;
+  organizationId?: string;
+  organizationName?: string;
 }
 
 // Alert card item component with memo for performance
@@ -55,7 +57,6 @@ const AlertCardItem = memo(({
 }) => {
   const { spacing } = useSpacing();
   const [isPending, startTransition] = useTransition();
-  const shadowMd = useShadow({ size: 'md' });
   
   // Calculate stagger delay for list animations
   const staggerDelay = Math.min(index + 1, 6);
@@ -64,6 +65,13 @@ const AlertCardItem = memo(({
     if (urgency >= 4) return 'destructive'; // high urgency
     if (urgency === 3) return 'secondary'; // medium urgency
     return 'default'; // low urgency
+  };
+  
+  const getUrgencyLevel = (urgency: number): 'critical' | 'high' | 'medium' | 'low' => {
+    if (urgency >= 5) return 'critical';
+    if (urgency >= 4) return 'high';
+    if (urgency === 3) return 'medium';
+    return 'low';
   };
   
   const getAlertIcon = (type: string) => {
@@ -78,24 +86,49 @@ const AlertCardItem = memo(({
     return icons[type] || '⚠️';
   };
   
+  // Use spring animation for entry
+  const entryScale = useSharedValue(0.95);
+  const entryOpacity = useSharedValue(0);
+  
+  React.useEffect(() => {
+    entryScale.value = withSpring(1, {
+      damping: 15,
+      stiffness: 150,
+      mass: 1,
+    });
+    entryOpacity.value = withTiming(1, {
+      duration: 300 + (staggerDelay * 50),
+    });
+  }, [entryScale, entryOpacity, staggerDelay]);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: entryScale.value }],
+    opacity: entryOpacity.value,
+  }));
+  
   return (
-    <Card
-      className={cn(
-        "border-l-4",
-        alert.resolved && 'opacity-70',
-        getUrgencyVariant(alert.urgency) === 'destructive' && 'border-l-destructive',
-        getUrgencyVariant(alert.urgency) === 'secondary' && 'border-l-secondary',
-        getUrgencyVariant(alert.urgency) === 'default' && 'border-l-primary'
-      )}
-      style={[
-        {
-          minHeight: 120,
-          padding: spacing[5],
-          gap: spacing[4],
-        },
-        shadowMd
-      ]}
-    >
+    <Animated.View style={animatedStyle}>
+      <AlertGlassCard
+        urgency={getUrgencyLevel(alert.urgency)}
+        className={cn(
+          "border-l-4",
+          alert.resolved && 'opacity-70',
+          getUrgencyVariant(alert.urgency) === 'destructive' && 'border-l-destructive',
+          getUrgencyVariant(alert.urgency) === 'secondary' && 'border-l-secondary',
+          getUrgencyVariant(alert.urgency) === 'default' && 'border-l-primary',
+          // Add pulse animation for critical alerts
+          alert.urgency >= 5 && !alert.acknowledged && 'animate-pulse'
+        )}
+        style={[
+          {
+            minHeight: 120,
+            padding: spacing[5],
+            gap: spacing[4],
+          }
+        ]}
+        pressable
+        onPress={() => haptic('light')}
+      >
       {/* Header Row */}
       <HStack justify="between" align="center">
         <HStack gap={spacing[4] as SpacingScale} align="center">
@@ -109,6 +142,11 @@ const AlertCardItem = memo(({
               >
                 Urgency {alert.urgency}
               </Badge>
+              {alert.organizationName && (
+                <Badge variant="outline" size="sm">
+                  {alert.organizationName}
+                </Badge>
+              )}
             </HStack>
             <Text size="sm" colorTheme="mutedForeground">
               {formatDistanceToNow(new Date(alert.createdAt), { addSuffix: true })}
@@ -163,7 +201,7 @@ const AlertCardItem = memo(({
         <HStack gap={spacing[4] as SpacingScale} style={{ marginTop: spacing[3] }}>
           {!alert.acknowledged && canAcknowledge && (
             <Button
-              variant="default"
+              variant={alert.urgency >= 4 ? "glass-primary" : "default"}
               size="sm"
               style={{ flex: 1.618 }}
               onPress={() => {
@@ -173,13 +211,14 @@ const AlertCardItem = memo(({
                 });
               }}
               isLoading={isPending}
+              className="shadow-md"
             >
               Acknowledge
             </Button>
           )}
           {alert.acknowledged && canResolve && (
             <Button
-              variant="secondary"
+              variant="glass"
               size="sm"
               style={{ flex: 1 }}
               onPress={() => {
@@ -189,13 +228,15 @@ const AlertCardItem = memo(({
                 });
               }}
               isLoading={isPending}
+              className="shadow-md"
             >
               Resolve
             </Button>
           )}
         </HStack>
       )}
-    </Card>
+      </AlertGlassCard>
+    </Animated.View>
   );
 }, (prevProps, nextProps) => {
   // Custom comparison for memo
@@ -211,32 +252,43 @@ AlertCardItem.displayName = 'AlertCardItem';
 
 // Main alert list block
 export const AlertList = ({ 
-  hospitalId, 
+  hospitalId: propHospitalId, 
   role,
-  maxHeight 
+  maxHeight,
+  scrollEnabled = true 
 }: { 
-  hospitalId: string;
+  hospitalId?: string;
   role: HealthcareUserRole;
   maxHeight?: number;
+  scrollEnabled?: boolean;
 }) => {
   const { spacing } = useSpacing();
-  const queryClient = api.useUtils();
   const listRef = useRef<FlatList>(null);
-  const shadowMd = useShadow({ size: 'md' });
   const { user } = useAuthStore();
+  const hospitalContext = useHospitalContext();
   
-  // Don't render if no user
-  if (!user) {
-    return null;
-  }
+  // Use enhanced API hooks
+  const alertsQuery = useActiveAlerts({
+    enabled: !!user && !!hospitalContext.hospitalId && hospitalContext.hospitalId !== '',
+  });
+  
+  // Use enhanced mutations with built-in error handling
+  const acknowledgeMutation = useAcknowledgeAlert();
+  const resolveMutation = useResolveAlert();
+  
+  // Use hospital context to determine the actual hospital ID
+  const hospitalId = propHospitalId || hospitalContext.hospitalId;
   
   // Permissions based on role
   const canAcknowledge = ['nurse', 'doctor', 'head_doctor', 'admin'].includes(role);
   const canResolve = ['doctor', 'head_doctor', 'admin'].includes(role);
   
-  // Subscribe to real-time alert updates
-  useAlertSubscription({
-    hospitalId,
+  // Subscribe to real-time alert updates with WebSocket
+  // Use mobile-optimized WebSocket for native platforms
+  const useWebSocket = Platform.OS === 'web' ? useAlertWebSocket : useMobileAlertWebSocket;
+  const { isConnected, isPolling } = useWebSocket({
+    hospitalId: hospitalId || '',
+    enabled: !!user && !!hospitalId,
     showNotifications: true,
     onAlertCreated: () => {
       log.info('New alert received, list will auto-refresh', 'ALERT_LIST');
@@ -252,102 +304,55 @@ export const AlertList = ({
     },
   });
   
-  // Fetch active alerts
-  const { data, isLoading, refetch } = api.healthcare.getActiveAlerts.useQuery(
-    { hospitalId },
-    {
-      // Real-time updates handle refreshing, no need for polling
-      enabled: !!user,
+  // Show connection status in development
+  useEffect(() => {
+    if (__DEV__) {
+      log.debug('Alert subscription status', 'ALERT_LIST', {
+        isConnected,
+        isPolling,
+        hospitalId,
+      });
     }
-  );
+  }, [isConnected, isPolling, hospitalId]);
   
-  // Acknowledge mutation
-  const acknowledgeMutation = api.healthcare.acknowledgeAlert.useMutation({
-    onMutate: async (input) => {
-      if (!input || !('alertId' in input) || !input.alertId) return;
-      
-      await queryClient.healthcare.getActiveAlerts.cancel();
-      const previousData = queryClient.healthcare.getActiveAlerts.getData();
-      
-      queryClient.healthcare.getActiveAlerts.setData(
-        { hospitalId },
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            alerts: old.alerts.map((alert: AlertItem) =>
-              alert.id === input.alertId
-                ? { ...alert, acknowledged: true, acknowledgedAt: new Date() }
-                : alert
-            ),
-          };
-        }
-      );
-      
-      return { previousData };
-    },
-    onError: (err, _variables, context) => {
-      if (context?.previousData) {
-        queryClient.healthcare.getActiveAlerts.setData(
-          { hospitalId },
-          context.previousData
-        );
-      }
-      showErrorAlert('Failed to acknowledge alert', err.message);
-    },
-    onSuccess: () => {
-      showSuccessAlert('Alert acknowledged');
-      queryClient.healthcare.getActiveAlerts.invalidate();
-    },
-  });
+  // Don't render if no user
+  if (!user) {
+    return null;
+  }
   
-  // Resolve mutation
-  const resolveMutation = api.healthcare.resolveAlert.useMutation({
-    onMutate: async (input) => {
-      if (!input || !('alertId' in input) || !input.alertId) return;
-      
-      await queryClient.healthcare.getActiveAlerts.cancel();
-      const previousData = queryClient.healthcare.getActiveAlerts.getData();
-      
-      queryClient.healthcare.getActiveAlerts.setData(
-        { hospitalId },
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            alerts: old.alerts.map((alert: AlertItem) =>
-              alert.id === input.alertId
-                ? { ...alert, resolved: true, resolvedAt: new Date() }
-                : alert
-            ),
-          };
-        }
-      );
-      
-      return { previousData };
-    },
-    onError: (err, _variables, context) => {
-      if (context?.previousData) {
-        queryClient.healthcare.getActiveAlerts.setData(
-          { hospitalId },
-          context.previousData
-        );
-      }
-      showErrorAlert('Failed to resolve alert', err.message);
-    },
-    onSuccess: () => {
-      showSuccessAlert('Alert resolved');
-      queryClient.healthcare.getActiveAlerts.invalidate();
-    },
-  });
+  // Show a simple message if hospital is missing (non-blocking)
+  if (!hospitalId) {
+    return (
+      <VStack className="p-4" gap={spacing[3] as SpacingScale}>
+        <GlassCard>
+          <VStack className="p-4" gap={spacing[2] as SpacingScale}>
+            <Text size="lg" weight="medium">No Hospital Selected</Text>
+            <Text size="sm" className="text-muted-foreground">
+              Please select a hospital from settings to view alerts.
+            </Text>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onPress={() => {
+                // Navigate to settings where user can select hospital
+                haptic('light');
+              }}
+            >
+              Go to Settings
+            </Button>
+          </VStack>
+        </GlassCard>
+      </VStack>
+    );
+  }
   
-  // Real-time subscription is handled by useAlertSubscription hook above
+  // Real-time subscription is handled by useAlertWebSocket hook above
   
   const renderItem = ({ item, index }: { item: AlertItem; index: number }) => (
     <AlertCardItem
       alert={item}
-      onAcknowledge={(id) => acknowledgeMutation.mutate({ alertId: id })}
-      onResolve={(id) => resolveMutation.mutate({ alertId: id })}
+      onAcknowledge={(id) => (acknowledgeMutation as any).mutateAsync({ alertId: id })}
+      onResolve={(id) => (resolveMutation as any).mutateAsync({ alertId: id })}
       canAcknowledge={canAcknowledge}
       canResolve={canResolve}
       index={index}
@@ -360,16 +365,16 @@ export const AlertList = ({
   // showResolved is intentionally not used in the query
   
   // Add defensive check after all hooks
-  if (!hospitalId || !role) {
-    log.error('AlertList missing required props', 'ALERT_LIST', { hospitalId, role });
+  if (!role) {
+    log.error('AlertList missing required role', 'ALERT_LIST', { role });
     return (
       <Box className="flex-1 items-center justify-center">
-        <Text colorTheme="mutedForeground">Missing required data</Text>
+        <Text colorTheme="mutedForeground">Missing user role</Text>
       </Box>
     );
   }
   
-  if (isLoading) {
+  if ((alertsQuery as any).isLoading || (alertsQuery as any).isFetching) {
     return (
       <VStack gap={spacing[4] as SpacingScale}>
         {[1, 2, 3].map((i) => (
@@ -380,8 +385,7 @@ export const AlertList = ({
               {
                 height: 120,
                 padding: spacing[5],
-              },
-              shadowMd
+              }
             ]}
           />
         ))}
@@ -389,19 +393,19 @@ export const AlertList = ({
     );
   }
   
-  const alerts = data?.alerts || [];
+  const alerts = ((alertsQuery as any).data)?.alerts || [];
   
   if (alerts.length === 0) {
     return (
-      <Card
+      <GlassCard
         className="items-center justify-center"
         style={[
           {
             minHeight: 200,
             padding: spacing[8],
-          },
-          shadowMd
+          }
         ]}
+        animationType="scale"
       >
         <VStack gap={spacing[4] as SpacingScale} align="center">
           <Text size="4xl">✅</Text>
@@ -410,7 +414,7 @@ export const AlertList = ({
             All alerts have been handled
           </Text>
         </VStack>
-      </Card>
+      </GlassCard>
     );
   }
   
@@ -430,15 +434,16 @@ export const AlertList = ({
         windowSize={10}
         initialNumToRender={5}
         removeClippedSubviews={true}
-        style={{
+        scrollEnabled={scrollEnabled}
+        style={scrollEnabled ? {
           maxHeight: maxHeight || 600,
-        }}
+        } : undefined}
       />
     );
   }
   
   // Web version with CSS animations
-  return (
+  return scrollEnabled ? (
     <ScrollView
       style={{ 
         maxHeight: maxHeight || 600,
@@ -450,8 +455,8 @@ export const AlertList = ({
           <AlertCardItem
             key={alert.id}
             alert={alert}
-            onAcknowledge={(id) => acknowledgeMutation.mutate({ alertId: id })}
-            onResolve={(id) => resolveMutation.mutate({ alertId: id })}
+            onAcknowledge={(id) => (acknowledgeMutation as any).mutate({ alertId: id })}
+            onResolve={(id) => (resolveMutation as any).mutate({ alertId: id })}
             canAcknowledge={canAcknowledge}
             canResolve={canResolve}
             index={index}
@@ -459,5 +464,19 @@ export const AlertList = ({
         ))}
       </VStack>
     </ScrollView>
+  ) : (
+    <VStack gap={spacing[4] as SpacingScale}>
+      {alerts.map((alert: AlertItem, index: number) => (
+        <AlertCardItem
+          key={alert.id}
+          alert={alert}
+          onAcknowledge={(id) => (acknowledgeMutation as any).mutate({ alertId: id })}
+          onResolve={(id) => (resolveMutation as any).mutate({ alertId: id })}
+          canAcknowledge={canAcknowledge}
+          canResolve={canResolve}
+          index={index}
+        />
+      ))}
+    </VStack>
   );
 };

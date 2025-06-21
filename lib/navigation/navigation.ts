@@ -41,7 +41,10 @@ export const navigation = {
   toManager: () => animatedNavigation.app.toManager(),
 
   // Profile routes
-  toProfile: () => navigation.navigate('/profile'),
+  toProfile: () => {
+    log.debug('Navigating to profile', 'NAVIGATION');
+    router.push('/profile' as any);
+  },
   
   // Dynamic navigation based on auth state
   navigateAfterAuth: (user: { role: string; needsProfileCompletion?: boolean }) => {

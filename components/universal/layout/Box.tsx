@@ -151,7 +151,7 @@ Box.displayName = 'Box';
 export const Center = React.forwardRef<View, BoxProps>(({ className, ...props }, ref) => (
   <Box
     ref={ref}
-    className={cn('items-center justify-center', className)}
+    className={cn('items-center justify-center', className) as string}
     {...props}
   />
 ));
@@ -160,7 +160,7 @@ Center.displayName = 'Center';
 export const Row = React.forwardRef<View, BoxProps>(({ className, ...props }, ref) => (
   <Box
     ref={ref}
-    className={cn('flex-row', className)}
+    className={cn('flex-row', className) as string}
     {...props}
   />
 ));
@@ -169,7 +169,7 @@ Row.displayName = 'Row';
 export const Column = React.forwardRef<View, BoxProps>(({ className, ...props }, ref) => (
   <Box
     ref={ref}
-    className={cn('flex-col', className)}
+    className={cn('flex-col', className) as string}
     {...props}
   />
 ));
@@ -178,7 +178,7 @@ Column.displayName = 'Column';
 export const Absolute = React.forwardRef<View, BoxProps>(({ className, ...props }, ref) => (
   <Box
     ref={ref}
-    className={cn('absolute', className)}
+    className={cn('absolute', className) as string}
     {...props}
   />
 ));

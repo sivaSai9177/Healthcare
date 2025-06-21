@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable } from 'react-native';
+import { Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { cn } from '@/lib/core/utils';
 import { useShadow } from '@/hooks/useShadow';
@@ -126,8 +126,8 @@ export function AlertSummary({
     <Card className="p-6" style={shadowMd}>
         <VStack gap={4}>
           {/* Header */}
-          <HStack justify="between" align="center">
-            <HStack gap={2} align="center">
+          <HStack justifyContent="space-between" alignItems="center">
+            <HStack gap={2} alignItems="center">
               <AlertCircle size={24} className="text-destructive" />
               <Text size="xl" weight="semibold">Alert Summary</Text>
             </HStack>
@@ -136,7 +136,7 @@ export function AlertSummary({
               size="sm"
               onPress={() => {
                 haptic('light');
-                router.push('/(healthcare)/alerts');
+                router.push('/alerts');
               }}
             >
               <Text>View All</Text>
@@ -145,7 +145,7 @@ export function AlertSummary({
           </HStack>
 
           {/* Stats Grid */}
-          <HStack gap={4} className={cn(isMobile && "flex-wrap")}>
+          <HStack gap={4} className={cn(isMobile ? "flex-wrap" : "")}>
               <VStack gap={1} className="flex-1">
                 <Text size="2xl" weight="bold" className="text-destructive">
                   {stats.active}
@@ -185,7 +185,7 @@ export function AlertSummary({
 
           {/* Response Rate */}
           <VStack gap={2}>
-            <HStack justify="between">
+            <HStack justifyContent="space-between">
               <Text size="sm">Response Rate</Text>
               <Text size="sm" weight="semibold">85%</Text>
             </HStack>
@@ -198,9 +198,6 @@ export function AlertSummary({
               <Text size="sm" weight="semibold">Recent Alerts</Text>
               
               {displayAlerts.map((alert, index) => {
-                // Calculate stagger delay for list animations
-                const staggerDelay = Math.min(index + 1, 6);
-                
                 return (
                   <Pressable
                     key={alert.id}
@@ -213,11 +210,11 @@ export function AlertSummary({
                       className="p-3 active:scale-[0.98]"
                       style={shadowSm}
                     >
-                      <HStack gap={3} align="center">
+                      <HStack gap={3} alignItems="center">
                         {getAlertIcon(alert.alertType)}
                         
                         <VStack gap={1} className="flex-1">
-                          <HStack justify="between" align="center">
+                          <HStack justifyContent="space-between" alignItems="center">
                             <Text size="sm" weight="medium">
                               {alert.patientName} - Room {alert.roomNumber}
                             </Text>
@@ -236,7 +233,7 @@ export function AlertSummary({
                             )}
                             
                             {alert.escalationLevel > 0 && (
-                              <HStack gap={1} align="center">
+                              <HStack gap={1} alignItems="center">
                                 <TrendingUp size={12} className="text-warning" />
                                 <Text size="xs" className="text-warning">
                                   L{alert.escalationLevel}
@@ -257,7 +254,7 @@ export function AlertSummary({
 
           {/* Empty State */}
           {alerts.length === 0 && (
-            <VStack gap={3} align="center" className="py-8">
+            <VStack gap={3} alignItems="center" className="py-8">
               <CheckCircle size={48} className="text-success" />
               <Text size="lg" className="text-muted-foreground">
                 No active alerts

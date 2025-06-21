@@ -5,17 +5,56 @@ import { tokenRefreshManager } from '@/lib/auth/token-refresh-manager';
 import { SessionTimeoutWarning } from '@/components/blocks/auth/SessionTimeoutWarning';
 import { useRouter } from 'expo-router';
 import { log } from '@/lib/core/debug/logger';
+import { useAuthSecurity } from '@/hooks/useAuthSecurity';
 
 interface SessionProviderProps {
   children: React.ReactNode;
 }
 
 export function SessionProvider({ children }: SessionProviderProps) {
-  const { isAuthenticated, clearAuth } = useAuth();
+  const { isAuthenticated, clearAuth, hasHydrated, isOAuthActive, user } = useAuth();
   const router = useRouter();
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+  
+  // Initialize security features
+  const { sendDeviceFingerprint, checkSessionAnomaly } = useAuthSecurity({
+    enableFingerprinting: true,
+    enableAnomalyDetection: true,
+    enableGeolocation: false, // Respect user privacy by default
+  });
 
   useEffect(() => {
+    // Don't start session management until auth has hydrated
+    if (!hasHydrated) return;
+    
+    // Skip if OAuth is active (from auth store)
+    if (isOAuthActive && isOAuthActive()) {
+      log.debug('Skipping session management - OAuth flow active', 'AUTH');
+      return;
+    }
+    
+    // Skip for users with incomplete profiles
+    if (user?.needsProfileCompletion || user?.role === 'guest') {
+      log.debug('Skipping session management - user needs profile completion', 'AUTH', {
+        needsProfileCompletion: user?.needsProfileCompletion,
+        role: user?.role
+      });
+      return;
+    }
+    
+    // Check if we're in OAuth flow (URL-based detection as fallback)
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+    const currentSearch = typeof window !== 'undefined' ? window.location.search : '';
+    const isOAuthFlow = currentSearch.includes('code=') || 
+                       currentSearch.includes('state=') ||
+                       currentPath.includes('auth-callback') ||
+                       currentPath.includes('complete-profile');
+    
+    if (isOAuthFlow) {
+      log.debug('Skipping session management during OAuth flow (URL detection)', 'AUTH');
+      return;
+    }
+    
     if (isAuthenticated) {
       // Start session timeout monitoring
       sessionTimeoutManager.start({
@@ -28,6 +67,10 @@ export function SessionProvider({ children }: SessionProviderProps) {
           handleLogout();
         }
       });
+      
+      // Initialize security checks
+      sendDeviceFingerprint();
+      checkSessionAnomaly();
     } else {
       // Stop monitoring if not authenticated
       sessionTimeoutManager.stop();
@@ -37,7 +80,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
     return () => {
       sessionTimeoutManager.stop();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, hasHydrated, sendDeviceFingerprint, checkSessionAnomaly, isOAuthActive, user]);
 
   const handleExtendSession = () => {
     setShowTimeoutWarning(false);
@@ -55,7 +98,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
     tokenRefreshManager.stop();
     
     // Redirect to login
-    router.replace('/(auth)/login');
+    router.replace('/(public)/auth/login');
   };
 
   return (

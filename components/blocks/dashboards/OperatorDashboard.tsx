@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/lib/theme/provider';
-import { api } from '@/lib/api/trpc';
 import { 
   Container,
   VStack,
@@ -15,7 +14,6 @@ import {
   Box,
   Heading1,
   Avatar,
-  Badge,
   Skeleton,
 } from '@/components/universal';
 import { 
@@ -23,11 +21,12 @@ import {
   EscalationSummary,
   AlertList,
 } from '@/components/blocks/healthcare';
-import { OrganizationSwitcher } from '@/components/blocks/organization';
+import { HospitalSwitcher } from '@/components/blocks/organization';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useShadow } from '@/hooks/useShadow';
 import { haptic } from '@/lib/ui/haptics';
-import { useActiveOrganization } from '@/lib/stores/organization-store';
+import { useHospitalStore } from '@/lib/stores/hospital-store';
+import { useHospitalPermissions } from '@/hooks/useHospitalPermissions';
 
 export default function OperatorDashboard() {
   const { user } = useAuth();
@@ -36,14 +35,37 @@ export default function OperatorDashboard() {
   const { spacing } = useSpacing();
   const shadowMd = useShadow({ size: 'md' });
   const [refreshing, setRefreshing] = React.useState(false);
-  const { organization: activeOrganization } = useActiveOrganization();
+  const { currentHospital } = useHospitalStore();
+  const hospitalPermissions = useHospitalPermissions();
   
-  const hospitalId = activeOrganization?.id;
+  const hospitalId = currentHospital?.id || user?.defaultHospitalId;
   
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1500);
   }, []);
+  
+  // Check if user has hospital assignment
+  if (!hospitalPermissions.hasHospitalAssigned) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+        <Container className="flex-1 items-center justify-center">
+          <VStack gap={4} alignItems="center">
+            <Text size="lg" weight="semibold">Hospital Assignment Required</Text>
+            <Text colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
+              You need to be assigned to a hospital to access operator features.
+            </Text>
+            <Button 
+              onPress={() => router.push('/settings')}
+              variant="outline"
+            >
+              Complete Your Profile
+            </Button>
+          </VStack>
+        </Container>
+      </SafeAreaView>
+    );
+  }
   
   const handleCreateAlert = () => {
     haptic('medium');
@@ -68,8 +90,8 @@ export default function OperatorDashboard() {
           />
         </HStack>
         
-        {/* Organization Switcher */}
-        <OrganizationSwitcher variant="compact" />
+        {/* Hospital Switcher */}
+        <HospitalSwitcher compact={false} />
       </VStack>
       
       {/* Alert Summary */}
@@ -96,7 +118,7 @@ export default function OperatorDashboard() {
                 Create New Alert
               </Button>
               <Button
-                onPress={() => router.push('/alerts/escalation-queue' as any)}
+                onPress={() => router.push('/alerts/escalation-queue')}
                 variant="outline"
                 fullWidth
               >
@@ -109,10 +131,10 @@ export default function OperatorDashboard() {
       
       {/* Recent Alerts */}
       <VStack gap={3}>
-        <HStack align="center" justify="between">
+        <HStack alignItems="center" justifyContent="space-between">
           <Text size="lg" weight="bold">Recent Alerts</Text>
           <Button
-            onPress={() => router.push('/alerts/history' as any)}
+            onPress={() => router.push('/alerts/history')}
             variant="ghost"
             size="sm"
           >
