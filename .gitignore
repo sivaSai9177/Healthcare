@@ -164,3 +164,4 @@ NOTES.personal.md
 posthog_data/
 posthog_postgres_data/
 posthog_redis_data/
+reference_project/
