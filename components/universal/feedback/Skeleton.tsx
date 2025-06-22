@@ -9,7 +9,7 @@ import Animated, {
   interpolate,
   Easing,
 } from 'react-native-reanimated';
-import { useSpacing } from '@/lib/design/spacing';
+import { useSpacing } from '@/lib/stores/spacing-store';
 import { cn } from '@/lib/core/utils';
 
 interface SkeletonProps {
@@ -33,7 +33,7 @@ export function Skeleton({
   duration = 1500,
   className,
 }: SkeletonProps) {
-  const spacing = useSpacing();
+  const { spacing } = useSpacing();
   const shimmer = useSharedValue(0);
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export function Skeleton({
     if (borderRadius !== undefined) return borderRadius;
     if (variant === 'circular') return 9999;
     if (variant === 'rectangular') return 0;
-    return spacing.borderRadius.md;
+    return 8; // Default border radius
   };
 
   return (
@@ -160,7 +160,7 @@ export function SkeletonCard({
   showAvatar?: boolean;
   showActions?: boolean;
 }) {
-  const spacing = useSpacing();
+  const { spacing } = useSpacing();
 
   return (
     <View
@@ -252,7 +252,7 @@ export function SkeletonInput({
 
 // Healthcare-specific skeletons
 export function SkeletonAlert({ style }: { style?: ViewStyle }) {
-  const spacing = useSpacing();
+  const { spacing } = useSpacing();
 
   return (
     <View
@@ -281,7 +281,7 @@ export function SkeletonAlert({ style }: { style?: ViewStyle }) {
 }
 
 export function SkeletonPatientCard({ style }: { style?: ViewStyle }) {
-  const spacing = useSpacing();
+  const { spacing } = useSpacing();
 
   return (
     <View
@@ -313,7 +313,7 @@ export function SkeletonPatientCard({ style }: { style?: ViewStyle }) {
 }
 
 export function SkeletonMetricCard({ style }: { style?: ViewStyle }) {
-  const spacing = useSpacing();
+  const { spacing } = useSpacing();
 
   return (
     <View
