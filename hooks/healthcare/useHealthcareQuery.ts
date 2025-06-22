@@ -40,7 +40,7 @@ export function useHealthcareQuery(
             onProfileIncomplete();
           } else if (redirectToProfile) {
             // Default behavior: redirect to profile completion
-            router.replace(ROUTES.PUBLIC.COMPLETE_PROFILE);
+            router.replace(ROUTES.auth.completeProfile);
           }
         }
         
@@ -82,7 +82,7 @@ export function useHealthcareMutation(
           if (onProfileIncomplete) {
             onProfileIncomplete();
           } else if (redirectToProfile) {
-            router.replace(ROUTES.PUBLIC.COMPLETE_PROFILE);
+            router.replace(ROUTES.auth.completeProfile);
           }
         }
         

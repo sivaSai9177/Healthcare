@@ -32,44 +32,43 @@ const debugState: DebugState = {
 export function getModuleLogger(moduleName: string) {
   if (!moduleLoggers.has(moduleName)) {
     const logger = createLogger(moduleName);
-    
-    // Wrap logger methods to check if module is enabled
-    const wrappedLogger = {
-      error: (message: string, error?: Error | any) => {
-        if (isModuleEnabled(moduleName)) {
-          logger.error(message, error);
-        }
-      },
-      warn: (message: string, data?: any) => {
-        if (isModuleEnabled(moduleName)) {
-          logger.warn(message, data);
-        }
-      },
-      info: (message: string, data?: any) => {
-        if (isModuleEnabled(moduleName)) {
-          logger.info(message, data);
-        }
-      },
-      debug: (message: string, data?: any) => {
-        if (isModuleEnabled(moduleName)) {
-          logger.debug(message, data);
-        }
-      },
-      trace: (message: string, data?: any) => {
-        if (isModuleEnabled(moduleName)) {
-          logger.trace(message, data);
-        }
-      },
-      time: (label: string) => logger.time(label),
-      timeEnd: (label: string) => logger.timeEnd(label),
-      group: (label: string) => logger.group(label),
-      groupEnd: () => logger.groupEnd(),
-    };
-    
-    moduleLoggers.set(moduleName, wrappedLogger);
+    moduleLoggers.set(moduleName, logger);
   }
   
-  return moduleLoggers.get(moduleName)!;
+  const logger = moduleLoggers.get(moduleName)!;
+  
+  // Return a wrapper that checks if module is enabled
+  return {
+    error: (message: string, error?: Error | any) => {
+      if (isModuleEnabled(moduleName)) {
+        logger.error(message, error);
+      }
+    },
+    warn: (message: string, data?: any) => {
+      if (isModuleEnabled(moduleName)) {
+        logger.warn(message, data);
+      }
+    },
+    info: (message: string, data?: any) => {
+      if (isModuleEnabled(moduleName)) {
+        logger.info(message, data);
+      }
+    },
+    debug: (message: string, data?: any) => {
+      if (isModuleEnabled(moduleName)) {
+        logger.debug(message, data);
+      }
+    },
+    trace: (message: string, data?: any) => {
+      if (isModuleEnabled(moduleName)) {
+        logger.trace(message, data);
+      }
+    },
+    time: (label: string) => logger.time(label),
+    timeEnd: (label: string) => logger.timeEnd(label),
+    group: (label: string) => logger.group(label),
+    groupEnd: () => logger.groupEnd(),
+  };
 }
 
 // Check if a module is enabled for logging

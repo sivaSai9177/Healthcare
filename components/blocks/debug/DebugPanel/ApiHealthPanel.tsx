@@ -262,7 +262,7 @@ export function ApiHealthPanel() {
                 <HStack gap={spacing[2] as any} align="center">
                   <Symbol name="externaldrive" size={20} color="#ef4444" />
                   <Text size="lg" weight="semibold">Healthcare APIs</Text>
-                  <Badge size="sm" variant="destructive">{groupedEndpoints.healthcare.length}</Badge>
+                  <Badge size="sm" variant="destructive"><Text>{groupedEndpoints.healthcare.length}</Text></Badge>
                 </HStack>
                 <View style={{ transform: [{ rotate: expandedSections.has('healthcare') ? '0deg' : '-90deg' }] }}>
                   <Symbol name="chevron.down" size={20} color={theme.mutedForeground} />
@@ -332,7 +332,7 @@ export function ApiHealthPanel() {
                   <HStack gap={spacing[2] as any} align="center">
                     <Symbol name="externaldrive" size={20} color={theme.primary} />
                     <Text size="lg" weight="semibold" className="capitalize">{group} APIs</Text>
-                    <Badge size="sm" variant="outline">{endpoints.length}</Badge>
+                    <Badge size="sm" variant="outline"><Text>{endpoints.length}</Text></Badge>
                   </HStack>
                   <View style={{ transform: [{ rotate: expandedSections.has(group) ? '0deg' : '-90deg' }] }}>
                     <Symbol name="chevron.down" size={20} color={theme.mutedForeground} />
@@ -356,7 +356,7 @@ export function ApiHealthPanel() {
                             size="xs" 
                             variant={endpoint.status === 'healthy' ? 'outline' : endpoint.status === 'error' ? 'error' : 'warning'}
                           >
-                            {endpoint.totalCalls} calls
+                            <Text>{endpoint.totalCalls} calls</Text>
                           </Badge>
                         </HStack>
                       </Card>

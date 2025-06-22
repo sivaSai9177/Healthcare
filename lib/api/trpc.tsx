@@ -286,7 +286,13 @@ export function TRPCProvider({ children, dehydratedState }: TRPCProviderProps) {
               log.debug('WebSocket disconnected', 'TRPC', {});
             },
             onError: (error: any) => {
-              log.error('WebSocket error', 'TRPC', error);
+              // Only log WebSocket errors in development
+              if (__DEV__) {
+                log.warn('WebSocket connection failed - subscriptions will not be available', 'TRPC', {
+                  error: error?.message || 'Connection refused',
+                  url: wsConfig.url
+                });
+              }
             },
             // Lazy mode - don't connect until first subscription
             lazy: {

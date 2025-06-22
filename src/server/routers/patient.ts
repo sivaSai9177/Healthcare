@@ -86,12 +86,21 @@ export const patientRouter = router({
 
         // Create patient
         const [newPatient] = await db.insert(patients).values({
-          ...input,
-          hospitalId: ctx.user.organizationId || ctx.hospitalContext?.userHospitalId,
+          hospitalId: ctx.hospitalContext?.userHospitalId || '',
+          mrn: input.mrn,
+          name: input.name,
+          dateOfBirth: input.dateOfBirth,
+          gender: input.gender,
+          bloodType: input.bloodType,
+          roomNumber: input.roomNumber,
+          bedNumber: input.bedNumber,
+          admissionDate: input.admissionDate,
+          primaryDiagnosis: input.primaryDiagnosis,
           secondaryDiagnoses: input.secondaryDiagnoses || [],
           allergies: input.allergies || [],
           medications: input.medications || [],
           emergencyContact: input.emergencyContact || {},
+          departmentId: input.departmentId,
           flags: input.flags || {},
         }).returning();
 
@@ -322,7 +331,16 @@ export const patientRouter = router({
     .mutation(async ({ input, ctx }) => {
       try {
         const [newVitals] = await db.insert(patientVitals).values({
-          ...input,
+          patientId: input.patientId,
+          heartRate: input.heartRate,
+          bloodPressureSystolic: input.bloodPressureSystolic,
+          bloodPressureDiastolic: input.bloodPressureDiastolic,
+          temperature: input.temperature,
+          respiratoryRate: input.respiratoryRate,
+          oxygenSaturation: input.oxygenSaturation,
+          bloodGlucose: input.bloodGlucose,
+          pain: input.pain,
+          notes: input.notes,
           recordedBy: ctx.user.id,
           metadata: {},
         }).returning();
@@ -401,6 +419,17 @@ export const patientRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
+        // Build where conditions
+        const conditions: any[] = [eq(patients.hospitalId, input.hospitalId)];
+        
+        if (input.departmentId) {
+          conditions.push(eq(patients.departmentId, input.departmentId));
+        }
+        
+        if (!input.includeDischarge) {
+          conditions.push(isNull(patients.dischargeDate));
+        }
+
         let query = db
           .select({
             patient: patients,
@@ -413,16 +442,9 @@ export const patientRouter = router({
               eq(alerts.patientId, patients.id),
               eq(alerts.status, 'active')
             )
-          )
-          .where(eq(patients.hospitalId, input.hospitalId))
-          .groupBy(patients.id);
+          );
 
-        // Filter by department if specified
-        if (input.departmentId) {
-          query = query.where(eq(patients.departmentId, input.departmentId));
-        }
-
-        // Filter by doctor if specified
+        // Filter by doctor if specified - requires additional join
         if (input.doctorId) {
           query = query.leftJoin(
             careTeamAssignments,
@@ -431,15 +453,14 @@ export const patientRouter = router({
               eq(careTeamAssignments.userId, input.doctorId),
               eq(careTeamAssignments.isActive, true)
             )
-          ).where(eq(careTeamAssignments.userId, input.doctorId));
+          );
+          conditions.push(eq(careTeamAssignments.userId, input.doctorId));
         }
 
-        // Filter discharged patients
-        if (!input.includeDischarge) {
-          query = query.where(isNull(patients.dischargeDate));
-        }
+        // Apply all conditions at once
+        const finalQuery = query.where(and(...conditions)).groupBy(patients.id);
 
-        const patientsList = await query
+        const patientsList = await finalQuery
           .orderBy(desc(patients.admissionDate))
           .limit(input.limit)
           .offset(input.offset);

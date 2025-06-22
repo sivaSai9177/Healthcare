@@ -27,8 +27,8 @@ export function usePushNotifications() {
     error: null,
   });
 
-  const notificationListener = useRef<any>();
-  const responseListener = useRef<any>();
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
 
   const registerPushToken = api.user.registerPushToken.useMutation();
   const unregisterPushToken = api.user.unregisterPushToken.useMutation();
@@ -149,14 +149,14 @@ export function usePushNotifications() {
           }
           break;
         case 'shift.summary':
-          router.push('/(healthcare)/shift-handover');
+          router.push('/shifts/handover');
           break;
         case 'org.invitation':
-          router.push('/(organization)/dashboard');
+          router.push('/organization/dashboard');
           break;
         default:
           // Default navigation
-          router.push('/(home)/');
+          router.push('/home');
       }
     }
   }, [router]);

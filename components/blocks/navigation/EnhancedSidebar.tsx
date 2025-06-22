@@ -94,6 +94,7 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
   // Real-time data for badges using enhanced hooks
   const { data: alertStats } = useAlertStats({
     refetchInterval: 30000,
+    enabled: canViewAlerts,
   });
   
   const { data: notifications } = useUnreadNotifications({
@@ -117,7 +118,7 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
       title: 'Alerts',
       icon: 'bell.badge',
       href: '/(app)/(tabs)/alerts',
-      badge: alertStats?.active || 0,
+      badge: (alertStats as any)?.active || 0,
       badgeVariant: 'error' as const,
       shortcut: '⌘A',
       items: [
@@ -126,14 +127,14 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
           title: 'Active Alerts',
           icon: 'bell.fill',
           href: '/(app)/(tabs)/alerts',
-          badge: alertStats?.active,
+          badge: (alertStats as any)?.active,
         },
         {
           id: 'escalation-queue',
           title: 'Escalation Queue',
           icon: 'exclamationmark.triangle',
           href: '/(app)/alerts/escalation-queue',
-          badge: alertStats?.escalated,
+          badge: (alertStats as any)?.escalated,
           isNew: true,
         },
         {
@@ -516,7 +517,7 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
           )}
           
           {/* Notifications */}
-          {!isCollapsed && notifications && notifications.count > 0 && (
+          {!isCollapsed && notifications && (notifications as any).count > 0 && (
             <Pressable
               onPress={() => router.push('/(modals)/notification-center')}
               style={{
@@ -541,7 +542,7 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
                   color: theme.destructive,
                 }}
               >
-                {notifications.count} new notifications
+                {(notifications as any).count} new notifications
               </Text>
             </Pressable>
           )}

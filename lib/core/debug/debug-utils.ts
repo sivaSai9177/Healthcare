@@ -212,7 +212,7 @@ export function setupNetworkDebugging() {
 
   // Intercept fetch
   const originalFetch = global.fetch;
-  global.fetch = async function(...args) {
+  const interceptedFetch = async function(...args: Parameters<typeof fetch>) {
     const [url, options] = args;
     const method = options?.method || 'GET';
     
@@ -238,7 +238,14 @@ export function setupNetworkDebugging() {
       logger.error(`${method} ${url} - Failed (${duration}ms)`, error);
       throw error;
     }
-  };
+  } as typeof fetch;
+  
+  // Copy static properties if they exist
+  if ('preconnect' in originalFetch) {
+    (interceptedFetch as any).preconnect = originalFetch.preconnect;
+  }
+  
+  global.fetch = interceptedFetch;
 }
 
 // Authentication flow debugging

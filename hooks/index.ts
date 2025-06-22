@@ -3,6 +3,9 @@
  * Central export point for all custom React hooks
  */
 
+import { Platform, Dimensions } from 'react-native';
+import { useState, useEffect } from 'react';
+
 // Authentication Hook
 export { useAuth } from './useAuth';
 
@@ -17,7 +20,7 @@ export { useColorScheme } from './useColorScheme';
 export { useShadow, useShadowClass, useInteractiveShadow, shadowPresets } from './useShadow';
 
 // SSE (Server-Sent Events) Hook
-export { useSSESubscription } from './useSSESubscription';
+// export { useSSESubscription } from './useSSESubscription'; // TODO: Implement SSE hook
 
 // Responsive Design Hooks
 export * from './responsive';
@@ -48,7 +51,6 @@ export { usePushNotifications } from './usePushNotifications';
 
 // Platform Detection
 export const usePlatform = () => {
-  const { Platform } = require('react-native');
   return {
     isWeb: Platform.OS === 'web',
     isIOS: Platform.OS === 'ios',
@@ -60,12 +62,12 @@ export const usePlatform = () => {
 // Window Dimensions Hook
 export const useWindowDimensions = () => {
   if (typeof window !== 'undefined') {
-    const [dimensions, setDimensions] = require('react').useState({
+    const [dimensions, setDimensions] = useState({
       width: window.innerWidth,
       height: window.innerHeight,
     });
 
-    require('react').useEffect(() => {
+    useEffect(() => {
       const handleResize = () => {
         setDimensions({
           width: window.innerWidth,
@@ -81,6 +83,5 @@ export const useWindowDimensions = () => {
   }
 
   // Fallback for non-web platforms
-  const { Dimensions } = require('react-native');
   return Dimensions.get('window');
 };

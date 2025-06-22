@@ -113,6 +113,20 @@ if (__DEV__) {
       if (message.includes('AbortError') || message.includes('signal is aborted') || message.includes('The user aborted a request')) {
         return; // Expected behavior when requests are cancelled
       }
+      // Suppress connectivity check errors
+      const connectivityCheckUrls = [
+        'clients3.google.com/generate_204',
+        'connectivitycheck.gstatic.com',
+        'captive.apple.com',
+        'connectivity-check.ubuntu.com',
+      ];
+      if (connectivityCheckUrls.some(url => message.includes(url))) {
+        return; // Connectivity checks are not errors
+      }
+      // Suppress Chrome extension errors
+      if (message.includes('chrome-extension://') || message.includes('frame_ant.js')) {
+        return; // Chrome extension interference
+      }
       // Suppress HEAD request failures (these are health checks)
       if (message.includes('[Network] HEAD /') && message.includes('Failed')) {
         return; // Health check failures are not critical

@@ -13,7 +13,6 @@ import {
   type Permission,
   type UserRole,
   type Feature,
-  ROLE_GROUPS,
   PERMISSIONS,
 } from '@/lib/auth/permissions';
 
@@ -44,7 +43,7 @@ export function usePermission(permission: Permission) {
       isAuthenticated,
       user,
     };
-  }, [user?.role, permission, hasHydrated, isAuthenticated, user]);
+  }, [permission, hasHydrated, isAuthenticated, user]);
 }
 
 /**
@@ -109,7 +108,7 @@ export function useRole(allowedRoles: UserRole[]) {
       user,
       currentRole: user.role as UserRole,
     };
-  }, [user?.role, allowedRoles, hasHydrated, isAuthenticated, user]);
+  }, [allowedRoles, hasHydrated, isAuthenticated, user]);
 }
 
 /**
@@ -139,7 +138,7 @@ export function useFeatureAccess(feature: Feature) {
       isAuthenticated,
       user,
     };
-  }, [user?.role, feature, hasHydrated, isAuthenticated, user]);
+  }, [feature, hasHydrated, isAuthenticated, user]);
 }
 
 /**
@@ -181,12 +180,12 @@ export function useHealthcareAccess() {
       canViewAlerts: hasPermission(userRole, PERMISSIONS.VIEW_ALERTS),
       canAcknowledgeAlerts: hasPermission(userRole, PERMISSIONS.ACKNOWLEDGE_ALERTS),
       canResolveAlerts: hasPermission(userRole, PERMISSIONS.RESOLVE_ALERTS),
-      canEscalateAlerts: hasPermission(userRole, PERMISSIONS.MANAGE_ALERTS),
+      canEscalateAlerts: hasPermission(userRole, PERMISSIONS.ESCALATE_ALERTS),
       canViewPatients: hasPermission(userRole, PERMISSIONS.VIEW_PATIENTS),
       canManagePatients: hasPermission(userRole, PERMISSIONS.MANAGE_PATIENTS),
       canViewAnalytics: hasPermission(userRole, PERMISSIONS.VIEW_ANALYTICS),
-      canManageShifts: hasPermission(userRole, PERMISSIONS.MANAGE_ALERTS) || userRole === 'head_doctor',
-      canViewAuditLogs: hasPermission(userRole, PERMISSIONS.VIEW_AUDIT_LOGS),
+      canManageShifts: hasPermission(userRole, PERMISSIONS.MANAGE_SCHEDULE) || userRole === 'head_doctor',
+      canViewAuditLogs: hasPermission(userRole, PERMISSIONS.VIEW_ACTIVITY_LOGS),
       isLoading: false,
       isAuthenticated,
       user,

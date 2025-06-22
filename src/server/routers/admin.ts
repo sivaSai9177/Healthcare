@@ -123,6 +123,7 @@ export const adminRouter = router({
         return {
           users: users.map(u => ({
             ...u,
+            role: u.role as 'user' | 'admin' | 'manager' | 'guest',
             status: 'active' as const, // Default status
             lastLoginAt: null, // Would need to track this separately
             createdAt: u.createdAt.toISOString(),

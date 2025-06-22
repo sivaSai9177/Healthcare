@@ -41,7 +41,7 @@ export default function OrganizationSettings() {
           <Text colorTheme="mutedForeground">
             This section is only available to administrators and managers
           </Text>
-          <Button onPress={() => router.replace('/(tabs)/explore' as any)}>Go Back</Button>
+          <Button onPress={() => router.replace('/(app)/(tabs)/home')}>Go Back</Button>
         </VStack>
       </Container>
     );

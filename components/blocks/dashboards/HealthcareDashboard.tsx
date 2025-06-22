@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { Platform, ScrollView, RefreshControl } from 'react-native';
+import { Platform, ScrollView, RefreshControl, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,20 +19,18 @@ import {
   Skeleton,
   Grid,
   StatusGlassCard,
+  Card,
 } from '@/components/universal';
 import { 
   ShiftStatus,
   MetricsOverview,
   AlertSummaryEnhanced,
   ActivePatients,
+  GlassLoadingScreen,
 } from '@/components/blocks/healthcare';
 import { HospitalSwitcher } from '@/components/blocks/organization';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useAlertWebSocket } from '@/hooks/healthcare';
-import { 
-  DashboardGrid,
-  Widget,
-} from '@/components/universal/layout/WidgetGrid';
 import { useResponsive } from '@/hooks/responsive';
 
 export default function HealthcareDashboard() {
@@ -43,7 +41,7 @@ export default function HealthcareDashboard() {
   const [refreshing, setRefreshing] = React.useState(false);
   const { currentHospital } = useHospitalStore();
   const hospitalPermissions = useHospitalPermissions();
-  const { isDesktop } = useResponsive();
+  const { isDesktop, isMobile } = useResponsive();
   
   // Healthcare context
   const role = user?.role as 'doctor' | 'nurse' | 'head_doctor' | 'operator';
@@ -64,24 +62,37 @@ export default function HealthcareDashboard() {
   
   // Debug log to check user state
   React.useEffect(() => {
-
-  }, [user, hasHydrated]);
+    console.log('[HealthcareDashboard] Component state', {
+      hasHydrated,
+      isAuthenticated: !!user,
+      userId: user?.id,
+      userRole: user?.role,
+      userOrgId: user?.organizationId,
+      userOrgName: user?.organizationName,
+      defaultHospitalId: user?.defaultHospitalId,
+      currentHospitalId: currentHospital?.id,
+      currentHospitalName: currentHospital?.name,
+      hospitalPermissions: {
+        hasHospitalAssigned: hospitalPermissions.hasHospitalAssigned,
+        canAccessHealthcare: hospitalPermissions.canAccessHealthcare,
+        canCreateAlerts: hospitalPermissions.canCreateAlerts,
+        canAcknowledgeAlerts: hospitalPermissions.canAcknowledgeAlerts,
+      },
+      hospitalId: hospitalId,
+      role: role,
+      timestamp: new Date().toISOString(),
+    });
+  }, [user, hasHydrated, currentHospital, hospitalPermissions, hospitalId, role]);
   
-  // Show loading state while auth is hydrating
-  if (!hasHydrated) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <Container className="flex-1 items-center justify-center">
-          <VStack gap={4} alignItems="center">
-            <Text size="lg" colorTheme="mutedForeground">Loading...</Text>
-          </VStack>
-        </Container>
-      </SafeAreaView>
-    );
+  // Show loading state while auth is hydrating or hospitals are loading
+  const { isLoading: hospitalsLoading } = useHospitalStore();
+  
+  if (!hasHydrated || isRefreshing || hospitalsLoading) {
+    return <GlassLoadingScreen message="Loading healthcare data..." showProgress={true} />;
   }
   
-  // Check if user has hospital assignment
-  if (!hospitalPermissions.hasHospitalAssigned) {
+  // Check if user has hospital assignment after loading is complete
+  if (!hospitalPermissions.hasHospitalAssigned && hasHydrated && !hospitalsLoading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
         <Container className="flex-1 items-center justify-center">
@@ -103,163 +114,230 @@ export default function HealthcareDashboard() {
   }
   
   const content = (
-    <DashboardGrid>
+    <VStack gap={spacing[4]}>
       {/* Header */}
-      <Widget size="full">
-        <VStack gap={3}>
-          <HStack justifyContent="space-between" alignItems="center">
-            <Box flex={1}>
-              <Heading1>Healthcare Dashboard</Heading1>
-              <Text colorTheme="mutedForeground">
-                {user?.name || 'Healthcare Professional'}
-              </Text>
-            </Box>
-            <Avatar
-              source={user?.image ? { uri: user.image } : undefined}
-              name={user?.name || 'User'}
-              size="xl"
-            />
-          </HStack>
-          
-          {/* Hospital Switcher */}
-          <HospitalSwitcher compact={false} />
-        </VStack>
-      </Widget>
-      
-      {/* Shift Status */}
-      <Widget size={isDesktop ? "medium" : "full"}>
-        {isRefreshing ? (
-          <Skeleton height={120} />
-        ) : (
-          <Suspense fallback={<Skeleton height={120} />}>
-            <HealthcareErrorBoundary>
-              <ShiftStatus />
-            </HealthcareErrorBoundary>
-          </Suspense>
-        )}
-      </Widget>
-      
-      {/* Metrics Overview */}
-      <Widget size={isDesktop ? "large" : "full"}>
-        {isRefreshing ? (
-          <Skeleton height={400} />
-        ) : (
-          <Suspense fallback={<Skeleton height={400} />}>
-            <HealthcareErrorBoundary>
-              <MetricsOverview hospitalId={hospitalId} />
-            </HealthcareErrorBoundary>
-          </Suspense>
-        )}
-      </Widget>
-      
-      {/* Alert Summary */}
-      <Widget size="full">
-        {isRefreshing ? (
-          <Skeleton height={200} />
-        ) : (
-          <Suspense fallback={<Skeleton height={200} />}>
-            <HealthcareErrorBoundary>
-              <AlertSummaryEnhanced 
-                showOrganizationStats={true} 
-                showDetails={true} 
-                maxItems={5} 
+      <Card>
+        <Box p={4}>
+          <VStack gap={3}>
+            <HStack justifyContent="space-between" alignItems="center">
+              <Box flex={1}>
+                <Heading1>Healthcare Dashboard</Heading1>
+                <Text colorTheme="mutedForeground">
+                  {user?.name || 'Healthcare Professional'}
+                </Text>
+              </Box>
+              <Avatar
+                source={user?.image ? { uri: user.image } : undefined}
+                name={user?.name || 'User'}
+                size="xl"
               />
-            </HealthcareErrorBoundary>
-          </Suspense>
-        )}
-      </Widget>
+            </HStack>
+            
+            {/* Hospital Switcher */}
+            <HospitalSwitcher compact={false} />
+          </VStack>
+        </Box>
+      </Card>
       
-      {/* Quick Navigation */}
-      <Widget size={isDesktop ? "medium" : "full"}>
-        <StatusGlassCard className="shadow-lg">
-          <Box p={3}>
-            <VStack gap={2}>
-              <Text size="lg" weight="bold">Quick Actions</Text>
-              {/* Alert Creation Button for operators and head doctors */}
-              {(role === 'operator' || role === 'head_doctor') && (
-                <Button
-                  onPress={() => router.push('/(modals)/create-alert')}
-                  variant="glass-destructive"
-                  fullWidth
-                  style={{ marginBottom: spacing[2] }}
-                  className="shadow-md"
-                >
-                  🚨 Create Emergency Alert
-                </Button>
-              )}
-              <Grid columns={2} gap={2}>
-                <Button
-                  onPress={() => router.push('/alerts' as any)}
-                  variant="glass"
-                  fullWidth
-                  className="shadow-sm"
-                >
-                  View Alerts
-                </Button>
-                <Button
-                  onPress={() => router.push('/patients' as any)}
-                  variant="glass"
-                  fullWidth
-                  className="shadow-sm"
-                >
-                  My Patients
-                </Button>
-                <Button
-                  onPress={() => router.push('/shifts/handover' as any)}
-                  variant="glass"
-                  fullWidth
-                  className="shadow-sm"
-                >
-                  Shift Handover
-                </Button>
-                <Button
-                  onPress={() => router.push('/alerts/history' as any)}
-                  variant="glass"
-                  fullWidth
-                  className="shadow-sm"
-                >
-                  Alert History
-                </Button>
-              </Grid>
-            </VStack>
-          </Box>
-        </StatusGlassCard>
-      </Widget>
-      
-      {/* Active Patients for doctors - Large widget */}
-      {(role === 'doctor' || role === 'head_doctor') && (
-        <Widget size={isDesktop ? "large" : "full"} minHeight={400}>
+      {/* Main Content Area */}
+      <View style={{
+        flexDirection: isDesktop ? 'row' : 'column',
+        flexWrap: 'wrap',
+        gap: spacing[4],
+        marginHorizontal: isDesktop ? -spacing[2] : 0,
+      }}>
+        {/* Shift Status */}
+        <View style={{ 
+          flex: isDesktop ? 0 : 1,
+          minWidth: isDesktop ? 350 : undefined,
+          width: isDesktop ? '40%' : '100%',
+          paddingHorizontal: isDesktop ? spacing[2] : 0,
+        }}>
+          {isRefreshing ? (
+            <Skeleton height={180} />
+          ) : (
+            <Suspense fallback={<Skeleton height={180} />}>
+              <HealthcareErrorBoundary>
+                <Card>
+                  <ShiftStatus />
+                </Card>
+              </HealthcareErrorBoundary>
+            </Suspense>
+          )}
+        </View>
+        
+        {/* Metrics Overview */}
+        <View style={{ 
+          flex: isDesktop ? 1 : 1,
+          minWidth: isDesktop ? 400 : undefined,
+          paddingHorizontal: isDesktop ? spacing[2] : 0,
+        }}>
           {isRefreshing ? (
             <Skeleton height={400} />
           ) : (
             <Suspense fallback={<Skeleton height={400} />}>
               <HealthcareErrorBoundary>
-                <ActivePatients scrollEnabled={Platform.OS === 'web'} />
+                <Card>
+                  <Box p={4}>
+                    <MetricsOverview hospitalId={hospitalId} />
+                  </Box>
+                </Card>
               </HealthcareErrorBoundary>
             </Suspense>
           )}
-        </Widget>
-      )}
-    </DashboardGrid>
+        </View>
+      </View>
+      
+      {/* Alert Summary */}
+      <Card>
+        <Box p={4}>
+          {isRefreshing ? (
+            <Skeleton height={200} />
+          ) : (
+            <Suspense fallback={<Skeleton height={200} />}>
+              <HealthcareErrorBoundary>
+                <AlertSummaryEnhanced 
+                  showOrganizationStats={true} 
+                  showDetails={true} 
+                  maxItems={5} 
+                />
+              </HealthcareErrorBoundary>
+            </Suspense>
+          )}
+        </Box>
+      </Card>
+      
+      {/* Bottom Section */}
+      <View style={{
+        flexDirection: isDesktop ? 'row' : 'column',
+        flexWrap: 'wrap',
+        gap: spacing[4],
+        marginHorizontal: isDesktop ? -spacing[2] : 0,
+      }}>
+        {/* Quick Navigation */}
+        <View style={{ 
+          flex: isDesktop ? 0 : 1,
+          minWidth: isDesktop ? 350 : undefined,
+          width: isDesktop ? '40%' : '100%',
+          paddingHorizontal: isDesktop ? spacing[2] : 0,
+        }}>
+          <StatusGlassCard className="shadow-lg h-full">
+            <Box p={4}>
+              <VStack gap={3}>
+                <Text size="lg" weight="bold">Quick Actions</Text>
+                {/* Alert Creation Button for operators and head doctors */}
+                {(role === 'operator' || role === 'head_doctor') && (
+                  <Button
+                    onPress={() => router.push('/(modals)/create-alert')}
+                    variant="glass-destructive"
+                    fullWidth
+                    style={{ marginBottom: spacing[2] }}
+                    className="shadow-md"
+                  >
+                    🚨 Create Emergency Alert
+                  </Button>
+                )}
+                <Grid columns={2} gap={2}>
+                  <Button
+                    onPress={() => router.push('/alerts' as any)}
+                    variant="glass"
+                    fullWidth
+                    className="shadow-sm"
+                  >
+                    View Alerts
+                  </Button>
+                  <Button
+                    onPress={() => router.push('/patients' as any)}
+                    variant="glass"
+                    fullWidth
+                    className="shadow-sm"
+                  >
+                    My Patients
+                  </Button>
+                  <Button
+                    onPress={() => router.push('/shifts/handover' as any)}
+                    variant="glass"
+                    fullWidth
+                    className="shadow-sm"
+                  >
+                    Shift Handover
+                  </Button>
+                  <Button
+                    onPress={() => router.push('/alerts/history' as any)}
+                    variant="glass"
+                    fullWidth
+                    className="shadow-sm"
+                  >
+                    Alert History
+                  </Button>
+                </Grid>
+              </VStack>
+            </Box>
+          </StatusGlassCard>
+        </View>
+        
+        {/* Active Patients for doctors - Large widget */}
+        {(role === 'doctor' || role === 'head_doctor') && (
+          <View style={{ 
+            flex: 1,
+            minWidth: isDesktop ? 400 : undefined,
+            paddingHorizontal: isDesktop ? spacing[2] : 0,
+          }}>
+            {isRefreshing ? (
+              <Skeleton height={400} />
+            ) : (
+              <Suspense fallback={<Skeleton height={400} />}>
+                <HealthcareErrorBoundary>
+                  <ActivePatients scrollEnabled={Platform.OS === 'web'} />
+                </HealthcareErrorBoundary>
+              </Suspense>
+            )}
+          </View>
+        )}
+      </View>
+    </VStack>
   );
   
+  // For mobile, wrap in ScrollView with proper padding
+  if (Platform.OS !== 'web') {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+        <ScrollView
+          contentContainerStyle={{ 
+            flexGrow: 1,
+            padding: spacing[4],
+            paddingBottom: spacing[6],
+          }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={theme.primary}
+            />
+          }
+        >
+          {content}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+  
+  // For web, render with proper container and max width
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
       <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ 
           flexGrow: 1,
-          paddingBottom: spacing[6],
+          padding: spacing[6],
+          width: '100%',
+          alignItems: 'center'
         }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={theme.primary}
-          />
-        }
       >
-        {content}
+        <View style={{ width: '100%', maxWidth: 1440 }}>
+          {content}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

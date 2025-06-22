@@ -12,6 +12,7 @@ import { useAnimation } from '@/lib/ui/animations/hooks';
 import { haptic } from '@/lib/ui/haptics';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { useActiveOrganization } from '@/lib/stores/organization-store';
+import { useHospitalContext } from '@/hooks/healthcare';
 import { Card, Badge } from '@/components/universal/display';
 import { Text } from '@/components/universal/typography';
 import { Button } from '@/components/universal/interaction';
@@ -62,6 +63,7 @@ export function ActivePatients({ scrollEnabled = true }: ActivePatientsProps) {
   const { user } = useAuthStore();
   const { organization: activeOrganization, isLoading: orgLoading } = useActiveOrganization();
   const { canViewPatients, isMedicalStaff } = useHealthcareAccess();
+  const { hospitalId, canAccessHealthcare } = useHospitalContext();
   
   // Animation hooks
   const { animatedStyle: blockFadeStyle } = useAnimation('fadeIn', { duration: 'normal' });
@@ -69,11 +71,11 @@ export function ActivePatients({ scrollEnabled = true }: ActivePatientsProps) {
   
   // Fetch active alerts data (using the correct API endpoint)
   const { data: alertsData, isLoading } = api.healthcare.getActiveAlerts.useQuery({
-    hospitalId: activeOrganization?.id || '',
+    hospitalId: hospitalId || '',
     limit: 5,
     offset: 0,
   }, {
-    enabled: !!user && !!activeOrganization?.id,
+    enabled: !!user && !!hospitalId && canAccessHealthcare,
   });
   
   // Mock patient data for now (since we're using alerts API)
@@ -120,8 +122,8 @@ export function ActivePatients({ scrollEnabled = true }: ActivePatientsProps) {
     return null;
   }
 
-  // Check if user has organization
-  if (!activeOrganization && !orgLoading) {
+  // Check if user has hospital assignment
+  if (!hospitalId && !orgLoading) {
     return (
       <Animated.View 
         style={[
@@ -132,16 +134,16 @@ export function ActivePatients({ scrollEnabled = true }: ActivePatientsProps) {
       >
         <VStack gap={spacing[3] as any} align="center">
           <Symbol name="building.2" size={48} color="muted" />
-          <Text size="lg" weight="semibold" align="center">No Organization</Text>
+          <Text size="lg" weight="semibold" align="center">No Hospital Assigned</Text>
           <Text colorTheme="mutedForeground" align="center">
-            Please join an organization to view patient data
+            Please contact your administrator to be assigned to a hospital
           </Text>
           <Button
             variant="default"
             size="sm"
-            onPress={() => router.push('/(app)/organization/settings')}
+            onPress={() => router.push('/(app)/(tabs)/settings')}
           >
-            Join Organization
+            Go to Settings
           </Button>
         </VStack>
       </Animated.View>

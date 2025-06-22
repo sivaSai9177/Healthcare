@@ -5,8 +5,8 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
-  interpolate,
-  Extrapolation,
+  // interpolate,
+  // Extrapolation,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,7 +14,7 @@ import { api } from '@/lib/api/trpc';
 import { Button as PrimaryButton } from '@/components/universal/interaction';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/universal/display';
 import { Input, TextArea, Select } from '@/components/universal/form';
-import { RoleSelector } from '@/components/blocks/forms/RoleSelector/RoleSelector';
+// import { RoleSelector } from '@/components/blocks/forms/RoleSelector/RoleSelector';
 import { HealthcareRoleSelector } from '@/components/blocks/forms/RoleSelector/HealthcareRoleSelector';
 import { HospitalSelector } from '@/components/blocks/forms/HospitalSelector/HospitalSelector';
 import { CompleteProfileInputSchema } from '@/lib/validations/profile';
@@ -206,42 +206,7 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
   const isSubmittingRef = useRef(false);
   const hasCompletedRef = useRef(false);
   
-  // Log the user state for debugging and update step if needed
-  useEffect(() => {
-    if (hasHydrated && user) {
-      logger.info('Profile completion page - user state', 'PROFILE_COMPLETION', {
-        userId: user.id,
-        role: user.role,
-        needsProfileCompletion: user.needsProfileCompletion,
-        isAuthenticated,
-        hasName: !!user.name,
-        organizationId: user.organizationId,
-        defaultHospitalId: user.defaultHospitalId,
-        department: user.department
-      });
-      
-      // Update step if user already has name and role
-      if (user.name && user.role && user.role !== 'user' && currentStep === 1) {
-        setCurrentStep(2);
-      }
-    }
-  }, [hasHydrated, user, isAuthenticated, currentStep]);
-  
-  // Show loading while auth state is being determined
-  if (!hasHydrated) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </View>
-    );
-  }
-  
-  // If user is not authenticated, don't show the form
-  if (!isAuthenticated || !user) {
-    logger.warn('Profile completion page accessed without authentication', 'PROFILE_COMPLETION');
-    return null;
-  }
-  
+  // Initialize all state hooks before any conditional returns
   const [formData, setFormData] = useState<ProfileCompletionData>({
     name: user?.name || '',
     role: user?.role === 'user' ? 'guest' : (user?.role || 'guest'), // Default to 'guest' instead of empty string
@@ -257,17 +222,22 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
     bio: undefined,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [organizationsSearch, setOrganizationsSearch] = useState('');
+  const [isJoiningOrganization, setIsJoiningOrganization] = useState(false);
+  const [selectedOrganizationForJoining, setSelectedOrganizationForJoining] = useState<{
+    id: string;
+    name: string;
+    type: string;
+    size: string;
+  } | null>(null);
+  const [isCreatingOrganization, setIsCreatingOrganization] = useState(false);
+  const [isSelectingHospital, setIsSelectingHospital] = useState(false);
   
   // Track profile completion status
   const [isProfileComplete, setIsProfileComplete] = useState(user?.needsProfileCompletion === false);
 
-  // Stabilized mutation to prevent re-creation on every render
-  const completeProfileMutation = api.auth.completeProfile.useMutation({
-    onMutate: async (variables) => {
-      logger.info('Mutation onMutate called with variables:', 'PROFILE_COMPLETION', variables);
-      return { variables };
-    },
-    onSuccess: useCallback((data: { success: true; user: any; organizationId?: string; hospitalId?: string }) => {
+  // Define callbacks before using them in mutations
+  const handleCompleteProfileSuccess = useCallback((data: { success: true; user: any; organizationId?: string; hospitalId?: string }) => {
       // Prevent duplicate executions
       if (hasCompletedRef.current) {
         logger.warn('Profile completion already processed, ignoring duplicate success', 'PROFILE_COMPLETION');
@@ -349,8 +319,9 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
           );
         }, 100);
       }
-    }, [updateUserData, router, onComplete, utils]),
-    onError: useCallback((error) => {
+    }, [updateUserData, router, onComplete, utils, formData.role]);
+
+  const handleCompleteProfileError = useCallback((error: any) => {
       isSubmittingRef.current = false;
       hasCompletedRef.current = false;
       logger.error('Failed to update profile', 'PROFILE_COMPLETION', {
@@ -360,8 +331,27 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
         shape: error.shape
       });
       RNAlert.alert('Error', error.message || 'Failed to update profile');
-    }, []),
+    }, []);
+
+  // Stabilized mutation to prevent re-creation on every render
+  const completeProfileMutation = api.auth.completeProfile.useMutation({
+    onMutate: async (variables) => {
+      logger.info('Mutation onMutate called with variables:', 'PROFILE_COMPLETION', variables);
+      return { variables };
+    },
+    onSuccess: handleCompleteProfileSuccess,
+    onError: handleCompleteProfileError,
   });
+
+  // TODO: Add validateOrganizationCode mutation when api.organization.joinByCode is available
+  // For now, we'll skip the real-time validation and let the backend handle it on submit
+  const validateOrganizationCode = {
+    isPending: false,
+    mutateAsync: async (data: { code: string }) => {
+      logger.info('Organization code validation skipped - will be validated on submit', 'PROFILE_COMPLETION', data);
+      return { organizationId: undefined };
+    }
+  };
 
   const handleSubmit = useCallback(async () => {
     // Prevent duplicate submissions
@@ -513,6 +503,33 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
     });
   }, []);
 
+  // Handle organization code validation
+  const handleOrganizationCodeBlur = useCallback(async () => {
+    if (formData.organizationCode && formData.organizationCode.length > 0) {
+      try {
+        logger.info('Validating organization code', 'PROFILE_COMPLETION', { code: formData.organizationCode });
+        const result = await validateOrganizationCode.mutateAsync({ 
+          code: formData.organizationCode 
+        });
+        
+        if (result.organizationId) {
+          logger.info('Organization code validated, updating form', 'PROFILE_COMPLETION', { 
+            organizationId: result.organizationId 
+          });
+          setFormData(prev => ({ 
+            ...prev, 
+            organizationId: result.organizationId,
+            // Clear organization name as we're joining an existing org
+            organizationName: undefined
+          }));
+        }
+      } catch (error) {
+        logger.error('Organization code validation failed', 'PROFILE_COMPLETION', error);
+        // Error is already handled in the mutation's onError
+      }
+    }
+  }, [formData.organizationCode]);
+
   const toggleAcceptTerms = useCallback(() => {
     const newValue = !formData.acceptTerms;
     logger.info('Toggling acceptTerms', 'PROFILE_COMPLETION', { from: formData.acceptTerms, to: newValue });
@@ -551,6 +568,27 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
     }
   }, [currentStep]);
   
+  // Log the user state for debugging and update step if needed
+  useEffect(() => {
+    if (hasHydrated && user) {
+      logger.info('Profile completion page - user state', 'PROFILE_COMPLETION', {
+        userId: user.id,
+        role: user.role,
+        needsProfileCompletion: user.needsProfileCompletion,
+        isAuthenticated,
+        hasName: !!user.name,
+        organizationId: user.organizationId,
+        defaultHospitalId: user.defaultHospitalId,
+        department: user.department
+      });
+      
+      // Update step if user already has name and role
+      if (user.name && user.role && user.role !== 'user' && currentStep === 1) {
+        setCurrentStep(2);
+      }
+    }
+  }, [hasHydrated, user, isAuthenticated, currentStep]);
+  
   // Reset refs when component unmounts
   useEffect(() => {
     return () => {
@@ -558,6 +596,21 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
       hasCompletedRef.current = false;
     };
   }, []);
+  
+  // Show loading while auth state is being determined
+  if (!hasHydrated) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
+  
+  // If user is not authenticated, don't show the form
+  if (!isAuthenticated || !user) {
+    logger.warn('Profile completion page accessed without authentication', 'PROFILE_COMPLETION');
+    return null;
+  }
 
   const renderStep = () => {
     switch (currentStep) {
@@ -694,9 +747,17 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
                 placeholder={isHealthcareRole ? "Enter hospital or organization code" : "Enter organization code"}
                 value={formData.organizationCode || ''}
                 onChangeText={(value) => handleInputChange('organizationCode', value)}
+                onBlur={handleOrganizationCodeBlur}
                 autoCapitalize="characters"
                 floatingLabel={false}
                 leftElement={<Symbol name="building.2" size={20} color={theme.mutedForeground} />}
+                rightElement={
+                  validateOrganizationCode.isPending ? (
+                    <ActivityIndicator size="small" color={theme.primary} />
+                  ) : formData.organizationId && formData.organizationCode ? (
+                    <Symbol name="checkmark.circle.fill" size={20} color={theme.primary} />
+                  ) : null
+                }
               />
               {errors.organizationCode && (
                 <Text size="sm" color="destructive">{errors.organizationCode}</Text>
@@ -755,7 +816,7 @@ export function ProfileCompletionFlowEnhanced({ onComplete, showSkip = false }: 
               <Select
                 label={`Department ${isHealthcareRole ? '(Required)' : '(Optional)'}`}
                 value={formData.department || ''}
-                onValueChange={(value) => handleInputChange('department', value)}
+                onValueChange={(value) => handleInputChange('department', typeof value === 'string' ? value : value[0])}
                 placeholder="Select a department"
                 error={errors.department}
                 options={getDepartmentOptions(formData.role)}

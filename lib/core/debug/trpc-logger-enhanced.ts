@@ -4,13 +4,14 @@
  */
 
 import { logger } from './logger';
-import { loggingConfig, isExternalLoggingEnabled, retryWithBackoff, type LoggingConfig } from './logging-config';
+import { loggingConfig, isExternalLoggingEnabled, retryWithBackoff } from './logging-config';
 
 // Import debugLog from components to avoid circular deps
 let debugLog: any;
 try {
-  debugLog = require('@/components/blocks/debug/utils/logger').debugLog;
-} catch (e) {
+  const debugModule = require('@/components/blocks/debug/utils/logger');
+  debugLog = debugModule.debugLog;
+} catch {
   // Fallback if components aren't available
   debugLog = {
     info: console.log,
@@ -22,7 +23,7 @@ try {
 
 class EnhancedTRPCLogger {
   private logQueue: any[] = [];
-  private flushTimer: NodeJS.Timeout | null = null;
+  private flushTimer: ReturnType<typeof setInterval> | null = null;
   private retryCount: Map<string, number> = new Map();
 
   constructor() {

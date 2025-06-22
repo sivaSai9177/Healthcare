@@ -434,7 +434,6 @@ export const healthcareRouter = router({
         // Map the alerts with user information
         const mappedAlerts = paginatedAlerts.map(({ alert, creator, acknowledgedByUser }) => ({
           ...alert,
-          patientName: alert.patientName || null,
           createdByName: creator?.name || 'Unknown',
           acknowledgedByName: acknowledgedByUser?.name || null,
           currentEscalationTier: alert.currentEscalationTier || 1,
@@ -472,18 +471,25 @@ export const healthcareRouter = router({
   // Get alert statistics
   getAlertStats: healthcareProcedure
     .query(async ({ ctx }) => {
-      if (!ctx.hospitalContext?.userOrganizationId) {
-        throw new Error('Organization required');
-      }
-
       try {
-        // Get user's hospital context
+        log.info('Getting alert stats', 'HEALTHCARE', {
+          userId: ctx.user.id,
+          userRole: ctx.user.role,
+          hospitalContext: ctx.hospitalContext,
+        });
+
         // Get user's hospital context from database
         const [healthcareUser] = await db
           .select()
           .from(healthcareUsers)
           .where(eq(healthcareUsers.userId, ctx.user.id))
           .limit(1);
+        
+        log.info('Healthcare user lookup', 'HEALTHCARE', {
+          userId: ctx.user.id,
+          healthcareUser: healthcareUser ? 'found' : 'not found',
+          hospitalId: healthcareUser?.hospitalId,
+        });
         
         if (!healthcareUser?.hospitalId) {
           return {
@@ -1129,20 +1135,20 @@ export const healthcareRouter = router({
       const { hospitalId, startDate, endDate, limit, offset } = input;
       
       try {
-        let query = db
-          .select()
-          .from(alerts)
-          .where(eq(alerts.hospitalId, hospitalId));
+        const conditions = [eq(alerts.hospitalId, hospitalId)];
 
         if (startDate) {
-          query = query.where(gte(alerts.createdAt, startDate));
+          conditions.push(gte(alerts.createdAt, startDate));
         }
 
         if (endDate) {
-          query = query.where(lte(alerts.createdAt, endDate));
+          conditions.push(lte(alerts.createdAt, endDate));
         }
 
-        const alertHistory = await query
+        const alertHistory = await db
+          .select()
+          .from(alerts)
+          .where(and(...conditions))
           .orderBy(desc(alerts.createdAt))
           .limit(limit)
           .offset(offset);
@@ -1173,13 +1179,23 @@ export const healthcareRouter = router({
           // Update existing record
           await db
             .update(healthcareUsers)
-            .set(input)
+            .set({
+              hospitalId: input.hospitalId,
+              licenseNumber: input.licenseNumber,
+              department: input.department as any, // Cast to department enum type
+              specialization: input.specialization,
+              isOnDuty: input.isOnDuty,
+            })
             .where(eq(healthcareUsers.userId, ctx.user.id));
         } else {
           // Create new record
           await db.insert(healthcareUsers).values({
             userId: ctx.user.id,
-            ...input,
+            hospitalId: input.hospitalId,
+            licenseNumber: input.licenseNumber,
+            department: input.department as any, // Cast to department enum type
+            specialization: input.specialization,
+            isOnDuty: input.isOnDuty,
           });
         }
 
@@ -1247,7 +1263,7 @@ export const healthcareRouter = router({
             await db.insert(healthcareUsers).values({
               userId: ctx.user.id,
               hospitalId,
-              department: 'General',
+              department: 'general_medicine' as any,
               isOnDuty: false,
             });
             
@@ -1383,7 +1399,7 @@ export const healthcareRouter = router({
         ];
         
         if (input.department) {
-          conditions.push(eq(healthcareUsers.department, input.department));
+          conditions.push(eq(healthcareUsers.department, input.department as any));
         }
         
         const onDutyStaff = await db
@@ -2564,9 +2580,23 @@ export const healthcareRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
+        // Log context for debugging
+        console.log('getMyPatients called with:', {
+          inputHospitalId: input.hospitalId,
+          userHospitalId: ctx.hospitalContext?.userHospitalId,
+          userOrganizationId: ctx.hospitalContext?.userOrganizationId,
+          userId: ctx.user?.id,
+          userRole: (ctx.user as any)?.role,
+        });
+
+        // Validate user has hospital context
+        if (!ctx.hospitalContext?.userHospitalId) {
+          throw new Error('No hospital assignment found. Please complete your profile.');
+        }
+
         // Validate user belongs to the specified hospital
-        if (input.hospitalId !== ctx.hospitalContext?.userOrganizationId) {
-          throw new Error('Invalid hospital ID');
+        if (input.hospitalId !== ctx.hospitalContext.userHospitalId) {
+          throw new Error(`Invalid hospital ID. Expected ${ctx.hospitalContext.userHospitalId}, got ${input.hospitalId}`);
         }
 
         // For now, return mock patient data
@@ -2734,14 +2764,12 @@ export const healthcareRouter = router({
           .limit(1);
 
         if (!existingHealthcareUser) {
-          // Create healthcare user profile with appropriate role
-          // For OAuth users (guests), use operator as default
-          const healthcareRole = currentUser?.role === 'guest' ? 'operator' : 'nurse';
+          // Create healthcare user profile
           await db.insert(healthcareUsers).values({
             userId: ctx.user.id,
             hospitalId: hospitalId,
-            role: healthcareRole,
-            isActive: true,
+            department: 'general_medicine' as any,
+            isOnDuty: false,
           });
         } else {
           // Update existing healthcare user's hospital
@@ -2749,7 +2777,6 @@ export const healthcareRouter = router({
             .update(healthcareUsers)
             .set({
               hospitalId: hospitalId,
-              updatedAt: new Date(),
             })
             .where(eq(healthcareUsers.userId, ctx.user.id));
         }

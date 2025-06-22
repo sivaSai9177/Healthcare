@@ -1,5 +1,4 @@
 import { useEffect, useCallback } from 'react';
-import { Platform } from 'react-native';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { deviceFingerprintManager } from '@/lib/auth/device-fingerprint';
 import { logger } from '@/lib/core/debug/unified-logger';
@@ -98,7 +97,7 @@ export function useAuthSecurity(options: AuthSecurityOptions = {}) {
         return () => clearInterval(interval);
       }
     }
-  }, [isAuthenticated, user, sendDeviceFingerprint, checkSessionAnomaly]);
+  }, [isAuthenticated, user, sendDeviceFingerprint, checkSessionAnomaly, enableAnomalyDetection]);
   
   // Get security status
   const getSecurityStatus = useCallback(async () => {
@@ -170,7 +169,7 @@ export function useConcurrentSessions() {
     refetchInterval: 60000, // Check every minute
   });
   
-  const terminateSession = api.auth.terminateSession.useMutation();
+  const terminateSession = api.auth.revokeSession.useMutation();
   
   const handleTerminateSession = useCallback(async (sessionId: string) => {
     try {
@@ -186,9 +185,9 @@ export function useConcurrentSessions() {
   }, [terminateSession]);
   
   return {
-    sessions: sessions || [],
+    sessions: sessions?.sessions || [],
     isLoading,
     terminateSession: handleTerminateSession,
-    sessionCount: sessions?.length || 0,
+    sessionCount: sessions?.count || 0,
   };
 }

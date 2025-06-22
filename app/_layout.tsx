@@ -26,7 +26,7 @@ import { ErrorProvider } from "@/components/providers/ErrorProvider";
 import { ErrorBanner } from "@/components/blocks/errors/ErrorBanner";
 import { RootErrorStoreSetup } from "@/components/RootErrorStoreSetup";
 import GlobalErrorBoundary from "@/components/providers/GlobalErrorBoundary";
-// import { ConsolidatedDebugPanel } from "@/components/blocks/debug/DebugPanel/DebugPanel";
+import { ConsolidatedDebugPanel } from "@/components/blocks/debug/DebugPanel/DebugPanel";
 import { SyncProvider } from "@/components/providers/SyncProvider";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { HospitalProvider } from "@/components/providers/HospitalProvider";
@@ -199,7 +199,7 @@ export default function RootLayout() {
                     />
                   </Stack>
                   <ThemedStatusBar />
-                  {/* <ConsolidatedDebugPanel /> */}
+                  <ConsolidatedDebugPanel />
                   <LayoutDebugger />
                   </ThemeStyleInjector>
                 </AnimationProvider>

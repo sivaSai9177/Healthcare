@@ -5,6 +5,10 @@
 
 import { log } from './logger';
 import { useDebugStore } from '@/lib/stores/debug-store';
+import type { router as RouterType } from 'expo-router';
+
+// Router will be imported lazily
+let router: typeof RouterType;
 
 export interface RouteDebugInfo {
   pathname: string;
@@ -21,16 +25,12 @@ class RouterDebugger {
   private isEnabled = __DEV__;
   private isInitialized = false;
   private originalMethods: {
-    push?: typeof router.push;
-    replace?: typeof router.replace;
-    back?: typeof router.back;
-    setParams?: typeof router.setParams;
+    push?: any;
+    replace?: any;
+    back?: any;
+    setParams?: any;
   } = {};
   
-  constructor() {
-    // Don't wrap router methods in constructor
-    // Wait for explicit initialization after navigation container is mounted
-  }
   
   public initialize() {
     if (!__DEV__ || this.isInitialized) return;
@@ -46,7 +46,8 @@ class RouterDebugger {
   
   private wrapRouterMethods() {
     // Lazy import router to avoid accessing it before navigation is ready
-    const { router } = require('expo-router');
+    const expoRouter = require('expo-router');
+    router = expoRouter.router;
     
     // Store original methods
     this.originalMethods.push = router.push.bind(router);
@@ -135,16 +136,17 @@ class RouterDebugger {
     // Handle back navigation special case
     if (method === 'back' && href === null) {
       const debugInfo: RouteDebugInfo = {
-        method,
+        method: method as RouteDebugInfo['method'],
         pathname: 'back',
         params: {},
-        timestamp: Date.now(),
-        stackTrace: this.getStackTrace(),
+        segments: [],
+        timestamp: new Date(),
+        stack: this.getCallStack(),
       };
       
-      this.routeHistory.push(debugInfo);
-      if (this.routeHistory.length > 100) {
-        this.routeHistory = this.routeHistory.slice(-50);
+      this.history.push(debugInfo);
+      if (this.history.length > 100) {
+        this.history = this.history.slice(-50);
       }
       
       log.info(`[Router] Navigation: ${method}`, 'NAVIGATION', debugInfo);

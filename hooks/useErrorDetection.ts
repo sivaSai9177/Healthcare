@@ -3,19 +3,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import { useAuth } from './useAuth';
 import { logger } from '@/lib/core/debug/unified-logger';
 
-// Dynamic import with fallback
-let NetInfo: any;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  NetInfo = require('@react-native-community/netinfo').default;
-} catch {
-  // NetInfo not available - provide a mock
-  NetInfo = {
-    addEventListener: () => () => {},
-    fetch: () => Promise.resolve({ isConnected: true, isInternetReachable: true }),
-  };
-  logger.warn('NetInfo not available, using mock', 'SYSTEM');
-}
+import { SafeNetInfo } from '@/lib/utils/safe-netinfo';
 
 export type ErrorType = 
   | 'session-timeout' 
@@ -71,7 +59,7 @@ export function useErrorDetection() {
     let unsubscribe: (() => void) | undefined;
     
     try {
-      unsubscribe = NetInfo.addEventListener(state => {
+      unsubscribe = SafeNetInfo.addEventListener(state => {
         // isInternetReachable can be null initially, treat null as connected
         const connected = state.isConnected && (state.isInternetReachable !== false);
         setIsOnline(connected || false);
@@ -88,7 +76,7 @@ export function useErrorDetection() {
       });
       
       // Check initial connection state
-      NetInfo.fetch()
+      SafeNetInfo.fetch()
         .then(state => {
           const connected = state.isConnected && (state.isInternetReachable !== false);
           setIsOnline(connected || false);
@@ -136,7 +124,7 @@ export function useErrorDetection() {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
         // Re-check connection when app becomes active
-        NetInfo.fetch()
+        SafeNetInfo.fetch()
           .then(state => {
             const connected = state.isConnected && (state.isInternetReachable !== false);
             setIsOnline(connected || false);

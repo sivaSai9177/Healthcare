@@ -120,14 +120,14 @@ const logActivity = async (
       .select({ name: user.name, email: user.email, role: user.role })
       .from(user)
       .where(eq(user.id, actorId))
-      .limit(1) : [{}];
+      .limit(1) : [];
 
     await db.insert(organizationActivityLog).values({
       organizationId,
       actorId,
-      actorName: actorData[0]?.name || null,
-      actorEmail: actorData[0]?.email || null,
-      actorRole: actorData[0]?.role || null,
+      actorName: actorData.length > 0 ? actorData[0].name : null,
+      actorEmail: actorData.length > 0 ? actorData[0].email : null,
+      actorRole: actorData.length > 0 ? actorData[0].role : null,
       action,
       category,
       severity: 'info',
@@ -150,6 +150,17 @@ const createSlug = (name: string): string => {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 50);
+};
+
+// Helper to transform organization data for response
+const transformOrganizationResponse = (org: any) => {
+  return {
+    ...org,
+    type: org.type as 'business' | 'nonprofit' | 'education' | 'personal',
+    size: org.size as 'solo' | 'small' | 'medium' | 'large' | 'enterprise',
+    status: org.status as 'active' | 'inactive' | 'suspended' | 'deleted',
+    plan: org.plan as 'free' | 'starter' | 'pro' | 'enterprise',
+  };
 };
 
 export const organizationRouter = router({
@@ -188,8 +199,23 @@ export const organizationRouter = router({
           const [newOrg] = await tx
             .insert(organization)
             .values({
-              ...input,
+              name: input.name,
               slug,
+              type: input.type || 'business',
+              size: input.size || 'small',
+              industry: input.industry || null,
+              website: input.website || null,
+              description: input.description || null,
+              email: input.email || null,
+              phone: input.phone || null,
+              address: input.address || null,
+              timezone: input.timezone || 'UTC',
+              language: input.language || 'en',
+              currency: input.currency || 'USD',
+              country: input.country || null,
+              plan: 'free',
+              status: 'active',
+              metadata: input.metadata || {},
               createdBy: ctx.session.user.id,
             })
             .returning();
@@ -253,7 +279,7 @@ export const organizationRouter = router({
         });
         
         return {
-          ...result,
+          ...transformOrganizationResponse(result),
           memberCount: 1,
           myRole: 'owner' as OrganizationRole,
         };
@@ -319,7 +345,7 @@ export const organizationRouter = router({
       const userRole = await orgAccess.getUserRole(ctx.session.user.id, input.organizationId);
       
       return {
-        ...org,
+        ...transformOrganizationResponse(org),
         memberCount: Number(memberCountResult[0]?.count || 0),
         myRole: userRole || undefined,
       };
@@ -365,7 +391,7 @@ export const organizationRouter = router({
       const userRole = await orgAccess.getUserRole(ctx.session.user.id, input.organizationId);
       
       return {
-        ...updatedOrg,
+        ...transformOrganizationResponse(updatedOrg),
         myRole: userRole || undefined,
       };
     }),
@@ -482,8 +508,15 @@ export const organizationRouter = router({
         conditions.push(eq(organizationMember.status, status));
       }
       
+      // Add search condition if provided
+      if (search) {
+        conditions.push(
+          sql`${user.name} ILIKE ${`%${search}%`} OR ${user.email} ILIKE ${`%${search}%`}`
+        );
+      }
+      
       // Get members with user data
-      const query = db
+      const members = await db
         .select({
           member: organizationMember,
           user: user,
@@ -494,18 +527,6 @@ export const organizationRouter = router({
         .orderBy(desc(organizationMember.joinedAt))
         .limit(limit)
         .offset(offset);
-      
-      // Apply search if provided
-      if (search) {
-        query.where(
-          and(
-            ...conditions,
-            sql`${user.name} ILIKE ${`%${search}%`} OR ${user.email} ILIKE ${`%${search}%`}`
-          )
-        );
-      }
-      
-      const members = await query;
       
       // Get total count
       const countResult = await db
@@ -562,8 +583,15 @@ export const organizationRouter = router({
         conditions.push(eq(organizationMember.status, status));
       }
       
+      // Add search condition if provided
+      if (search) {
+        conditions.push(
+          sql`${user.name} ILIKE ${`%${search}%`} OR ${user.email} ILIKE ${`%${search}%`}`
+        );
+      }
+      
       // Get members with user and healthcare data
-      const query = db
+      const members = await db
         .select({
           member: organizationMember,
           user: user,
@@ -576,18 +604,6 @@ export const organizationRouter = router({
         .orderBy(desc(organizationMember.joinedAt))
         .limit(limit)
         .offset(offset);
-      
-      // Apply search if provided
-      if (search) {
-        query.where(
-          and(
-            ...conditions,
-            sql`${user.name} ILIKE ${`%${search}%`} OR ${user.email} ILIKE ${`%${search}%`}`
-          )
-        );
-      }
-      
-      const members = await query;
       
       // Get total count
       const countResult = await db
@@ -963,10 +979,11 @@ export const organizationRouter = router({
           .limit(1);
         
         const currentSettings = existing[0]?.notificationSettings || {};
+        const safeCurrentSettings = typeof currentSettings === 'object' && currentSettings !== null && !Array.isArray(currentSettings) ? currentSettings : {};
         updateData.notificationSettings = {
-          ...currentSettings,
-          email: input.settings.notifications.emailNotifications || (currentSettings as any).email || {},
-          inApp: input.settings.notifications.inAppNotifications || (currentSettings as any).inApp || {},
+          ...safeCurrentSettings,
+          email: input.settings.notifications.emailNotifications || (safeCurrentSettings as any).email || {},
+          inApp: input.settings.notifications.inAppNotifications || (safeCurrentSettings as any).inApp || {},
         };
         
         if (input.settings.notifications.notificationEmail !== undefined) {
