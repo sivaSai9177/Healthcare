@@ -123,14 +123,14 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
       id: 'home',
       title: 'Dashboard',
       icon: 'house.fill',
-      href: '/(app)/(tabs)/home',
+      href: '/home',
       shortcut: '⌘D',
     },
     ...(canViewAlerts ? [{
       id: 'alerts',
       title: 'Alerts',
       icon: 'bell.badge',
-      // Remove href to make it a toggle-only parent
+      href: '/alerts',
       badge: (alertStats as any)?.active || 0,
       badgeVariant: 'error' as const,
       shortcut: '⌘A',
@@ -139,14 +139,14 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
           id: 'active-alerts',
           title: 'Active Alerts',
           icon: 'bell.fill',
-          href: '/(app)/(tabs)/alerts',
+          href: '/alerts',
           badge: (alertStats as any)?.active,
         },
         {
           id: 'escalation-queue',
           title: 'Escalation Queue',
           icon: 'exclamationmark.triangle',
-          href: '/(app)/(tabs)/alerts/escalation-queue',
+          href: '/alerts/escalation-queue',
           badge: (alertStats as any)?.escalated,
           isNew: true,
         },
@@ -154,7 +154,7 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
           id: 'alert-history',
           title: 'Alert History',
           icon: 'clock.arrow.circlepath',
-          href: '/(app)/(tabs)/alerts/history',
+          href: '/alerts/history',
         },
       ],
     }] : []),
@@ -162,7 +162,7 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
       id: 'patients',
       title: 'Patients',
       icon: 'person.2.fill',
-      href: '/(app)/(tabs)/patients',
+      href: '/patients',
       shortcut: '⌘P',
     }] : []),
     ...(canManageShifts ? [{
@@ -174,19 +174,19 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
           id: 'shift-schedule',
           title: 'Schedule',
           icon: 'calendar',
-          href: '/(app)/shifts/schedule',
+          href: '/shifts/schedule',
         },
         {
           id: 'shift-handover',
           title: 'Handover',
           icon: 'arrow.triangle.2.circlepath',
-          href: '/(app)/shifts/handover',
+          href: '/shifts/handover',
         },
         {
           id: 'shift-reports',
           title: 'Reports',
           icon: 'doc.text',
-          href: '/(app)/shifts/reports',
+          href: '/shifts/reports',
         },
       ],
     }] : []),
@@ -199,20 +199,20 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
           id: 'response-analytics',
           title: 'Response Times',
           icon: 'speedometer',
-          href: '/(app)/analytics/response-analytics',
+          href: '/analytics/response-analytics',
           isNew: true,
         },
         {
           id: 'performance-metrics',
           title: 'Performance',
           icon: 'chart.bar',
-          href: '/(app)/analytics/performance',
+          href: '/analytics/performance',
         },
         {
           id: 'trend-analysis',
           title: 'Trends',
           icon: 'arrow.up.right',
-          href: '/(app)/analytics/trends',
+          href: '/analytics/trends',
         },
       ],
     }] : []),
@@ -225,13 +225,13 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
           id: 'activity-logs',
           title: 'Activity Logs',
           icon: 'list.bullet.rectangle',
-          href: '/(app)/logs/activity-logs',
+          href: '/logs/activity-logs',
         },
         {
           id: 'audit-trail',
           title: 'Audit Trail',
           icon: 'shield.checkerboard',
-          href: '/(app)/logs/audit',
+          href: '/logs/audit',
         },
       ],
     }] : []),
@@ -239,7 +239,7 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
       id: 'settings',
       title: 'Settings',
       icon: 'gearshape.fill',
-      href: '/(app)/(tabs)/settings',
+      href: '/settings',
       shortcut: '⌘,',
     },
   ], [canViewAlerts, canViewPatients, canManageShifts, canViewAnalytics, canViewAuditLogs, alertStats]);
@@ -263,8 +263,8 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
     if (!href) return false;
     
     // Clean up paths for comparison
-    const cleanHref = href.replace('/(app)/(tabs)', '').replace('/(app)', '');
-    const cleanPathname = pathname.replace('/(app)/(tabs)', '').replace('/(app)', '');
+    const cleanHref = href.replace('/(tabs)', '').replace('/(app)', '');
+    const cleanPathname = pathname.replace('/(tabs)', '').replace('/(app)', '');
     
     // Exact match
     if (cleanHref === cleanPathname) return true;
@@ -297,19 +297,19 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
         switch (e.key) {
           case 'd':
             e.preventDefault();
-            router.push('/(app)/(tabs)/home');
+            router.push('/home');
             break;
           case 'a':
             e.preventDefault();
-            if (canViewAlerts) router.push('/(app)/(tabs)/alerts');
+            if (canViewAlerts) router.push('/alerts');
             break;
           case 'p':
             e.preventDefault();
-            if (canViewPatients) router.push('/(app)/(tabs)/patients');
+            if (canViewPatients) router.push('/patients');
             break;
           case ',':
             e.preventDefault();
-            router.push('/(app)/(tabs)/settings');
+            router.push('/settings');
             break;
         }
       }
@@ -585,7 +585,7 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
               exiting={FadeOut.duration(200)}
             >
               <Pressable
-                onPress={() => router.push('/(modals)/notification-center')}
+                onPress={() => router.push('/notification-center')}
                 style={{
                   marginTop: spacing[2],
                   paddingHorizontal: isCollapsed ? spacing[2] : spacing[3],
@@ -649,7 +649,7 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
                 <Button
                   variant="outline"
                   size={isCollapsed ? "icon" : "default"}
-                  onPress={() => router.push('/(modals)/create-alert')}
+                  onPress={() => router.push('/create-alert')}
                   fullWidth={!isCollapsed}
                   animated={true}
                   className="border-destructive hover:bg-destructive/10 hover:border-destructive/60 transition-all"
@@ -703,7 +703,7 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
                       id: 'documentation',
                       title: 'Documentation',
                       icon: 'book',
-                      href: '/(app)/docs',
+                      href: '/docs',
                     }}
                   />
                   <EnhancedNavItem
@@ -711,7 +711,7 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
                       id: 'support',
                       title: 'Support',
                       icon: 'questionmark.circle',
-                      href: '/(app)/support',
+                      href: '/support',
                     }}
                   />
                   <EnhancedNavItem
@@ -755,7 +755,7 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
               variant="ghost"
               size="sm"
               fullWidth
-              onPress={() => router.push('/(app)/(tabs)/settings')}
+              onPress={() => router.push('/settings')}
               style={{ marginTop: spacing[2] }}
             >
               <HStack gap={2} alignItems="center">
@@ -1108,9 +1108,10 @@ function CommandPalette({ isOpen, onClose, items, onNavigate }: CommandPalettePr
                             : 'transparent',
                         },
                         Platform.OS === 'web' && {
+                          // @ts-ignore - web-only styles
                           transition: 'all 0.2s ease',
                           cursor: 'pointer',
-                        },
+                        } as any,
                       ]}
                     >
                       <HStack alignItems="center" gap={3}>

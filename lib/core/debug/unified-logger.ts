@@ -25,7 +25,7 @@ const getPlatform = () => {
   }
 };
 
-export type LogCategory = 'AUTH' | 'API' | 'TRPC' | 'STORE' | 'ROUTER' | 'SYSTEM' | 'ERROR' | 'HEALTHCARE' | 'STORAGE' | 'ANALYTICS' | 'API_ERROR_BOUNDARY' | 'TEST';
+export type LogCategory = 'AUTH' | 'API' | 'TRPC' | 'STORE' | 'ROUTER' | 'SYSTEM' | 'ERROR' | 'HEALTHCARE' | 'STORAGE' | 'ANALYTICS' | 'API_ERROR_BOUNDARY' | 'TEST' | 'WS_QUEUE' | 'WS_CONNECTION' | 'WS_CLEANUP' | 'ALERT_WS' | 'ALERTS';
 
 interface UnifiedLogEntry {
   timestamp: Date;

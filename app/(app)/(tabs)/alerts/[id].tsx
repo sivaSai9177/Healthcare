@@ -22,6 +22,7 @@ import { haptic } from '@/lib/ui/haptics';
 import { showErrorAlert, showSuccessAlert } from '@/lib/core/alert';
 import { format } from 'date-fns';
 import { Symbol } from '@/components/universal/display/Symbols';
+import { EscalationTimeline } from '@/components/blocks/healthcare/alerts/EscalationTimeline';
 
 export default function AlertDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -168,6 +169,20 @@ export default function AlertDetailScreen() {
           </VStack>
         </Box>
       </Card>
+      
+      {/* Escalation Timeline */}
+      {alert.status === 'active' && alert.currentEscalationTier && (
+        <Card style={shadowMd}>
+          <Box p={4 as any}>
+            <EscalationTimeline
+              alert={alert}
+              escalations={alert.escalations}
+              currentTier={alert.currentEscalationTier}
+              nextEscalationAt={alert.nextEscalationAt}
+            />
+          </Box>
+        </Card>
+      )}
       
       {/* Patient Info */}
       {alert.patientId && (

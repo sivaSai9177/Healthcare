@@ -55,27 +55,27 @@ export default function TabsLayout() {
     const sidebarItems = [
       {
         title: 'Home',
-        url: '/(app)/(tabs)/home',
+        url: '/home',
         icon: 'house.fill',
-        isActive: pathname === '/(app)/(tabs)/home',
+        isActive: pathname === '/home',
       },
       ...(permissions.canViewAlerts ? [{
         title: 'Alerts',
-        url: '/(app)/(tabs)/alerts',
+        url: '/alerts',
         icon: 'bell.badge',
-        isActive: pathname === '/(app)/(tabs)/alerts',
+        isActive: pathname === '/alerts' || pathname.startsWith('/alerts/'),
       }] : []),
       ...(permissions.canViewPatients ? [{
         title: 'Patients',
-        url: '/(app)/(tabs)/patients',
+        url: '/patients',
         icon: 'person.2',
-        isActive: pathname === '/(app)/(tabs)/patients',
+        isActive: pathname === '/patients' || pathname.startsWith('/patients/'),
       }] : []),
       {
         title: 'Settings',
-        url: '/(app)/(tabs)/settings',
+        url: '/settings',
         icon: 'gearshape',
-        isActive: pathname === '/(app)/(tabs)/settings',
+        isActive: pathname === '/settings' || pathname.startsWith('/settings/'),
       },
     ];
 

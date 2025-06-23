@@ -382,9 +382,9 @@ export default function SettingsScreen() {
         </Text>
         <SettingItem
           icon={<Symbol name="bell" size={20} color={theme.primary} />}
-          title="Push Notifications"
-          subtitle="Manage notification preferences"
-          rightElement={<Switch value={true} onValueChange={() => {}} />}
+          title="Notification Settings"
+          subtitle="Manage alert sounds and preferences"
+          onPress={() => router.push('/(app)/(tabs)/settings/notifications')}
         />
       </VStack>
       

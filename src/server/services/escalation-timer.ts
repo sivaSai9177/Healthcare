@@ -182,7 +182,7 @@ export class EscalationTimerService {
         });
 
         // Get users to notify based on role
-        const rolesToNotify = (toRole as any) === 'all_staff' ? ['nurse', 'doctor', 'head_doctor'] : [toRole];
+        const rolesToNotify = toRole === 'all_staff' ? ['nurse', 'doctor', 'head_doctor'] : [toRole];
         const usersToNotify = await this.getUsersToNotify(alert.hospitalId, rolesToNotify);
 
         // Create notification logs
@@ -216,7 +216,7 @@ export class EscalationTimerService {
               fromTier,
               toTier,
               reason: 'timeout',
-              notifiedUsers: usersToNotify.map((u: any) => u.id),
+              notifiedUsers: usersToNotify.map(u => u.id),
               systemAction: true,
               escalatedBy: 'automatic_timeout',
             },
@@ -248,7 +248,7 @@ export class EscalationTimerService {
         
         // Get users to notify
         const usersToNotify = await this.getUsersToNotify(alert.hospitalId, 
-          (toRole as any) === 'all_staff' ? ['nurse', 'doctor', 'head_doctor'] : [toRole]
+          toRole === 'all_staff' ? ['nurse', 'doctor', 'head_doctor'] : [toRole]
         );
         
         if (usersToNotify.length > 0) {

@@ -1,5 +1,6 @@
 export { ActivityTimer } from './ActivityTimer';
 export { Alert, AlertTitle, AlertDescription } from './Alert';
+export { ConnectionStatus, ConnectionStatusBadge } from './ConnectionStatus';
 export { CountdownTimer } from './CountdownTimer';
 export { ErrorDisplay } from './ErrorDisplay';
 export { EmptyState, EmptyStates } from './EmptyState';

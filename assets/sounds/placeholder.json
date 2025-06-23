@@ -1,0 +1,10 @@
+{
+  "notice": "Sound files will be added here",
+  "files": [
+    "critical-alert.mp3",
+    "urgent-alert.mp3",
+    "standard-alert.mp3",
+    "chime.mp3",
+    "notification.mp3"
+  ]
+}

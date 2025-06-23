@@ -242,6 +242,7 @@ export const CreateAlertSchema = z.object({
     .max(500, "Description cannot exceed 500 characters")
     .optional(),
   hospitalId: z.string().uuid("Invalid hospital ID format"),
+  targetDepartment: z.string().optional(), // Optional department targeting
 });
 
 // Urgency Assessment Options

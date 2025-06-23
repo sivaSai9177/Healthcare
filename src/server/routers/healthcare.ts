@@ -17,7 +17,8 @@ import {
   hospitals,
   shiftLogs,
   shiftHandovers,
-  departments
+  departments,
+  alertTemplates
 } from '@/src/db/healthcare-schema';
 import { patients, careTeamAssignments } from '@/src/db/patient-schema';
 import { users } from '@/src/db/schema';
@@ -28,7 +29,9 @@ import {
   AcknowledgeAlertSchema,
   UpdateUserRoleSchema,
   HealthcareProfileSchema,
-  HEALTHCARE_ESCALATION_TIERS
+  HEALTHCARE_ESCALATION_TIERS,
+  AlertType,
+  UrgencyLevel
 } from '@/types/healthcare';
 import { patientSchemas, patientValidation, permissionValidators } from '@/lib/validations/healthcare';
 import { log } from '@/lib/core/debug/server-logger';
@@ -55,7 +58,9 @@ export const healthcareRouter = router({
   // Get hospitals for an organization
   getOrganizationHospitals: protectedProcedure
     .input(z.object({
-      organizationId: z.string().uuid(),
+      organizationId: z.string().uuid().refine((val) => val !== 'undefined', {
+        message: 'Valid UUID required for organizationId',
+      }),
     }))
     .query(async ({ input, ctx }) => {
       const { organizationId } = input;
@@ -186,7 +191,7 @@ export const healthcareRouter = router({
     })
     .input(CreateAlertSchema)
     .mutation(async ({ input, ctx }) => {
-      const { roomNumber, alertType, urgencyLevel, description, hospitalId } = input;
+      const { roomNumber, alertType, urgencyLevel, description, hospitalId, targetDepartment } = input;
       
       // Use user's hospital context
       const userHospitalId = ctx.hospitalContext?.userHospitalId;
@@ -209,6 +214,7 @@ export const healthcareRouter = router({
           alertType,
           urgencyLevel,
           description,
+          targetDepartment,
           createdBy: ctx.user.id,
           hospitalId: alertHospitalId,
           status: 'active',
@@ -240,6 +246,21 @@ export const healthcareRouter = router({
           const { notificationService, NotificationType, Priority } = await import('../services/notifications');
           
           // Get on-duty healthcare staff (doctors and nurses)
+          // If targetDepartment is specified, only notify staff in that department
+          const whereConditions = [
+            eq(healthcareUsers.hospitalId, alertHospitalId),
+            eq(healthcareUsers.isOnDuty, true),
+            or(
+              eq(users.role, 'doctor'),
+              eq(users.role, 'nurse'),
+              eq(users.role, 'head_doctor')
+            )
+          ];
+          
+          if (targetDepartment) {
+            whereConditions.push(eq(users.department, targetDepartment));
+          }
+          
           const onDutyStaff = await db
             .select({
               userId: healthcareUsers.userId,
@@ -247,17 +268,7 @@ export const healthcareRouter = router({
             })
             .from(healthcareUsers)
             .innerJoin(users, eq(healthcareUsers.userId, users.id))
-            .where(
-              and(
-                eq(healthcareUsers.hospitalId, hospitalId),
-                eq(healthcareUsers.isOnDuty, true),
-                or(
-                  eq(users.role, 'doctor'),
-                  eq(users.role, 'nurse'),
-                  eq(users.role, 'head_doctor')
-                )
-              )
-            );
+            .where(and(...whereConditions));
 
           if (onDutyStaff.length > 0) {
             // Send notification to all on-duty staff
@@ -275,6 +286,7 @@ export const healthcareRouter = router({
                   alertType,
                   urgencyLevel,
                   description,
+                  targetDepartment,
                 },
                 organizationId: hospitalId,
               }))
@@ -290,6 +302,7 @@ export const healthcareRouter = router({
           alertType,
           urgencyLevel,
           roomNumber,
+          targetDepartment,
           createdBy: ctx.user.id,
         });
 
@@ -1698,6 +1711,9 @@ export const healthcareRouter = router({
             resolvedBy: alerts.acknowledgedBy,
             resolvedAt: alerts.resolvedAt,
             creatorName: users.name,
+            currentEscalationTier: alerts.currentEscalationTier,
+            nextEscalationAt: alerts.nextEscalationAt,
+            targetDepartment: alerts.targetDepartment,
           })
           .from(alerts)
           .leftJoin(users, eq(alerts.createdBy, users.id))
@@ -1708,7 +1724,24 @@ export const healthcareRouter = router({
           throw new Error('Alert not found');
         }
 
-        return alert;
+        // Get escalation history for the alert
+        const escalations = await db
+          .select({
+            id: alertEscalations.id,
+            alertId: alertEscalations.alertId,
+            from_role: alertEscalations.from_role,
+            to_role: alertEscalations.to_role,
+            escalatedAt: alertEscalations.escalatedAt,
+            reason: alertEscalations.reason,
+          })
+          .from(alertEscalations)
+          .where(eq(alertEscalations.alertId, input.alertId))
+          .orderBy(asc(alertEscalations.escalatedAt));
+
+        return {
+          ...alert,
+          escalations,
+        };
       } catch (error) {
         log.error('Failed to get alert', 'HEALTHCARE', error);
         throw new Error('Failed to get alert details');
@@ -1851,7 +1884,9 @@ export const healthcareRouter = router({
     })
     .input(z.object({
       timeRange: z.enum(['1h', '6h', '24h', '7d']).default('24h'),
-      department: z.string().default('all'),
+      department: z.string().default('all').refine((val) => val !== 'undefined', {
+        message: 'Department cannot be "undefined"',
+      }),
     }))
     .query(async ({ input }) => {
       try {
@@ -3837,6 +3872,646 @@ export const healthcareRouter = router({
       } catch (error) {
         log.error('Failed to get handover metrics', 'HEALTHCARE', error);
         throw new Error('Failed to get handover metrics');
+      }
+    }),
+    
+  // ============ ALERT TEMPLATES ============
+  
+  // Get alert templates
+  getAlertTemplates: viewAlertsProcedure
+    .input(z.object({
+      hospitalId: z.string().uuid().optional(),
+      includeGlobal: z.boolean().default(true),
+      activeOnly: z.boolean().default(true),
+    }))
+    .query(async ({ input, ctx }) => {
+      try {
+        const hospitalId = input.hospitalId || ctx.hospitalContext?.userHospitalId;
+        
+        if (!hospitalId && !input.includeGlobal) {
+          throw new Error('Hospital ID required when not including global templates');
+        }
+        
+        // Build query conditions
+        const conditions = [];
+        
+        if (input.activeOnly) {
+          conditions.push(eq(alertTemplates.isActive, true));
+        }
+        
+        if (hospitalId && input.includeGlobal) {
+          conditions.push(
+            or(
+              eq(alertTemplates.hospitalId, hospitalId),
+              eq(alertTemplates.isGlobal, true)
+            )
+          );
+        } else if (hospitalId) {
+          conditions.push(eq(alertTemplates.hospitalId, hospitalId));
+        } else {
+          conditions.push(eq(alertTemplates.isGlobal, true));
+        }
+        
+        const templates = await db
+          .select({
+            template: alertTemplates,
+            creator: {
+              id: users.id,
+              name: users.name,
+              email: users.email,
+            },
+          })
+          .from(alertTemplates)
+          .leftJoin(users, eq(alertTemplates.createdBy, users.id))
+          .where(and(...conditions))
+          .orderBy(desc(alertTemplates.isGlobal), asc(alertTemplates.name));
+        
+        return {
+          templates: templates.map(t => ({
+            ...t.template,
+            creatorName: t.creator?.name || 'Unknown',
+          })),
+          total: templates.length,
+        };
+      } catch (error) {
+        log.error('Failed to get alert templates', 'HEALTHCARE', error);
+        throw new Error('Failed to get alert templates');
+      }
+    }),
+    
+  // Create alert template (operators and admins)
+  createAlertTemplate: healthcareProcedure
+    .input(z.object({
+      name: z.string().min(1).max(100),
+      description: z.string().optional(),
+      alertType: AlertType,
+      urgencyLevel: UrgencyLevel,
+      defaultDescription: z.string().optional(),
+      targetDepartment: z.string().optional(),
+      icon: z.string().max(10).optional(),
+      color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
+      isGlobal: z.boolean().default(false),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      try {
+        // Only admins can create global templates
+        if (input.isGlobal && ctx.user.role !== 'admin') {
+          throw new Error('Only administrators can create global templates');
+        }
+        
+        const hospitalId = ctx.hospitalContext?.userHospitalId;
+        if (!hospitalId) {
+          throw new Error('Hospital context required');
+        }
+        
+        const [newTemplate] = await db.insert(alertTemplates).values({
+          ...input,
+          hospitalId,
+          createdBy: ctx.user.id,
+          targetDepartment: input.targetDepartment as any,
+        }).returning();
+        
+        // Audit log
+        await db.insert(healthcareAuditLogs).values({
+          userId: ctx.user.id,
+          action: 'template_created',
+          entityType: 'alert',
+          entityId: newTemplate.id,
+          hospitalId,
+          metadata: {
+            templateName: input.name,
+            alertType: input.alertType,
+            urgencyLevel: input.urgencyLevel,
+            isGlobal: input.isGlobal,
+          },
+        });
+        
+        log.info('Alert template created', 'HEALTHCARE', {
+          templateId: newTemplate.id,
+          name: input.name,
+          createdBy: ctx.user.id,
+        });
+        
+        return {
+          success: true,
+          template: newTemplate,
+        };
+      } catch (error) {
+        log.error('Failed to create alert template', 'HEALTHCARE', error);
+        throw error;
+      }
+    }),
+    
+  // Update alert template
+  updateAlertTemplate: healthcareProcedure
+    .input(z.object({
+      templateId: z.string().uuid(),
+      name: z.string().min(1).max(100).optional(),
+      description: z.string().optional(),
+      urgencyLevel: UrgencyLevel.optional(),
+      defaultDescription: z.string().optional(),
+      targetDepartment: z.string().optional(),
+      icon: z.string().max(10).optional(),
+      color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
+      isActive: z.boolean().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { templateId, ...updates } = input;
+      
+      try {
+        // Get the template to check ownership
+        const [template] = await db
+          .select()
+          .from(alertTemplates)
+          .where(eq(alertTemplates.id, templateId))
+          .limit(1);
+        
+        if (!template) {
+          throw new Error('Template not found');
+        }
+        
+        // Check permissions
+        const userHospitalId = ctx.hospitalContext?.userHospitalId;
+        if (template.hospitalId !== userHospitalId && ctx.user.role !== 'admin') {
+          throw new Error('You can only update templates from your own hospital');
+        }
+        
+        // Update the template
+        await db
+          .update(alertTemplates)
+          .set({
+            ...updates,
+            targetDepartment: updates.targetDepartment as any,
+            updatedAt: new Date(),
+          })
+          .where(eq(alertTemplates.id, templateId));
+        
+        // Audit log
+        await db.insert(healthcareAuditLogs).values({
+          userId: ctx.user.id,
+          action: 'template_updated',
+          entityType: 'alert',
+          entityId: templateId,
+          hospitalId: template.hospitalId,
+          metadata: {
+            updates,
+          },
+        });
+        
+        log.info('Alert template updated', 'HEALTHCARE', {
+          templateId,
+          updates,
+          updatedBy: ctx.user.id,
+        });
+        
+        return {
+          success: true,
+        };
+      } catch (error) {
+        log.error('Failed to update alert template', 'HEALTHCARE', error);
+        throw error;
+      }
+    }),
+    
+  // Delete alert template
+  deleteAlertTemplate: adminProcedure
+    .input(z.object({
+      templateId: z.string().uuid(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const [template] = await db
+          .select()
+          .from(alertTemplates)
+          .where(eq(alertTemplates.id, input.templateId))
+          .limit(1);
+        
+        if (!template) {
+          throw new Error('Template not found');
+        }
+        
+        // Soft delete by marking as inactive
+        await db
+          .update(alertTemplates)
+          .set({
+            isActive: false,
+            updatedAt: new Date(),
+          })
+          .where(eq(alertTemplates.id, input.templateId));
+        
+        // Audit log
+        await db.insert(healthcareAuditLogs).values({
+          userId: ctx.user.id,
+          action: 'template_deleted',
+          entityType: 'alert',
+          entityId: input.templateId,
+          hospitalId: template.hospitalId,
+          metadata: {
+            templateName: template.name,
+          },
+        });
+        
+        log.info('Alert template deleted', 'HEALTHCARE', {
+          templateId: input.templateId,
+          deletedBy: ctx.user.id,
+        });
+        
+        return {
+          success: true,
+        };
+      } catch (error) {
+        log.error('Failed to delete alert template', 'HEALTHCARE', error);
+        throw error;
+      }
+    }),
+    
+  // Create alert from template
+  createAlertFromTemplate: healthcareProcedure
+    .input(z.object({
+      templateId: z.string().uuid(),
+      roomNumber: z.string()
+        .min(1, "Room number is required")
+        .max(10, "Room number cannot exceed 10 characters"),
+      description: z.string().max(500).optional(),
+      patientId: z.string().uuid().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      try {
+        // Get the template
+        const [template] = await db
+          .select()
+          .from(alertTemplates)
+          .where(eq(alertTemplates.id, input.templateId))
+          .limit(1);
+        
+        if (!template || !template.isActive) {
+          throw new Error('Template not found or inactive');
+        }
+        
+        const hospitalId = ctx.hospitalContext?.userHospitalId;
+        if (!hospitalId) {
+          throw new Error('Hospital context required');
+        }
+        
+        // Create the alert
+        const [newAlert] = await db.insert(alerts).values({
+          roomNumber: input.roomNumber,
+          alertType: template.alertType,
+          urgencyLevel: template.urgencyLevel,
+          description: input.description || template.defaultDescription,
+          targetDepartment: template.targetDepartment,
+          patientId: input.patientId,
+          createdBy: ctx.user.id,
+          hospitalId,
+          status: 'active',
+          nextEscalationAt: new Date(Date.now() + HEALTHCARE_ESCALATION_TIERS[0].timeout_minutes * 60 * 1000),
+        }).returning();
+        
+        // Log the creation
+        await db.insert(healthcareAuditLogs).values({
+          userId: ctx.user.id,
+          action: 'alert_created_from_template',
+          entityType: 'alert',
+          entityId: newAlert.id,
+          hospitalId,
+          metadata: {
+            templateId: template.id,
+            templateName: template.name,
+            alertType: template.alertType,
+            urgencyLevel: template.urgencyLevel,
+            roomNumber: input.roomNumber,
+          },
+        });
+        
+        // Emit alert created event
+        await alertEventHelpers.emitAlertCreated(newAlert);
+        
+        // Send notifications (reuse existing logic)
+        try {
+          const { notificationService, NotificationType, Priority } = await import('../services/notifications');
+          
+          const onDutyStaff = await db
+            .select({
+              userId: healthcareUsers.userId,
+              role: users.role,
+            })
+            .from(healthcareUsers)
+            .innerJoin(users, eq(healthcareUsers.userId, users.id))
+            .where(
+              and(
+                eq(healthcareUsers.hospitalId, hospitalId),
+                eq(healthcareUsers.isOnDuty, true),
+                or(
+                  eq(users.role, 'doctor'),
+                  eq(users.role, 'nurse'),
+                  eq(users.role, 'head_doctor')
+                )
+              )
+            );
+          
+          if (onDutyStaff.length > 0) {
+            await notificationService.sendBatch(
+              onDutyStaff.map(staff => ({
+                id: `alert-${newAlert.id}-${staff.userId}`,
+                type: NotificationType.ALERT_CREATED,
+                recipient: {
+                  userId: staff.userId,
+                },
+                priority: template.urgencyLevel === 1 ? Priority.CRITICAL : Priority.HIGH,
+                data: {
+                  alertId: newAlert.id,
+                  roomNumber: input.roomNumber,
+                  alertType: template.alertType,
+                  urgencyLevel: template.urgencyLevel,
+                  description: newAlert.description,
+                  fromTemplate: template.name,
+                },
+                organizationId: hospitalId,
+              }))
+            );
+          }
+        } catch (notificationError) {
+          log.error('Failed to send notifications for templated alert', 'HEALTHCARE', notificationError);
+        }
+        
+        log.info('Alert created from template', 'HEALTHCARE', {
+          alertId: newAlert.id,
+          templateId: template.id,
+          templateName: template.name,
+          createdBy: ctx.user.id,
+        });
+        
+        return {
+          success: true,
+          alert: newAlert,
+        };
+      } catch (error) {
+        log.error('Failed to create alert from template', 'HEALTHCARE', error);
+        throw error;
+      }
+    }),
+    
+  // Batch acknowledge alerts
+  batchAcknowledgeAlerts: doctorProcedure
+    .use(async ({ ctx, next }) => {
+      // Apply rate limiting
+      const { healthcareRateLimiters } = await import('../middleware/rate-limiter');
+      return healthcareRateLimiters.acknowledgeAlert({ ctx, next });
+    })
+    .input(z.object({
+      alertIds: z.array(z.string().uuid()).min(1).max(50),
+      urgencyAssessment: z.enum(['maintain', 'increase', 'decrease']).default('maintain'),
+      responseAction: z.enum(['responding', 'monitoring', 'delegating', 'delayed']).default('responding'),
+      estimatedResponseTime: z.number().min(1).max(120).optional(),
+      notes: z.string().max(500).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { alertIds, urgencyAssessment, responseAction, estimatedResponseTime, notes } = input;
+      
+      // Validate user has organizationId
+      if (!ctx.hospitalContext?.userOrganizationId) {
+        throw new Error('Organization required. Please complete your profile to use healthcare features.');
+      }
+      
+      try {
+        // Get all alerts
+        const alertsToAcknowledge = await db
+          .select()
+          .from(alerts)
+          .where(
+            and(
+              sql`${alerts.id} = ANY(${alertIds})`,
+              eq(alerts.status, 'active')
+            )
+          );
+        
+        if (alertsToAcknowledge.length === 0) {
+          throw new Error('No active alerts found with the provided IDs');
+        }
+        
+        const acknowledgedAlerts = [];
+        const errors = [];
+        
+        // Process each alert
+        for (const alert of alertsToAcknowledge) {
+          try {
+            // Calculate response time
+            const responseTimeSeconds = Math.floor(
+              (Date.now() - alert.createdAt.getTime()) / 1000
+            );
+            
+            // Determine new urgency level
+            let newUrgencyLevel = alert.urgencyLevel;
+            if (urgencyAssessment === 'increase' && alert.urgencyLevel > 1) {
+              newUrgencyLevel = alert.urgencyLevel - 1;
+            } else if (urgencyAssessment === 'decrease' && alert.urgencyLevel < 5) {
+              newUrgencyLevel = alert.urgencyLevel + 1;
+            }
+            
+            // Update alert
+            await db
+              .update(alerts)
+              .set({
+                status: 'acknowledged',
+                acknowledgedBy: ctx.user.id,
+                acknowledgedAt: new Date(),
+                urgencyLevel: newUrgencyLevel,
+              })
+              .where(eq(alerts.id, alert.id));
+            
+            // Create acknowledgment record
+            await db.insert(alertAcknowledgments).values({
+              alertId: alert.id,
+              userId: ctx.user.id,
+              responseTimeSeconds,
+              notes,
+              urgencyAssessment,
+              responseAction,
+              estimatedResponseTime: estimatedResponseTime || null,
+              delegatedTo: null,
+            });
+            
+            // Create timeline event
+            await db.insert(alertTimelineEvents).values({
+              alertId: alert.id,
+              eventType: 'acknowledged',
+              userId: ctx.user.id,
+              description: `Alert acknowledged by ${ctx.user.name || ctx.user.email} (batch operation)`,
+              metadata: {
+                responseAction,
+                urgencyAssessment,
+                estimatedResponseTime,
+                responseTimeSeconds,
+                batchOperation: true,
+              },
+            });
+            
+            // Emit event
+            await alertEventHelpers.emitAlertAcknowledged(
+              alert.id,
+              alert.hospitalId,
+              ctx.user.id
+            );
+            
+            acknowledgedAlerts.push(alert.id);
+          } catch (error) {
+            errors.push({
+              alertId: alert.id,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
+          }
+        }
+        
+        // Log batch operation
+        await db.insert(healthcareAuditLogs).values({
+          userId: ctx.user.id,
+          action: 'batch_alerts_acknowledged',
+          entityType: 'alert',
+          entityId: alertIds.join(','),
+          hospitalId: ctx.hospitalContext?.userHospitalId || '',
+          metadata: {
+            totalAlerts: alertIds.length,
+            successfulAcknowledgments: acknowledgedAlerts.length,
+            failedAcknowledgments: errors.length,
+            errors: errors.length > 0 ? errors : undefined,
+          },
+          ipAddress: ctx.req.headers?.['x-forwarded-for'] || ctx.req.headers?.['x-real-ip'],
+          userAgent: ctx.req.headers?.['user-agent'],
+        });
+        
+        log.info('Batch alerts acknowledged', 'HEALTHCARE', {
+          userId: ctx.user.id,
+          totalAlerts: alertIds.length,
+          acknowledged: acknowledgedAlerts.length,
+          failed: errors.length,
+        });
+        
+        return {
+          success: true,
+          acknowledged: acknowledgedAlerts,
+          errors,
+        };
+      } catch (error) {
+        log.error('Failed to batch acknowledge alerts', 'HEALTHCARE', error);
+        throw error;
+      }
+    }),
+    
+  // Batch resolve alerts
+  batchResolveAlerts: doctorProcedure
+    .input(z.object({
+      alertIds: z.array(z.string().uuid()).min(1).max(50),
+      resolution: z.string().min(1).max(500),
+      followUpRequired: z.boolean().default(false),
+      followUpNotes: z.string().max(500).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { alertIds, resolution, followUpRequired, followUpNotes } = input;
+      
+      // Validate user has organizationId
+      if (!ctx.hospitalContext?.userOrganizationId) {
+        throw new Error('Organization required. Please complete your profile to use healthcare features.');
+      }
+      
+      try {
+        // Get all alerts
+        const alertsToResolve = await db
+          .select()
+          .from(alerts)
+          .where(
+            and(
+              sql`${alerts.id} = ANY(${alertIds})`,
+              or(
+                eq(alerts.status, 'active'),
+                eq(alerts.status, 'acknowledged')
+              )
+            )
+          );
+        
+        if (alertsToResolve.length === 0) {
+          throw new Error('No active or acknowledged alerts found with the provided IDs');
+        }
+        
+        const resolvedAlerts = [];
+        const errors = [];
+        
+        // Process each alert
+        for (const alert of alertsToResolve) {
+          try {
+            // Update alert
+            await db
+              .update(alerts)
+              .set({
+                status: 'resolved',
+                resolvedBy: ctx.user.id,
+                resolvedAt: new Date(),
+                resolution,
+                followUpRequired,
+              })
+              .where(eq(alerts.id, alert.id));
+            
+            // Create timeline event
+            await db.insert(alertTimelineEvents).values({
+              alertId: alert.id,
+              eventType: 'resolved',
+              userId: ctx.user.id,
+              description: `Alert resolved by ${ctx.user.name || ctx.user.email} (batch operation)`,
+              metadata: {
+                resolution,
+                followUpRequired,
+                followUpNotes,
+                batchOperation: true,
+              },
+            });
+            
+            // Emit event
+            await alertEventHelpers.emitAlertResolved(
+              alert.id,
+              alert.hospitalId,
+              ctx.user.id
+            );
+            
+            resolvedAlerts.push(alert.id);
+          } catch (error) {
+            errors.push({
+              alertId: alert.id,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
+          }
+        }
+        
+        // Log batch operation
+        await db.insert(healthcareAuditLogs).values({
+          userId: ctx.user.id,
+          action: 'batch_alerts_resolved',
+          entityType: 'alert',
+          entityId: alertIds.join(','),
+          hospitalId: ctx.hospitalContext?.userHospitalId || '',
+          metadata: {
+            totalAlerts: alertIds.length,
+            successfulResolutions: resolvedAlerts.length,
+            failedResolutions: errors.length,
+            errors: errors.length > 0 ? errors : undefined,
+          },
+          ipAddress: ctx.req.headers?.['x-forwarded-for'] || ctx.req.headers?.['x-real-ip'],
+          userAgent: ctx.req.headers?.['user-agent'],
+        });
+        
+        log.info('Batch alerts resolved', 'HEALTHCARE', {
+          userId: ctx.user.id,
+          totalAlerts: alertIds.length,
+          resolved: resolvedAlerts.length,
+          failed: errors.length,
+        });
+        
+        return {
+          success: true,
+          resolved: resolvedAlerts,
+          errors,
+        };
+      } catch (error) {
+        log.error('Failed to batch resolve alerts', 'HEALTHCARE', error);
+        throw error;
       }
     }),
 });

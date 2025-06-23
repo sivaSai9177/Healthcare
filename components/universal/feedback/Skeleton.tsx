@@ -169,9 +169,9 @@ export function SkeletonCard({
       className={cn("bg-white p-4 rounded-lg shadow-sm", className)}
       style={[
         {
-          padding: spacing.scale(4),
+          padding: spacing[4] as number,
           backgroundColor: '#FFFFFF',
-          borderRadius: spacing.borderRadius.lg,
+          borderRadius: 12,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 1 },
           shadowOpacity: 0.05,
@@ -182,19 +182,19 @@ export function SkeletonCard({
       ]}
     >
       {showAvatar && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.scale(3) }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing[3] as number }}>
           <Skeleton variant="circular" width={40} height={40} />
-          <View style={{ marginLeft: spacing.scale(3), flex: 1 }}>
+          <View style={{ marginLeft: spacing[3] as number, flex: 1 }}>
             <Skeleton height={16} width="40%" style={{ marginBottom: 4 }} />
             <Skeleton height={12} width="60%" />
           </View>
         </View>
       )}
       
-      <SkeletonText lines={3} style={{ marginBottom: spacing.scale(3) }} />
+      <SkeletonText lines={3} style={{ marginBottom: spacing[3] as number }} />
       
       {showActions && (
-        <View style={{ flexDirection: 'row', gap: spacing.scale(2) }}>
+        <View style={{ flexDirection: 'row', gap: spacing[2] as number }}>
           <Skeleton height={32} width={80} borderRadius={16} />
           <Skeleton height={32} width={80} borderRadius={16} />
         </View>
@@ -261,21 +261,21 @@ export function SkeletonAlert({ style }: { style?: ViewStyle }) {
     <View
       style={[
         {
-          padding: spacing.scale(4),
+          padding: spacing[4] as number,
           backgroundColor: '#FFFFFF',
-          borderRadius: spacing.borderRadius.lg,
+          borderRadius: 12,
           borderLeftWidth: 4,
           borderLeftColor: '#E5E7EB',
         },
         style,
       ]}
     >
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.scale(2) }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing[2] as number }}>
         <Skeleton height={20} width="30%" />
         <Skeleton height={20} width={60} borderRadius={10} />
       </View>
-      <SkeletonText lines={2} style={{ marginBottom: spacing.scale(2) }} />
-      <View style={{ flexDirection: 'row', gap: spacing.scale(2) }}>
+      <SkeletonText lines={2} style={{ marginBottom: spacing[2] as number }} />
+      <View style={{ flexDirection: 'row', gap: spacing[2] as number }}>
         <Skeleton height={24} width={80} borderRadius={12} />
         <Skeleton height={24} width={100} borderRadius={12} />
       </View>
@@ -290,23 +290,23 @@ export function SkeletonPatientCard({ style }: { style?: ViewStyle }) {
     <View
       style={[
         {
-          padding: spacing.scale(4),
+          padding: spacing[4] as number,
           backgroundColor: '#FFFFFF',
-          borderRadius: spacing.borderRadius.lg,
+          borderRadius: 12,
         },
         style,
       ]}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.scale(3) }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing[3] as number }}>
         <SkeletonAvatar size={60} />
-        <View style={{ marginLeft: spacing.scale(3), flex: 1 }}>
+        <View style={{ marginLeft: spacing[3] as number, flex: 1 }}>
           <Skeleton height={20} width="60%" style={{ marginBottom: 4 }} />
           <Skeleton height={16} width="40%" style={{ marginBottom: 4 }} />
           <Skeleton height={14} width="80%" />
         </View>
       </View>
       
-      <View style={{ flexDirection: 'row', gap: spacing.scale(2), marginTop: spacing.scale(3) }}>
+      <View style={{ flexDirection: 'row', gap: spacing[2] as number, marginTop: spacing[3] as number }}>
         <Skeleton height={28} width="30%" borderRadius={14} />
         <Skeleton height={28} width="30%" borderRadius={14} />
         <Skeleton height={28} width="30%" borderRadius={14} />
@@ -322,16 +322,16 @@ export function SkeletonMetricCard({ style }: { style?: ViewStyle }) {
     <View
       style={[
         {
-          padding: spacing.scale(4),
+          padding: spacing[4] as number,
           backgroundColor: '#FFFFFF',
-          borderRadius: spacing.borderRadius.lg,
+          borderRadius: 12,
           minHeight: 120,
         },
         style,
       ]}
     >
-      <Skeleton height={14} width="40%" style={{ marginBottom: spacing.scale(2) }} />
-      <Skeleton height={32} width="60%" style={{ marginBottom: spacing.scale(1) }} />
+      <Skeleton height={14} width="40%" style={{ marginBottom: spacing[2] as number }} />
+      <Skeleton height={32} width="60%" style={{ marginBottom: spacing[1] as number }} />
       <Skeleton height={12} width="80%" />
     </View>
   );

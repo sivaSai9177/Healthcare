@@ -3,11 +3,29 @@ import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/trpc';
 import { log } from '@/lib/core/debug/logger';
 import { showSuccessAlert } from '@/lib/core/alert';
-import type { inferSubscriptionOutput } from '@trpc/client';
+import { alertEventQueue } from '@/lib/websocket/event-queue';
+import { alertWebSocketManager, type ConnectionState } from '@/lib/websocket/connection-manager';
+import { useEventQueueCleanup } from '@/hooks/useEventQueueCleanup';
 import type { AppRouter } from '@/src/server/routers';
+import type { AlertWebSocketEvent } from '@/types/alert';
 
 // Type for the alert event from subscription
-type AlertSubscriptionEvent = inferSubscriptionOutput<AppRouter['healthcare']['subscribeToAlerts']>;
+// For now, we'll use a more direct type definition
+type AlertSubscriptionEvent = {
+  id: string;
+  type: 'alert.created' | 'alert.acknowledged' | 'alert.resolved' | 'alert.escalated' | 'alert.updated';
+  alertId: string;
+  hospitalId: string;
+  timestamp: string;
+  data?: {
+    roomNumber?: string;
+    alertType?: string;
+    urgencyLevel?: number;
+    toTier?: number;
+    acknowledgedBy?: string;
+    resolvedBy?: string;
+  };
+};
 
 // Type guard to validate alert event structure
 function isValidAlertEvent(event: any): event is AlertSubscriptionEvent {
@@ -41,12 +59,12 @@ export function useAlertWebSocket({
   pollingInterval = 5000,
 }: UseAlertWebSocketOptions) {
   const queryClient = useQueryClient();
-  const [isConnected, setIsConnected] = useState(false);
-  const [connectionError, setConnectionError] = useState<string | null>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [connectionState, setConnectionState] = useState<ConnectionState>(alertWebSocketManager.getState());
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const subscriptionRef = useRef<any>(null);
 
   // Handle incoming alert events
-  const handleEvent = useCallback((event: AlertSubscriptionEvent) => {
+  const handleEvent = useCallback(async (event: AlertSubscriptionEvent) => {
     // Validate event exists and has correct structure
     if (!isValidAlertEvent(event)) {
       log.error('Received invalid event structure', 'ALERT_WS', { event });
@@ -60,6 +78,14 @@ export function useAlertWebSocket({
       hasData: !!event.data,
       timestamp: event.timestamp,
     });
+
+    // Add event to queue for reliable processing
+    // Convert timestamp string to Date
+    const webSocketEvent: AlertWebSocketEvent = {
+      ...event,
+      timestamp: new Date(event.timestamp),
+    };
+    await alertEventQueue.enqueue(webSocketEvent);
 
     // Invalidate relevant queries to trigger refetch
     queryClient.invalidateQueries({
@@ -138,6 +164,33 @@ export function useAlertWebSocket({
     }
   }, []);
 
+  // Subscribe to connection state changes
+  useEffect(() => {
+    const unsubscribe = alertWebSocketManager.subscribe(setConnectionState);
+    return unsubscribe;
+  }, []);
+
+  // Setup connection manager callbacks
+  useEffect(() => {
+    alertWebSocketManager.onReconnectAttempt = () => {
+      log.info('Attempting WebSocket reconnection', 'ALERT_WS', { hospitalId });
+      // Force subscription to reconnect
+      if (subscriptionRef.current?.reconnect) {
+        subscriptionRef.current.reconnect();
+      }
+    };
+
+    alertWebSocketManager.onHeartbeat = () => {
+      // Send heartbeat ping if needed
+      log.debug('WebSocket heartbeat', 'ALERT_WS');
+    };
+
+    return () => {
+      alertWebSocketManager.onReconnectAttempt = undefined;
+      alertWebSocketManager.onHeartbeat = undefined;
+    };
+  }, [hospitalId]);
+
   // Use the subscription
   const subscription = api.healthcare.subscribeToAlerts.useSubscription(
     enabled ? { hospitalId } : undefined,
@@ -145,29 +198,33 @@ export function useAlertWebSocket({
       enabled,
       onStarted: () => {
         log.info('WebSocket subscription started', 'ALERT_WS', { hospitalId });
-        setIsConnected(true);
-        setConnectionError(null);
+        alertWebSocketManager.onConnectionSuccess();
         stopPolling(); // Stop polling when WebSocket connects
       },
       onData: (event) => {
         if (event) {
-          handleEvent(event);
+          // Cast to our expected type
+          handleEvent(event as AlertSubscriptionEvent);
         } else {
           log.warn('Received null/undefined event from subscription', 'ALERT_WS');
         }
       },
       onError: (error) => {
         log.error('WebSocket subscription error', 'ALERT_WS', error);
-        setIsConnected(false);
-        setConnectionError(error.message);
+        alertWebSocketManager.onConnectionError(error instanceof Error ? error : new Error(String(error)));
         
-        // Start polling as fallback if enabled
-        if (fallbackToPolling) {
+        // Start polling as fallback if enabled and not already reconnecting
+        if (fallbackToPolling && connectionState.status !== 'reconnecting') {
           startPolling();
         }
       },
     }
   );
+
+  // Store subscription ref for reconnection
+  useEffect(() => {
+    subscriptionRef.current = subscription;
+  }, [subscription]);
 
   // Handle metrics subscription for real-time dashboard updates
   const metricsSubscription = api.healthcare.subscribeToMetrics.useSubscription(
@@ -191,17 +248,82 @@ export function useAlertWebSocket({
     }
   );
 
+  // Register event handlers with the queue
+  useEffect(() => {
+    // Register handlers for each event type
+    const eventTypes = ['alert.created', 'alert.acknowledged', 'alert.resolved', 'alert.escalated'];
+    
+    alertEventQueue.registerHandler('alert.created', async (event) => {
+      log.debug('Processing queued alert.created event', 'ALERT_WS', { alertId: event.alertId });
+      queryClient.invalidateQueries({
+        queryKey: [['healthcare', 'getActiveAlerts'], { input: { hospitalId } }],
+      });
+    });
+
+    alertEventQueue.registerHandler('alert.acknowledged', async (event) => {
+      log.debug('Processing queued alert.acknowledged event', 'ALERT_WS', { alertId: event.alertId });
+      queryClient.invalidateQueries({
+        queryKey: [['healthcare', 'getActiveAlerts'], { input: { hospitalId } }],
+      });
+    });
+
+    alertEventQueue.registerHandler('alert.resolved', async (event) => {
+      log.debug('Processing queued alert.resolved event', 'ALERT_WS', { alertId: event.alertId });
+      queryClient.invalidateQueries({
+        queryKey: [['healthcare', 'getActiveAlerts'], { input: { hospitalId } }],
+      });
+    });
+
+    alertEventQueue.registerHandler('alert.escalated', async (event) => {
+      log.debug('Processing queued alert.escalated event', 'ALERT_WS', { alertId: event.alertId });
+      queryClient.invalidateQueries({
+        queryKey: [['healthcare', 'getActiveAlerts'], { input: { hospitalId } }],
+      });
+      if (event.alertId) {
+        queryClient.invalidateQueries({
+          queryKey: [['healthcare', 'getEscalationStatus'], { input: { alertId: event.alertId } }],
+        });
+      }
+    });
+
+    // Cleanup function to prevent memory leaks
+    return () => {
+      log.debug('Cleaning up alert event handlers', 'ALERT_WS', { hospitalId });
+      // Unregister all event handlers
+      eventTypes.forEach(eventType => {
+        alertEventQueue.unregisterHandler(eventType);
+      });
+    };
+  }, [queryClient, hospitalId]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopPolling();
+      alertWebSocketManager.reset();
     };
   }, [stopPolling]);
 
+  // Handle connection close events (web only)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleBeforeUnload = () => {
+        alertWebSocketManager.onConnectionClose(1000, 'Page unload');
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+      };
+    }
+  }, []);
+
   return {
-    isConnected,
-    connectionError,
+    isConnected: connectionState.status === 'connected',
+    connectionError: connectionState.status === 'error' ? 'Connection failed' : null,
+    connectionState,
     isPolling: !!pollingIntervalRef.current,
+    queueStats: alertEventQueue.getStats(),
   };
 }
 
@@ -209,13 +331,19 @@ export function useAlertWebSocket({
 export function useAlertDetailWebSocket(alertId: string | null, enabled = true) {
   const queryClient = useQueryClient();
   const [isConnected, setIsConnected] = useState(false);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // For now, use polling for alert details
   // In the future, this could be a dedicated subscription
   useEffect(() => {
     if (!alertId || !enabled) return;
 
-    const pollInterval = setInterval(() => {
+    // Clear any existing interval
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+
+    pollIntervalRef.current = setInterval(() => {
       queryClient.invalidateQueries({
         queryKey: [['healthcare', 'getEscalationStatus'], { input: { alertId } }],
       });
@@ -226,9 +354,22 @@ export function useAlertDetailWebSocket(alertId: string | null, enabled = true) 
     }, 5000);
 
     return () => {
-      clearInterval(pollInterval);
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
     };
   }, [alertId, enabled, queryClient]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   return { isConnected };
 }

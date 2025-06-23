@@ -36,6 +36,7 @@ import { ThemeSync } from "@/components/providers/ThemeSync";
 import { EnhancedThemeProvider } from "@/lib/theme/provider";
 import { TRPCProvider } from "@/lib/api/trpc";
 import { initializeSecureStorage } from "@/lib/core/secure-storage";
+import { AlertFilterProvider } from "@/contexts/AlertFilterContext";
 // AnimationProvider removed - animations are now handled by components directly
 
 // Import CSS for web platform
@@ -135,12 +136,13 @@ export default function RootLayout() {
               <SyncProvider>
                 <SessionProvider>
                   <HospitalProvider>
-                    <EnhancedThemeProvider>
-                      <ThemeSync />
-                      <AnimationProvider>
-                        <ThemeStyleInjector>
-                        <RootErrorStoreSetup />
-                        <ErrorBanner />
+                    <AlertFilterProvider>
+                      <EnhancedThemeProvider>
+                        <ThemeSync />
+                        <AnimationProvider>
+                          <ThemeStyleInjector>
+                          <RootErrorStoreSetup />
+                          <ErrorBanner />
                       <Stack 
                       screenOptions={{
                         ...stackScreenOptions.default,
@@ -204,6 +206,7 @@ export default function RootLayout() {
                   </ThemeStyleInjector>
                 </AnimationProvider>
               </EnhancedThemeProvider>
+              </AlertFilterProvider>
               </HospitalProvider>
               </SessionProvider>
             </SyncProvider>
