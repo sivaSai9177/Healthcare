@@ -174,9 +174,9 @@ export const GlassLoadingScreen = ({
                   backgroundColor: Platform.OS === 'web' 
                     ? 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.7) 50%, transparent 60%)'
                     : 'rgba(255,255,255,0.7)',
+                  pointerEvents: 'none' as any,
                 }
               ]}
-              pointerEvents="none"
             />
           </VStack>
         </StatusGlassCard>

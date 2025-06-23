@@ -4,7 +4,7 @@ import { useError } from '@/components/providers/ErrorProvider';
 import { Symbol } from '@/components/universal/display/Symbols';
 import { useTheme } from '@/lib/theme/provider';
 import { haptic } from '@/lib/ui/haptics';
-import { ActivityTimer } from '@/components/universal/feedback/ActivityTimer';
+import { CountdownTimer } from '@/components/universal/feedback/CountdownTimer';
 import { Text } from '@/components/universal/typography/Text';
 import { VStack, HStack } from '@/components/universal/layout/Stack';
 import { useSpacing } from '@/lib/stores/spacing-store';
@@ -58,7 +58,7 @@ export function ErrorBanner() {
       
       Animated.parallel(animations).start();
     }
-  }, [error, isExpanded, shouldAnimate, getAnimationDuration, isMobile]);
+  }, [error, isExpanded, shouldAnimate, getAnimationDuration, isMobile, animatedHeight, animatedOpacity]);
 
   if (!error) return null;
 
@@ -139,7 +139,7 @@ export function ErrorBanner() {
           paddingTop: Platform.OS === 'ios' ? insets.top + spacing[3] : spacing[3],
         }}
       >
-        <HStack gap={spacing[3]} style={{ flex: 1, alignItems: 'center' }}>
+        <HStack gap={3} style={{ flex: 1, alignItems: 'center' }}>
           <Symbol name={getErrorIcon()} size="md" color="white" />
           <Text 
             weight="semibold"
@@ -167,7 +167,7 @@ export function ErrorBanner() {
       </Pressable>
 
       {isExpanded && (
-        <VStack gap={spacing[4]} style={{ paddingHorizontal: spacing[4], paddingBottom: spacing[4] }}>
+        <VStack gap={4} style={{ paddingHorizontal: spacing[4], paddingBottom: spacing[4] }}>
           {error.requestId && (
             <Text 
               size="xs" 
@@ -178,9 +178,9 @@ export function ErrorBanner() {
           )}
           
           {error.type === 'rate-limit' && error.retryAfter && (
-            <HStack gap={spacing[2]} style={{ alignItems: 'center' }}>
+            <HStack gap={2} style={{ alignItems: 'center' }}>
               <Text size="sm" style={{ color: 'white' }}>Retry in:</Text>
-              <ActivityTimer
+              <CountdownTimer
                 duration={error.retryAfter * 1000}
                 onComplete={() => clearError()}
                 format="mm:ss"
@@ -189,7 +189,7 @@ export function ErrorBanner() {
             </HStack>
           )}
 
-          <VStack gap={spacing[2]}>
+          <VStack gap={2}>
             {recoveryStrategies.map((strategy, index) => (
               <Pressable
                 key={index}

@@ -37,7 +37,7 @@ export function getWebSocketConfig(): WebSocketConfig {
     .replace(/:\d+$/, ':3002'); // Use WebSocket port
   
   // Add WebSocket path
-  wsUrl = `${wsUrl}/trpc`;
+  wsUrl = `${wsUrl}/api/trpc`;
   
   // Platform-specific adjustments
   if (Platform.OS === 'android' && wsUrl.includes('localhost')) {

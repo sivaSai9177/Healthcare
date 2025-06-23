@@ -111,6 +111,13 @@ export function TRPCProvider({ children, dehydratedState }: TRPCProviderProps) {
       // Create HTTP link configuration
       const httpLink = httpBatchLink({
         url: trpcUrl,
+        // Include credentials for cookie-based auth on web
+        fetch: (url, options) => {
+          return fetch(url, {
+            ...options,
+            credentials: Platform.OS === 'web' ? 'include' : 'omit',
+          });
+        },
         async headers() {
           const baseHeaders = {
             'Content-Type': 'application/json',

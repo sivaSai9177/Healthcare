@@ -508,6 +508,33 @@ class UnifiedLogger {
     }),
   };
 
+  network = {
+    info: (message: string, data?: any) => this.log({
+      level: 'info',
+      category: 'SYSTEM',
+      message: `[Network] ${message}`,
+      data,
+    }),
+    error: (message: string, error?: any) => this.log({
+      level: 'error',
+      category: 'SYSTEM',
+      message: `[Network] ${message}`,
+      data: error,
+    }),
+    warn: (message: string, data?: any) => this.log({
+      level: 'warn',
+      category: 'SYSTEM',
+      message: `[Network] ${message}`,
+      data,
+    }),
+    success: (message: string, data?: any) => this.log({
+      level: 'info',
+      category: 'SYSTEM',
+      message: `[Network] ${message}`,
+      data,
+    }),
+  };
+
   // Generic logging methods
   info = (message: string, category: LogCategory = 'SYSTEM', data?: any) => 
     this.log({ level: 'info', category, message, data });

@@ -38,8 +38,8 @@ EXPOSE 3002
 
 # No health check for WebSocket server (uses TCP connection)
 
-# Start the WebSocket server directly with bun (try JS first, fallback to TS)
-CMD ["sh", "-c", "bun run src/server/websocket/start.js || bun run src/server/websocket/start.ts"]
+# Start the Bun TRPC WebSocket server directly with bun
+CMD ["bun", "run", "src/server/websocket/bun-trpc-ws.ts"]
 
 # Development stage with hot reload
 FROM base AS development
@@ -56,5 +56,5 @@ EXPOSE 3002
 
 # No health check for WebSocket server (uses TCP connection)
 
-# Start with hot reload using bun (try JS first, fallback to TS)
-CMD ["sh", "-c", "bun --hot src/server/websocket/start.js || bun --hot src/server/websocket/start.ts"]
+# Start Bun TRPC WebSocket with hot reload using bun
+CMD ["bun", "--hot", "src/server/websocket/bun-trpc-ws.ts"]

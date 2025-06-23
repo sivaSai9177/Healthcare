@@ -62,13 +62,6 @@ export default function AppLayout() {
           }}
         />
         <Stack.Screen
-          name="alerts/[id]"
-          options={{
-            presentation: 'card',
-            animation: 'slide_from_right',
-          }}
-        />
-        <Stack.Screen
           name="shifts/handover"
           options={{
             presentation: 'modal',

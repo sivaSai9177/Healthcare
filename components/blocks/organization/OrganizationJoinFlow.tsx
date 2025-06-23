@@ -40,7 +40,7 @@ export function OrganizationJoinFlow({ onSuccess, onCancel }: OrganizationJoinFl
         if (onSuccess) {
           onSuccess();
         } else {
-          router.replace('/(home)' as any);
+          router.replace('/(app)/(tabs)/home' as any);
         }
       } else {
         Alert.alert(
@@ -53,7 +53,7 @@ export function OrganizationJoinFlow({ onSuccess, onCancel }: OrganizationJoinFl
                 if (onSuccess) {
                   onSuccess();
                 } else {
-                  router.replace('/(home)' as any);
+                  router.replace('/(app)/(tabs)/home' as any);
                 }
               },
             },

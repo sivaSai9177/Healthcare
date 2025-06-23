@@ -26,7 +26,7 @@ import {
   HealthcareProfileSchema,
   HEALTHCARE_ESCALATION_TIERS
 } from '@/types/healthcare';
-import { log } from '@/lib/core/debug/logger';
+import { log } from '@/lib/core/debug/server-logger';
 import { escalationTimerService } from '../services/escalation-timer';
 import { 
   alertEventHelpers,
@@ -1126,8 +1126,8 @@ export const healthcareRouter = router({
   getAlertHistory: viewAlertsProcedure
     .input(z.object({
       hospitalId: z.string().uuid(),
-      startDate: z.date().optional(),
-      endDate: z.date().optional(),
+      startDate: z.coerce.date().optional(),
+      endDate: z.coerce.date().optional(),
       limit: z.number().min(1).max(100).default(50),
       offset: z.number().min(0).default(0),
     }))
@@ -2820,6 +2820,84 @@ export const healthcareRouter = router({
         });
         throw error;
       }
+    }),
+
+  // Real-time subscriptions for alerts
+  subscribeToAlerts: viewAlertsProcedure
+    .input(z.object({
+      hospitalId: z.string().uuid(),
+    }))
+    .subscription(async ({ input }) => {
+      const { hospitalId } = input;
+      
+      log.info('New alert subscription started', 'HEALTHCARE', { hospitalId });
+      
+      // Use the async generator for tracked alerts
+      const generator = trackedHospitalAlerts(hospitalId);
+      
+      return {
+        [Symbol.asyncIterator]: () => generator,
+      };
+    }),
+
+  // Real-time subscriptions for metrics
+  subscribeToMetrics: healthcareProcedure
+    .input(z.object({
+      hospitalId: z.string().uuid(),
+      interval: z.number().min(5000).default(30000), // Minimum 5 seconds
+    }))
+    .subscription(async ({ input }) => {
+      const { hospitalId, interval } = input;
+      
+      log.info('Metrics subscription started', 'HEALTHCARE', { hospitalId, interval });
+      
+      // Return an async generator for metrics updates
+      async function* metricsGenerator() {
+        while (true) {
+          try {
+            // Fetch current metrics
+            const activeAlerts = await db
+              .select({ count: count() })
+              .from(alerts)
+              .where(
+                and(
+                  eq(alerts.hospitalId, hospitalId),
+                  eq(alerts.status, 'active')
+                )
+              );
+            
+            const staffResult = await db
+              .select({ count: count() })
+              .from(healthcareUsers)
+              .where(
+                and(
+                  eq(healthcareUsers.hospitalId, hospitalId),
+                  eq(healthcareUsers.isOnDuty, true)
+                )
+              );
+            
+            const metrics = {
+              activeAlerts: activeAlerts[0]?.count || 0,
+              staffOnline: staffResult[0]?.count || 0,
+              avgResponseTime: Math.floor(Math.random() * 300) + 60, // Mock for now
+              timestamp: new Date(),
+            };
+            
+            yield metrics;
+            
+            // Wait for the specified interval
+            await new Promise(resolve => setTimeout(resolve, interval));
+          } catch (error) {
+            log.error('Error generating metrics', 'HEALTHCARE', error);
+            // Continue the loop even on error
+            await new Promise(resolve => setTimeout(resolve, interval));
+          }
+        }
+      }
+      
+      return {
+        [Symbol.asyncIterator]: metricsGenerator,
+      };
     }),
 });
 

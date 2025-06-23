@@ -17,7 +17,7 @@ import { Card, Badge } from '@/components/universal/display';
 import { Text } from '@/components/universal/typography';
 import { Button } from '@/components/universal/interaction';
 import { Skeleton } from '@/components/universal/feedback';
-import { HStack, VStack } from '@/components/universal/layout';
+import { HStack, VStack, Box } from '@/components/universal/layout';
 import {
   Symbol,
   Users,
@@ -249,7 +249,8 @@ export function ActivePatients({ scrollEnabled = true }: ActivePatientsProps) {
         className="border border-border"
         style={shadowSm}
       >
-          <VStack gap={3} style={{ padding: spacing[4] }}>
+          <Box p={3}>
+          <VStack gap={3}>
             {/* Patient Header */}
             <HStack className="justify-between items-start">
               <VStack gap={1}>
@@ -300,14 +301,16 @@ export function ActivePatients({ scrollEnabled = true }: ActivePatientsProps) {
               </Text>
             </HStack>
           </VStack>
-        </Card>
+        </Box>
+      </Card>
     );
   };
 
   return (
     <Animated.View style={blockFadeStyle}>
       <Card style={shadowMd}>
-        <VStack gap={4} style={{ padding: spacing[6] }}>
+        <Box p={3}>
+          <VStack gap={3}>
           {/* Header */}
           <HStack className="justify-between items-center">
             <HStack gap={2} className="items-center">
@@ -372,7 +375,8 @@ export function ActivePatients({ scrollEnabled = true }: ActivePatientsProps) {
               <Text className="text-muted-foreground">No active patients</Text>
             </View>
           )}
-        </VStack>
+          </VStack>
+        </Box>
       </Card>
     </Animated.View>
   );

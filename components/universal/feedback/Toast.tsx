@@ -1,30 +1,21 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
-  Platform,
   ViewStyle,
   Pressable,
-  Dimensions,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withSpring,
-  withSequence,
   runOnJS,
-  FadeIn,
-  FadeOut,
-  SlideInUp,
-  SlideInDown,
-  SlideOutUp,
-  SlideOutDown,
 } from 'react-native-reanimated';
 import { Text } from '@/components/universal/typography/Text';
 import { Box } from '@/components/universal/layout/Box';
 import { HStack } from '@/components/universal/layout/Stack';
 import { Symbol } from '@/components/universal/display/Symbols';
-import { useSpacing } from '@/lib/stores/spacing-store';
+// import { useSpacing } from '@/lib/stores/spacing-store';
 import { cn } from '@/lib/core/utils';
 import { useShadow } from '@/hooks/useShadow';
 import { useAnimationStore } from '@/lib/stores/animation-store';
@@ -97,7 +88,7 @@ const Toast: React.FC<ToastProps> = ({
   icon,
   position = 'bottom',
 }) => {
-  const { spacing } = useSpacing();
+  // const { spacing } = useSpacing();
   const { shouldAnimate } = useAnimationStore();
   const shadowStyle = useShadow('md');
   const classes = variantClasses[variant];
@@ -146,11 +137,11 @@ const Toast: React.FC<ToastProps> = ({
 
     // Haptic feedback
     if (variant === 'success') {
-      haptic('notificationSuccess');
+      haptic('success');
     } else if (variant === 'error') {
-      haptic('notificationError');
+      haptic('error');
     } else if (variant === 'warning') {
-      haptic('notificationWarning');
+      haptic('warning');
     }
 
     // Auto dismiss
@@ -160,20 +151,20 @@ const Toast: React.FC<ToastProps> = ({
       }, duration);
       return () => clearTimeout(timer);
     }
-  }, [duration, handleClose, shouldAnimate, variant]);
+  }, [duration, handleClose, shouldAnimate, variant, opacity, scale, translateY]);
 
   // Animated styles
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
     transform: [
-      { translateY: translateY.value },
-      { scale: scale.value },
+      { translateY: translateY.value } as any,
+      { scale: scale.value } as any,
     ],
   }));
 
   const iconElement = icon || (
     <Symbol
-      name={variantIcons[variant]}
+      name={variantIcons[variant] as any}
       size={20}
       className={classes.icon}
     />
@@ -204,7 +195,7 @@ const Toast: React.FC<ToastProps> = ({
             {title && (
               <Text
                 weight="semibold"
-                size="md"
+                size="base"
                 className="text-foreground"
               >
                 {title}
@@ -216,7 +207,7 @@ const Toast: React.FC<ToastProps> = ({
                 size="sm"
                 className="text-muted-foreground mt-0.5"
               >
-                {description}
+                {String(description)}
               </Text>
             )}
             
@@ -382,8 +373,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({
       {Object.entries(toastsByPosition).map(([position, positionToasts]) => (
         <View
           key={position}
-          style={getPositionStyle(position as ToastPosition)}
-          pointerEvents="box-none"
+          style={[getPositionStyle(position as ToastPosition), { pointerEvents: 'box-none' as any }]}
         >
           {positionToasts.map(toast => (
             <Toast
@@ -397,4 +387,7 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({
     </ToastContext.Provider>
   );
 };
+
+// Export Toast component
+export { Toast };
 

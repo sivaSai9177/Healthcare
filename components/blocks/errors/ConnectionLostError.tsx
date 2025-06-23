@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { AppState, AppStateStatus, Platform } from 'react-native';
 import { ErrorPage } from './ErrorPage';
 import { Text } from '@/components/universal/typography';
@@ -11,8 +11,9 @@ import { logger } from '@/lib/core/debug/unified-logger';
 // Dynamic import with fallback
 let NetInfo: any;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   NetInfo = require('@react-native-community/netinfo').default;
-} catch (e) {
+} catch {
   // NetInfo not available - provide a mock
   NetInfo = {
     addEventListener: () => () => {},
@@ -30,6 +31,31 @@ export function ConnectionLostError({ onRetry, onOfflineMode }: ConnectionLostEr
   const [isOnline, setIsOnline] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
+  
+  const checkConnection = useCallback(async () => {
+    setIsChecking(true);
+    logger.network.info('Manually checking connection');
+    
+    try {
+      const state = await NetInfo.fetch();
+      const connected = state.isConnected && state.isInternetReachable;
+      setIsOnline(connected || false);
+      
+      if (connected) {
+        logger.network.success('Connection verified');
+        if (onRetry) {
+          onRetry();
+        }
+      } else {
+        logger.network.warn('Still offline');
+        setRetryCount(prev => prev + 1);
+      }
+    } catch (error) {
+      logger.network.error('Connection check failed', { error });
+    } finally {
+      setIsChecking(false);
+    }
+  }, [onRetry]);
   
   useEffect(() => {
     logger.network.error('Connection lost error displayed');
@@ -70,32 +96,7 @@ export function ConnectionLostError({ onRetry, onOfflineMode }: ConnectionLostEr
       unsubscribe();
       subscription?.remove();
     };
-  }, [retryCount, onRetry]);
-  
-  const checkConnection = async () => {
-    setIsChecking(true);
-    logger.network.info('Manually checking connection');
-    
-    try {
-      const state = await NetInfo.fetch();
-      const connected = state.isConnected && state.isInternetReachable;
-      setIsOnline(connected || false);
-      
-      if (connected) {
-        logger.network.success('Connection verified');
-        if (onRetry) {
-          onRetry();
-        }
-      } else {
-        logger.network.warn('Still offline');
-        setRetryCount(prev => prev + 1);
-      }
-    } catch (error) {
-      logger.network.error('Connection check failed', { error });
-    } finally {
-      setIsChecking(false);
-    }
-  };
+  }, [retryCount, onRetry, checkConnection]);
   
   return (
     <ErrorPage
@@ -144,25 +145,25 @@ export function ConnectionLostError({ onRetry, onOfflineMode }: ConnectionLostEr
             <Text size="sm" weight="semibold">
               Troubleshooting Tips:
             </Text>
-            <HStack gap={2} align="flex-start">
+            <HStack gap={2} align="start">
               <Text size="xs">•</Text>
               <Text size="xs" colorTheme="mutedForeground" className="flex-1">
                 Check if Wi-Fi or mobile data is enabled
               </Text>
             </HStack>
-            <HStack gap={2} align="flex-start">
+            <HStack gap={2} align="start">
               <Text size="xs">•</Text>
               <Text size="xs" colorTheme="mutedForeground" className="flex-1">
                 Try turning airplane mode on and off
               </Text>
             </HStack>
-            <HStack gap={2} align="flex-start">
+            <HStack gap={2} align="start">
               <Text size="xs">•</Text>
               <Text size="xs" colorTheme="mutedForeground" className="flex-1">
                 Move to an area with better signal strength
               </Text>
             </HStack>
-            <HStack gap={2} align="flex-start">
+            <HStack gap={2} align="start">
               <Text size="xs">•</Text>
               <Text size="xs" colorTheme="mutedForeground" className="flex-1">
                 Restart your device if the problem persists
@@ -174,7 +175,7 @@ export function ConnectionLostError({ onRetry, onOfflineMode }: ConnectionLostEr
         {retryCount > 2 && (
           <Card className="p-3 bg-warning/10 border border-warning/20">
             <HStack gap={2} align="center">
-              <Symbol name="exclamationmark.triangle" size={16} color={theme.warning} />
+              <Symbol name="exclamationmark.triangle" size={16} color={theme.destructive} />
               <Text size="xs" className="flex-1">
                 Having trouble? The app will automatically retry when your connection is restored.
               </Text>

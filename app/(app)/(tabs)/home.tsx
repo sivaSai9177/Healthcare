@@ -23,6 +23,7 @@ import { useShadow } from '@/hooks/useShadow';
 import { 
   OperatorDashboard, 
   HealthcareDashboard, 
+  HealthcareDashboardHeader,
   AdminDashboard, 
   ManagerDashboard 
 } from '@/components/blocks/dashboards';

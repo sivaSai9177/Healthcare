@@ -94,14 +94,28 @@ export function HospitalSwitcher({
           setIsOpen(true);
         }}
         disabled={isLoading}
+        activeOpacity={0.7}
       >
-        <Card className={`p-3 ${compact ? 'px-3 py-2' : ''}`}>
-          <HStack gap={spacing[2] as any} align="center">
+        <Card 
+          className={`p-3 ${compact ? 'px-3 py-2' : ''} hover:bg-muted transition-colors`}
+          style={{
+            shadowColor: 'transparent',
+            shadowOpacity: 0,
+            elevation: 0,
+          }}
+        >
+          <HStack 
+            gap={spacing[2] as any} 
+            align="center"
+            style={{
+              overflow: 'visible', // Fix dropdown icon cutoff
+            }}
+          >
             <Symbol name="building.2" size={compact ? "xs" : "sm"} color={theme.primary} />
             {!compact && showLabel && (
-              <VStack gap={0}>
+              <VStack gap={0} style={{ flex: 1 }}>
                 <Text size="xs" colorTheme="mutedForeground">Current Hospital</Text>
-                <Text size="sm" weight="medium">
+                <Text size="sm" weight="medium" numberOfLines={1}>
                   {currentHospitalData?.name || 'Select Hospital'}
                 </Text>
               </VStack>
@@ -111,7 +125,14 @@ export function HospitalSwitcher({
                 {currentHospitalData?.code || 'Select'}
               </Text>
             )}
-            <Symbol name="chevron.down" size="xs" color={theme.mutedForeground} />
+            <Symbol 
+              name="chevron.down" 
+              size="xs" 
+              color={theme.mutedForeground} 
+              style={{
+                marginLeft: spacing[1],
+              }}
+            />
           </HStack>
         </Card>
       </TouchableOpacity>

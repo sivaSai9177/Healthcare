@@ -1,5 +1,6 @@
 export { ActivityTimer } from './ActivityTimer';
 export { Alert, AlertTitle, AlertDescription } from './Alert';
+export { CountdownTimer } from './CountdownTimer';
 export { ErrorDisplay } from './ErrorDisplay';
 export { EmptyState, EmptyStates } from './EmptyState';
 export { LoadingView } from './LoadingView';
@@ -21,6 +22,3 @@ export {
 export { Spinner } from './Spinner';
 export { Toast } from './Toast';
 export { ValidationIcon } from './ValidationIcon';
-
-// Type exports
-export type * from './types';

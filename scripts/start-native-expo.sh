@@ -13,7 +13,8 @@ echo -e "${BLUE}=========================================${NC}"
 # Function to cleanup on exit
 cleanup() {
     echo -e "\n${YELLOW}⏹  Shutting down services...${NC}"
-    docker-compose -f docker-compose.local.yml stop postgres-local redis-local websocket-local logging-local
+    docker-compose -f docker-compose.local.yml stop postgres-local redis-local logging-local
+    docker stop myexpo-websocket-local 2>/dev/null || true
     exit 0
 }
 
@@ -31,9 +32,18 @@ echo -e "${YELLOW}🧹 Cleaning up any existing Expo containers...${NC}"
 docker stop myexpo-expo-local 2>/dev/null || true
 docker rm myexpo-expo-local 2>/dev/null || true
 
+# Stop and remove old WebSocket container if exists
+docker stop myexpo-websocket-local 2>/dev/null || true
+docker rm myexpo-websocket-local 2>/dev/null || true
+
 # Start only the required services (not Expo)
 echo -e "\n${YELLOW}🐳 Starting Docker services (without Expo)...${NC}"
-docker-compose -f docker-compose.local.yml up -d postgres-local redis-local websocket-local logging-local
+docker-compose -f docker-compose.local.yml up -d postgres-local redis-local logging-local
+
+# Build and start the new WebSocket server
+echo -e "\n${YELLOW}🔌 Starting WebSocket server...${NC}"
+docker build -t my-expo-websocket-local -f docker/Dockerfile.websocket . > /dev/null 2>&1
+docker run -d --name myexpo-websocket-local -p 3002:3002 -e NODE_ENV=development -e EXPO_PUBLIC_WS_PORT=3002 my-expo-websocket-local > /dev/null 2>&1
 
 # Wait for services to be healthy
 echo -e "\n${YELLOW}⏳ Waiting for services to be ready...${NC}"
@@ -54,10 +64,10 @@ until docker exec myexpo-redis-local redis-cli ping > /dev/null 2>&1; do
 done
 echo -e " ${GREEN}✅${NC}"
 
-# Wait for WebSocket (just check if container is running)
+# Wait for WebSocket (check if container is running and responding)
 echo -n "WebSocket"
 for i in {1..10}; do
-    if docker ps | grep -q myexpo-websocket-local; then
+    if docker ps | grep -q myexpo-websocket-local && curl -s http://localhost:3002/api/trpc > /dev/null 2>&1; then
         echo -e " ${GREEN}✅${NC}"
         break
     fi
@@ -89,7 +99,7 @@ LOCAL_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head
 export DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev"
 export REDIS_URL="redis://localhost:6379"
 export EXPO_PUBLIC_API_URL="http://${LOCAL_IP}:8081"
-export EXPO_PUBLIC_WS_URL="ws://${LOCAL_IP}:3002"
+export EXPO_PUBLIC_WS_URL="ws://${LOCAL_IP}:3002/api/trpc"
 export BETTER_AUTH_URL="http://${LOCAL_IP}:8081"
 export BETTER_AUTH_SECRET="local-dev-secret"
 export APP_ENV="local"
@@ -108,7 +118,7 @@ echo -e "   Expo Dev Server: http://localhost:8081"
 echo -e "   Mobile (LAN): http://${LOCAL_IP}:8081"
 echo -e "   Web Browser: http://localhost:8081"
 echo -e "   Database: postgresql://localhost:5432/myexpo_dev"
-echo -e "   WebSocket: ws://localhost:3002"
+echo -e "   WebSocket: ws://localhost:3002/api/trpc"
 echo -e "   Logging Service: http://localhost:3003"
 
 echo -e "\n${BLUE}📱 Expo Go Commands:${NC}"

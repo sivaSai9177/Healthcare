@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { View, ViewProps, Pressable, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -7,7 +7,6 @@ import Animated, {
   withTiming,
   withRepeat,
   interpolate,
-  Extrapolation,
 } from 'react-native-reanimated';
 import { cn } from '@/lib/core/utils';
 import { Text } from '@/components/universal/typography/Text';
@@ -15,8 +14,7 @@ import { haptic } from '@/lib/ui/haptics';
 import { useAnimation } from '@/lib/ui/animations/hooks';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 import { useSpacing } from '@/lib/stores/spacing-store';
-import { getPaddingClass } from '@/lib/core/utils/density-classes';
-import { useShadow, useInteractiveShadow, shadowPresets } from '@/hooks/useShadow';
+import { useShadow, useInteractiveShadow } from '@/hooks/useShadow';
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -123,9 +121,10 @@ export const Card = React.forwardRef<View, CardProps>(({
   useHaptics = true,
   children,
   style,
+  pointerEvents,
   ...props
 }, ref) => {
-  const { shouldAnimate, getAnimationDuration, enableAnimations } = useAnimationStore();
+  const { shouldAnimate, enableAnimations } = useAnimationStore();
   const { density } = useSpacing();
   
   // Get shadow styles - glass variants have their own shadow handling
@@ -156,7 +155,7 @@ export const Card = React.forwardRef<View, CardProps>(({
   
   // Use entrance animation
   const { animatedStyle: entranceStyle } = useAnimation('fadeIn', {
-    duration: 'normal',
+    duration: 'fast',
   });
 
   // Handle hover (web)
@@ -184,7 +183,7 @@ export const Card = React.forwardRef<View, CardProps>(({
         );
         break;
     }
-  }, [animated, enableAnimations, animationType, translateY, scale, rotateX, glowOpacity]);
+  }, [animated, enableAnimations, animationType, translateY, scale, rotateX, glowOpacity, shimmerProgress]);
 
   const handleHoverOut = useCallback(() => {
     if (!animated || !enableAnimations || Platform.OS !== 'web') return;
@@ -254,10 +253,10 @@ export const Card = React.forwardRef<View, CardProps>(({
     
     return {
       transform: [
-        { translateY: translateY.value },
-        { scale: scale.value },
-        { perspective },
-        { rotateX: `${rotateX.value}deg` },
+        { translateY: translateY.value } as any,
+        { scale: scale.value } as any,
+        { perspective } as any,
+        { rotateX: `${rotateX.value}deg` } as any,
       ],
     };
   });
@@ -304,12 +303,12 @@ export const Card = React.forwardRef<View, CardProps>(({
   );
   
   // Choose shadow style based on interactivity
-  const shadowStyle = pressable && animated ? interactiveShadow : staticShadow;
+  const shadowStyle = pressable && animated && shouldAnimate() ? interactiveShadow : staticShadow;
   
   // Combine all handlers
   const combinedHandlers = pressable ? {
-    onPress,
-    onLongPress,
+    onPress: onPress || handlePress,
+    onLongPress: onLongPress || handleLongPress,
     onPressIn: handlePressIn,
     onPressOut: handlePressOut,
     ...(Platform.OS === 'web' && {
@@ -333,14 +332,16 @@ export const Card = React.forwardRef<View, CardProps>(({
       style={[
         shadowStyle,
         animated && animatedCardStyle,
+        animated && shouldAnimate() && entranceStyle,
         style,
-      ].filter(Boolean)}
+        pointerEvents ? { pointerEvents } : undefined,
+      ].filter(Boolean) as any}
       {...combinedHandlers}
       {...props}
     >
       {/* Glow effect overlay */}
       {animationType === 'glow' && animated && (
-        <AnimatedView style={[glowStyle] as any} pointerEvents="none" />
+        <AnimatedView style={[glowStyle, { pointerEvents: 'none' }] as any} />
       )}
       
       {/* Glass shimmer overlay for native */}
@@ -359,9 +360,9 @@ export const Card = React.forwardRef<View, CardProps>(({
                 [0, 0.1, 0]
               ),
               backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              pointerEvents: 'none' as any,
             }
           ]} 
-          pointerEvents="none" 
         />
       )}
       

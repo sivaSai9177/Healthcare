@@ -365,7 +365,7 @@ export const Button = React.forwardRef<View, ButtonProps>(({
     >
       {/* Android ripple effect */}
       {rippleEffect && Platform.OS === 'android' && animated && (
-        <Animated.View style={rippleStyle as any} pointerEvents="none" />
+        <Animated.View style={[rippleStyle, { pointerEvents: 'none' }] as any} />
       )}
       
       {/* Button content */}

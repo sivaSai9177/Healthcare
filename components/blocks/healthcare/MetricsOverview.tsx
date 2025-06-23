@@ -1,11 +1,12 @@
 import React, { Suspense, useTransition, useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Platform, View, Pressable } from 'react-native';
 import Animated, { 
   useAnimatedStyle, 
   useSharedValue, 
   withTiming, 
   withSpring,
   interpolate,
+  withRepeat,
 } from 'react-native-reanimated';
 import {
   Card,
@@ -21,6 +22,7 @@ import {
 import { cn } from '@/lib/core/utils';
 import { useShadow } from '@/hooks/useShadow';
 import { useAuthStore } from '@/lib/stores/auth-store';
+import { useTheme } from '@/lib/theme/provider';
 
 import { create } from 'zustand';
 import { devtools, subscribeWithSelector } from 'zustand/middleware';
@@ -41,6 +43,57 @@ interface MetricsState {
   setDepartment: (dept: string) => void;
   setRefreshInterval: (interval: number) => void;
 }
+
+// Live Indicator Component - More subtle animation
+const LiveIndicator = () => {
+  const theme = useTheme();
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(0.3);
+  
+  useEffect(() => {
+    // Subtle pulsing animation with longer delay
+    scale.value = withRepeat(
+      withTiming(1.3, { duration: 2000 }),
+      -1,
+      true
+    );
+    opacity.value = withRepeat(
+      withTiming(0.1, { duration: 2000 }),
+      -1,
+      true
+    );
+  }, []);
+  
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+  
+  return (
+    <View style={{ position: 'relative', marginRight: 8 }}>
+      <View
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: theme.success,
+        }}
+      />
+      <Animated.View
+        style={[
+          {
+            position: 'absolute',
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: theme.success,
+          },
+          animatedStyle,
+        ]}
+      />
+    </View>
+  );
+};
 
 const useMetricsStore = create<MetricsState>()(
   devtools(
@@ -72,7 +125,7 @@ const PrimaryMetricCard = ({
   variant: 'destructive' | 'secondary' | 'default' | 'success';
   icon: string;
 }) => {
-  const shadowStyle = useShadow({ size: 'lg' });
+  const shadowStyle = useShadow({ size: 'md' });
   
   // Animation for card entrance
   const { animatedStyle: cardEntranceStyle, fadeIn } = useFadeAnimation({ 
@@ -171,7 +224,7 @@ const SecondaryMetricCard = ({
   unit?: string;
   status?: 'good' | 'warning' | 'critical';
 }) => {
-  const shadowStyle = useShadow({ size: 'md' });
+  const shadowStyle = useShadow({ size: 'sm' });
   const getStatusVariant = (status: 'good' | 'warning' | 'critical') => {
     switch (status) {
       case 'good':
@@ -217,8 +270,10 @@ const SecondaryMetricCard = ({
   );
 };
 
-// Mini stat component
+// Mini stat component - Enhanced UI
 const MiniStat = ({ label, value, variant, index }: { label: string; value: number; variant: 'destructive' | 'secondary' | 'default' | 'success'; index: number }) => {
+  const theme = useTheme();
+  const shadowStyle = useShadow({ size: 'sm' });
   
   // Staggered fade in for mini stats
   const { animatedStyle } = useEntranceAnimation({
@@ -227,38 +282,53 @@ const MiniStat = ({ label, value, variant, index }: { label: string; value: numb
     duration: 'normal' as const,
   });
   
+  const getColors = () => {
+    switch (variant) {
+      case 'destructive':
+        return { bg: theme.destructive, text: theme.destructive, bgLight: theme.destructive + '15' };
+      case 'secondary':
+        return { bg: theme.warning, text: theme.warning, bgLight: theme.warning + '15' };
+      case 'success':
+        return { bg: theme.success, text: theme.success, bgLight: theme.success + '15' };
+      default:
+        return { bg: theme.primary, text: theme.primary, bgLight: theme.primary + '15' };
+    }
+  };
+  
+  const colors = getColors();
+  
   return (
     <Animated.View style={animatedStyle}>
-      <HStack
-      gap={4 as any}
-      alignItems="center"
-      className={cn(
-        "p-3 rounded-md",
-        variant === 'destructive' && "bg-destructive/10",
-        variant === 'secondary' && "bg-warning/10",
-        variant === 'success' && "bg-success/10",
-        variant === 'default' && "bg-primary/10"
-      )}
-      style={{
-        height: 36, // componentSizes.button.sm.height
-      }}
-    >
-      <Box
-        width={8}
-        height={8}
-        className={cn(
-          "rounded-full",
-          variant === 'destructive' && "bg-destructive",
-          variant === 'secondary' && "bg-warning",
-          variant === 'success' && "bg-success",
-          variant === 'default' && "bg-primary"
-        )}
-      />
-      <VStack gap={2 as SpacingScale} flex={1}>
-        <Text size="xs" colorTheme="mutedForeground">{label}</Text>
-        <Text weight="bold">{value}</Text>
-      </VStack>
-    </HStack>
+      <Pressable
+        style={[
+          {
+            backgroundColor: colors.bgLight,
+            borderRadius: 12,
+            padding: 12,
+            borderWidth: 1,
+            borderColor: colors.bg + '20',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+          },
+          shadowStyle,
+        ]}
+      >
+        <Box
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: 5,
+            backgroundColor: colors.bg,
+          }}
+        />
+        <Box flex={1}>
+          <Text size="xs" colorTheme="mutedForeground">{label}</Text>
+          <Text size="lg" weight="bold" style={{ color: colors.text }}>
+            {value}
+          </Text>
+        </Box>
+      </Pressable>
     </Animated.View>
   );
 };
@@ -292,9 +362,14 @@ const MetricsSkeleton = () => {
 };
 
 // Main metrics content
-const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
-  const { timeRange, refreshInterval, setTimeRange } = useMetricsStore();
-  const [isPending, startTransition] = useTransition();
+const MetricsContent = ({ hospitalId, timeRange, setTimeRange, isPending, startTransition }: { 
+  hospitalId: string;
+  timeRange: '1h' | '6h' | '24h' | '7d';
+  setTimeRange: (range: '1h' | '6h' | '24h' | '7d') => void;
+  isPending: boolean;
+  startTransition: (callback: () => void) => void;
+}) => {
+  const { refreshInterval } = useMetricsStore();
   const { isHealthcareRole, canViewAlerts, isLoading, isAuthenticated, user } = useHealthcareAccess();
   
   // Deferred values for smooth interactions
@@ -371,70 +446,86 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
   
   return (
     <>
-      {/* Time range selector */}
-      <HStack gap={4 as any} justifyContent="flex-end">
-        {(['1h', '6h', '24h', '7d'] as const).map((range) => (
-          <Button
-            key={range}
-            variant={timeRange === range ? "default" : "outline"}
-            size="sm"
-            onPress={() => {
-              haptic('light');
-              startTransition(() => {
-                setTimeRange(range);
-              });
-            }}
-            isLoading={(isPending && timeRange === range) as any}
-          >
-            {range.toUpperCase()}
-          </Button>
-        ))}
-      </HStack>
-      
-      {/* Main metrics grid */}
-      <Grid
-        columns={Platform.OS === 'web' ? 3 : 1}
-        gap={6 as any}
-        style={{ minHeight: 180 }} // componentSizes.button.xl.height * 3
-      >
-        {/* Primary Metric */}
-        <PrimaryMetricCard
-          value={displayMetrics.activeAlerts}
-          label="Active Alerts"
-          trend={displayMetrics.alertsTrend}
-          capacity={displayMetrics.alertCapacity}
-          variant="destructive"
-          icon="🚨"
-        />
+      {/* Main metrics grid - Responsive */}
+      <View style={{
+        flexDirection: Platform.OS === 'web' ? 'row' : 'column',
+        flexWrap: 'wrap',
+        gap: 24,
+        marginHorizontal: -12,
+      }}>
+        {/* Primary Metric - Always full width on mobile */}
+        <View style={{
+          flex: Platform.OS === 'web' ? 1 : undefined,
+          minWidth: Platform.OS === 'web' ? 280 : undefined,
+          paddingHorizontal: 12,
+          width: '100%',
+        }}>
+          <PrimaryMetricCard
+            value={displayMetrics.activeAlerts}
+            label="Active Alerts"
+            trend={displayMetrics.alertsTrend}
+            capacity={displayMetrics.alertCapacity}
+            variant="destructive"
+            icon="🚨"
+          />
+        </View>
         
         {/* Secondary Metrics */}
-        <VStack gap={4 as any}>
-          <SecondaryMetricCard
-            value={displayMetrics.avgResponseTime}
-            label="Avg Response Time"
-            unit="min"
-            status={displayMetrics.avgResponseTime <= 3 ? 'good' : displayMetrics.avgResponseTime <= 5 ? 'warning' : 'critical'}
-          />
-          <SecondaryMetricCard
-            value={displayMetrics.staffOnline}
-            label="Staff Online"
-            unit={`/ ${displayMetrics.totalStaff}`}
-            status={displayMetrics.staffOnline >= displayMetrics.minStaffRequired ? 'good' : 'critical'}
-          />
-        </VStack>
+        <View style={{
+          flex: Platform.OS === 'web' ? 1 : undefined,
+          minWidth: Platform.OS === 'web' ? 280 : undefined,
+          paddingHorizontal: 12,
+          width: '100%',
+        }}>
+          <VStack gap={4 as any}>
+            <SecondaryMetricCard
+              value={displayMetrics.avgResponseTime}
+              label="Avg Response Time"
+              unit="min"
+              status={displayMetrics.avgResponseTime <= 3 ? 'good' : displayMetrics.avgResponseTime <= 5 ? 'warning' : 'critical'}
+            />
+            <SecondaryMetricCard
+              value={displayMetrics.staffOnline}
+              label="Staff Online"
+              unit={`/ ${displayMetrics.totalStaff}`}
+              status={displayMetrics.staffOnline >= displayMetrics.minStaffRequired ? 'good' : 'critical'}
+            />
+          </VStack>
+        </View>
         
-        {/* Mini Stats */}
-        <VStack gap={3 as any}>
-          <Text size="sm" weight="medium">By Priority</Text>
-          <MiniStat label="Critical" value={displayMetrics.criticalAlerts} variant="destructive" index={0} />
-          <MiniStat label="Urgent" value={displayMetrics.urgentAlerts} variant="secondary" index={1} />
-          <MiniStat label="Standard" value={displayMetrics.standardAlerts} variant="default" index={2} />
-          <MiniStat label="Resolved" value={displayMetrics.resolvedToday} variant="success" index={3} />
-        </VStack>
-      </Grid>
+        {/* Mini Stats - Priority Ordered - Responsive */}
+        <View style={{
+          flex: Platform.OS === 'web' ? 1 : undefined,
+          minWidth: Platform.OS === 'web' ? 280 : undefined,
+          paddingHorizontal: 12,
+          width: '100%',
+        }}>
+          <VStack gap={3 as any}>
+            <Text size="sm" weight="medium">By Priority</Text>
+            <VStack gap={Platform.OS === 'web' ? 12 : 8}>
+              <HStack gap={Platform.OS === 'web' ? 12 : 8}>
+                <View style={{ flex: 1 }}>
+                  <MiniStat label="Critical" value={displayMetrics.criticalAlerts} variant="destructive" index={0} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <MiniStat label="Urgent" value={displayMetrics.urgentAlerts} variant="secondary" index={1} />
+                </View>
+              </HStack>
+              <HStack gap={Platform.OS === 'web' ? 12 : 8}>
+                <View style={{ flex: 1 }}>
+                  <MiniStat label="Standard" value={displayMetrics.standardAlerts} variant="default" index={2} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <MiniStat label="Resolved" value={displayMetrics.resolvedToday} variant="success" index={3} />
+                </View>
+              </HStack>
+            </VStack>
+          </VStack>
+        </View>
+      </View>
       
-      {/* Department breakdown */}
-      <Card style={{ padding: 24 }}>
+      {/* Department breakdown - No extra card, better spacing */}
+      <VStack gap={3 as any}>
         <Text weight="medium">Department Performance</Text>
         <Grid columns={Platform.OS === 'web' ? 4 : 2} gap={4 as any}>
           {(displayMetrics.departmentStats || []).map((dept) => (
@@ -456,7 +547,7 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
             </VStack>
           ))}
         </Grid>
-      </Card>
+      </VStack>
     </>
   );
 };
@@ -465,6 +556,8 @@ const MetricsContent = ({ hospitalId }: { hospitalId: string }) => {
 export const MetricsOverviewBlock = ({ hospitalId }: { hospitalId: string }) => {
   const { animatedStyle: blockFadeStyle, fadeIn } = useFadeAnimation({ duration: 'fast' as any });
   const { user, isAuthenticated, hasHydrated } = useAuthStore();
+  const { timeRange, setTimeRange } = useMetricsStore();
+  const [isPending, startTransition] = useTransition();
   
   useEffect(() => {
     fadeIn();
@@ -477,18 +570,52 @@ export const MetricsOverviewBlock = ({ hospitalId }: { hospitalId: string }) => 
   
   return (
     <Animated.View style={blockFadeStyle}>
-      <VStack gap={6 as any}>
-      <HStack justifyContent="space-between" alignItems="center">
-        <Text size="xl" weight="bold">System Metrics</Text>
-        <Badge variant="outline" size="sm">
-          Live
-        </Badge>
-      </HStack>
-      
-      <Suspense fallback={<MetricsSkeleton />}>
-        <MetricsContent hospitalId={hospitalId} />
-      </Suspense>
-    </VStack>
+      <Card>
+        <Box p={4}>
+          <VStack gap={6 as any}>
+            <HStack justifyContent="space-between" alignItems="center">
+              <HStack gap={2 as any} alignItems="center">
+                <LiveIndicator />
+                <Text size="xl" weight="bold">System Metrics</Text>
+              </HStack>
+              
+              {/* Time range selector - Responsive */}
+              <HStack gap={Platform.OS === 'web' ? 2 : 1} flexWrap="wrap">
+                {(['1h', '6h', '24h', '7d'] as const).map((range) => (
+                  <Button
+                    key={range}
+                    variant={timeRange === range ? "default" : "ghost"}
+                    size={Platform.OS === 'web' ? "sm" : "xs"}
+                    onPress={() => {
+                      haptic('light');
+                      startTransition(() => {
+                        setTimeRange(range);
+                      });
+                    }}
+                    isLoading={(isPending && timeRange === range) as any}
+                    style={{
+                      paddingHorizontal: Platform.OS === 'web' ? 12 : 8,
+                      paddingVertical: Platform.OS === 'web' ? 6 : 4,
+                    }}
+                  >
+                    {range.toUpperCase()}
+                  </Button>
+                ))}
+              </HStack>
+            </HStack>
+            
+            <Suspense fallback={<MetricsSkeleton />}>
+              <MetricsContent 
+                hospitalId={hospitalId} 
+                timeRange={timeRange}
+                setTimeRange={setTimeRange}
+                isPending={isPending}
+                startTransition={startTransition}
+              />
+            </Suspense>
+          </VStack>
+        </Box>
+      </Card>
     </Animated.View>
   );
 };

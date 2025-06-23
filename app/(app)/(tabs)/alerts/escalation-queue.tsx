@@ -21,7 +21,6 @@ import {
   Button,
   Box,
   Badge,
-  Avatar,
   GlassCard,
   Symbol,
   Heading2,
@@ -48,7 +47,7 @@ export default function AlertEscalationQueueScreen() {
   const router = useRouter();
   const theme = useTheme();
   const { spacing } = useSpacing();
-  useAuth();
+  const { user } = useAuth();
   
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAlerts, setSelectedAlerts] = useState<string[]>([]);
@@ -66,7 +65,7 @@ export default function AlertEscalationQueueScreen() {
   
   // Hospital context validation
   const hospitalContext = useHospitalContext();
-  const hospitalId = hospitalContext.hospitalId || '';
+  const hospitalId = hospitalContext.hospitalId || user?.defaultHospitalId || user?.organizationId || '';
   
   // WebSocket integration for real-time updates
   useAlertWebSocket({
@@ -87,7 +86,7 @@ export default function AlertEscalationQueueScreen() {
   const { data, isLoading, error, refetch } = api.healthcare.getActiveAlerts.useQuery(
     { hospitalId },
     {
-      enabled: !!hospitalId && hospitalContext.canAccessHealthcare,
+      enabled: !!hospitalId,
       refetchInterval: 10000, // Refresh every 10 seconds
       select: (data) => {
         // Filter only escalated alerts
@@ -192,23 +191,6 @@ export default function AlertEscalationQueueScreen() {
     }
   }, [selectedAlerts, canAcknowledgeAlerts, acknowledgeMutation, refetch]);
   
-  if (!hospitalContext.canAccessHealthcare) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <Container>
-          <VStack p={4} gap={4 as any} alignItems="center" justifyContent="center" style={{ flex: 1 }}>
-            <Text size="base" weight="semibold">Access Restricted</Text>
-            <Text colorTheme="mutedForeground" align="center">
-              Complete your profile to access the escalation queue
-            </Text>
-            <Button onPress={() => router.push('/(tabs)/home' as any)} variant="outline">
-              Return to Home
-            </Button>
-          </VStack>
-        </Container>
-      </SafeAreaView>
-    );
-  }
   
   if (isLoading && !data) {
     return (
@@ -251,8 +233,9 @@ export default function AlertEscalationQueueScreen() {
       <Stack.Screen
         options={{
           title: 'Escalation Queue',
-          headerBackTitle: 'Back',
+          headerBackTitle: 'Alerts',
           presentation: 'card',
+          headerShown: false,
         }}
       />
       
@@ -279,9 +262,18 @@ export default function AlertEscalationQueueScreen() {
                   >
                     <Box p={4 as any}>
                       <VStack gap={3 as any}>
+                        <HStack gap={2 as any} alignItems="center">
+                          <Button
+                            onPress={() => router.push('/(app)/(tabs)/alerts')}
+                            variant="ghost"
+                            size="icon"
+                          >
+                            <Symbol name="chevron.left" size={24} />
+                          </Button>
+                          <Text size="xl" weight="bold">Escalation Queue</Text>
+                        </HStack>
                         <HStack justifyContent="space-between" alignItems="center">
                           <VStack gap={1 as any}>
-                            <Heading2>Escalation Queue</Heading2>
                             <Text size="sm" colorTheme="mutedForeground">
                               Alerts requiring immediate attention
                             </Text>
@@ -497,7 +489,7 @@ export default function AlertEscalationQueueScreen() {
                                             <VStack gap={1 as any} alignItems="flex-end">
                                               <Text size="xs" color="muted">In tier for</Text>
                                               <Text size="sm" weight="semibold" style={{ color: tierColors[parseInt(tier)] || theme.destructive }}>
-                                                {formatDistanceToNow(new Date(alert.lastEscalatedAt || alert.createdAt))}
+                                                {formatDistanceToNow(new Date(alert.createdAt))}
                                               </Text>
                                             </VStack>
                                           </HStack>
@@ -508,30 +500,13 @@ export default function AlertEscalationQueueScreen() {
                                             </Text>
                                           )}
                                           
-                                          {/* Assigned Staff */}
-                                          {alert.assignedStaff && alert.assignedStaff.length > 0 && (
+                                          {/* Target Department */}
+                                          {alert.targetDepartment && (
                                             <HStack gap={2 as any} alignItems="center">
-                                              <Text size="xs" color="muted">Assigned to:</Text>
-                                              <HStack gap={-spacing[2] as any}>
-                                                {alert.assignedStaff.slice(0, 4).map((staff: any, idx: number) => (
-                                                  <Avatar
-                                                    key={staff.id}
-                                                    source={staff.image ? { uri: staff.image } : undefined}
-                                                    name={staff.name}
-                                                    size="xs"
-                                                    style={{
-                                                      borderWidth: 2,
-                                                      borderColor: theme.background,
-                                                      zIndex: 4 - idx,
-                                                    }}
-                                                  />
-                                                ))}
-                                              </HStack>
-                                              {alert.assignedStaff.length > 4 && (
-                                                <Text size="xs" color="muted">
-                                                  +{alert.assignedStaff.length - 4} more
-                                                </Text>
-                                              )}
+                                              <Text size="xs" color="muted">Target department:</Text>
+                                              <Badge variant="outline" size="sm">
+                                                {alert.targetDepartment}
+                                              </Badge>
                                             </HStack>
                                           )}
                                           
@@ -549,7 +524,7 @@ export default function AlertEscalationQueueScreen() {
                                         {/* Quick Actions */}
                                         <VStack gap={1 as any}>
                                           <Pressable
-                                            onPress={() => router.push(`/(app)/alerts/${alert.id}`)}
+                                            onPress={() => router.push(`/(app)/(tabs)/alerts/${alert.id}`)}
                                             style={{
                                               padding: spacing[2] as any,
                                               borderRadius: 8,

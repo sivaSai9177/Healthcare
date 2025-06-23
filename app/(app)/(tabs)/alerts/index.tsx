@@ -3,12 +3,10 @@ import {
   View, 
   ScrollView, 
   RefreshControl, 
-  Platform,
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, Redirect } from 'expo-router';
 import {
@@ -17,7 +15,6 @@ import {
   Text,
   Container,
   Button,
-  Badge,
   Box,
   Symbol,
 } from '@/components/universal';
@@ -41,20 +38,17 @@ import Animated, {
   FadeInDown, 
   useAnimatedStyle, 
   useSharedValue,
-  withSpring,
   interpolate,
 } from 'react-native-reanimated';
 import { AnimatedPageWrapper, pageEnteringAnimations } from '@/lib/navigation/page-transitions';
 import { useLayoutTransition } from '@/hooks/useLayoutTransition';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 function AlertsScreenContent() {
   const { user } = useAuth();
   const router = useRouter();
   const theme = useTheme();
   const { spacing } = useSpacing();
-  const { isMobile } = useResponsive();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState('all');
@@ -74,23 +68,20 @@ function AlertsScreenContent() {
   // Hospital context validation
   const hospitalContext = useHospitalContext();
   
-  // SSR prefetch for web - use empty string as default when no hospitalId
-  useSSRPrefetchHealthcare(hospitalContext.hospitalId || '');
+  // Get hospitalId from user's default hospital or organization
+  const hospitalId = hospitalContext.hospitalId || user?.defaultHospitalId || user?.organizationId || '';
   
-  // Use the hospitalId or empty string for hooks that require it
-  const hospitalId = hospitalContext.hospitalId || '';
+  // SSR prefetch for web
+  useSSRPrefetchHealthcare(hospitalId);
   
   // Use enhanced API hooks with error handling and caching
   // These hooks must be called before any conditional returns
   const { 
     data, 
     isLoading, 
-    refetch, 
-    error,
-    isOffline,
-    cachedData,
+    refetch,
   } = useActiveAlerts({
-    enabled: !!user && !!hospitalId && hospitalContext.canAccessHealthcare,
+    enabled: !!user && !!hospitalId,
     refetchInterval: 30000, // 30 seconds
   }) as any;
   
@@ -126,8 +117,11 @@ function AlertsScreenContent() {
       canAccessHealthcare: hospitalContext.canAccessHealthcare,
       hasValidHospital: hospitalContext.hasValidHospital,
       hospitalError: hospitalContext.error,
+      canViewAlerts,
+      organizationId: user?.organizationId,
+      defaultHospitalId: user?.defaultHospitalId,
     });
-  }, [user, hospitalId, hospitalContext]);
+  }, [user, hospitalId, hospitalContext, canViewAlerts]);
   
   // Callbacks - must be defined before conditional returns
   const handleRefresh = useCallback(async () => {
@@ -153,17 +147,29 @@ function AlertsScreenContent() {
   }, [canCreateAlerts, router]);
   
   const handleAcknowledge = useCallback(async (alertId: string) => {
-    await acknowledgeMutation.mutateWithFeedback({ 
-      alertId,
-      notes: 'Acknowledged via mobile app',
-    });
+    try {
+      await acknowledgeMutation.mutateAsync({ 
+        alertId,
+        notes: 'Acknowledged via mobile app',
+      });
+      haptic('success');
+    } catch (error) {
+      haptic('error');
+      log.error('Failed to acknowledge alert', 'ALERTS', { error });
+    }
   }, [acknowledgeMutation]);
   
   const handleResolve = useCallback(async (alertId: string) => {
-    await resolveMutation.mutateWithFeedback({ 
-      alertId,
-      resolution: 'Resolved via mobile app',
-    });
+    try {
+      await resolveMutation.mutateAsync({ 
+        alertId,
+        resolution: 'Resolved via mobile app',
+      });
+      haptic('success');
+    } catch (error) {
+      haptic('error');
+      log.error('Failed to resolve alert', 'ALERTS', { error });
+    }
   }, [resolveMutation]);
   
   // Header animation based on scroll - must be defined before conditional returns
@@ -189,61 +195,6 @@ function AlertsScreenContent() {
     return <Redirect href="/(app)/(tabs)/home" />;
   }
   
-  // Show simple message if hospital is missing (non-blocking)
-  if (!hospitalContext.hospitalId) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <Container>
-          <VStack p={4} gap={4 as any}>
-            <Box p={6} gap={4 as any} style={{ 
-              alignItems: 'center',
-              backgroundColor: theme.card,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: theme.border
-            }}>
-              <Symbol name="bell.badge" size={48} color={theme.mutedForeground} />
-              <VStack gap={2 as any} style={{ alignItems: 'center' }}>
-                <Text size="lg" weight="medium">No Hospital Selected</Text>
-                <Text size="sm" style={{ color: theme.mutedForeground, textAlign: 'center' }}>
-                  Please select a hospital from settings to view alerts.
-                </Text>
-              </VStack>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onPress={() => {
-                  haptic('light');
-                  router.push('/(tabs)/settings' as any);
-                }}
-              >
-                Go to Settings
-              </Button>
-            </Box>
-          </VStack>
-        </Container>
-      </SafeAreaView>
-    );
-  }
-  
-  // Return early if no valid hospital
-  if (!hospitalContext.hospitalId) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <Container>
-          <VStack p={4} gap={4 as any} alignItems="center" justifyContent="center" style={{ flex: 1 }}>
-            <Text size="base" weight="semibold">Unable to Access Alerts</Text>
-            <Text colorTheme="mutedForeground" align="center">
-              {hospitalContext.errorMessage || 'No hospital assigned'}
-            </Text>
-            <Button onPress={() => router.push('/(app)/(tabs)/home')} variant="outline">
-              Return to Home
-            </Button>
-          </VStack>
-        </Container>
-      </SafeAreaView>
-    );
-  }
   
   const filteredAlerts = data?.alerts.filter(alert => {
     if (searchQuery && !alert.roomNumber.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -252,10 +203,10 @@ function AlertsScreenContent() {
     if (urgencyFilter !== 'all' && alert.urgencyLevel.toString() !== urgencyFilter) {
       return false;
     }
-    if (statusFilter === 'active' && (alert.resolved || alert.acknowledged)) {
+    if (statusFilter === 'active' && alert.status !== 'active') {
       return false;
     }
-    if (statusFilter === 'acknowledged' && !alert.acknowledged) {
+    if (statusFilter === 'acknowledged' && alert.status !== 'acknowledged') {
       return false;
     }
     return true;
@@ -428,7 +379,6 @@ const StatCard: React.FC<{
   color: string;
 }> = ({ icon, label, value, color }) => {
   const { spacing } = useSpacing();
-  const theme = useTheme();
   
   return (
     <View style={{

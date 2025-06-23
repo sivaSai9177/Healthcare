@@ -22,6 +22,20 @@ export default function AlertsLayout() {
           presentation: 'modal',
         }} 
       />
+      <Stack.Screen 
+        name="escalation-queue" 
+        options={{ 
+          title: 'Escalation Queue',
+          presentation: 'card',
+        }} 
+      />
+      <Stack.Screen 
+        name="history" 
+        options={{ 
+          title: 'Alert History',
+          presentation: 'card',
+        }} 
+      />
     </Stack>
     </HealthcareErrorBoundary>
   );

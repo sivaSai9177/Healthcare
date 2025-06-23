@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/lib/theme/provider';
 import { api } from '@/lib/api/trpc';
+import { useHospitalContext } from '@/hooks/healthcare';
 import {
   Container,
   VStack,
@@ -30,7 +31,9 @@ export default function AlertHistoryScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [timeRange, setTimeRange] = useState('24h');
   
-  const hospitalId = user?.organizationId || 'demo-hospital';
+  // Hospital context validation
+  const hospitalContext = useHospitalContext();
+  const hospitalId = hospitalContext.hospitalId || '';
   
   const { data, refetch } = api.healthcare.getAlertHistory.useQuery(
     { 
@@ -38,10 +41,10 @@ export default function AlertHistoryScreen() {
       startDate: timeRange === '24h' ? new Date(Date.now() - 24 * 60 * 60 * 1000) : 
                  timeRange === '7d' ? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) :
                  timeRange === '30d' ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) :
-                 new Date(0),
+                 timeRange === 'all' ? undefined : new Date(0),
       endDate: new Date(),
     },
-    { enabled: !!user }
+    { enabled: !!user && !!hospitalId }
   );
   
   const handleRefresh = async () => {
@@ -62,7 +65,7 @@ export default function AlertHistoryScreen() {
       {/* Header */}
       <HStack alignItems="center" gap={2 as any}>
         <Button
-          onPress={() => router.back()}
+          onPress={() => router.push('/(app)/(tabs)/alerts')}
           variant="ghost"
           size="icon"
         >
@@ -84,7 +87,7 @@ export default function AlertHistoryScreen() {
         <Card style={{ flex: 1 }}>
           <Box p={3 as any}>
             <VStack gap={1 as any} alignItems="center">
-              <Text size="2xl" weight="bold">{data?.alerts?.filter(a => a.resolved).length || 0}</Text>
+              <Text size="2xl" weight="bold">{data?.alerts?.filter(a => a.resolvedAt).length || 0}</Text>
               <Text size="sm" colorTheme="mutedForeground">Resolved</Text>
             </VStack>
           </Box>
@@ -132,11 +135,23 @@ export default function AlertHistoryScreen() {
           <Badge variant="secondary">{`${filteredAlerts.length} alerts`}</Badge>
         </HStack>
         
-        {filteredAlerts.map((alert) => (
+        {filteredAlerts.map((alert, index) => (
           <AlertItem
             key={alert.id}
-            {...alert}
-            onPress={() => router.push(`/(app)/alerts/${alert.id}`)}
+            alertData={{
+              ...alert,
+              status: alert.status as 'active' | 'acknowledged' | 'resolved',
+              currentEscalationTier: alert.currentEscalationTier || 1,
+              nextEscalationAt: alert.nextEscalationAt || null,
+              acknowledgedBy: alert.acknowledgedBy || null,
+              resolvedBy: null,
+            } as any}
+            index={index}
+            role={user?.role as any}
+            canAcknowledge={false}
+            canResolve={false}
+            onAcknowledge={() => {}}
+            onResolve={() => {}}
           />
         ))}
         

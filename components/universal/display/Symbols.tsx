@@ -286,6 +286,22 @@ const sfToMaterialIconMap: Record<string, string> = {
   'sparkles': 'auto-awesome',
   'circle': 'radio-button-unchecked',
   
+  // Sidebar specific icons
+  'house.fill': 'home',
+  'bell.badge': 'notifications-active',
+  'bell.fill': 'notifications',
+  'person.2.fill': 'people',
+  'calendar.badge.clock': 'event-available',
+  'arrow.triangle.2.circlepath': 'sync-alt',
+  'speedometer': 'speed',
+  'doc.text.magnifyingglass': 'manage-search',
+  'list.bullet.rectangle': 'list-alt',
+  'shield.checkerboard': 'security',
+  'gearshape.fill': 'settings',
+  'book': 'menu-book',
+  'keyboard': 'keyboard',
+  'plus.circle.fill': 'add-circle',
+  
   // Default fallback
   'default': 'help-outline',
 };

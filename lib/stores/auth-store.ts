@@ -383,6 +383,7 @@ export const useAuth = () => {
   const isLoading = useAuthStore((state) => state.isLoading);
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const error = useAuthStore((state) => state.error);
+  const lastActivity = useAuthStore((state) => state.lastActivity);
   
   // Get stable method references once
   const methods = React.useMemo(() => {
@@ -402,6 +403,7 @@ export const useAuth = () => {
       hasPermission: state.hasPermission,
       hasRole: state.hasRole,
       canAccess: state.canAccess,
+      setRefreshing: state.setLoading, // Map setRefreshing to setLoading
     };
   }, []); // Empty deps - methods are stable
   
@@ -412,6 +414,7 @@ export const useAuth = () => {
     isLoading,
     hasHydrated,
     error,
+    lastActivity,
     ...methods,
   };
 };

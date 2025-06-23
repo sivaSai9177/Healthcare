@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Platform, Pressable, Modal, TouchableWithoutFeedback, KeyboardAvoidingView, ScrollView, Dimensions } from 'react-native';
+import { Platform, Pressable, Modal, TouchableWithoutFeedback, KeyboardAvoidingView, ScrollView, Dimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Card,
@@ -21,7 +21,7 @@ import {
   StatusGlassCard,
 } from '@/components/universal';
 import { useSpacing } from '@/lib/stores/spacing-store';
-import { useThemeStore } from '@/lib/stores/theme-store';
+import { useTheme } from '@/lib/theme/provider';
 import { useShadow } from '@/hooks/useShadow';
 import { haptic } from '@/lib/ui/haptics';
 import { api } from '@/lib/api/trpc';
@@ -29,7 +29,7 @@ import { log } from '@/lib/core/debug/logger';
 import { useActiveOrganization } from '@/lib/stores/organization-store';
 import { useHospitalContext } from '@/hooks/healthcare';
 // ProfileIncompletePrompt removed - hospital selection is now optional
-import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring, interpolate } from 'react-native-reanimated';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -39,7 +39,7 @@ interface ShiftStatusProps {
 
 export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
   const { spacing } = useSpacing();
-  const { theme } = useThemeStore();
+  const theme = useTheme();
   const shadowMd = useShadow({ size: 'md' });
   const router = useRouter();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -295,136 +295,108 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
         entering={FadeIn}
         style={animatedStyle}
       >
-        <StatusGlassCard
-          className={onDutyStatus?.isOnDuty ? 'border-l-4 border-l-success' : ''}
-          glowEffect={onDutyStatus?.isOnDuty}
-          shadowColor={onDutyStatus?.isOnDuty ? 'success' : 'default'}
-        >
-          <Box p={4 as any}>
-            <VStack gap={3 as any}>
-              {/* Header */}
-              <HStack justifyContent="space-between" alignItems="center">
-                <VStack gap={1 as any}>
-                  <HStack gap={2 as any} alignItems="center">
-                    <Box
-                      width={8}
-                      height={8}
-                      className={`rounded-full ${onDutyStatus?.isOnDuty ? 'bg-success' : 'bg-muted-foreground'}`}
-                    />
-                    <Text weight="semibold" size={isMobile ? 'base' : 'lg'}>
-                      Duty Status
-                    </Text>
-                  </HStack>
-                  <Text size="sm" colorTheme="mutedForeground">
-                    {onDutyStatus?.isOnDuty ? 'Currently on duty' : 'Off duty'}
+        <VStack gap={3 as any}>
+          {/* Simplified Header */}
+          <HStack justifyContent="space-between" alignItems="center">
+            <HStack gap={3 as any} alignItems="center">
+              {/* Status Indicator */}
+              <View style={{ position: 'relative' }}>
+                <View
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: 6,
+                    backgroundColor: onDutyStatus?.isOnDuty ? theme.success : theme.muted,
+                    borderWidth: 2,
+                    borderColor: theme.background,
+                  }}
+                />
+                {onDutyStatus?.isOnDuty && (
+                  <Animated.View
+                    style={[
+                      {
+                        position: 'absolute',
+                        width: 12,
+                        height: 12,
+                        borderRadius: 6,
+                        backgroundColor: theme.success,
+                      },
+                      useAnimatedStyle(() => ({
+                        transform: [{ scale: pulseScale.value }],
+                        opacity: interpolate(pulseScale.value, [1, 1.05], [0.5, 0]),
+                      })),
+                    ]}
+                  />
+                )}
+              </View>
+              
+              <VStack gap={0.5 as any}>
+                <Text weight="semibold" size="sm">
+                  {onDutyStatus?.isOnDuty ? 'On Duty' : 'Off Duty'}
+                </Text>
+                {onDutyStatus?.isOnDuty && shiftDuration && (
+                  <Text size="xs" colorTheme="mutedForeground">
+                    {shiftDuration.formatted}
                   </Text>
-                  {organization && (
-                    <Text size="xs" colorTheme="mutedForeground">
-                      {organization.name}
-                    </Text>
-                  )}
-                </VStack>
+                )}
+              </VStack>
+            </HStack>
+            
+            <Button
+              onPress={handleToggleShift}
+              variant={onDutyStatus?.isOnDuty ? 'outline' : 'default'}
+              size="sm"
+              isLoading={isToggling || toggleOnDutyMutation.isPending}
+            >
+              {onDutyStatus?.isOnDuty ? 'End Shift' : 'Start Shift'}
+            </Button>
+          </HStack>
+          
+          {/* Shift Info - Compact */}
+          {onDutyStatus?.isOnDuty && (
+            <HStack gap={4 as any} justifyContent="space-between">
+              <HStack gap={3 as any}>
+                {/* Active Alerts */}
+                {activeAlerts && (
+                  <HStack gap={1.5 as any} alignItems="center">
+                    <Text size="xs" colorTheme="mutedForeground">Alerts:</Text>
+                    <Badge 
+                      variant={activeAlerts.alerts.length > 0 ? 'error' : 'outline'}
+                      size="xs"
+                    >
+                      {activeAlerts.alerts.length}
+                    </Badge>
+                  </HStack>
+                )}
                 
-                <Button
-                  onPress={handleToggleShift}
-                  variant={onDutyStatus?.isOnDuty ? 'glass' : 'glass-primary'}
-                  size={isMobile ? 'sm' : 'default' as any}
-                  isLoading={isToggling || toggleOnDutyMutation.isPending}
-                  className="shadow-md"
-                >
-                  {onDutyStatus?.isOnDuty ? 'End Shift' : 'Start Shift'}
-                </Button>
+                {/* On-Duty Count */}
+                {onDutyStaff && onDutyStaff.total > 1 && (
+                  <HStack gap={1.5 as any} alignItems="center">
+                    <Text size="xs" colorTheme="mutedForeground">Staff:</Text>
+                    <Badge variant="outline" size="xs">
+                      {onDutyStaff.total}
+                    </Badge>
+                  </HStack>
+                )}
               </HStack>
               
-              {/* Shift Info */}
+              {/* Handover Button */}
               {onDutyStatus?.isOnDuty && (
-                <>
-                  <HStack gap={4 as any}>
-                    {/* Shift Duration */}
-                    {shiftDuration && (
-                      <VStack gap={1 as any}>
-                        <Text size="xs" colorTheme="mutedForeground">
-                          Shift Duration
-                        </Text>
-                        <Text weight="medium">{shiftDuration.formatted}</Text>
-                      </VStack>
-                    )}
-                    
-                    {/* Active Alerts */}
-                    {activeAlerts && (
-                      <VStack gap={1 as any}>
-                        <Text size="xs" colorTheme="mutedForeground">
-                          Active Alerts
-                        </Text>
-                        <Badge 
-                          variant={activeAlerts.alerts.length > 0 ? 'error' : 'outline'}
-                          size="sm"
-                        >
-                          <Text>{activeAlerts.alerts.length}</Text>
-                        </Badge>
-                      </VStack>
-                    )}
-                  </HStack>
-                  
-                  {/* On-Duty Staff */}
-                  {onDutyStaff && onDutyStaff.total > 1 && (
-                    <VStack gap={2 as any}>
-                      <Text size="xs" colorTheme="mutedForeground">
-                        On duty with you ({onDutyStaff.total - 1} others)
-                      </Text>
-                      <HStack gap={1 as any} flexWrap="wrap">
-                        {onDutyStaff.staff
-                          .filter((staff: any) => staff.id !== (onDutyStatus as any)?.userId)
-                          .slice(0, isMobile ? 3 : 5)
-                          .map((staff: any) => (
-                            <Avatar
-                              key={staff.id}
-                              source={staff.image ? { uri: staff.image } : undefined}
-                              name={staff.name || 'Staff'}
-                              size="sm"
-                            />
-                          ))}
-                        {onDutyStaff.total > (isMobile ? 4 : 6) && (
-                          <Badge variant="outline" size="sm">
-                            <Text>+{onDutyStaff.total - (isMobile ? 4 : 6)}</Text>
-                          </Badge>
-                        )}
-                      </HStack>
-                    </VStack>
-                  )}
-                </>
+                <Pressable
+                  onPress={() => router.push('/shift-handover' as any)}
+                  style={{
+                    paddingHorizontal: spacing[2],
+                    paddingVertical: spacing[1],
+                  }}
+                >
+                  <Text size="xs" weight="medium" colorTheme="primary">
+                    Handover →
+                  </Text>
+                </Pressable>
               )}
-              
-              {/* Quick Actions */}
-              {onDutyStatus?.isOnDuty && (
-                <HStack gap={2 as any}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onPress={() => {
-                      if (Platform.OS === 'web') {
-                        router.push('/shift-handover' as any);
-                      } else {
-                        setShowHandoverSheet(true);
-                      }
-                    }}
-                    fullWidth
-                  >
-                    Shift Handover
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onPress={() => router.push('/alerts' as any)}
-                    fullWidth
-                  >
-                    View Alerts
-                  </Button>
-                </HStack>
-              )}
-            </VStack>
-          </Box>
-        </StatusGlassCard>
+            </HStack>
+          )}
+        </VStack>
       </Animated.View>
       
       {/* End Shift Confirmation Dialog */}

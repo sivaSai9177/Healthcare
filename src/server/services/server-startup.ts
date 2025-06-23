@@ -5,7 +5,6 @@
 
 import { escalationTimerService } from './escalation-timer';
 import { log } from '@/lib/core/debug/logger';
-import { initializeTRPCWebSocketServer } from '../websocket/trpc-websocket';
 import { isWebSocketEnabled } from '@/lib/core/config/unified-env';
 import { notificationService } from './notifications';
 
@@ -43,17 +42,8 @@ export function initializeBackgroundServices() {
 export function shutdownBackgroundServices() {
   log.info('Shutting down background services', 'SERVER');
 
-  // Stop WebSocket server
-  const { getTRPCWebSocketServer } = require('../websocket/trpc-websocket');
-  const wsServer = getTRPCWebSocketServer();
-  if (wsServer) {
-    try {
-      wsServer.stop();
-      log.info('WebSocket server stopped', 'SERVER');
-    } catch (error) {
-      log.error('Failed to stop WebSocket server', 'SERVER', error);
-    }
-  }
+  // WebSocket server runs as a separate Docker container and is managed externally
+  log.info('WebSocket server shutdown handled by Docker', 'SERVER');
 
   // Stop notification service
   try {

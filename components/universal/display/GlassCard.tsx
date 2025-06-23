@@ -15,6 +15,7 @@ export const GlassCard = React.forwardRef<any, GlassCardProps>(({
   shadowColor,
   glowEffect,
   animationType = 'lift',
+  pointerEvents,
   ...props
 }, ref) => {
   // Map urgency to shadow colors and glow
@@ -36,6 +37,7 @@ export const GlassCard = React.forwardRef<any, GlassCardProps>(({
         glowOnHover && 'transition-all duration-300',
         className
       )}
+      pointerEvents={pointerEvents}
       {...props}
     />
   );
@@ -43,31 +45,34 @@ export const GlassCard = React.forwardRef<any, GlassCardProps>(({
 GlassCard.displayName = 'GlassCard';
 
 // Healthcare-specific glass cards
-export const AlertGlassCard = React.forwardRef<any, GlassCardProps>((props, ref) => (
+export const AlertGlassCard = React.forwardRef<any, GlassCardProps>(({ pointerEvents, ...props }, ref) => (
   <GlassCard
     ref={ref}
     animationType="glass-shimmer"
     pressable
+    pointerEvents={pointerEvents}
     {...props}
   />
 ));
 AlertGlassCard.displayName = 'AlertGlassCard';
 
-export const MetricGlassCard = React.forwardRef<any, GlassCardProps>((props, ref) => (
+export const MetricGlassCard = React.forwardRef<any, GlassCardProps>(({ pointerEvents, ...props }, ref) => (
   <GlassCard
     ref={ref}
     variant="glass-strong"
     animationType="scale"
+    pointerEvents={pointerEvents}
     {...props}
   />
 ));
 MetricGlassCard.displayName = 'MetricGlassCard';
 
-export const StatusGlassCard = React.forwardRef<any, GlassCardProps>((props, ref) => (
+export const StatusGlassCard = React.forwardRef<any, GlassCardProps>(({ pointerEvents, ...props }, ref) => (
   <GlassCard
     ref={ref}
     variant="glass-subtle"
     animationType="glow"
+    pointerEvents={pointerEvents}
     {...props}
   />
 ));
