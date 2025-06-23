@@ -9,7 +9,7 @@ import {
 } from '@/src/db/patient-schema';
 import { alerts, healthcareAuditLogs } from '@/src/db/healthcare-schema';
 import { users } from '@/src/db/schema';
-import { eq, and, desc, or, gte, isNull, sql } from 'drizzle-orm';
+import { eq, and, desc, or, gte, isNull, sql, alias } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
 // Permission-based procedures
@@ -138,23 +138,27 @@ export const patientRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       try {
+        // Create aliases for users table to avoid conflicts
+        const primaryDoctorAlias = alias(users, 'primaryDoctor');
+        const attendingNurseAlias = alias(users, 'attendingNurse');
+        
         const [patient] = await db
           .select({
             patient: patients,
             primaryDoctor: {
-              id: users.id,
-              name: users.name,
-              email: users.email,
+              id: primaryDoctorAlias.id,
+              name: primaryDoctorAlias.name,
+              email: primaryDoctorAlias.email,
             },
             attendingNurse: {
-              id: users.id,
-              name: users.name,
-              email: users.email,
+              id: attendingNurseAlias.id,
+              name: attendingNurseAlias.name,
+              email: attendingNurseAlias.email,
             },
           })
           .from(patients)
-          .leftJoin(users, eq(patients.primaryDoctorId, users.id))
-          .leftJoin(users, eq(patients.attendingNurseId, users.id))
+          .leftJoin(primaryDoctorAlias, eq(patients.primaryDoctorId, primaryDoctorAlias.id))
+          .leftJoin(attendingNurseAlias, eq(patients.attendingNurseId, attendingNurseAlias.id))
           .where(eq(patients.id, input.patientId))
           .limit(1);
 
@@ -187,20 +191,21 @@ export const patientRouter = router({
           .orderBy(desc(alerts.urgencyLevel));
 
         // Get care team
+        const careTeamUsersAlias = alias(users, 'careTeamUser');
         const careTeam = await db
           .select({
             id: careTeamAssignments.id,
             role: careTeamAssignments.role,
             user: {
-              id: users.id,
-              name: users.name,
-              email: users.email,
-              role: users.role,
+              id: careTeamUsersAlias.id,
+              name: careTeamUsersAlias.name,
+              email: careTeamUsersAlias.email,
+              role: careTeamUsersAlias.role,
             },
             assignedAt: careTeamAssignments.assignedAt,
           })
           .from(careTeamAssignments)
-          .leftJoin(users, eq(careTeamAssignments.userId, users.id))
+          .leftJoin(careTeamUsersAlias, eq(careTeamAssignments.userId, careTeamUsersAlias.id))
           .where(
             and(
               eq(careTeamAssignments.patientId, input.patientId),

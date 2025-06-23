@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ScrollView, RefreshControl, Platform, ActivityIndicator } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   VStack,
@@ -25,6 +25,7 @@ import { useHospitalContext, usePatients } from '@/hooks/healthcare';
 import { useSSRPrefetchHealthcare } from '@/lib/api/use-ssr-prefetch';
 import { haptic } from '@/lib/ui/haptics';
 import { log } from '@/lib/core/debug/unified-logger';
+import { api } from '@/lib/api/trpc';
 
 // Define Patient type locally until API is ready
 interface Patient {
@@ -42,6 +43,7 @@ interface Patient {
 function PatientsScreenContent() {
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useLocalSearchParams();
   const theme = useTheme();
   const { spacing } = useSpacing();
   const [refreshing, setRefreshing] = useState(false);
@@ -49,7 +51,7 @@ function PatientsScreenContent() {
   const [departmentFilter, setDepartmentFilter] = useState('all');
   
   // Use permission hooks
-  const { canViewPatients, isMedicalStaff } = useHealthcareAccess();
+  const { canViewPatients, isMedicalStaff, canCreatePatients } = useHealthcareAccess();
   
   // Hospital context validation
   const hospitalContext = useHospitalContext();
@@ -69,6 +71,39 @@ function PatientsScreenContent() {
     status: departmentFilter === 'all' ? undefined : departmentFilter as 'active' | 'discharged',
     enabled: !!user && canViewPatients && isMedicalStaff && !!hospitalContext.hospitalId,
   }) as any;
+  
+  // Get query utils for invalidation
+  const utils = api.useUtils();
+  
+  // Handle new patient navigation
+  useEffect(() => {
+    const newPatientId = searchParams.newPatientId;
+    
+    if (newPatientId && typeof newPatientId === 'string') {
+      log.info('Navigating to new patient details', 'PATIENTS', { newPatientId });
+      
+      // First, invalidate and refetch to ensure we have the latest data
+      const navigateToPatient = async () => {
+        try {
+          // Invalidate the patients query to force fresh data
+          await utils.healthcare.getMyPatients.invalidate();
+          
+          // Wait a bit for the refetch to complete
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Navigate to patient details
+          router.push(`/(modals)/patient-details?patientId=${newPatientId}`);
+          
+          // Clear the parameter to prevent re-triggering
+          router.setParams({ newPatientId: undefined });
+        } catch (error) {
+          log.error('Failed to navigate to new patient', 'PATIENTS', error);
+        }
+      };
+      
+      navigateToPatient();
+    }
+  }, [searchParams.newPatientId, router, utils]);
   
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -182,9 +217,24 @@ function PatientsScreenContent() {
             Manage and monitor patient care
           </Text>
         </Box>
-        <Badge variant="outline" size="md">
-          {`${filteredPatients.length} Active`}
-        </Badge>
+        <HStack gap={2 as any} alignItems="center">
+          <Badge variant="outline" size="md">
+            {`${filteredPatients.length} Active`}
+          </Badge>
+          {canCreatePatients && (
+            <Button
+              variant="default"
+              size="sm"
+              onPress={() => {
+                haptic('light');
+                router.push('/(modals)/register-patient' as any);
+              }}
+            >
+              <Symbol name="plus" size={16} color="white" />
+              <Text style={{ color: 'white' }}>Register</Text>
+            </Button>
+          )}
+        </HStack>
       </HStack>
       
       {/* Search and Filters */}
