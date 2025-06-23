@@ -22,21 +22,28 @@ import Animated, {
 import { Text } from '@/components/universal/typography/Text';
 import { Button } from '@/components/universal/interaction/Button';
 import { Input } from './Input';
+import { Select, type SelectOption } from './Select';
 import { cn } from '@/lib/core/utils';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { Symbol } from '@/components/universal/display/Symbols';
 import { useAnimationStore } from '@/lib/stores/animation-store';
 import { haptic } from '@/lib/ui/haptics';
 import { useShadow } from '@/hooks/useShadow';
+import { useTheme } from '@/lib/theme';
+import { HStack } from '@/components/universal/layout';
 
 export type DatePickerAnimationType = 'slide' | 'fade' | 'scale' | 'none';
+export type CaptionLayout = 'dropdown' | 'dropdown-months' | 'dropdown-years' | 'buttons';
 
 export interface DatePickerProps {
-  value?: Date;
-  onValueChange: (date: Date) => void;
+  value?: Date | null;
+  onValueChange?: (date: Date | null) => void;
+  onChange?: (date: Date | null) => void; // Alias for onValueChange
   placeholder?: string;
   minDate?: Date;
   maxDate?: Date;
+  minimumDate?: Date; // Alias for minDate
+  maximumDate?: Date; // Alias for maxDate
   disabled?: boolean;
   format?: string;
   showTimePicker?: boolean;
@@ -49,6 +56,9 @@ export interface DatePickerProps {
   inputStyle?: ViewStyle;
   calendarStyle?: ViewStyle;
   testID?: string;
+  error?: string; // Add error prop
+  captionLayout?: CaptionLayout; // New prop for header layout
+  yearRange?: { start: number; end: number }; // Range of years to show
   
   // Animation props
   animated?: boolean;
@@ -141,7 +151,7 @@ const AnimatedDayCell = ({
     isSelected && 'bg-primary',
     isToday && !isSelected && 'border border-primary',
     isDisabled && 'opacity-30',
-    !isDisabled && !isSelected && 'hover:bg-muted'
+    !isDisabled && !isSelected && Platform.OS === 'web' && 'hover:bg-muted'
   );
   
   return (
@@ -150,8 +160,10 @@ const AnimatedDayCell = ({
       className={dayClasses}
       style={[
         {
-          width: sizeConfig[size].daySize,
-          height: sizeConfig[size].daySize,
+          width: '100%',
+          height: '100%',
+          alignItems: 'center',
+          justifyContent: 'center',
         },
         animated && shouldAnimate() ? animatedStyle : {},
       ]}
@@ -172,9 +184,12 @@ const AnimatedDayCell = ({
 export const DatePicker = React.forwardRef<View, DatePickerProps>(({
   value,
   onValueChange,
+  onChange,
   placeholder = 'Select date',
   minDate,
   maxDate,
+  minimumDate,
+  maximumDate,
   disabled = false,
   format = 'MM/DD/YYYY',
   showTimePicker = false,
@@ -187,6 +202,9 @@ export const DatePicker = React.forwardRef<View, DatePickerProps>(({
   inputStyle,
   calendarStyle,
   testID,
+  error,
+  captionLayout = 'buttons',
+  yearRange,
   // Animation props
   animated = true,
   animationType = 'slide',
@@ -197,15 +215,102 @@ export const DatePicker = React.forwardRef<View, DatePickerProps>(({
   useHaptics = true,
 }, ref) => {
   const { spacing } = useSpacing();
-  const { shouldAnimate } = useAnimationStore();
+  const theme = useTheme();
+  const { shouldAnimate, enableAnimations } = useAnimationStore();
   const shadowStyle = useShadow(shadow);
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(value || new Date());
-  const [currentMonth, setCurrentMonth] = useState(value?.getMonth() || new Date().getMonth());
-  const [currentYear, setCurrentYear] = useState(value?.getFullYear() || new Date().getFullYear());
+  // Ensure value is a valid Date object
+  const validDate = value instanceof Date && !isNaN(value.getTime()) ? value : null;
+  
+  const [selectedDate, setSelectedDate] = useState(validDate || new Date());
+  const [currentMonth, setCurrentMonth] = useState(validDate?.getMonth() || new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(validDate?.getFullYear() || new Date().getFullYear());
+  const [isHovered, setIsHovered] = useState(false);
+  
+  // Animation values for input trigger
+  const chevronRotation = useSharedValue(0);
+  const inputScale = useSharedValue(1);
+  
+  // Handle prop aliases
+  const handleChange = onChange || onValueChange;
+  const minDateValue = minimumDate || minDate;
+  const maxDateValue = maximumDate || maxDate;
   
   const config = sizeConfig[size];
   const classes = variantClasses[variant];
+  
+  // Generate year options for dropdown
+  const currentYearValue = new Date().getFullYear();
+  const startYear = yearRange?.start || currentYearValue - 100;
+  const endYear = yearRange?.end || currentYearValue + 50;
+  
+  const yearOptions: SelectOption[] = useMemo(() => {
+    const options: SelectOption[] = [];
+    for (let year = endYear; year >= startYear; year--) {
+      // Check if this year is disabled based on min/max dates
+      let isDisabled = false;
+      
+      if (minDateValue && year < minDateValue.getFullYear()) {
+        isDisabled = true;
+      }
+      if (maxDateValue && year > maxDateValue.getFullYear()) {
+        isDisabled = true;
+      }
+      
+      options.push({
+        label: String(year),
+        value: String(year),
+        disabled: isDisabled,
+      });
+    }
+    return options;
+  }, [startYear, endYear, minDateValue, maxDateValue]);
+  
+  // Generate month options
+  const monthOptions: SelectOption[] = useMemo(() => {
+    return MONTHS.map((month, index) => {
+      // Check if this month is disabled based on min/max dates
+      let isDisabled = false;
+      
+      if (minDateValue || maxDateValue) {
+        const firstDayOfMonth = new Date(currentYear, index, 1);
+        const lastDayOfMonth = new Date(currentYear, index + 1, 0);
+        
+        if (minDateValue && lastDayOfMonth < minDateValue) {
+          isDisabled = true;
+        }
+        if (maxDateValue && firstDayOfMonth > maxDateValue) {
+          isDisabled = true;
+        }
+      }
+      
+      return {
+        label: month,
+        value: String(index),
+        disabled: isDisabled,
+      };
+    });
+  }, [currentYear, minDateValue, maxDateValue]);
+  
+  // Sync state when value prop changes
+  useEffect(() => {
+    const validDate = value instanceof Date && !isNaN(value.getTime()) ? value : null;
+    if (validDate) {
+      setSelectedDate(validDate);
+      setCurrentMonth(validDate.getMonth());
+      setCurrentYear(validDate.getFullYear());
+    }
+  }, [value]);
+  
+  // Update animations when open state changes
+  useEffect(() => {
+    if (enableAnimations) {
+      chevronRotation.value = withSpring(isOpen ? 180 : 0, {
+        damping: 15,
+        stiffness: 300,
+      });
+    }
+  }, [isOpen, enableAnimations, chevronRotation]);
   
   // Format date
   const formatDate = (date: Date) => {
@@ -249,18 +354,82 @@ export const DatePicker = React.forwardRef<View, DatePickerProps>(({
     return days;
   }, [currentMonth, currentYear]);
   
+  // Handle trigger press
+  const handleTriggerPress = () => {
+    if (!disabled) {
+      setIsOpen(true);
+      if (useHaptics) {
+        haptic('light');
+      }
+    }
+  };
+  
+  // Handle hover effects
+  const handleHoverIn = () => {
+    if (!disabled && Platform.OS === 'web') {
+      setIsHovered(true);
+      if (enableAnimations) {
+        inputScale.value = withSpring(1.02, {
+          damping: 20,
+          stiffness: 300,
+        });
+      }
+    }
+  };
+  
+  const handleHoverOut = () => {
+    if (Platform.OS === 'web') {
+      setIsHovered(false);
+      if (enableAnimations) {
+        inputScale.value = withSpring(1, {
+          damping: 20,
+          stiffness: 300,
+        });
+      }
+    }
+  };
+  
   // Handle date selection
   const handleSelectDate = (day: number) => {
     const newDate = new Date(currentYear, currentMonth, day);
     
-    if (minDate && newDate < minDate) return;
-    if (maxDate && newDate > maxDate) return;
+    if (minDateValue && newDate < minDateValue) return;
+    if (maxDateValue && newDate > maxDateValue) return;
     
     setSelectedDate(newDate);
-    onValueChange(newDate);
+    if (handleChange) {
+      handleChange(newDate);
+    }
     
     if (useHaptics) {
       haptic('selection');
+    }
+    
+    setTimeout(() => setIsOpen(false), 150);
+  };
+  
+  // Handle today button
+  const handleToday = () => {
+    const today = new Date();
+    
+    // Check if today is within allowed date range
+    if ((minDateValue && today < minDateValue) || (maxDateValue && today > maxDateValue)) {
+      if (useHaptics) {
+        haptic('error');
+      }
+      return;
+    }
+    
+    setSelectedDate(today);
+    setCurrentMonth(today.getMonth());
+    setCurrentYear(today.getFullYear());
+    
+    if (handleChange) {
+      handleChange(today);
+    }
+    
+    if (useHaptics) {
+      haptic('success');
     }
     
     setTimeout(() => setIsOpen(false), 150);
@@ -289,11 +458,30 @@ export const DatePicker = React.forwardRef<View, DatePickerProps>(({
     }
   };
   
+  // Handle month change from dropdown
+  const handleMonthChange = (value: string) => {
+    const newMonth = parseInt(value, 10);
+    setCurrentMonth(newMonth);
+    if (useHaptics) {
+      haptic('light');
+    }
+  };
+  
+  // Handle year change from dropdown
+  const handleYearChange = (value: string) => {
+    const newYear = parseInt(value, 10);
+    setCurrentYear(newYear);
+    if (useHaptics) {
+      haptic('light');
+    }
+  };
+  
   // Input classes
   const inputClasses = cn(
-    'flex-row items-center justify-between rounded-lg',
+    'flex-row items-center justify-between rounded-lg transition-all duration-200',
     classes.input,
     disabled && 'opacity-50',
+    Platform.OS === 'web' && !disabled && 'hover:border-ring',
     className
   );
   
@@ -302,6 +490,15 @@ export const DatePicker = React.forwardRef<View, DatePickerProps>(({
     'rounded-lg shadow-xl',
     classes.calendar
   );
+  
+  // Animated styles
+  const chevronAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${chevronRotation.value}deg` }],
+  }));
+  
+  const inputAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: inputScale.value }],
+  }));
   
   const enteringAnimation = animationType === 'fade' ? FadeIn : 
                            animationType === 'scale' ? FadeIn.springify() :
@@ -312,18 +509,46 @@ export const DatePicker = React.forwardRef<View, DatePickerProps>(({
                           SlideInUp;
   
   return (
-    <>
+    <View>
       {/* Date Input */}
-      <Pressable
+      <AnimatedPressable
         ref={ref}
-        onPress={() => !disabled && setIsOpen(true)}
+        onPress={handleTriggerPress}
+        onPressIn={() => {
+          if (!disabled && enableAnimations) {
+            inputScale.value = withSpring(0.98, {
+              damping: 20,
+              stiffness: 400,
+            });
+          }
+        }}
+        onPressOut={() => {
+          if (!disabled && enableAnimations) {
+            inputScale.value = withSpring(isHovered ? 1.02 : 1, {
+              damping: 20,
+              stiffness: 400,
+            });
+          }
+        }}
+        onHoverIn={handleHoverIn}
+        onHoverOut={handleHoverOut}
         className={inputClasses}
         style={[
           {
+            backgroundColor: theme.muted,
             padding: config.padding,
+            borderColor: error ? theme.destructive : isHovered ? theme.ring : theme.border,
+            borderWidth: error ? 2 : 1,
+            borderRadius: spacing[2],
+            minHeight: config.daySize,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: Platform.OS === 'web' ? (disabled ? 'not-allowed' : 'pointer') : undefined,
           },
           inputStyle,
           style,
+          enableAnimations ? inputAnimatedStyle : {},
         ]}
         testID={testID}
       >
@@ -333,12 +558,19 @@ export const DatePicker = React.forwardRef<View, DatePickerProps>(({
         >
           {value ? formatDate(value) : placeholder}
         </Text>
-        <Symbol
-          name="calendar"
-          size={config.fontSize === 'xs' ? 16 : config.fontSize === 'sm' ? 18 : 20}
-          className="text-muted-foreground"
-        />
-      </Pressable>
+        <AnimatedView style={chevronAnimatedStyle}>
+          <Symbol
+            name="calendar"
+            size={config.fontSize === 'xs' ? 16 : config.fontSize === 'sm' ? 18 : 20}
+            color={error ? theme.destructive : theme.mutedForeground}
+          />
+        </AnimatedView>
+      </AnimatedPressable>
+      {error && (
+        <Text size="xs" colorTheme="destructive" style={{ marginTop: spacing[1] }}>
+          {error}
+        </Text>
+      )}
       
       {/* Calendar Modal */}
       <Modal
@@ -357,32 +589,111 @@ export const DatePicker = React.forwardRef<View, DatePickerProps>(({
             className={calendarClasses}
             style={[
               {
-                width: spacing[80],
-                padding: spacing[4] as any,
+                width: Platform.OS === 'web' ? spacing[96] : '90%',
+                maxWidth: captionLayout !== 'buttons' ? 450 : 400,
+                minWidth: captionLayout !== 'buttons' ? 350 : 320,
+                padding: spacing[4],
+                backgroundColor: theme.background,
               },
               shadowStyle,
               calendarStyle,
             ]}
           >
             {/* Header */}
-            <View className="flex-row items-center justify-between mb-4">
-              <Pressable
-                onPress={() => navigateMonth('prev')}
-                className="p-2"
-              >
-                <Symbol name="chevron.left" size={20} className="text-foreground" />
-              </Pressable>
-              
-              <Text size="lg" weight="semibold">
-                {MONTHS[currentMonth]} {currentYear}
-              </Text>
-              
-              <Pressable
-                onPress={() => navigateMonth('next')}
-                className="p-2"
-              >
-                <Symbol name="chevron.right" size={20} className="text-foreground" />
-              </Pressable>
+            <View className="mb-4">
+              {captionLayout === 'buttons' ? (
+                <View className="flex-row items-center justify-between">
+                  <Pressable
+                    onPress={() => navigateMonth('prev')}
+                    className="p-2 rounded-lg"
+                    style={Platform.OS === 'web' ? { cursor: 'pointer' } : undefined}
+                  >
+                    <Symbol name="chevron.left" size={20} color={theme.foreground} />
+                  </Pressable>
+                  
+                  <Text size="lg" weight="semibold" colorTheme="foreground">
+                    {MONTHS[currentMonth]} {currentYear}
+                  </Text>
+                  
+                  <Pressable
+                    onPress={() => navigateMonth('next')}
+                    className="p-2 rounded-lg"
+                    style={Platform.OS === 'web' ? { cursor: 'pointer' } : undefined}
+                  >
+                    <Symbol name="chevron.right" size={20} color={theme.foreground} />
+                  </Pressable>
+                </View>
+              ) : (
+                <HStack gap={2} align="center" style={{ justifyContent: 'space-between' }}>
+                  <Pressable
+                    onPress={() => navigateMonth('prev')}
+                    className="p-2 rounded-lg"
+                    style={Platform.OS === 'web' ? { cursor: 'pointer' } : undefined}
+                  >
+                    <Symbol name="chevron.left" size={16} color={theme.foreground} />
+                  </Pressable>
+                  
+                  <HStack gap={1.5} style={{ flex: 1, justifyContent: 'center' }}>
+                    {(captionLayout === 'dropdown' || captionLayout === 'dropdown-months') && (
+                      <View style={{ minWidth: 120 }}>
+                        <Select
+                          value={String(currentMonth)}
+                          onValueChange={handleMonthChange}
+                          options={monthOptions}
+                          size="sm"
+                          variant="ghost"
+                          dropdownClassName="min-w-[150px]"
+                        />
+                      </View>
+                    )}
+                    
+                    {captionLayout === 'dropdown' && (
+                      <View style={{ minWidth: 80 }}>
+                        <Select
+                          value={String(currentYear)}
+                          onValueChange={handleYearChange}
+                          options={yearOptions}
+                          size="sm"
+                          variant="ghost"
+                          dropdownClassName="min-w-[100px]"
+                        />
+                      </View>
+                    )}
+                    
+                    {captionLayout === 'dropdown-years' && (
+                      <HStack gap={1} align="center">
+                        <Text size="base" weight="semibold" colorTheme="foreground">
+                          {MONTHS[currentMonth]}
+                        </Text>
+                        <View style={{ minWidth: 80 }}>
+                          <Select
+                            value={String(currentYear)}
+                            onValueChange={handleYearChange}
+                            options={yearOptions}
+                            size="sm"
+                            variant="ghost"
+                            dropdownClassName="min-w-[100px]"
+                          />
+                        </View>
+                      </HStack>
+                    )}
+                    
+                    {captionLayout === 'dropdown-months' && (
+                      <Text size="base" weight="semibold" colorTheme="foreground">
+                        {currentYear}
+                      </Text>
+                    )}
+                  </HStack>
+                  
+                  <Pressable
+                    onPress={() => navigateMonth('next')}
+                    className="p-2 rounded-lg"
+                    style={Platform.OS === 'web' ? { cursor: 'pointer' } : undefined}
+                  >
+                    <Symbol name="chevron.right" size={16} color={theme.foreground} />
+                  </Pressable>
+                </HStack>
+              )}
             </View>
             
             {/* Weekdays */}
@@ -390,9 +701,12 @@ export const DatePicker = React.forwardRef<View, DatePickerProps>(({
               {WEEKDAYS.map((day) => (
                 <View
                   key={day}
-                  className="flex-1 items-center"
+                  style={{ 
+                    width: Platform.OS === 'web' ? '14.28%' : `${100/7}%`,
+                    alignItems: 'center',
+                  }}
                 >
-                  <Text size="xs" className="text-muted-foreground">
+                  <Text size="xs" className="text-muted-foreground" weight="medium">
                     {day}
                   </Text>
                 </View>
@@ -401,64 +715,87 @@ export const DatePicker = React.forwardRef<View, DatePickerProps>(({
             
             {/* Calendar Days */}
             <View className="flex-row flex-wrap">
-              {calendarDays.map((day, index) => (
-                <View
-                  key={index}
-                  style={{ width: '14.28%', padding: 2 }}
-                >
-                  {day && (
-                    <AnimatedDayCell
-                      day={day}
-                      isSelected={
-                        selectedDate &&
-                        day === selectedDate.getDate() &&
-                        currentMonth === selectedDate.getMonth() &&
-                        currentYear === selectedDate.getFullYear()
-                      }
-                      isToday={
-                        day === new Date().getDate() &&
-                        currentMonth === new Date().getMonth() &&
-                        currentYear === new Date().getFullYear()
-                      }
-                      isDisabled={
-                        (minDate && new Date(currentYear, currentMonth, day) < minDate) ||
-                        (maxDate && new Date(currentYear, currentMonth, day) > maxDate)
-                      }
-                      onPress={() => handleSelectDate(day)}
-                      animated={animated}
-                      shouldAnimate={shouldAnimate}
-                      animationDuration={animationDuration}
-                      size={size}
-                    />
-                  )}
-                </View>
-              ))}
+              {calendarDays.map((day, index) => {
+                const dayWidth = Platform.OS === 'web' ? '14.28%' : `${100/7}%`;
+                return (
+                  <View
+                    key={index}
+                    style={{ 
+                      width: dayWidth, 
+                      padding: spacing[0.5],
+                      aspectRatio: 1,
+                    }}
+                  >
+                    {day && (
+                      <AnimatedDayCell
+                        day={day}
+                        isSelected={
+                          selectedDate &&
+                          day === selectedDate.getDate() &&
+                          currentMonth === selectedDate.getMonth() &&
+                          currentYear === selectedDate.getFullYear()
+                        }
+                        isToday={
+                          day === new Date().getDate() &&
+                          currentMonth === new Date().getMonth() &&
+                          currentYear === new Date().getFullYear()
+                        }
+                        isDisabled={
+                          (minDateValue && new Date(currentYear, currentMonth, day) < minDateValue) ||
+                          (maxDateValue && new Date(currentYear, currentMonth, day) > maxDateValue)
+                        }
+                        onPress={() => handleSelectDate(day)}
+                        animated={animated}
+                        shouldAnimate={shouldAnimate}
+                        animationDuration={animationDuration}
+                        size={size}
+                      />
+                    )}
+                  </View>
+                );
+              })}
             </View>
             
             {/* Actions */}
-            <View className="flex-row justify-end gap-2 mt-4">
+            <View className="flex-row justify-between items-center mt-4 pt-4 border-t border-border">
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                onPress={() => setIsOpen(false)}
+                onPress={handleToday}
+                disabled={
+                  (minDateValue && new Date() < minDateValue) ||
+                  (maxDateValue && new Date() > maxDateValue)
+                }
               >
-                Cancel
+                Today
               </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onPress={() => {
-                  onValueChange(selectedDate);
-                  setIsOpen(false);
-                }}
-              >
-                OK
-              </Button>
+              
+              <HStack gap={2}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onPress={() => setIsOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onPress={() => {
+                    if (handleChange) {
+                      handleChange(selectedDate);
+                    }
+                    setIsOpen(false);
+                  }}
+                >
+                  OK
+                </Button>
+              </HStack>
             </View>
           </AnimatedView>
         </Pressable>
       </Modal>
-    </>
+    </View>
   );
 });
 

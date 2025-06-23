@@ -31,6 +31,7 @@ export const departmentEnum = pgEnum('department_type', [
   'finance',
   'it_support',
   'facilities',
+  'system',
   
   // General departments
   'engineering',

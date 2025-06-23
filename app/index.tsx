@@ -1,12 +1,10 @@
 import { Redirect } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
-import { ActivityIndicator, View } from "react-native";
 import React from "react";
-import { useTheme } from '@/lib/theme/provider';
+import { DelayedLoadingScreen } from "@/components/blocks/loading/DelayedLoadingScreen";
 
 export default function Index() {
   const { user, isLoading, hasHydrated, isAuthenticated } = useAuth();
-  const theme = useTheme();
 
   // Log only on significant changes
   React.useEffect(() => {
@@ -20,32 +18,33 @@ export default function Index() {
     });
   }, [hasHydrated, isLoading, isAuthenticated, user]);
 
-  // Show loading while auth state is being determined
-  if (!hasHydrated || isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.background }}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </View>
-    );
-  }
+  // Wrap the entire component with DelayedLoadingScreen
+  return (
+    <DelayedLoadingScreen isLoading={!hasHydrated || isLoading} minDisplayTime={1500}>
+      {renderContent()}
+    </DelayedLoadingScreen>
+  );
+  
+  function renderContent() {
 
-  // If not authenticated, go to login
-  if (!user || !isAuthenticated) {
-    console.log("[INDEX] User not authenticated, redirecting to login");
-    return <Redirect href="/(public)/auth/login" />;
-  }
+    // If not authenticated, go to login
+    if (!user || !isAuthenticated) {
+      console.log("[INDEX] User not authenticated, redirecting to login");
+      return <Redirect href="/(public)/auth/login" />;
+    }
 
-  // Check if user needs to complete profile
-  if (user.needsProfileCompletion === true || user.role === 'user' || !user.role || user.role === 'guest') {
-    console.log("[INDEX] User needs profile completion", {
-      needsProfileCompletion: user.needsProfileCompletion,
-      role: user.role,
-      hasOrganizationId: !!user.organizationId
-    });
-    return <Redirect href="/(public)/auth/complete-profile" />;
-  }
+    // Check if user needs to complete profile
+    if (user.needsProfileCompletion === true || user.role === 'user' || !user.role || user.role === 'guest') {
+      console.log("[INDEX] User needs profile completion", {
+        needsProfileCompletion: user.needsProfileCompletion,
+        role: user.role,
+        hasOrganizationId: !!user.organizationId
+      });
+      return <Redirect href="/(public)/auth/complete-profile" />;
+    }
 
-  // Authenticated user with completed profile goes to home
-  console.log("[INDEX] User authenticated with completed profile, redirecting to home");
-  return <Redirect href="/(app)/(tabs)/home" />;
+    // Authenticated user with completed profile goes to home
+    console.log("[INDEX] User authenticated with completed profile, redirecting to home");
+    return <Redirect href="/(app)/(tabs)/home" />;
+  }
 }

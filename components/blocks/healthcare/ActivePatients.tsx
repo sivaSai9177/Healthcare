@@ -69,42 +69,42 @@ export function ActivePatients({ scrollEnabled = true }: ActivePatientsProps) {
   const { animatedStyle: blockFadeStyle } = useAnimation('fadeIn', { duration: 'normal' });
   const { animatedStyle: statsScaleStyle } = useAnimation('scaleIn', { duration: 'normal' });
   
-  // Fetch active alerts data (using the correct API endpoint)
-  const { data: alertsData, isLoading } = api.healthcare.getActiveAlerts.useQuery({
+  // Fetch patients data using the real patient API
+  const { data: patientsData, isLoading } = api.healthcare.getMyPatients.useQuery({
     hospitalId: hospitalId || '',
+    status: 'admitted',
     limit: 5,
     offset: 0,
   }, {
     enabled: !!user && !!hospitalId && canAccessHealthcare,
   });
   
-  // Mock patient data for now (since we're using alerts API)
+  // Transform patient data for display
   const patients = React.useMemo(() => {
-    if (!alertsData?.alerts) return [];
-    // Transform alerts to patient-like data for display
-    return alertsData.alerts.map((alert: any) => {
-      // Safe access with fallbacks
-      const alertId = alert?.alert?.id || alert?.id || Math.random().toString();
-      const roomNumber = alert?.alert?.roomNumber || alert?.roomNumber || 'Unknown';
+    if (!patientsData?.patients) return [];
+    
+    return patientsData.patients.map((patient: any) => {
+      // Calculate age from date of birth
+      const age = new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear();
       
       return {
-        id: alertId,
-        name: `Patient in Room ${roomNumber}`,
-        age: Math.floor(Math.random() * 50) + 20,
-        condition: (alert?.alert?.urgencyLevel || alert?.urgencyLevel || 3) <= 2 ? 'critical' : 'stable',
-        roomNumber: roomNumber,
+        id: patient.id,
+        name: patient.name,
+        age: age,
+        condition: patient.primaryDiagnosis ? 'stable' : 'monitoring',
+        roomNumber: patient.roomNumber,
         vitalSigns: {
           heartRate: 75 + Math.floor(Math.random() * 20),
           bloodPressure: '120/80',
           temperature: 98.6 + (Math.random() * 2 - 1),
           oxygenSaturation: 95 + Math.floor(Math.random() * 5),
         },
-        lastChecked: new Date(alert?.alert?.createdAt || alert?.createdAt || Date.now()),
-        trend: Math.random() > 0.5 ? 'improving' : 'stable' as const,
-        alerts: (alert?.alert?.status || alert?.status) === 'active' ? 1 : 0,
+        lastChecked: new Date(patient.updatedAt || patient.createdAt),
+        trend: 'stable' as const,
+        alerts: 0, // TODO: Connect to actual alert count for this patient
       };
     });
-  }, [alertsData]);
+  }, [patientsData]);
 
   // Calculate stats
   const stats = React.useMemo(() => {
@@ -244,7 +244,7 @@ export function ActivePatients({ scrollEnabled = true }: ActivePatientsProps) {
         pressable
         onPress={() => {
           haptic('light');
-          router.push(`/(healthcare)/patient-details?id=${patient.id}` as any);
+          router.push(`/(modals)/patient-details?patientId=${patient.id}`);
         }}
         className="border border-border"
         style={shadowSm}

@@ -82,6 +82,7 @@ export const PERMISSIONS = {
   
   VIEW_PATIENTS: 'view_patients',
   MANAGE_PATIENTS: 'manage_patients',
+  CREATE_PATIENTS: 'create_patients',
   
   VIEW_HEALTHCARE_DATA: 'view_healthcare_data',
   VIEW_ACTIVITY_LOGS: 'view_activity_logs',
@@ -90,6 +91,13 @@ export const PERMISSIONS = {
   VIEW_TEAM: 'view_team',
   MANAGE_TEAM: 'manage_team',
   MANAGE_SCHEDULE: 'manage_schedule',
+  
+  // Shift management
+  START_SHIFT: 'start_shift',
+  END_SHIFT: 'end_shift',
+  VIEW_SHIFT_STATUS: 'view_shift_status',
+  MANAGE_SHIFTS: 'manage_shifts',
+  VIEW_SHIFT_REPORTS: 'view_shift_reports',
   
   // Reports
   VIEW_REPORTS: 'view_reports',
@@ -142,6 +150,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     PERMISSIONS.VIEW_ALERTS,
     PERMISSIONS.VIEW_ACTIVITY_LOGS,
     PERMISSIONS.VIEW_HEALTHCARE_DATA,
+    PERMISSIONS.START_SHIFT,
+    PERMISSIONS.END_SHIFT,
+    PERMISSIONS.VIEW_SHIFT_STATUS,
   ],
   
   [USER_ROLES.DOCTOR]: [
@@ -149,12 +160,16 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     PERMISSIONS.EDIT_PROFILE,
     PERMISSIONS.CREATE_ALERTS,
     PERMISSIONS.VIEW_PATIENTS,
+    PERMISSIONS.CREATE_PATIENTS,
     PERMISSIONS.ACKNOWLEDGE_ALERTS,
     PERMISSIONS.VIEW_ALERTS,
     PERMISSIONS.RESOLVE_ALERTS,
     PERMISSIONS.VIEW_HEALTHCARE_DATA,
     PERMISSIONS.VIEW_ACTIVITY_LOGS,
     PERMISSIONS.VIEW_TEAM,
+    PERMISSIONS.START_SHIFT,
+    PERMISSIONS.END_SHIFT,
+    PERMISSIONS.VIEW_SHIFT_STATUS,
   ],
   
   [USER_ROLES.NURSE]: [
@@ -167,6 +182,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     PERMISSIONS.VIEW_HEALTHCARE_DATA,
     PERMISSIONS.VIEW_ACTIVITY_LOGS,
     PERMISSIONS.VIEW_TEAM,
+    PERMISSIONS.START_SHIFT,
+    PERMISSIONS.END_SHIFT,
+    PERMISSIONS.VIEW_SHIFT_STATUS,
   ],
   
   [USER_ROLES.HEAD_DOCTOR]: [
@@ -175,6 +193,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     PERMISSIONS.CREATE_ALERTS,
     PERMISSIONS.VIEW_PATIENTS,
     PERMISSIONS.MANAGE_PATIENTS,
+    PERMISSIONS.CREATE_PATIENTS,
     PERMISSIONS.ACKNOWLEDGE_ALERTS,
     PERMISSIONS.VIEW_ALERTS,
     PERMISSIONS.RESOLVE_ALERTS,
@@ -189,6 +208,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     PERMISSIONS.MANAGE_SCHEDULE,
     PERMISSIONS.VIEW_REPORTS,
     PERMISSIONS.CREATE_REPORTS,
+    PERMISSIONS.START_SHIFT,
+    PERMISSIONS.END_SHIFT,
+    PERMISSIONS.VIEW_SHIFT_STATUS,
+    PERMISSIONS.MANAGE_SHIFTS,
+    PERMISSIONS.VIEW_SHIFT_REPORTS,
   ],
 };
 
@@ -203,6 +227,7 @@ export const FEATURES = {
   ACTIVITY_LOGS: 'activity_logs',
   REPORTS: 'reports',
   SCHEDULE_MANAGEMENT: 'schedule_management',
+  SHIFT_MANAGEMENT: 'shift_management',
 } as const;
 
 export type Feature = typeof FEATURES[keyof typeof FEATURES];
@@ -242,6 +267,11 @@ export const FEATURE_PERMISSIONS: Record<Feature, Permission[]> = {
   ],
   [FEATURES.SCHEDULE_MANAGEMENT]: [
     PERMISSIONS.MANAGE_SCHEDULE,
+  ],
+  [FEATURES.SHIFT_MANAGEMENT]: [
+    PERMISSIONS.START_SHIFT,
+    PERMISSIONS.END_SHIFT,
+    PERMISSIONS.VIEW_SHIFT_STATUS,
   ],
 };
 
@@ -361,4 +391,28 @@ export function canResolveAlertInHospital(context: HospitalContext): boolean {
   
   // Only doctors and head doctors can resolve alerts
   return hasPermission(context.userRole, PERMISSIONS.RESOLVE_ALERTS);
+}
+
+export function canStartShift(context: HospitalContext): boolean {
+  // Must be able to access the hospital
+  if (!canAccessHospital(context)) return false;
+  
+  // Check if role has shift start permission
+  return hasPermission(context.userRole, PERMISSIONS.START_SHIFT);
+}
+
+export function canEndShift(context: HospitalContext): boolean {
+  // Must be able to access the hospital
+  if (!canAccessHospital(context)) return false;
+  
+  // Check if role has shift end permission
+  return hasPermission(context.userRole, PERMISSIONS.END_SHIFT);
+}
+
+export function canViewShiftStatus(userRole: UserRole | undefined): boolean {
+  return hasPermission(userRole, PERMISSIONS.VIEW_SHIFT_STATUS);
+}
+
+export function canManageShifts(userRole: UserRole | undefined): boolean {
+  return hasPermission(userRole, PERMISSIONS.MANAGE_SHIFTS);
 }

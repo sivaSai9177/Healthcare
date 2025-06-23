@@ -1,13 +1,26 @@
 import React from 'react';
-import { View, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { router } from 'expo-router';
+import { View, ScrollView, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, Stack } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import Animated, {
+  FadeIn,
+  SlideInUp,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import {
   Text,
   VStack,
   HStack,
   Button,
+  Symbol,
+  GlassCard,
 } from '@/components/universal';
-import { AlertCreationFormSimplified } from '@/components/blocks/healthcare';
+import { AlertCreationFormSimplified, SuccessAnimation } from '@/components/blocks/healthcare';
+import { HealthcareErrorBoundary } from '@/components/blocks/errors';
 import { useAuth } from '@/hooks/useAuth';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useTheme } from '@/lib/theme/provider';
@@ -17,6 +30,10 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 import { logger } from '@/lib/core/debug/unified-logger';
 import { useHospitalStore } from '@/lib/stores/hospital-store';
 import { useHospitalPermissions } from '@/hooks/useHospitalPermissions';
+import { haptic } from '@/lib/ui/haptics';
+import { useResponsive } from '@/hooks/responsive';
+import { useShadow } from '@/hooks/useShadow';
+import { AppLoadingScreen } from '@/components/blocks/loading/AppLoadingScreen';
 
 export default function CreateAlertModal() {
   const { spacing } = useSpacing();
@@ -26,6 +43,11 @@ export default function CreateAlertModal() {
   const hospitalPermissions = useHospitalPermissions();
   const useHealthcareAccessResult = useHealthcareAccess();
   const permissionsLoading = 'isLoading' in useHealthcareAccessResult ? useHealthcareAccessResult.isLoading : false;
+  const [showSuccess, setShowSuccess] = React.useState(false);
+  const [successData, setSuccessData] = React.useState<{ roomNumber?: string; alertId?: string }>({});
+  const headerScale = useSharedValue(1);
+  const { isMobile, isDesktop } = useResponsive();
+  const shadowMd = useShadow({ size: 'md' });
   
   // Debug logging
   React.useEffect(() => {
@@ -51,105 +73,259 @@ export default function CreateAlertModal() {
   }, [user, currentHospital, hospitalPermissions, permissionsLoading]);
   
   const handleClose = () => {
-    router.back();
+    haptic('light');
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      // If can't go back (e.g., after refresh), go to alerts list
+      router.replace('/(app)/(tabs)/alerts' as any);
+    }
+  };
+  
+  const handleSuccess = (alertData?: any) => {
+    haptic('success');
+    setSuccessData({ 
+      roomNumber: alertData?.roomNumber,
+      alertId: alertData?.id 
+    });
+    setShowSuccess(true);
+  };
+  
+  const handleSuccessComplete = () => {
+    // Navigate to alerts screen with new alert ID
+    if (successData.alertId) {
+      router.replace({
+        pathname: '/(app)/(tabs)/alerts',
+        params: { newAlertId: successData.alertId }
+      });
+    } else {
+      router.replace('/(app)/(tabs)/alerts');
+    }
   };
   
   // Get the hospital ID from either current hospital or user's default
   const hospitalId = currentHospital?.id || user?.defaultHospitalId;
   
+  // Show loading screen while permissions are being determined
+  if (permissionsLoading) {
+    return (
+      <>
+        <Stack.Screen
+          options={{
+            presentation: 'modal',
+            headerTitleAlign: 'center',
+            headerRight: () => null,
+            headerTitle: () => (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 32 }}>🚨</Text>
+                <Text style={{ fontSize: 19, fontWeight: '600', color: theme.foreground }}>
+                  Create Emergency Alert
+                </Text>
+              </View>
+            ),
+            headerLeft: () => (
+              <Pressable
+                onPress={handleClose}
+                style={{
+                  padding: spacing[2],
+                  marginLeft: Platform.OS === 'ios' ? 0 : -spacing[2],
+                }}
+              >
+                <Symbol 
+                  name={Platform.OS === 'ios' ? "chevron.left" : "arrow.left"} 
+                  size={24} 
+                  color={theme.foreground} 
+                />
+              </Pressable>
+            ),
+          }}
+        />
+        <AppLoadingScreen showProgress />
+      </>
+    );
+  }
+  
   // Check if user has hospital assignment
   if (!hospitalId) {
     return (
-      <View style={{ flex: 1, backgroundColor: theme.background, padding: spacing[6] as any }}>
-        <VStack gap={spacing[6] as any} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text size="base" weight="semibold">Hospital Assignment Required</Text>
-          <Text colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
-            You need to be assigned to a hospital to create alerts.
-          </Text>
-          <VStack gap={spacing[3] as any}>
-            <Button 
-              onPress={() => {
-                router.back();
-                router.push('/(tabs)/settings' as any);
-              }}
-            >
-              Complete Your Profile
-            </Button>
-            <Button 
-              onPress={handleClose}
-              variant="outline"
-            >
-              Cancel
-            </Button>
+      <>
+        <Stack.Screen
+          options={{
+            presentation: 'modal',
+            headerTitleAlign: 'center',
+            headerRight: () => null,
+            headerTitle: () => (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 32 }}>🚨</Text>
+                <Text style={{ fontSize: 19, fontWeight: '600', color: theme.foreground }}>
+                  Create Emergency Alert
+                </Text>
+              </View>
+            ),
+            headerLeft: () => (
+              <Pressable
+                onPress={handleClose}
+                style={{
+                  padding: spacing[2],
+                  marginLeft: Platform.OS === 'ios' ? 0 : -spacing[2],
+                }}
+              >
+                <Symbol 
+                  name={Platform.OS === 'ios' ? "chevron.left" : "arrow.left"} 
+                  size={24} 
+                  color={theme.foreground} 
+                />
+              </Pressable>
+            ),
+          }}
+        />
+        <SafeAreaView style={{ flex: 1, backgroundColor: theme.muted }}>
+          <VStack gap={spacing[6] as any} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <Text size="base" weight="semibold">Hospital Assignment Required</Text>
+            <Text colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
+              You need to be assigned to a hospital to create alerts.
+            </Text>
+            <VStack gap={spacing[3] as any}>
+              <Button 
+                onPress={() => {
+                  router.back();
+                  router.push('/(tabs)/settings' as any);
+                }}
+              >
+                Complete Your Profile
+              </Button>
+              <Button 
+                onPress={handleClose}
+                variant="outline"
+              >
+                Cancel
+              </Button>
+            </VStack>
           </VStack>
-        </VStack>
-      </View>
+        </SafeAreaView>
+      </>
     );
   }
 
   // Check permissions with hospital context
   if (!permissionsLoading && !hospitalPermissions.canCreateAlert()) {
     return (
-      <View style={{ flex: 1, backgroundColor: theme.background, padding: spacing[6] as any }}>
-        <VStack gap={spacing[6] as any} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text size="base" weight="semibold">Permission Denied</Text>
-          <Text colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
-            You don&apos;t have permission to create alerts in this hospital.
-          </Text>
-          <Button onPress={handleClose} variant="outline">
-            Go Back
-          </Button>
-        </VStack>
-      </View>
+      <>
+        <Stack.Screen
+          options={{
+            presentation: 'modal',
+            headerTitleAlign: 'center',
+            headerRight: () => null,
+            headerTitle: () => (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ fontSize: 32 }}>🚨</Text>
+                <Text style={{ fontSize: 19, fontWeight: '600', color: theme.foreground }}>
+                  Create Emergency Alert
+                </Text>
+              </View>
+            ),
+            headerLeft: () => (
+              <Pressable
+                onPress={handleClose}
+                style={{
+                  padding: spacing[2],
+                  marginLeft: Platform.OS === 'ios' ? 0 : -spacing[2],
+                }}
+              >
+                <Symbol 
+                  name={Platform.OS === 'ios' ? "chevron.left" : "arrow.left"} 
+                  size={24} 
+                  color={theme.foreground} 
+                />
+              </Pressable>
+            ),
+          }}
+        />
+        <SafeAreaView style={{ flex: 1, backgroundColor: theme.muted }}>
+          <VStack gap={spacing[6] as any} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <Text size="base" weight="semibold">Permission Denied</Text>
+            <Text colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
+              You don&apos;t have permission to create alerts in this hospital.
+            </Text>
+            <Button onPress={handleClose} variant="outline">
+              Go Back
+            </Button>
+          </VStack>
+        </SafeAreaView>
+      </>
     );
   }
 
   return (
-    <PermissionGuard permission={PERMISSIONS.CREATE_ALERTS}>
-      <View style={{ flex: 1, backgroundColor: theme.background }}>
-        <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <ScrollView
-          contentContainerStyle={{
-            padding: spacing[6] as any,
-            paddingBottom: spacing[8] as any,
-          }}
-          showsVerticalScrollIndicator={false}
-        >
-          <VStack gap={spacing[6] as any}>
-            {/* Header */}
-            <VStack gap={spacing[3] as any} alignItems="center">
-              <Text size="2xl" weight="bold">
+    <>
+      <Stack.Screen
+        options={{
+          presentation: 'modal',
+          headerTitleAlign: 'center',
+          headerRight: () => null,
+          headerTitle: () => (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={{ fontSize: 32 }}>🚨</Text>
+              <Text style={{ fontSize: 19, fontWeight: '600', color: theme.foreground }}>
                 Create Emergency Alert
               </Text>
-              <Text size="sm" colorTheme="mutedForeground" style={{ textAlign: 'center' }}>
-                Send an alert to medical staff for immediate response
-              </Text>
-            </VStack>
-
-            {/* Alert Creation Form */}
-            <AlertCreationFormSimplified 
-              hospitalId={hospitalId} 
-              onSuccess={handleClose}
-            />
-
-            {/* Close Button */}
-            <HStack justifyContent="center">
-              <Button
-                variant="outline"
-                onPress={handleClose}
-                size="default"
-                style={{ minWidth: 120 }}
-              >
-                Close
-              </Button>
-            </HStack>
-          </VStack>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
-    </PermissionGuard>
+            </View>
+          ),
+          headerLeft: () => (
+            <Pressable
+              onPress={handleClose}
+              style={{
+                padding: spacing[2],
+                marginLeft: Platform.OS === 'ios' ? 0 : -spacing[2],
+              }}
+            >
+              <Symbol 
+                name={Platform.OS === 'ios' ? "chevron.left" : "arrow.left"} 
+                size={24} 
+                color={theme.foreground} 
+              />
+            </Pressable>
+          ),
+        }}
+      />
+      <PermissionGuard permission={PERMISSIONS.CREATE_ALERTS}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: theme.muted }}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <View style={{ 
+              flex: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: isMobile ? spacing[2] : spacing[3],
+            }}>
+              <View style={{ 
+                width: '100%', 
+                maxWidth: isDesktop ? 600 : '100%',
+              }}>
+                <HealthcareErrorBoundary>
+                  <AlertCreationFormSimplified 
+                    hospitalId={hospitalId} 
+                    onSuccess={handleSuccess}
+                    embedded={true}
+                  />
+                </HealthcareErrorBoundary>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+          
+          {/* Success Animation Overlay */}
+          <SuccessAnimation
+            visible={showSuccess}
+            title="Alert Sent!"
+            subtitle={successData.roomNumber ? `Room ${successData.roomNumber} has been notified` : 'Medical staff have been notified'}
+            onComplete={handleSuccessComplete}
+            autoHide={true}
+            autoHideDelay={2000}
+          />
+        </SafeAreaView>
+      </PermissionGuard>
+    </>
   );
 }

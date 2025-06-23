@@ -1,0 +1,1 @@
+export { ModalContentWrapper } from './ModalContentWrapper';

@@ -32,6 +32,22 @@ export function ApiHealthPanel() {
   const queries = queryClient.getQueryCache().getAll();
   const mutations = queryClient.getMutationCache().getAll();
 
+  // Helper to extract meaningful endpoint name from query/mutation key
+  const getEndpointName = (key: any): string => {
+    if (Array.isArray(key)) {
+      // Handle TRPC query format: [['healthcare', 'getActiveAlerts'], ...]
+      if (Array.isArray(key[0]) && key[0].length >= 2) {
+        return key[0].join('.');
+      }
+      // Handle simple array format
+      return key.filter(k => typeof k === 'string').join('.');
+    }
+    if (typeof key === 'object' && key !== null) {
+      return 'object-query';
+    }
+    return String(key || 'unknown');
+  };
+
   // Calculate API health metrics
   const apiHealthMetrics = useMemo(() => {
     const endpointMap = new Map<string, ApiEndpointHealth>();
@@ -40,10 +56,11 @@ export function ApiHealthPanel() {
     queries.forEach(query => {
       const key = Array.isArray(query.queryKey) ? query.queryKey[0] : 'unknown';
       const keyStr = typeof key === 'object' ? JSON.stringify(key) : String(key);
+      const endpointName = getEndpointName(query.queryKey);
       
       if (!endpointMap.has(keyStr)) {
         endpointMap.set(keyStr, {
-          name: keyStr,
+          name: endpointName,
           status: 'idle',
           successRate: 0,
           avgResponseTime: 0,
@@ -77,10 +94,12 @@ export function ApiHealthPanel() {
       const key = mutation.options.mutationKey ? 
         (Array.isArray(mutation.options.mutationKey) ? mutation.options.mutationKey[0] : String(mutation.options.mutationKey)) : 
         'mutation';
+      const keyStr = typeof key === 'object' ? JSON.stringify(key) : String(key);
+      const endpointName = getEndpointName(mutation.options.mutationKey || 'mutation');
       
-      if (!endpointMap.has(key)) {
-        endpointMap.set(key, {
-          name: key,
+      if (!endpointMap.has(keyStr)) {
+        endpointMap.set(keyStr, {
+          name: endpointName,
           status: 'idle',
           successRate: 0,
           avgResponseTime: 0,
@@ -89,7 +108,7 @@ export function ApiHealthPanel() {
         });
       }
 
-      const endpoint = endpointMap.get(key)!;
+      const endpoint = endpointMap.get(keyStr)!;
       
       if (mutation.state.status === 'error') {
         endpoint.status = 'error';
@@ -115,7 +134,7 @@ export function ApiHealthPanel() {
     };
 
     apiHealthMetrics.forEach(endpoint => {
-      const name = endpoint.name.toLowerCase();
+      const name = String(endpoint.name || 'unknown').toLowerCase();
       if (name.includes('healthcare') || name.includes('alert') || name.includes('patient') || name.includes('hospital')) {
         groups.healthcare.push(endpoint);
       } else if (name.includes('auth') || name.includes('session') || name.includes('user')) {
@@ -262,7 +281,9 @@ export function ApiHealthPanel() {
                 <HStack gap={spacing[2] as any} align="center">
                   <Symbol name="externaldrive" size={20} color="#ef4444" />
                   <Text size="lg" weight="semibold">Healthcare APIs</Text>
-                  <Badge size="sm" variant="destructive"><Text>{groupedEndpoints.healthcare.length}</Text></Badge>
+                  <Badge size="sm" variant="destructive">
+                    <Text>{groupedEndpoints.healthcare.length}</Text>
+                  </Badge>
                 </HStack>
                 <View style={{ transform: [{ rotate: expandedSections.has('healthcare') ? '0deg' : '-90deg' }] }}>
                   <Symbol name="chevron.down" size={20} color={theme.mutedForeground} />
@@ -287,7 +308,7 @@ export function ApiHealthPanel() {
                             size="xs" 
                             variant={endpoint.status === 'healthy' ? 'success' : endpoint.status === 'error' ? 'error' : 'warning'}
                           >
-                            {endpoint.successRate.toFixed(0)}%
+                            <Text>{endpoint.successRate.toFixed(0)}%</Text>
                           </Badge>
                         </HStack>
 

@@ -76,7 +76,7 @@ export function usePermissions(permissions: Permission[]) {
       isAuthenticated,
       user,
     };
-  }, [user?.role, permissions, hasHydrated, isAuthenticated, user]);
+  }, [permissions, hasHydrated, isAuthenticated, user]);
 }
 
 /**
@@ -162,6 +162,7 @@ export function useHealthcareAccess() {
         canEscalateAlerts: false,
         canViewPatients: false,
         canManagePatients: false,
+        canCreatePatients: false,
         canViewAnalytics: false,
         canManageShifts: false,
         canViewAuditLogs: false,
@@ -183,6 +184,7 @@ export function useHealthcareAccess() {
       canEscalateAlerts: hasPermission(userRole, PERMISSIONS.ESCALATE_ALERTS),
       canViewPatients: hasPermission(userRole, PERMISSIONS.VIEW_PATIENTS),
       canManagePatients: hasPermission(userRole, PERMISSIONS.MANAGE_PATIENTS),
+      canCreatePatients: hasPermission(userRole, PERMISSIONS.CREATE_PATIENTS),
       canViewAnalytics: hasPermission(userRole, PERMISSIONS.VIEW_ANALYTICS),
       canManageShifts: hasPermission(userRole, PERMISSIONS.MANAGE_SCHEDULE) || userRole === 'head_doctor',
       canViewAuditLogs: hasPermission(userRole, PERMISSIONS.VIEW_ACTIVITY_LOGS),

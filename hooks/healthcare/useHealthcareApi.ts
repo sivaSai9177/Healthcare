@@ -303,6 +303,21 @@ export function useSelectHospital() {
   });
 }
 
+/**
+ * Hook for fetching patient details
+ */
+export function usePatientDetails(patientId: string, options?: { enabled?: boolean }) {
+  const { canAccessHealthcare } = useHospitalContext();
+  
+  return api.patient.getDetails.useQuery(
+    { patientId },
+    {
+      enabled: !!patientId && canAccessHealthcare && (options?.enabled ?? true),
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    }
+  );
+}
+
 // Legacy hooks that might be used elsewhere - these will be deprecated
 export function usePatients(options?: {
   status?: 'active' | 'discharged' | 'all';

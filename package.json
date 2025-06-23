@@ -240,6 +240,7 @@
     "react-native-webview": "13.13.5",
     "recharts": "^2.15.3",
     "sonner": "^2.0.4",
+    "superjson": "^2.2.2",
     "tailwind-merge": "^3.3.0",
     "tailwindcss-animate": "1.0.7",
     "tw-animate-css": "^1.3.2",

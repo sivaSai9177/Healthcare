@@ -54,6 +54,82 @@ export const NotificationType = z.enum([
 
 export type NotificationType = z.infer<typeof NotificationType>;
 
+// Department Types
+export type DepartmentType = 
+  | 'emergency'
+  | 'cardiology'
+  | 'orthopedics'
+  | 'pediatrics'
+  | 'obstetrics'
+  | 'neurology'
+  | 'oncology'
+  | 'radiology'
+  | 'pathology'
+  | 'psychiatry'
+  | 'general';
+
+// Department Configuration
+export const DEPARTMENT_CONFIG: Record<DepartmentType, { icon: string; color: string; label: string }> = {
+  emergency: {
+    icon: '🚨',
+    color: '#FF0000',
+    label: 'Emergency'
+  },
+  cardiology: {
+    icon: '❤️',
+    color: '#E91E63',
+    label: 'Cardiology'
+  },
+  orthopedics: {
+    icon: '🦴',
+    color: '#795548',
+    label: 'Orthopedics'
+  },
+  pediatrics: {
+    icon: '👶',
+    color: '#4CAF50',
+    label: 'Pediatrics'
+  },
+  obstetrics: {
+    icon: '🤰',
+    color: '#FF69B4',
+    label: 'Obstetrics'
+  },
+  neurology: {
+    icon: '🧠',
+    color: '#9C27B0',
+    label: 'Neurology'
+  },
+  oncology: {
+    icon: '🎗️',
+    color: '#FF9800',
+    label: 'Oncology'
+  },
+  radiology: {
+    icon: '📷',
+    color: '#607D8B',
+    label: 'Radiology'
+  },
+  pathology: {
+    icon: '🔬',
+    color: '#00BCD4',
+    label: 'Pathology'
+  },
+  psychiatry: {
+    icon: '🧘',
+    color: '#3F51B5',
+    label: 'Psychiatry'
+  },
+  general: {
+    icon: '🏥',
+    color: '#2196F3',
+    label: 'General'
+  }
+};
+
+// Gender Types
+export type Gender = 'male' | 'female' | 'other';
+
 // Healthcare Role Permissions
 export const healthcareRolePermissions: Record<HealthcareUserRole, string[]> = {
   admin: ['*'], // Admin can access everything

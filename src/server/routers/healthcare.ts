@@ -14,8 +14,12 @@ import {
   healthcareAuditLogs,
   healthcareUsers,
   alertTimelineEvents,
-  hospitals
+  hospitals,
+  shiftLogs,
+  shiftHandovers,
+  departments
 } from '@/src/db/healthcare-schema';
+import { patients, careTeamAssignments } from '@/src/db/patient-schema';
 import { users } from '@/src/db/schema';
 import { organization } from '@/src/db/organization-schema';
 import { eq, and, desc, or, gte, lte, asc, sql, aliasedTable, count, gt, isNotNull } from 'drizzle-orm';
@@ -26,8 +30,10 @@ import {
   HealthcareProfileSchema,
   HEALTHCARE_ESCALATION_TIERS
 } from '@/types/healthcare';
+import { patientSchemas, patientValidation, permissionValidators } from '@/lib/validations/healthcare';
 import { log } from '@/lib/core/debug/server-logger';
 import { escalationTimerService } from '../services/escalation-timer';
+import { TRPCError } from '@trpc/server';
 import { 
   alertEventHelpers,
   trackedHospitalAlerts
@@ -38,6 +44,12 @@ import {
 // Removed unused variable: operatorProcedure
 const doctorProcedure = createPermissionProcedure('acknowledge_alerts');
 const viewAlertsProcedure = createPermissionProcedure('view_alerts');
+const shiftManagementProcedure = createPermissionProcedure('start_shift');
+const viewShiftStatusProcedure = createPermissionProcedure('view_shift_status');
+
+// Shift validation constants
+const MAX_SHIFT_DURATION_HOURS = 24;
+const MIN_BREAK_BETWEEN_SHIFTS_HOURS = 8;
 
 export const healthcareRouter = router({
   // Get hospitals for an organization
@@ -177,7 +189,7 @@ export const healthcareRouter = router({
       const { roomNumber, alertType, urgencyLevel, description, hospitalId } = input;
       
       // Use user's hospital context
-      const userHospitalId = ctx.userHospitalId;
+      const userHospitalId = ctx.hospitalContext?.userHospitalId;
       
       if (!userHospitalId) {
         throw new Error('Hospital assignment required. Please complete your profile.');
@@ -312,19 +324,19 @@ export const healthcareRouter = router({
         userId: ctx.user.id,
         userRole: (ctx.user as any).role,
         inputHospitalId: input.hospitalId,
-        ctxHospitalId: ctx.userHospitalId,
-        hasHospitalContext: !!ctx.userHospitalId,
+        ctxHospitalId: ctx.hospitalContext?.userHospitalId,
+        hasHospitalContext: !!ctx.hospitalContext?.userHospitalId,
       });
       
       // Use user's hospital if not specified
-      const hospitalId = input.hospitalId || ctx.userHospitalId;
+      const hospitalId = input.hospitalId || ctx.hospitalContext?.userHospitalId;
       
       if (!hospitalId) {
         log.error('Hospital context missing in getActiveAlerts', 'HEALTHCARE', {
           userId: ctx.user.id,
           userRole: (ctx.user as any).role,
           inputHospitalId: input.hospitalId,
-          ctxHospitalId: ctx.userHospitalId,
+          ctxHospitalId: ctx.hospitalContext?.userHospitalId,
         });
         throw new Error('Hospital context required. Please ensure you have selected a hospital in your profile.');
       }
@@ -608,7 +620,7 @@ export const healthcareRouter = router({
       offset: z.number().min(0).default(0),
     }))
     .query(async ({ ctx, input }) => {
-      const hospitalId = input.hospitalId || ctx.userHospitalId;
+      const hospitalId = input.hospitalId || ctx.hospitalContext?.userHospitalId;
       
       // Calculate date range
       const now = new Date();
@@ -737,7 +749,7 @@ export const healthcareRouter = router({
       endDate: z.date().optional(),
     }))
     .query(async ({ ctx, input }) => {
-      const hospitalId = input.hospitalId || ctx.userHospitalId;
+      const hospitalId = input.hospitalId || ctx.hospitalContext?.userHospitalId;
       
       // Calculate date range
       const now = new Date();
@@ -1246,8 +1258,13 @@ export const healthcareRouter = router({
     }),
 
   // Get user's current on-duty status
-  getOnDutyStatus: protectedProcedure
+  getOnDutyStatus: viewShiftStatusProcedure
     .query(async ({ ctx }) => {
+      log.debug('Fetching on-duty status', 'HEALTHCARE', {
+        userId: ctx.user.id,
+        userRole: ctx.user.role,
+      });
+      
       try {
         const [healthcareUser] = await db
           .select()
@@ -1255,9 +1272,18 @@ export const healthcareRouter = router({
           .where(eq(healthcareUsers.userId, ctx.user.id))
           .limit(1);
 
-        // If no healthcare user profile exists, auto-create one for healthcare roles
+        // If no healthcare user profile exists and user has healthcare role
         if (!healthcareUser && ['doctor', 'nurse', 'head_doctor', 'operator'].includes((ctx.user as any).role)) {
-          const hospitalId = ctx.hospitalContext?.userOrganizationId || 'f155b026-01bd-4212-94f3-e7aedef2801d'; // Demo hospital
+          // Get hospital from context or user's default
+          const hospitalId = ctx.hospitalContext?.userHospitalId || (ctx.user as any).defaultHospitalId;
+          
+          if (!hospitalId) {
+            log.warn('No hospital assignment for healthcare user', 'HEALTHCARE', {
+              userId: ctx.user.id,
+              role: (ctx.user as any).role,
+            });
+            throw new Error('Hospital assignment required. Please complete your profile to use shift features.');
+          }
           
           try {
             await db.insert(healthcareUsers).values({
@@ -1274,6 +1300,7 @@ export const healthcareRouter = router({
             });
           } catch (insertError) {
             log.error('Failed to auto-create healthcare profile', 'HEALTHCARE', insertError);
+            throw new Error('Failed to initialize healthcare profile');
           }
         }
 
@@ -1289,46 +1316,140 @@ export const healthcareRouter = router({
     }),
 
   // Toggle on-duty status
-  toggleOnDuty: protectedProcedure
+  toggleOnDuty: shiftManagementProcedure
     .input(z.object({
       isOnDuty: z.boolean(),
-      handoverNotes: z.string().optional(),
+      handoverNotes: z.string()
+        .min(10, 'Handover notes must be at least 10 characters')
+        .max(500, 'Handover notes must be at most 500 characters')
+        .optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      // Validate user has organizationId
-      if (!ctx.hospitalContext?.userOrganizationId) {
-        throw new Error('Organization required. Please complete your profile to use healthcare features.');
+      log.info('Shift toggle request received', 'HEALTHCARE', {
+        userId: ctx.user.id,
+        userRole: ctx.user.role,
+        action: input.isOnDuty ? 'start_shift' : 'end_shift',
+        hasHandoverNotes: !!input.handoverNotes,
+        hospitalContext: ctx.hospitalContext,
+      });
+      
+      // Validate user has hospital context
+      if (!ctx.hospitalContext?.userHospitalId) {
+        log.error('No hospital context for shift toggle', 'HEALTHCARE', {
+          userId: ctx.user.id,
+          userRole: ctx.user.role,
+        });
+        throw new Error('Hospital assignment required. Please complete your profile to use shift features.');
       }
       
       try {
         const now = new Date();
         
-        // Get current healthcare user data with organization check
+        // Get current healthcare user data
         const [currentUser] = await db
           .select({
             userId: healthcareUsers.userId,
             hospitalId: healthcareUsers.hospitalId,
             shiftStartTime: healthcareUsers.shiftStartTime,
+            shiftEndTime: healthcareUsers.shiftEndTime,
             isOnDuty: healthcareUsers.isOnDuty,
-            organizationId: users.organizationId,
           })
           .from(healthcareUsers)
-          .innerJoin(users, eq(healthcareUsers.userId, users.id))
           .where(eq(healthcareUsers.userId, ctx.user.id))
           .limit(1);
         
         if (!currentUser) {
-          throw new Error('Healthcare profile not found');
+          throw new Error('Healthcare profile not found. Please contact administrator.');
         }
         
-        // Validate organization context
-        if (currentUser.organizationId !== currentUser.hospitalId) {
-          log.warn('User organization does not match hospital', 'HEALTHCARE', {
+        // Validate hospital matches context
+        if (currentUser.hospitalId !== ctx.hospitalContext.userHospitalId) {
+          log.error('Hospital mismatch in shift toggle', 'HEALTHCARE', {
             userId: ctx.user.id,
-            organizationId: currentUser.organizationId,
-            hospitalId: currentUser.hospitalId,
+            profileHospitalId: currentUser.hospitalId,
+            contextHospitalId: ctx.hospitalContext.userHospitalId,
           });
-          throw new Error('Organization mismatch - please contact administrator');
+          throw new Error('Hospital assignment mismatch. Please contact administrator.');
+        }
+        
+        log.debug('User shift status before toggle', 'HEALTHCARE', {
+          userId: ctx.user.id,
+          currentStatus: currentUser.isOnDuty,
+          shiftStartTime: currentUser.shiftStartTime,
+          shiftEndTime: currentUser.shiftEndTime,
+        });
+        
+        // Perform shift validations
+        if (input.isOnDuty) {
+          // Starting shift validations
+          if (currentUser.isOnDuty) {
+            throw new Error('You are already on duty. Please end your current shift first.');
+          }
+          
+          // Check minimum break between shifts
+          if (currentUser.shiftEndTime) {
+            const hoursSinceLastShift = (now.getTime() - new Date(currentUser.shiftEndTime).getTime()) / (1000 * 60 * 60);
+            log.debug('Checking break time between shifts', 'HEALTHCARE', {
+              userId: ctx.user.id,
+              lastShiftEnd: currentUser.shiftEndTime,
+              hoursSinceLastShift,
+              requiredBreak: MIN_BREAK_BETWEEN_SHIFTS_HOURS,
+            });
+            
+            if (hoursSinceLastShift < MIN_BREAK_BETWEEN_SHIFTS_HOURS) {
+              const remainingBreak = Math.ceil(MIN_BREAK_BETWEEN_SHIFTS_HOURS - hoursSinceLastShift);
+              log.warn('Insufficient break between shifts', 'HEALTHCARE', {
+                userId: ctx.user.id,
+                hoursSinceLastShift,
+                remainingBreakNeeded: remainingBreak,
+              });
+              throw new Error(`You need at least ${MIN_BREAK_BETWEEN_SHIFTS_HOURS} hours break between shifts. Please wait ${remainingBreak} more hour(s).`);
+            }
+          }
+        } else {
+          // Ending shift validations
+          if (!currentUser.isOnDuty) {
+            throw new Error('You are not currently on duty.');
+          }
+          
+          // Check shift duration
+          if (currentUser.shiftStartTime) {
+            const shiftDurationHours = (now.getTime() - new Date(currentUser.shiftStartTime).getTime()) / (1000 * 60 * 60);
+            if (shiftDurationHours > MAX_SHIFT_DURATION_HOURS) {
+              log.warn('Shift exceeded maximum duration', 'HEALTHCARE', {
+                userId: ctx.user.id,
+                shiftDurationHours,
+                maxAllowed: MAX_SHIFT_DURATION_HOURS,
+              });
+            }
+          }
+          
+          // Check for active alerts - require handover notes if any exist
+          const activeAlertCount = await db
+            .select({ count: count() })
+            .from(alerts)
+            .where(
+              and(
+                eq(alerts.hospitalId, currentUser.hospitalId),
+                eq(alerts.status, 'active')
+              )
+            )
+            .then(result => result[0]?.count || 0);
+          
+          log.info('Active alerts check for shift end', 'HEALTHCARE', {
+            userId: ctx.user.id,
+            hospitalId: currentUser.hospitalId,
+            activeAlertCount,
+            hasHandoverNotes: !!input.handoverNotes,
+          });
+          
+          if (activeAlertCount > 0 && !input.handoverNotes) {
+            log.warn('Shift end blocked - active alerts without handover', 'HEALTHCARE', {
+              userId: ctx.user.id,
+              activeAlertCount,
+            });
+            throw new Error(`There are ${activeAlertCount} active alerts. Please provide handover notes for the incoming shift.`);
+          }
         }
         
         // Update duty status
@@ -1341,41 +1462,151 @@ export const healthcareRouter = router({
           })
           .where(eq(healthcareUsers.userId, ctx.user.id));
 
+        // Calculate shift duration for logging
+        const shiftDurationMinutes = !input.isOnDuty && currentUser.shiftStartTime 
+          ? Math.floor((now.getTime() - new Date(currentUser.shiftStartTime).getTime()) / 1000 / 60)
+          : null;
+
         // Log audit event
         await db.insert(healthcareAuditLogs).values({
           userId: ctx.user.id,
           action: input.isOnDuty ? 'shift_started' : 'shift_ended',
           entityType: 'user',
           entityId: ctx.user.id,
-          hospitalId: currentUser?.hospitalId,
+          hospitalId: currentUser.hospitalId,
           metadata: {
-            shiftStartTime: input.isOnDuty ? now : currentUser?.shiftStartTime,
+            shiftStartTime: input.isOnDuty ? now : currentUser.shiftStartTime,
             shiftEndTime: input.isOnDuty ? null : now,
             handoverNotes: input.handoverNotes,
-            duration: !input.isOnDuty && currentUser?.shiftStartTime 
-              ? Math.floor((now.getTime() - new Date(currentUser.shiftStartTime).getTime()) / 1000 / 60) // duration in minutes
-              : null,
+            duration: shiftDurationMinutes,
+            durationHours: shiftDurationMinutes ? Math.round(shiftDurationMinutes / 60 * 10) / 10 : null,
           },
           success: true,
         });
         
-        log.info('Shift toggled with audit logging', 'HEALTHCARE', {
+        log.info('Shift toggled successfully', 'HEALTHCARE', {
           userId: ctx.user.id,
+          userName: ctx.user.name || ctx.user.email,
+          userRole: ctx.user.role,
           isOnDuty: input.isOnDuty,
-          hospitalId: currentUser?.hospitalId,
+          hospitalId: currentUser.hospitalId,
           action: input.isOnDuty ? 'shift_started' : 'shift_ended',
+          durationMinutes: shiftDurationMinutes,
+          durationHours: shiftDurationMinutes ? Math.round(shiftDurationMinutes / 60 * 10) / 10 : null,
+          hasHandoverNotes: !!input.handoverNotes,
         });
 
         return {
           success: true,
           isOnDuty: input.isOnDuty,
-          shiftDuration: !input.isOnDuty && currentUser?.shiftStartTime 
-            ? Math.floor((now.getTime() - new Date(currentUser.shiftStartTime).getTime()) / 1000 / 60)
-            : null,
+          shiftDuration: shiftDurationMinutes,
+          shiftDurationHours: shiftDurationMinutes ? Math.round(shiftDurationMinutes / 60 * 10) / 10 : null,
         };
       } catch (error) {
-        log.error('Failed to toggle on-duty status', 'HEALTHCARE', error);
-        throw new Error('Failed to toggle on-duty status');
+        log.error('Failed to toggle on-duty status', 'HEALTHCARE', {
+          userId: ctx.user.id,
+          action: input.isOnDuty ? 'start_shift' : 'end_shift',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        throw error instanceof Error ? error : new Error('Failed to toggle shift status');
+      }
+    }),
+
+  // Get detailed shift status with validations
+  getShiftStatus: viewShiftStatusProcedure
+    .query(async ({ ctx }) => {
+      log.debug('Fetching shift status', 'HEALTHCARE', {
+        userId: ctx.user.id,
+        userRole: ctx.user.role,
+      });
+      
+      try {
+        const [healthcareUser] = await db
+          .select()
+          .from(healthcareUsers)
+          .where(eq(healthcareUsers.userId, ctx.user.id))
+          .limit(1);
+
+        if (!healthcareUser) {
+          return {
+            isOnDuty: false,
+            canStartShift: false,
+            canEndShift: false,
+            reason: 'Healthcare profile not found',
+          };
+        }
+
+        const now = new Date();
+        let canStartShift = true;
+        let canEndShift = healthcareUser.isOnDuty;
+        let startShiftReason = '';
+        let endShiftReason = '';
+        let shiftDurationHours = null;
+        let hoursUntilCanStart = null;
+
+        // Check if can start shift
+        if (healthcareUser.isOnDuty) {
+          canStartShift = false;
+          startShiftReason = 'Already on duty';
+        } else if (healthcareUser.shiftEndTime) {
+          const hoursSinceLastShift = (now.getTime() - new Date(healthcareUser.shiftEndTime).getTime()) / (1000 * 60 * 60);
+          if (hoursSinceLastShift < MIN_BREAK_BETWEEN_SHIFTS_HOURS) {
+            canStartShift = false;
+            hoursUntilCanStart = Math.ceil(MIN_BREAK_BETWEEN_SHIFTS_HOURS - hoursSinceLastShift);
+            startShiftReason = `Need ${hoursUntilCanStart} more hour(s) of break`;
+          }
+        }
+
+        // Check current shift duration
+        if (healthcareUser.isOnDuty && healthcareUser.shiftStartTime) {
+          shiftDurationHours = (now.getTime() - new Date(healthcareUser.shiftStartTime).getTime()) / (1000 * 60 * 60);
+          if (shiftDurationHours > MAX_SHIFT_DURATION_HOURS) {
+            endShiftReason = `Shift exceeded maximum ${MAX_SHIFT_DURATION_HOURS} hours`;
+          }
+        }
+
+        // Get active alerts count
+        const activeAlertCount = await db
+          .select({ count: count() })
+          .from(alerts)
+          .where(
+            and(
+              eq(alerts.hospitalId, healthcareUser.hospitalId),
+              eq(alerts.status, 'active')
+            )
+          )
+          .then(result => result[0]?.count || 0);
+
+        const result = {
+          isOnDuty: healthcareUser.isOnDuty,
+          shiftStartTime: healthcareUser.shiftStartTime,
+          shiftEndTime: healthcareUser.shiftEndTime,
+          canStartShift,
+          canEndShift,
+          startShiftReason,
+          endShiftReason,
+          shiftDurationHours: shiftDurationHours ? Math.round(shiftDurationHours * 10) / 10 : null,
+          hoursUntilCanStart,
+          maxShiftDurationHours: MAX_SHIFT_DURATION_HOURS,
+          minBreakHours: MIN_BREAK_BETWEEN_SHIFTS_HOURS,
+          activeAlertCount,
+          requiresHandover: activeAlertCount > 0,
+        };
+        
+        log.debug('Shift status fetched', 'HEALTHCARE', {
+          userId: ctx.user.id,
+          ...result,
+        });
+        
+        return result;
+      } catch (error) {
+        log.error('Failed to get shift status', 'HEALTHCARE', {
+          userId: ctx.user.id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+        throw new Error('Failed to get shift status');
       }
     }),
 
@@ -1388,7 +1619,7 @@ export const healthcareRouter = router({
     .query(async ({ input, ctx }) => {
       try {
         // Use user's hospital if not specified
-        const hospitalId = input.hospitalId || ctx.userHospitalId;
+        const hospitalId = input.hospitalId || ctx.hospitalContext?.userHospitalId;
         if (!hospitalId) {
           throw new Error('Hospital context required');
         }
@@ -2574,73 +2805,388 @@ export const healthcareRouter = router({
     }),
 
   // Get patients for a healthcare professional
-  getMyPatients: viewAlertsProcedure
-    .input(z.object({
-      hospitalId: z.string(),
-    }))
+  getMyPatients: protectedProcedure
+    .input(patientSchemas.patientFilters)
     .query(async ({ input, ctx }) => {
       try {
+        // Check permissions
+        const userRole = (ctx.user as any).role || 'user';
+        if (!permissionValidators.canViewPatientData(userRole)) {
+          throw new TRPCError({ 
+            code: 'FORBIDDEN',
+            message: 'You do not have permission to view patient data'
+          });
+        }
+
         // Log context for debugging
-        console.log('getMyPatients called with:', {
+        log.info('getMyPatients called', 'HEALTHCARE', {
           inputHospitalId: input.hospitalId,
-          userHospitalId: ctx.hospitalContext?.userHospitalId,
-          userOrganizationId: ctx.hospitalContext?.userOrganizationId,
           userId: ctx.user?.id,
-          userRole: (ctx.user as any)?.role,
+          userRole,
+          filters: input,
         });
 
-        // Validate user has hospital context
-        if (!ctx.hospitalContext?.userHospitalId) {
-          throw new Error('No hospital assignment found. Please complete your profile.');
-        }
-
-        // Validate user belongs to the specified hospital
-        if (input.hospitalId !== ctx.hospitalContext.userHospitalId) {
-          throw new Error(`Invalid hospital ID. Expected ${ctx.hospitalContext.userHospitalId}, got ${input.hospitalId}`);
-        }
-
-        // For now, return mock patient data
-        // In a real app, this would query from a patients table
-        const mockPatients = [
-          {
-            id: '1',
-            name: 'John Doe',
-            roomNumber: '101',
-            department: 'Cardiology',
-            status: 'stable',
-            admittedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-            condition: 'Post-operative recovery',
-            assignedDoctor: ctx.user.name || 'Dr. Smith',
-          },
-          {
-            id: '2',
-            name: 'Jane Smith',
-            roomNumber: '205',
-            department: 'Orthopedics',
-            status: 'critical',
-            admittedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-            condition: 'Hip replacement recovery',
-            assignedDoctor: ctx.user.name || 'Dr. Smith',
-          },
-          {
-            id: '3',
-            name: 'Robert Johnson',
-            roomNumber: '310',
-            department: 'Neurology',
-            status: 'stable',
-            admittedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-            condition: 'Migraine observation',
-            assignedDoctor: ctx.user.name || 'Dr. Smith',
-          },
+        // Build query conditions
+        const conditions = [
+          eq(patients.hospitalId, input.hospitalId),
         ];
 
+        // Add status filter (using isActive field)
+        if (input.status === 'admitted') {
+          conditions.push(eq(patients.isActive, true));
+        } else if (input.status === 'discharged') {
+          conditions.push(eq(patients.isActive, false));
+        }
+
+        // Add department filter
+        if (input.department) {
+          // Get department ID from department name
+          const [dept] = await db
+            .select({ id: departments.id })
+            .from(departments)
+            .where(and(
+              eq(departments.hospitalId, input.hospitalId),
+              eq(departments.name, input.department)
+            ))
+            .limit(1);
+          
+          if (dept) {
+            conditions.push(eq(patients.departmentId, dept.id));
+          }
+        }
+
+        // Role-based filtering
+        if (userRole === 'doctor') {
+          conditions.push(eq(patients.primaryDoctorId, ctx.user.id));
+        } else if (userRole === 'nurse') {
+          conditions.push(eq(patients.attendingNurseId, ctx.user.id));
+        }
+        // Head doctors and admins see all patients in the hospital
+
+        // Execute query
+        const patientsQuery = await db
+          .select()
+          .from(patients)
+          .where(and(...conditions))
+          .orderBy(desc(patients.admissionDate))
+          .limit(input.limit || 20)
+          .offset(input.offset || 0);
+
+        // Get total count
+        const [{ count: totalCount }] = await db
+          .select({ count: count() })
+          .from(patients)
+          .where(and(...conditions));
+
+        // Search query filter (done in memory for simplicity)
+        let filteredPatients = patientsQuery;
+        if (input.searchQuery) {
+          const query = input.searchQuery.toLowerCase();
+          filteredPatients = patientsQuery.filter(p => 
+            p.name.toLowerCase().includes(query) ||
+            p.roomNumber.toLowerCase().includes(query) ||
+            p.mrn.toLowerCase().includes(query)
+          );
+        }
+
         return {
-          patients: mockPatients,
-          total: mockPatients.length,
+          patients: filteredPatients,
+          total: Number(totalCount),
+          limit: input.limit || 20,
+          offset: input.offset || 0,
         };
       } catch (error) {
         log.error('Failed to fetch patients', 'HEALTHCARE', error);
-        throw new Error('Failed to fetch patient list');
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch patient list',
+        });
+      }
+    }),
+
+  // Create a new patient
+  createPatient: protectedProcedure
+    .input(patientSchemas.createPatient)
+    .mutation(async ({ input, ctx }) => {
+      try {
+        // Check permissions
+        const userRole = (ctx.user as any).role || 'user';
+        if (!['doctor', 'head_doctor', 'admin'].includes(userRole)) {
+          throw new TRPCError({ 
+            code: 'FORBIDDEN',
+            message: 'Only doctors can register new patients'
+          });
+        }
+
+        // Get hospital info for MRN generation
+        const [hospital] = await db
+          .select({ code: hospitals.code })
+          .from(hospitals)
+          .where(eq(hospitals.id, input.hospitalId))
+          .limit(1);
+
+        if (!hospital) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Hospital not found',
+          });
+        }
+
+        // Generate medical record number
+        const mrn = patientValidation.generateMedicalRecordNumber(hospital.code);
+
+        // Get department ID if department name provided
+        let departmentId = null;
+        if (input.department) {
+          const [dept] = await db
+            .select({ id: departments.id })
+            .from(departments)
+            .where(and(
+              eq(departments.hospitalId, input.hospitalId),
+              eq(departments.name, input.department)
+            ))
+            .limit(1);
+          departmentId = dept?.id || null;
+        }
+
+        // Create patient
+        const [patient] = await db.insert(patients).values({
+          hospitalId: input.hospitalId,
+          mrn,
+          name: input.name,
+          dateOfBirth: input.dateOfBirth,
+          gender: input.gender,
+          roomNumber: input.roomNumber,
+          departmentId,
+          primaryDoctorId: ctx.user.id,
+          attendingNurseId: null,
+          isActive: true,
+          admissionDate: new Date(),
+          primaryDiagnosis: input.diagnosis,
+          emergencyContact: input.emergencyContact,
+        }).returning();
+
+        log.info('Patient created', 'HEALTHCARE', {
+          patientId: patient.id,
+          mrn: patient.mrn,
+          createdBy: ctx.user.id,
+        });
+
+        return { patient, success: true };
+      } catch (error) {
+        log.error('Failed to create patient', 'HEALTHCARE', error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to create patient',
+        });
+      }
+    }),
+
+  // Get patient by ID
+  getPatientById: protectedProcedure
+    .input(z.object({
+      patientId: z.string().uuid(),
+    }))
+    .query(async ({ input, ctx }) => {
+      try {
+        // Check permissions
+        const userRole = (ctx.user as any).role || 'user';
+        if (!permissionValidators.canViewPatientData(userRole)) {
+          throw new TRPCError({ 
+            code: 'FORBIDDEN',
+            message: 'You do not have permission to view patient data'
+          });
+        }
+
+        const [patient] = await db
+          .select()
+          .from(patients)
+          .where(eq(patients.id, input.patientId))
+          .limit(1);
+
+        if (!patient) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Patient not found',
+          });
+        }
+
+        // Role-based access check
+        if (userRole === 'doctor' && patient.primaryDoctorId !== ctx.user.id) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'You can only view your assigned patients',
+          });
+        }
+        if (userRole === 'nurse' && patient.attendingNurseId !== ctx.user.id) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'You can only view patients assigned to you',
+          });
+        }
+
+        return { patient };
+      } catch (error) {
+        log.error('Failed to fetch patient details', 'HEALTHCARE', error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch patient details',
+        });
+      }
+    }),
+
+  // Update patient information
+  updatePatient: protectedProcedure
+    .input(z.object({
+      patientId: z.string().uuid(),
+      updates: patientSchemas.updatePatient,
+    }))
+    .mutation(async ({ input, ctx }) => {
+      try {
+        // Check permissions
+        const userRole = (ctx.user as any).role || 'user';
+        if (!['doctor', 'head_doctor', 'nurse', 'admin'].includes(userRole)) {
+          throw new TRPCError({ 
+            code: 'FORBIDDEN',
+            message: 'You do not have permission to update patient data'
+          });
+        }
+
+        // Nurses can only update medical notes, not reassign patients
+        if (userRole === 'nurse' && input.updates.assignedNurseId) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Nurses cannot reassign patients',
+          });
+        }
+
+        const [updatedPatient] = await db
+          .update(patients)
+          .set({
+            ...input.updates,
+            updatedAt: new Date(),
+          })
+          .where(eq(patients.id, input.patientId))
+          .returning();
+
+        if (!updatedPatient) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Patient not found',
+          });
+        }
+
+        log.info('Patient updated', 'HEALTHCARE', {
+          patientId: input.patientId,
+          updatedBy: ctx.user.id,
+          updates: Object.keys(input.updates),
+        });
+
+        return { patient: updatedPatient, success: true };
+      } catch (error) {
+        log.error('Failed to update patient', 'HEALTHCARE', error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to update patient',
+        });
+      }
+    }),
+
+  // Discharge patient
+  dischargePatient: protectedProcedure
+    .input(patientSchemas.dischargePatient)
+    .mutation(async ({ input, ctx }) => {
+      try {
+        // Check permissions - only doctors can discharge patients
+        const userRole = (ctx.user as any).role || 'user';
+        if (!['doctor', 'head_doctor', 'admin'].includes(userRole)) {
+          throw new TRPCError({ 
+            code: 'FORBIDDEN',
+            message: 'Only doctors can discharge patients'
+          });
+        }
+
+        const [dischargedPatient] = await db
+          .update(patients)
+          .set({
+            isActive: false,
+            dischargeDate: input.dischargeDate,
+            updatedAt: new Date(),
+          })
+          .where(eq(patients.id, input.patientId))
+          .returning();
+
+        if (!dischargedPatient) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Patient not found',
+          });
+        }
+
+        log.info('Patient discharged', 'HEALTHCARE', {
+          patientId: input.patientId,
+          dischargedBy: ctx.user.id,
+        });
+
+        return { patient: dischargedPatient, success: true };
+      } catch (error) {
+        log.error('Failed to discharge patient', 'HEALTHCARE', error);
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to discharge patient',
+        });
+      }
+    }),
+
+  // Get patient alerts history
+  getPatientAlerts: protectedProcedure
+    .input(z.object({
+      patientId: z.string().uuid(),
+      limit: z.number().optional().default(20),
+      offset: z.number().optional().default(0),
+    }))
+    .query(async ({ input, ctx }) => {
+      try {
+        // Check permissions
+        const userRole = (ctx.user as any).role || 'user';
+        if (!permissionValidators.canViewPatientData(userRole)) {
+          throw new TRPCError({ 
+            code: 'FORBIDDEN',
+            message: 'You do not have permission to view patient data'
+          });
+        }
+
+        // Get patient alerts
+        const patientAlerts = await db
+          .select({
+            alert: alerts,
+            acknowledgment: alertAcknowledgments,
+          })
+          .from(alerts)
+          .leftJoin(
+            alertAcknowledgments,
+            eq(alerts.id, alertAcknowledgments.alertId)
+          )
+          .where(eq(alerts.patientId, input.patientId))
+          .orderBy(desc(alerts.createdAt))
+          .limit(input.limit)
+          .offset(input.offset);
+
+        return {
+          alerts: patientAlerts,
+          total: patientAlerts.length,
+        };
+      } catch (error) {
+        log.error('Failed to fetch patient alerts', 'HEALTHCARE', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch patient alerts',
+        });
       }
     }),
 
@@ -2822,82 +3368,476 @@ export const healthcareRouter = router({
       }
     }),
 
-  // Real-time subscriptions for alerts
-  subscribeToAlerts: viewAlertsProcedure
-    .input(z.object({
-      hospitalId: z.string().uuid(),
-    }))
-    .subscription(async ({ input }) => {
-      const { hospitalId } = input;
-      
-      log.info('New alert subscription started', 'HEALTHCARE', { hospitalId });
-      
-      // Use the async generator for tracked alerts
-      const generator = trackedHospitalAlerts(hospitalId);
-      
-      return {
-        [Symbol.asyncIterator]: () => generator,
-      };
-    }),
 
-  // Real-time subscriptions for metrics
-  subscribeToMetrics: healthcareProcedure
+    
+    
+    
+  // Get shift summary
+  getShiftSummary: healthcareProcedure
+    .query(async ({ ctx }) => {
+      try {
+        const hospitalId = ctx.hospitalContext?.userHospitalId;
+        if (!hospitalId) {
+          throw new Error('Hospital assignment required');
+        }
+        
+        // Get active shift
+        const [activeShift] = await db
+          .select()
+          .from(shiftLogs)
+          .where(
+            and(
+              eq(shiftLogs.userId, ctx.user.id),
+              eq(shiftLogs.status, 'active')
+            )
+          )
+          .limit(1);
+        
+        if (!activeShift) {
+          return null;
+        }
+        
+        // Calculate duration
+        const now = new Date();
+        const durationMinutes = Math.floor(
+          (now.getTime() - activeShift.shiftStart.getTime()) / 60000
+        );
+        
+        // Get alerts handled during shift
+        const alertStats = await db
+          .select({
+            total: count(),
+            acknowledged: sql<number>`count(case when ${alerts.acknowledgedBy} = ${ctx.user.id} then 1 end)`,
+            active: sql<number>`count(case when ${alerts.status} = 'active' then 1 end)`,
+          })
+          .from(alerts)
+          .where(
+            and(
+              eq(alerts.hospitalId, hospitalId),
+              gte(alerts.createdAt, activeShift.shiftStart)
+            )
+          );
+        
+        // Get alerts by type
+        const alertsByType = await db
+          .select({
+            alertType: alerts.alertType,
+            count: count(),
+          })
+          .from(alerts)
+          .where(
+            and(
+              eq(alerts.hospitalId, hospitalId),
+              gte(alerts.createdAt, activeShift.shiftStart)
+            )
+          )
+          .groupBy(alerts.alertType);
+        
+        // Get alerts by urgency
+        const alertsByUrgency = await db
+          .select({
+            urgencyLevel: alerts.urgencyLevel,
+            count: count(),
+          })
+          .from(alerts)
+          .where(
+            and(
+              eq(alerts.hospitalId, hospitalId),
+              gte(alerts.createdAt, activeShift.shiftStart)
+            )
+          )
+          .groupBy(alerts.urgencyLevel);
+        
+        return {
+          shiftStart: activeShift.shiftStart,
+          shiftDuration: durationMinutes,
+          alertsHandled: alertStats[0]?.acknowledged || 0,
+          totalAlerts: alertStats[0]?.total || 0,
+          activeAlerts: alertStats[0]?.active || 0,
+          alertsByType: Object.fromEntries(
+            alertsByType.map(a => [a.alertType, a.count])
+          ),
+          alertsByUrgency: Object.fromEntries(
+            alertsByUrgency.map(a => [a.urgencyLevel.toString(), a.count])
+          ),
+        };
+      } catch (error) {
+        log.error('Failed to get shift summary', 'HEALTHCARE', error);
+        throw new Error('Failed to get shift summary');
+      }
+    }),
+    
+  // End shift with detailed handover
+  endShift: healthcareProcedure
+    .input(z.object({
+      handoverNotes: z.string().min(1, 'Handover notes are required'),
+      criticalAlerts: z.array(z.string().uuid()).optional(),
+      followUpRequired: z.array(z.string()).optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { handoverNotes, criticalAlerts = [], followUpRequired = [] } = input;
+      
+      try {
+        const hospitalId = ctx.hospitalContext?.userHospitalId;
+        if (!hospitalId) {
+          throw new Error('Hospital assignment required');
+        }
+        
+        // Get active shift
+        const [activeShift] = await db
+          .select()
+          .from(shiftLogs)
+          .where(
+            and(
+              eq(shiftLogs.userId, ctx.user.id),
+              eq(shiftLogs.status, 'active')
+            )
+          )
+          .limit(1);
+        
+        if (!activeShift) {
+          throw new Error('No active shift found');
+        }
+        
+        // Check for unresolved critical alerts
+        const [unresolvedCritical] = await db
+          .select({ count: count() })
+          .from(alerts)
+          .where(
+            and(
+              eq(alerts.hospitalId, hospitalId),
+              eq(alerts.status, 'active'),
+              gte(alerts.urgencyLevel, 5)
+            )
+          );
+        
+        if (unresolvedCritical.count > 0) {
+          throw new Error('Cannot end shift with unresolved critical alerts');
+        }
+        
+        // Calculate shift duration
+        const shiftEnd = new Date();
+        const durationMinutes = Math.floor(
+          (shiftEnd.getTime() - activeShift.shiftStart.getTime()) / 60000
+        );
+        
+        // Check minimum shift duration
+        if (durationMinutes < 30) {
+          throw new Error('Minimum shift duration not met (30 minutes required)');
+        }
+        
+        // Create handover
+        const [handover] = await db
+          .insert(shiftHandovers)
+          .values({
+            fromUserId: ctx.user.id,
+            hospitalId,
+            shiftLogId: activeShift.id,
+            handoverNotes,
+            criticalAlerts,
+            followUpRequired,
+            status: 'pending',
+          })
+          .returning();
+        
+        // Update shift log
+        await db
+          .update(shiftLogs)
+          .set({
+            shiftEnd,
+            durationMinutes,
+            status: 'completed',
+            handoverId: handover.id,
+          })
+          .where(eq(shiftLogs.id, activeShift.id));
+        
+        // Update healthcare user status
+        await db
+          .update(healthcareUsers)
+          .set({
+            isOnDuty: false,
+            shiftEndTime: shiftEnd,
+          })
+          .where(eq(healthcareUsers.userId, ctx.user.id));
+        
+        // Log audit
+        await db.insert(healthcareAuditLogs).values({
+          userId: ctx.user.id,
+          action: 'shift_ended_with_handover',
+          entityType: 'shift',
+          entityId: activeShift.id,
+          hospitalId,
+          metadata: { 
+            shiftId: activeShift.id,
+            handoverId: handover.id,
+            durationMinutes,
+            criticalAlertCount: criticalAlerts.length,
+          },
+          ipAddress: ctx.req.headers?.['x-forwarded-for'] || ctx.req.headers?.['x-real-ip'],
+          userAgent: ctx.req.headers?.['user-agent'],
+        });
+        
+        return {
+          success: true,
+          handoverId: handover.id,
+          shiftDuration: durationMinutes,
+        };
+      } catch (error) {
+        log.error('Failed to end shift with handover', 'HEALTHCARE', error);
+        throw error;
+      }
+    }),
+    
+  // Get pending handovers
+  getPendingHandovers: healthcareProcedure
+    .query(async ({ ctx }) => {
+      try {
+        const hospitalId = ctx.hospitalContext?.userHospitalId;
+        if (!hospitalId) {
+          throw new Error('Hospital assignment required');
+        }
+        
+        // Get pending handovers for the hospital
+        const pendingHandovers = await db
+          .select({
+            id: shiftHandovers.id,
+            fromUserId: shiftHandovers.fromUserId,
+            fromUserName: users.name,
+            fromUserEmail: users.email,
+            handoverNotes: shiftHandovers.handoverNotes,
+            criticalAlerts: shiftHandovers.criticalAlerts,
+            followUpRequired: shiftHandovers.followUpRequired,
+            createdAt: shiftHandovers.createdAt,
+            shiftLogId: shiftHandovers.shiftLogId,
+            status: shiftHandovers.status,
+          })
+          .from(shiftHandovers)
+          .leftJoin(users, eq(shiftHandovers.fromUserId, users.id))
+          .where(
+            and(
+              eq(shiftHandovers.hospitalId, hospitalId),
+              eq(shiftHandovers.status, 'pending'),
+              // Don't show user's own handovers
+              sql`${shiftHandovers.fromUserId} != ${ctx.user.id}`
+            )
+          )
+          .orderBy(desc(shiftHandovers.createdAt));
+        
+        return pendingHandovers;
+      } catch (error) {
+        log.error('Failed to get pending handovers', 'HEALTHCARE', error);
+        throw new Error('Failed to get pending handovers');
+      }
+    }),
+    
+  // Accept handover and start shift
+  acceptHandover: healthcareProcedure
+    .input(z.object({
+      handoverId: z.string().uuid(),
+      acknowledgment: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const { handoverId, acknowledgment } = input;
+      
+      try {
+        const hospitalId = ctx.hospitalContext?.userHospitalId;
+        if (!hospitalId) {
+          throw new Error('Hospital assignment required');
+        }
+        
+        // Start transaction
+        const result = await db.transaction(async (tx) => {
+          // Get handover details
+          const [handover] = await tx
+            .select()
+            .from(shiftHandovers)
+            .where(
+              and(
+                eq(shiftHandovers.id, handoverId),
+                eq(shiftHandovers.status, 'pending')
+              )
+            )
+            .limit(1);
+          
+          if (!handover) {
+            throw new Error('Handover not found or already accepted');
+          }
+          
+          // Verify hospital match
+          if (handover.hospitalId !== hospitalId) {
+            throw new Error('Handover belongs to different hospital');
+          }
+          
+          // Check if user already has active shift
+          const [existingShift] = await tx
+            .select()
+            .from(shiftLogs)
+            .where(
+              and(
+                eq(shiftLogs.userId, ctx.user.id),
+                eq(shiftLogs.status, 'active')
+              )
+            )
+            .limit(1);
+          
+          if (existingShift) {
+            throw new Error('Already on duty. Please end current shift first.');
+          }
+          
+          // Accept handover
+          await tx
+            .update(shiftHandovers)
+            .set({
+              toUserId: ctx.user.id,
+              status: 'accepted',
+              acceptedAt: new Date(),
+              acknowledgmentNotes: acknowledgment,
+            })
+            .where(eq(shiftHandovers.id, handoverId));
+          
+          // Start new shift
+          const [newShift] = await tx
+            .insert(shiftLogs)
+            .values({
+              userId: ctx.user.id,
+              hospitalId,
+              shiftStart: new Date(),
+              status: 'active',
+            })
+            .returning();
+          
+          // Update healthcare user status
+          await tx
+            .update(healthcareUsers)
+            .set({
+              isOnDuty: true,
+              shiftStartTime: new Date(),
+              shiftEndTime: null,
+            })
+            .where(eq(healthcareUsers.userId, ctx.user.id));
+          
+          // Log audit
+          await tx.insert(healthcareAuditLogs).values({
+            userId: ctx.user.id,
+            action: 'handover_accepted',
+            entityType: 'handover',
+            entityId: handoverId,
+            hospitalId,
+            metadata: { 
+              handoverId,
+              newShiftId: newShift.id,
+              fromUserId: handover.fromUserId,
+            },
+            ipAddress: ctx.req.headers?.['x-forwarded-for'] || ctx.req.headers?.['x-real-ip'],
+            userAgent: ctx.req.headers?.['user-agent'],
+          });
+          
+          return {
+            success: true,
+            shiftStarted: true,
+            shiftId: newShift.id,
+          };
+        });
+        
+        return result;
+      } catch (error) {
+        log.error('Failed to accept handover', 'HEALTHCARE', error);
+        throw error;
+      }
+    }),
+    
+  // Get handover metrics
+  getHandoverMetrics: viewAlertsProcedure
     .input(z.object({
       hospitalId: z.string().uuid(),
-      interval: z.number().min(5000).default(30000), // Minimum 5 seconds
+      timeRange: z.enum(['24h', '7d', '30d']).default('7d'),
     }))
-    .subscription(async ({ input }) => {
-      const { hospitalId, interval } = input;
+    .query(async ({ input }) => {
+      const { hospitalId, timeRange } = input;
       
-      log.info('Metrics subscription started', 'HEALTHCARE', { hospitalId, interval });
-      
-      // Return an async generator for metrics updates
-      async function* metricsGenerator() {
-        while (true) {
-          try {
-            // Fetch current metrics
-            const activeAlerts = await db
-              .select({ count: count() })
-              .from(alerts)
-              .where(
-                and(
-                  eq(alerts.hospitalId, hospitalId),
-                  eq(alerts.status, 'active')
-                )
-              );
-            
-            const staffResult = await db
-              .select({ count: count() })
-              .from(healthcareUsers)
-              .where(
-                and(
-                  eq(healthcareUsers.hospitalId, hospitalId),
-                  eq(healthcareUsers.isOnDuty, true)
-                )
-              );
-            
-            const metrics = {
-              activeAlerts: activeAlerts[0]?.count || 0,
-              staffOnline: staffResult[0]?.count || 0,
-              avgResponseTime: Math.floor(Math.random() * 300) + 60, // Mock for now
-              timestamp: new Date(),
-            };
-            
-            yield metrics;
-            
-            // Wait for the specified interval
-            await new Promise(resolve => setTimeout(resolve, interval));
-          } catch (error) {
-            log.error('Error generating metrics', 'HEALTHCARE', error);
-            // Continue the loop even on error
-            await new Promise(resolve => setTimeout(resolve, interval));
-          }
+      try {
+        let startDate = new Date();
+        switch (timeRange) {
+          case '24h':
+            startDate.setHours(startDate.getHours() - 24);
+            break;
+          case '7d':
+            startDate.setDate(startDate.getDate() - 7);
+            break;
+          case '30d':
+            startDate.setDate(startDate.getDate() - 30);
+            break;
         }
+        
+        // Get handover statistics
+        const handovers = await db
+          .select({
+            id: shiftHandovers.id,
+            status: shiftHandovers.status,
+            createdAt: shiftHandovers.createdAt,
+            acceptedAt: shiftHandovers.acceptedAt,
+            criticalAlerts: shiftHandovers.criticalAlerts,
+          })
+          .from(shiftHandovers)
+          .where(
+            and(
+              eq(shiftHandovers.hospitalId, hospitalId),
+              gte(shiftHandovers.createdAt, startDate)
+            )
+          );
+        
+        // Calculate metrics
+        const totalHandovers = handovers.length;
+        const acceptedHandovers = handovers.filter(h => h.status === 'accepted').length;
+        const pendingHandovers = handovers.filter(h => h.status === 'pending').length;
+        
+        // Calculate average handover time (time to accept)
+        const acceptedWithTime = handovers.filter(h => h.acceptedAt);
+        const handoverTimes = acceptedWithTime.map(h => {
+          return (h.acceptedAt!.getTime() - h.createdAt.getTime()) / 60000; // in minutes
+        });
+        const averageHandoverTime = handoverTimes.length > 0
+          ? Math.round(handoverTimes.reduce((a, b) => a + b, 0) / handoverTimes.length)
+          : 0;
+        
+        // Count critical alerts transferred
+        const criticalAlertsTransferred = handovers.reduce((total, h) => {
+          return total + (h.criticalAlerts as any[]).length;
+        }, 0);
+        
+        // Group by shift (morning, evening, night)
+        const handoversByShift = {
+          morning: 0,
+          evening: 0,
+          night: 0,
+        };
+        
+        handovers.forEach(h => {
+          const hour = h.createdAt.getHours();
+          if (hour >= 6 && hour < 14) {
+            handoversByShift.morning++;
+          } else if (hour >= 14 && hour < 22) {
+            handoversByShift.evening++;
+          } else {
+            handoversByShift.night++;
+          }
+        });
+        
+        return {
+          totalHandovers,
+          acceptedHandovers,
+          pendingHandovers,
+          averageHandoverTime,
+          criticalAlertsTransferred,
+          handoversByShift,
+          acceptanceRate: totalHandovers > 0 
+            ? Math.round((acceptedHandovers / totalHandovers) * 100)
+            : 100,
+        };
+      } catch (error) {
+        log.error('Failed to get handover metrics', 'HEALTHCARE', error);
+        throw new Error('Failed to get handover metrics');
       }
-      
-      return {
-        [Symbol.asyncIterator]: metricsGenerator,
-      };
     }),
 });
 

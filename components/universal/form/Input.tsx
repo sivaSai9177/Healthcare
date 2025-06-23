@@ -32,6 +32,7 @@ import { authStyles } from '@/components/blocks/auth/styles/authStyles';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 const AnimatedView = Animated.View;
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface InputProps extends TextInputProps {
   // HTML attributes for better form handling
@@ -205,6 +206,8 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
   const successScale = useSharedValue(0);
   const clearButtonOpacity = useSharedValue(0);
   const clearButtonScale = useSharedValue(0.8);
+  const inputScale = useSharedValue(1);
+  const [isHovered, setIsHovered] = useState(false);
   
   // Update local value when prop changes
   useEffect(() => {
@@ -238,6 +241,49 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
       });
     }
   }, [isFocused, animated, enableAnimations]);
+  
+  // Handle hover effects
+  const handleHoverIn = useCallback(() => {
+    if (!isDisabled && Platform.OS === 'web') {
+      setIsHovered(true);
+      if (enableAnimations) {
+        inputScale.value = withSpring(1.01, {
+          damping: 20,
+          stiffness: 300,
+        });
+      }
+    }
+  }, [isDisabled, enableAnimations, inputScale]);
+  
+  const handleHoverOut = useCallback(() => {
+    if (Platform.OS === 'web') {
+      setIsHovered(false);
+      if (enableAnimations) {
+        inputScale.value = withSpring(1, {
+          damping: 20,
+          stiffness: 300,
+        });
+      }
+    }
+  }, [enableAnimations, inputScale]);
+  
+  const handlePressIn = useCallback(() => {
+    if (!isDisabled && enableAnimations) {
+      inputScale.value = withSpring(0.99, {
+        damping: 20,
+        stiffness: 400,
+      });
+    }
+  }, [isDisabled, enableAnimations, inputScale]);
+  
+  const handlePressOut = useCallback(() => {
+    if (!isDisabled && enableAnimations) {
+      inputScale.value = withSpring(isHovered ? 1.01 : 1, {
+        damping: 20,
+        stiffness: 400,
+      });
+    }
+  }, [isDisabled, enableAnimations, inputScale, isHovered]);
   
   // Handle error animation
   useEffect(() => {
@@ -339,26 +385,29 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
       if (error) return authStyles.colors.destructive;
       if (success) return authStyles.colors.success;
       if (isFocused) return authStyles.colors.primary;
+      if (isHovered) return theme.ring || authStyles.colors.primary;
       return '#e5e7eb'; // gray-200
     }
     // For floating label, use the original logic
     if (error) return theme.destructive;
     if (success) return theme.success || '#10b981';
     if (isFocused) return theme.primary;
+    if (isHovered) return theme.ring || theme.primary;
     return theme.border;
   };
   
   // Build input wrapper classes for floating label
   const inputWrapperClasses = cn(
-    'flex-row items-center',
+    'flex-row items-center transition-all duration-200',
     floatingLabel && variantClasses[variant],
     floatingLabel && roundedClasses[rounded],
     floatingLabel && sizeClass,
     floatingLabel && error && 'border-destructive',
     floatingLabel && success && 'border-green-500',
     floatingLabel && isFocused && !error && 'border-primary',
+    floatingLabel && isHovered && !isFocused && !error && 'border-ring',
     isDisabled && 'opacity-50',
-    floatingLabel && 'transition-colors duration-200'
+    Platform.OS === 'web' && !isDisabled && 'hover:border-ring'
   );
   
   // Animated styles
@@ -396,6 +445,10 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
   const clearButtonAnimatedStyle = useAnimatedStyle(() => ({
     opacity: clearButtonOpacity.value,
     transform: [{ scale: clearButtonScale.value }],
+  }));
+  
+  const inputContainerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: inputScale.value }],
   }));
   
   const characterCount = localValue ? localValue.length : 0;
@@ -444,8 +497,12 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
       )}
       
       {/* Input Container */}
-      <Pressable 
+      <AnimatedPressable 
         onPress={() => inputRef.current?.focus()} 
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onHoverIn={handleHoverIn}
+        onHoverOut={handleHoverOut}
         disabled={isDisabled || isLoading}
         style={Platform.OS === 'web' ? { cursor: isDisabled ? 'not-allowed' : 'text' } as any : undefined}
       >
@@ -467,6 +524,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
               } as any),
             },
             animated && floatingLabel && borderAnimatedStyle,
+            enableAnimations ? inputContainerAnimatedStyle : {},
             { pointerEvents: "box-only" }
           ]}
         >
@@ -591,7 +649,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(({
           </View>
         )}
         </AnimatedView>
-      </Pressable>
+      </AnimatedPressable>
       
       {/* Error Message */}
       {error && (

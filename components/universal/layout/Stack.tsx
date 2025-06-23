@@ -16,8 +16,8 @@ type SpacingAlias = keyof typeof SPACING_ALIASES;
 // Combined spacing type
 type SpacingValue = NumericSpacing | SpacingAlias;
 
-// Base Stack props - extends BoxProps which now includes LayoutStyleProps
-interface BaseStackProps extends BoxProps {
+// Base Stack props - extends BoxProps but overrides gap type
+interface BaseStackProps extends Omit<BoxProps, 'gap'> {
   // Gap size using Tailwind spacing scale or aliases
   gap?: SpacingValue;
   

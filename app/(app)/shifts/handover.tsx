@@ -61,6 +61,16 @@ interface HandoverNote {
   alerts: number;
 }
 
+interface CriticalAlert {
+  id: string;
+  roomNumber: string;
+  alertType: string;
+  urgencyLevel: number;
+  description: string;
+  patientName?: string;
+  createdAt: Date;
+}
+
 export default function ShiftHandoverScreen() {
   const router = useRouter();
   const theme = useTheme();
@@ -68,9 +78,11 @@ export default function ShiftHandoverScreen() {
   const { user } = useAuth();
   
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedNotes, setSelectedNotes] = useState<string[]>([]);
+  const [selectedAlerts, setSelectedAlerts] = useState<string[]>([]);
   const [handoverNotes, setHandoverNotes] = useState<HandoverNote[]>([]);
   const [additionalNotes, setAdditionalNotes] = useState('');
+  const [followUpItems, setFollowUpItems] = useState<string[]>([]);
+  const [newFollowUp, setNewFollowUp] = useState('');
   
   // Page transition
   const { animatedStyle } = useLayoutTransition({ 
@@ -79,94 +91,75 @@ export default function ShiftHandoverScreen() {
     hapticFeedback: true 
   });
   
-  // Mock current shift data
-  const currentShift = {
-    start: new Date(Date.now() - 8 * 60 * 60 * 1000),
-    end: new Date(),
-    totalPatients: 12,
-    criticalAlerts: 3,
-    resolvedAlerts: 8,
-    pendingTasks: 5,
-  };
+  // Get shift summary from API
+  const { data: shiftSummary, isLoading: isLoadingShift } = api.healthcare.getShiftSummary.useQuery();
   
-  // Mock next shift staff
-  const nextShiftStaff = [
-    { id: '1', name: 'Dr. Sarah Wilson', role: 'Doctor', avatar: null },
-    { id: '2', name: 'RN Jennifer Smith', role: 'Nurse', avatar: null },
-    { id: '3', name: 'RN Michael Chen', role: 'Nurse', avatar: null },
-  ];
+  // Get active alerts
+  const { data: activeAlerts } = api.healthcare.getActiveAlerts.useQuery({
+    hospitalId: user?.defaultHospitalId || '',
+  }, {
+    enabled: !!user?.defaultHospitalId,
+  });
   
-  // Mock handover notes
-  React.useEffect(() => {
-    setHandoverNotes([
-      {
-        patientId: '1',
-        patientName: 'John Doe',
-        room: '302A',
-        priority: 'high',
-        notes: 'Post-op day 2, monitor for bleeding. Pain management needs adjustment.',
-        medications: ['Morphine PRN', 'Antibiotics Q6H'],
-        alerts: 2,
-      },
-      {
-        patientId: '2',
-        patientName: 'Jane Smith',
-        room: '305B',
-        priority: 'medium',
-        notes: 'Stable, preparing for discharge tomorrow. Ensure discharge paperwork is ready.',
-        medications: ['Metformin', 'Lisinopril'],
-        alerts: 0,
-      },
-      {
-        patientId: '3',
-        patientName: 'Robert Johnson',
-        room: '310A',
-        priority: 'low',
-        notes: 'Routine monitoring, vitals stable throughout shift.',
-        medications: ['Aspirin', 'Atorvastatin'],
-        alerts: 0,
-      },
-    ]);
-  }, []);
+  // End shift mutation
+  const endShiftMutation = api.healthcare.endShift.useMutation({
+    onSuccess: () => {
+      showSuccessAlert('Shift handover completed successfully');
+      router.back();
+    },
+    onError: (error) => {
+      showErrorAlert(error.message || 'Failed to submit handover');
+    },
+  });
+  
+  // Get on-duty staff for next shift
+  const { data: onDutyStaff } = api.healthcare.getOnDutyStaff.useQuery({
+    hospitalId: user?.defaultHospitalId || '',
+  }, {
+    enabled: !!user?.defaultHospitalId,
+  });
+  
   
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1500);
   }, []);
   
-  const handleToggleNote = useCallback((noteId: string) => {
+  const handleToggleAlert = useCallback((alertId: string) => {
     haptic('light');
-    setSelectedNotes(prev => 
-      prev.includes(noteId) 
-        ? prev.filter(id => id !== noteId)
-        : [...prev, noteId]
+    setSelectedAlerts(prev => 
+      prev.includes(alertId) 
+        ? prev.filter(id => id !== alertId)
+        : [...prev, alertId]
     );
+  }, []);
+  
+  const handleAddFollowUp = useCallback(() => {
+    if (newFollowUp.trim()) {
+      setFollowUpItems(prev => [...prev, newFollowUp.trim()]);
+      setNewFollowUp('');
+    }
+  }, [newFollowUp]);
+  
+  const handleRemoveFollowUp = useCallback((index: number) => {
+    setFollowUpItems(prev => prev.filter((_, i) => i !== index));
   }, []);
   
   const handleSubmitHandover = useCallback(async () => {
     haptic('medium');
     
-    if (selectedNotes.length === 0) {
-      showErrorAlert('Please select at least one patient note for handover');
+    if (!additionalNotes.trim()) {
+      showErrorAlert('Please add handover notes');
       return;
     }
     
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      showSuccessAlert('Shift handover completed successfully');
-      router.back();
-    } catch (error) {
-      showErrorAlert('Failed to submit handover. Please try again.');
-    }
-  }, [selectedNotes, router]);
+    endShiftMutation.mutate({
+      handoverNotes: additionalNotes.trim(),
+      criticalAlerts: selectedAlerts,
+      followUpRequired: followUpItems,
+    });
+  }, [additionalNotes, selectedAlerts, followUpItems, endShiftMutation]);
   
-  const priorityColors = {
-    high: theme.destructive,
-    medium: theme.warning,
-    low: theme.success,
-  };
   
   return (
     <>
@@ -206,7 +199,9 @@ export default function ShiftHandoverScreen() {
                             <VStack gap={1 as any}>
                               <Heading2>Shift Summary</Heading2>
                               <Text size="sm" color="muted">
-                                {format(currentShift.start, 'h:mm a')} - {format(currentShift.end, 'h:mm a')}
+                                {shiftSummary?.shiftStart 
+                                  ? `Started ${format(new Date(shiftSummary.shiftStart), 'h:mm a')} • ${Math.floor(shiftSummary.shiftDuration / 60)}h ${shiftSummary.shiftDuration % 60}m`
+                                  : 'No active shift'}
                               </Text>
                             </VStack>
                             <Badge variant="secondary" size="default">
@@ -218,25 +213,25 @@ export default function ShiftHandoverScreen() {
                           
                           <HStack gap={3 as any} flexWrap="wrap">
                             <VStack gap={1 as any} minWidth={100}>
-                              <Text size="xs" color="muted">Total Patients</Text>
-                              <Text size="2xl" weight="bold">{currentShift.totalPatients}</Text>
+                              <Text size="xs" color="muted">Total Alerts</Text>
+                              <Text size="2xl" weight="bold">{shiftSummary?.totalAlerts || 0}</Text>
                             </VStack>
                             <VStack gap={1 as any} minWidth={100}>
-                              <Text size="xs" color="muted">Critical Alerts</Text>
+                              <Text size="xs" color="muted">Active Alerts</Text>
                               <Text size="2xl" weight="bold" color={theme.destructive}>
-                                {currentShift.criticalAlerts}
+                                {shiftSummary?.activeAlerts || 0}
                               </Text>
                             </VStack>
                             <VStack gap={1 as any} minWidth={100}>
-                              <Text size="xs" color="muted">Resolved</Text>
+                              <Text size="xs" color="muted">Handled</Text>
                               <Text size="2xl" weight="bold" color={theme.success}>
-                                {currentShift.resolvedAlerts}
+                                {shiftSummary?.alertsHandled || 0}
                               </Text>
                             </VStack>
                             <VStack gap={1 as any} minWidth={100}>
-                              <Text size="xs" color="muted">Pending Tasks</Text>
+                              <Text size="xs" color="muted">Duration</Text>
                               <Text size="2xl" weight="bold" color={theme.warning}>
-                                {currentShift.pendingTasks}
+                                {shiftSummary ? `${Math.floor(shiftSummary.shiftDuration / 60)}h` : '0h'}
                               </Text>
                             </VStack>
                           </HStack>
@@ -252,58 +247,63 @@ export default function ShiftHandoverScreen() {
                     <GlassCard>
                       <Box p={4 as any}>
                         <VStack gap={3 as any}>
-                          <Heading3>Incoming Shift Team</Heading3>
-                          <VStack gap={2 as any}>
-                            {nextShiftStaff.map((staff, index) => (
-                              <Animated.View 
-                                key={staff.id}
-                                entering={SlideInRight.delay(250 + index * 50)}
-                              >
-                                <HStack gap={3 as any} alignItems="center">
-                                  <Avatar
-                                    size="default"
-                                    name={staff.name}
-                                    source={staff.avatar ? { uri: staff.avatar } : undefined}
-                                  />
-                                  <VStack gap={1 as any} style={{ flex: 1 }}>
-                                    <Text weight="medium">{staff.name}</Text>
-                                    <Text size="sm" color="muted">{staff.role}</Text>
-                                  </VStack>
-                                  <Badge variant="outline">{staff.role}</Badge>
-                                </HStack>
-                              </Animated.View>
-                            ))}
-                          </VStack>
+                          <Heading3>Current On-Duty Staff</Heading3>
+                          {onDutyStaff && onDutyStaff.staff.length > 0 ? (
+                            <VStack gap={2 as any}>
+                              {onDutyStaff.staff.map((staff, index) => (
+                                <Animated.View 
+                                  key={staff.id}
+                                  entering={SlideInRight.delay(250 + index * 50)}
+                                >
+                                  <HStack gap={3 as any} alignItems="center">
+                                    <Avatar
+                                      size="default"
+                                      name={staff.name || staff.email}
+                                      source={staff.image ? { uri: staff.image } : undefined}
+                                    />
+                                    <VStack gap={1 as any} style={{ flex: 1 }}>
+                                      <Text weight="medium">{staff.name || 'Unknown'}</Text>
+                                      <Text size="sm" color="muted">{staff.department || staff.role}</Text>
+                                    </VStack>
+                                    <Badge variant="outline">{staff.role}</Badge>
+                                  </HStack>
+                                </Animated.View>
+                              ))}
+                            </VStack>
+                          ) : (
+                            <Text size="sm" color="muted">No other staff currently on duty</Text>
+                          )}
                         </VStack>
                       </Box>
                     </GlassCard>
                   </Animated.View>
                 </Widget>
                 
-                {/* Patient Handover Notes */}
+                {/* Active Alerts for Handover */}
                 <Widget size="full">
                   <Animated.View entering={FadeInDown.delay(300)}>
                     <VStack gap={3 as any}>
                       <HStack justifyContent="between" alignItems="center">
-                        <Heading3>Patient Handover Notes</Heading3>
+                        <Heading3>Active Alerts for Handover</Heading3>
                         <Text size="sm" color="muted">
-                          {selectedNotes.length} selected
+                          {selectedAlerts.length} selected
                         </Text>
                       </HStack>
                       
                       <VStack gap={2 as any}>
-                        {handoverNotes.map((note, index) => (
+                        {activeAlerts && activeAlerts.alerts.length > 0 ? (
+                          activeAlerts.alerts.map((alert, index) => (
                           <Animated.View 
-                            key={note.patientId}
+                            key={alert.id}
                             entering={SlideInRight.delay(350 + index * 50)}
                             layout={Layout.springify()}
                           >
                             <Pressable
-                              onPress={() => handleToggleNote(note.patientId)}
+                              onPress={() => handleToggleAlert(alert.id)}
                             >
                               <GlassCard
                                 style={[
-                                  selectedNotes.includes(note.patientId) && {
+                                  selectedAlerts.includes(alert.id) && {
                                     borderColor: theme.primary,
                                     borderWidth: 2,
                                   }
@@ -316,14 +316,14 @@ export default function ShiftHandoverScreen() {
                                         width: 24,
                                         height: 24,
                                         borderRadius: 12,
-                                        backgroundColor: selectedNotes.includes(note.patientId)
+                                        backgroundColor: selectedAlerts.includes(alert.id)
                                           ? theme.primary
                                           : theme.border,
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                       }}
                                     >
-                                      {selectedNotes.includes(note.patientId) && (
+                                      {selectedAlerts.includes(alert.id) && (
                                         <Symbol name="checkmark" size={16} color="white" />
                                       )}
                                     </Box>
@@ -331,26 +331,26 @@ export default function ShiftHandoverScreen() {
                                     <VStack gap={2 as any} style={{ flex: 1 }}>
                                       <HStack justifyContent="between" alignItems="flex-start">
                                         <VStack gap={1 as any}>
-                                          <Text weight="semibold">{note.patientName}</Text>
+                                          <Text weight="semibold">{alert.alertType.replace(/_/g, ' ').toUpperCase()}</Text>
                                           <HStack gap={2 as any} alignItems="center">
                                             <Badge variant="secondary" size="sm">
-                                              Room {note.room}
+                                              Room {alert.roomNumber}
                                             </Badge>
                                             <Badge 
                                               variant="outline" 
                                               size="sm"
                                               style={{ 
-                                                borderColor: priorityColors[note.priority],
-                                                backgroundColor: priorityColors[note.priority] + '10',
+                                                borderColor: alert.urgencyLevel >= 4 ? theme.destructive : alert.urgencyLevel >= 3 ? theme.warning : theme.success,
+                                                backgroundColor: (alert.urgencyLevel >= 4 ? theme.destructive : alert.urgencyLevel >= 3 ? theme.warning : theme.success) + '10',
                                               }}
                                             >
-                                              <Text size="xs" style={{ color: priorityColors[note.priority] }}>
-                                                {note.priority.toUpperCase()}
+                                              <Text size="xs" style={{ color: alert.urgencyLevel >= 4 ? theme.destructive : alert.urgencyLevel >= 3 ? theme.warning : theme.success }}>
+                                                Level {alert.urgencyLevel}
                                               </Text>
                                             </Badge>
-                                            {note.alerts > 0 && (
-                                              <Badge variant="error" size="sm">
-                                                {note.alerts} alerts
+                                            {alert.status === 'acknowledged' && (
+                                              <Badge variant="default" size="sm">
+                                                Acknowledged
                                               </Badge>
                                             )}
                                           </HStack>
@@ -358,30 +358,31 @@ export default function ShiftHandoverScreen() {
                                       </HStack>
                                       
                                       <Text size="sm" color="foreground">
-                                        {note.notes}
+                                        {alert.description || 'No description'}
                                       </Text>
                                       
-                                      {note.medications.length > 0 && (
-                                        <VStack gap={1 as any}>
-                                          <Text size="xs" color="muted" weight="medium">
-                                            Key Medications:
-                                          </Text>
-                                          <HStack gap={1 as any} flexWrap="wrap">
-                                            {note.medications.map((med, i) => (
-                                              <Badge key={i} variant="outline" size="sm">
-                                                {med}
-                                              </Badge>
-                                            ))}
-                                          </HStack>
-                                        </VStack>
+                                      {alert.patientName && (
+                                        <HStack gap={2 as any}>
+                                          <Text size="xs" color="muted">Patient:</Text>
+                                          <Text size="xs" weight="medium">{alert.patientName}</Text>
+                                        </HStack>
                                       )}
+                                      
+                                      <Text size="xs" color="muted">
+                                        Created {format(new Date(alert.createdAt), 'h:mm a')}
+                                      </Text>
                                     </VStack>
                                   </HStack>
                                 </Box>
                               </GlassCard>
                             </Pressable>
                           </Animated.View>
-                        ))}
+                        ))
+                        ) : (
+                          <Alert variant="warning">
+                            <Text size="sm">No active alerts to handover</Text>
+                          </Alert>
+                        )}
                       </VStack>
                     </VStack>
                   </Animated.View>
@@ -393,7 +394,7 @@ export default function ShiftHandoverScreen() {
                     <GlassCard>
                       <Box p={4 as any}>
                         <VStack gap={3 as any}>
-                          <Heading3>Additional Notes</Heading3>
+                          <Heading3>Handover Notes</Heading3>
                           <View
                             style={{
                               borderWidth: 1,
@@ -407,7 +408,7 @@ export default function ShiftHandoverScreen() {
                             <TextInput
                               value={additionalNotes}
                               onChangeText={setAdditionalNotes}
-                              placeholder="Add any additional notes for the incoming shift..."
+                              placeholder="Add important information for the incoming shift..."
                               placeholderTextColor={theme.mutedForeground}
                               multiline
                               style={{
@@ -423,22 +424,75 @@ export default function ShiftHandoverScreen() {
                   </Animated.View>
                 </Widget>
                 
+                {/* Follow-up Items */}
+                <Widget size="full">
+                  <Animated.View entering={FadeInDown.delay(450)}>
+                    <GlassCard>
+                      <Box p={4 as any}>
+                        <VStack gap={3 as any}>
+                          <Heading3>Follow-up Required</Heading3>
+                          <VStack gap={2 as any}>
+                            {followUpItems.map((item, index) => (
+                              <HStack key={index} gap={2 as any} alignItems="center">
+                                <Symbol name="checkmark.circle" size={16} color={theme.primary} />
+                                <Text size="sm" style={{ flex: 1 }}>{item}</Text>
+                                <Pressable onPress={() => handleRemoveFollowUp(index)}>
+                                  <Symbol name="xmark.circle.fill" size={20} color={theme.mutedForeground} />
+                                </Pressable>
+                              </HStack>
+                            ))}
+                          </VStack>
+                          <HStack gap={2 as any}>
+                            <TextInput
+                              value={newFollowUp}
+                              onChangeText={setNewFollowUp}
+                              placeholder="Add follow-up item..."
+                              placeholderTextColor={theme.mutedForeground}
+                              style={{
+                                flex: 1,
+                                borderWidth: 1,
+                                borderColor: theme.border,
+                                borderRadius: 8,
+                                padding: spacing[2] as any,
+                                color: theme.foreground,
+                                fontSize: 14,
+                              }}
+                              onSubmitEditing={handleAddFollowUp}
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onPress={handleAddFollowUp}
+                              disabled={!newFollowUp.trim()}
+                            >
+                              Add
+                            </Button>
+                          </HStack>
+                        </VStack>
+                      </Box>
+                    </GlassCard>
+                  </Animated.View>
+                </Widget>
+                
                 {/* Submit Button */}
                 <Widget size="full">
                   <Animated.View entering={FadeInDown.delay(500)}>
                     <VStack gap={2 as any}>
+                      {!shiftSummary && (
+                        <Alert variant="warning">
+                          <Text size="sm">No active shift found. Please start a shift first.</Text>
+                        </Alert>
+                      )}
                       <Button
                         size="default"
                         onPress={handleSubmitHandover}
-                        disabled={selectedNotes.length === 0}
-                        style={{
-                          opacity: selectedNotes.length === 0 ? 0.5 : 1,
-                        }}
+                        disabled={!additionalNotes.trim() || endShiftMutation.isPending || !shiftSummary}
+                        isLoading={endShiftMutation.isPending}
                       >
                         <HStack gap={2 as any} alignItems="center">
                           <Symbol name="checkmark.circle.fill" size={20} color="white" />
                           <Text weight="semibold" color="white">
-                            Complete Handover ({selectedNotes.length} patients)
+                            Complete Shift Handover
                           </Text>
                         </HStack>
                       </Button>

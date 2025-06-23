@@ -95,6 +95,8 @@ export const alertAcknowledgments = pgTable('alert_acknowledgments', {
 }));
 
 
+// Note: Patients table is defined in patient-schema.ts
+
 // Healthcare audit logs (extends base audit logging)
 export const healthcareAuditLogs = pgTable('healthcare_audit_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -175,6 +177,44 @@ export const alertTimelineEvents = pgTable('alert_timeline_events', {
   eventTypeCheck: check('event_type_check', sql`${table.eventType} IN ('created', 'viewed', 'acknowledged', 'escalated', 'transferred', 'resolved', 'reopened', 'commented')`),
 }));
 
+// Shift logs to track shift history
+export const shiftLogs = pgTable('shift_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').references(() => users.id).notNull(),
+  hospitalId: uuid('hospital_id').references(() => hospitals.id).notNull(),
+  shiftStart: timestamp('shift_start').notNull(),
+  shiftEnd: timestamp('shift_end'),
+  durationMinutes: integer('duration_minutes'),
+  status: varchar('status', { length: 20 }).notNull().default('active'),
+  handoverId: uuid('handover_id'),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  statusCheck: check('status_check', sql`${table.status} IN ('active', 'completed', 'cancelled')`),
+  userHospitalIdx: index('idx_shift_logs_user_hospital').on(table.userId, table.hospitalId),
+  statusIdx: index('idx_shift_logs_status').on(table.status),
+}));
+
+// Shift handovers for managing shift transitions
+export const shiftHandovers = pgTable('shift_handovers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  fromUserId: text('from_user_id').references(() => users.id).notNull(),
+  toUserId: text('to_user_id').references(() => users.id),
+  hospitalId: uuid('hospital_id').references(() => hospitals.id).notNull(),
+  shiftLogId: uuid('shift_log_id').references(() => shiftLogs.id).notNull(),
+  handoverNotes: text('handover_notes').notNull(),
+  criticalAlerts: jsonb('critical_alerts').default('[]'),
+  followUpRequired: jsonb('follow_up_required').default('[]'),
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
+  createdAt: timestamp('created_at').defaultNow(),
+  acceptedAt: timestamp('accepted_at'),
+  acknowledgmentNotes: text('acknowledgment_notes'),
+}, (table) => ({
+  statusCheck: check('status_check', sql`${table.status} IN ('pending', 'accepted', 'declined', 'expired')`),
+  hospitalStatusIdx: index('idx_handovers_hospital_status').on(table.hospitalId, table.status),
+  fromUserIdx: index('idx_handovers_from_user').on(table.fromUserId),
+  toUserIdx: index('idx_handovers_to_user').on(table.toUserId),
+}));
+
 // Export all healthcare tables
 export const healthcareTables = {
   healthcareUsers,
@@ -188,6 +228,8 @@ export const healthcareTables = {
   alertMetrics,
   patientAlerts,
   alertTimelineEvents,
+  shiftLogs,
+  shiftHandovers,
 };
 
 // Type exports for TypeScript
@@ -213,3 +255,7 @@ export type PatientAlert = typeof patientAlerts.$inferSelect;
 export type NewPatientAlert = typeof patientAlerts.$inferInsert;
 export type AlertTimelineEvent = typeof alertTimelineEvents.$inferSelect;
 export type NewAlertTimelineEvent = typeof alertTimelineEvents.$inferInsert;
+export type ShiftLog = typeof shiftLogs.$inferSelect;
+export type NewShiftLog = typeof shiftLogs.$inferInsert;
+export type ShiftHandover = typeof shiftHandovers.$inferSelect;
+export type NewShiftHandover = typeof shiftHandovers.$inferInsert;

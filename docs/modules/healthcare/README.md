@@ -1,6 +1,6 @@
 # Healthcare Module
 
-The core module for healthcare alert management, providing real-time alert creation, automatic escalation, shift management, and analytics.
+The core module for healthcare alert management, providing real-time alert creation, automatic escalation, comprehensive shift management with handover procedures, and analytics.
 
 ## Overview
 
@@ -10,6 +10,8 @@ The Healthcare module is designed to streamline communication in healthcare faci
 - 🚨 **Real-time Alerts**: Instant notification system
 - 🔄 **Automatic Escalation**: Time-based alert escalation
 - 👥 **Role-based Access**: Doctor, Nurse, Operator roles
+- ⏰ **Shift Management**: Comprehensive shift tracking with validation rules
+- 📋 **Handover System**: Mandatory handover notes when active alerts exist
 - 📊 **Analytics Dashboard**: Real-time metrics and reports
 - 🏥 **Multi-hospital Support**: Organization-wide management
 
@@ -21,6 +23,8 @@ healthcare/
 │   ├── AlertList.tsx
 │   ├── AlertCreationForm.tsx
 │   ├── ShiftStatus.tsx
+│   ├── ShiftManagement.tsx
+│   ├── HandoverForm.tsx
 │   └── MetricsOverview.tsx
 ├── hooks/              # Business logic hooks
 │   ├── useAlerts.ts
@@ -29,6 +33,7 @@ healthcare/
 ├── services/           # Backend services
 │   ├── alertService.ts
 │   ├── escalationService.ts
+│   ├── shiftService.ts
 │   └── notificationService.ts
 └── types/              # TypeScript definitions
     └── healthcare.ts
@@ -67,20 +72,36 @@ api.healthcare.resolveAlert.mutate({
 
 ### Shift Management
 
-#### Start Shift
+#### Get Shift Status
 ```ts
+const { data } = api.healthcare.getShiftStatus.useQuery();
+// Returns comprehensive status with validations
+```
+
+#### Toggle Shift
+```ts
+// Start shift
 api.healthcare.toggleOnDuty.mutate({
-  status: true,
+  isOnDuty: true,
+});
+
+// End shift with handover (required if alerts exist)
+api.healthcare.toggleOnDuty.mutate({
+  isOnDuty: false,
+  handoverNotes: 'All patients stable, room 302 requires monitoring',
 });
 ```
 
-#### End Shift with Handover
+#### Advanced Handover
 ```ts
 api.healthcare.endShift.mutate({
-  handoverNotes: 'All patients stable, see notes for room B202',
-  criticalAlerts: ['alert-456'],
+  handoverNotes: 'Detailed status of all units...',
+  criticalAlerts: ['alert-123', 'alert-456'],
+  followUpRequired: ['Check patient in 302', 'Review lab results'],
 });
 ```
+
+See [Shift Management Documentation](./shift-management.md) for complete details.
 
 ## Usage Examples
 
@@ -219,5 +240,7 @@ When adding features to the Healthcare module:
 
 For more details, see:
 - [API Documentation](../../api/healthcare-api.md)
+- [Shift Management Guide](./shift-management.md)
+- [Shift Management Quick Reference](./shift-management-quick-reference.md)
 - [Testing Guide](./testing.md)
 - [Troubleshooting](./troubleshooting.md)

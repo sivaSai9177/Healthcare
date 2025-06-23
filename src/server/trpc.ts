@@ -1,4 +1,5 @@
 import { initTRPC, TRPCError } from '@trpc/server';
+import superjson from 'superjson';
 import { getSessionWithBearer } from '@/lib/auth/get-session-with-bearer';
 import type { Session, User } from 'better-auth';
 import { logger } from '@/lib/core/debug/server-logger';
@@ -68,12 +69,15 @@ export async function createContext(req: Request): Promise<Context> {
   }
 }
 
-// Initialize tRPC
-const t = initTRPC.context<Context>().create();
+// Initialize tRPC with superjson for proper Date serialization
+const t = initTRPC.context<Context>().create({
+  transformer: superjson,
+});
 
 // Export reusable router and procedure helpers
 export const router = t.router;
 export const publicProcedure = t.procedure;
+export const transformer = superjson;
 
 // Enhanced logging middleware with structured logging
 const loggingMiddleware = t.middleware(async ({ path, type, next, ctx, input }) => {

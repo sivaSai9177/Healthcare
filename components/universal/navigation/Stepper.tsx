@@ -51,6 +51,8 @@ export interface StepperProps {
   contentStyle?: ViewStyle;
   navigationStyle?: ViewStyle;
   testID?: string;
+  showProgress?: boolean; // Add progress bar
+  progressPosition?: 'top' | 'bottom' | 'inline';
   
   // Animation props
   animated?: boolean;
@@ -83,13 +85,17 @@ const StepConnector = ({
   progress,
 }: any) => {
   const animatedConnectorStyle = useAnimatedStyle(() => {
-    const backgroundColor = interpolate(
-      progress.value,
-      [0, 1],
-      [0, 1]
-    );
+    const isCompleted = progress.value > 0;
     return {
-      backgroundColor: backgroundColor === 0 ? theme.border : (theme.success || theme.primary),
+      backgroundColor: isCompleted ? (theme.success || theme.primary) : theme.border,
+    };
+  });
+  
+  const animatedProgressStyle = useAnimatedStyle(() => {
+    return {
+      width: `${progress.value * 100}%`,
+      height: '100%',
+      backgroundColor: theme.success || theme.primary,
     };
   });
   
@@ -97,13 +103,16 @@ const StepConnector = ({
 
   const connectorStyle: ViewStyle = {
     flex: 1,
-    height: 2,
-    backgroundColor: status === 'completed' ? (theme.success || theme.primary) : theme.border,
-    marginHorizontal: spacing[2],
+    height: 3,
+    backgroundColor: theme.border,
+    marginHorizontal: spacing[1],
+    borderRadius: 1.5,
+    overflow: 'hidden',
+    alignSelf: 'center',
   };
 
   if (orientation === 'vertical') {
-    connectorStyle.width = 2;
+    connectorStyle.width = 3;
     connectorStyle.height = 40;
     connectorStyle.marginHorizontal = 0;
     connectorStyle.marginVertical = spacing[1];
@@ -114,12 +123,19 @@ const StepConnector = ({
     : View;
 
   return (
-    <ConnectorComponent 
-      style={animated && isAnimated && shouldAnimate() && connectorAnimation
-        ? animatedConnectorStyle
-        : connectorStyle
-      } 
-    />
+    <View style={connectorStyle}>
+      {animated && isAnimated && shouldAnimate() && connectorAnimation ? (
+        <AnimatedView style={animatedProgressStyle} />
+      ) : (
+        status === 'completed' && (
+          <View style={{
+            width: '100%',
+            height: '100%',
+            backgroundColor: theme.success || theme.primary,
+          }} />
+        )
+      )}
+    </View>
   );
 };
 
@@ -136,7 +152,7 @@ const StepIcon = ({
   shouldAnimate, 
   config 
 }: any) => {
-  const iconSize = variant === 'compact' ? 24 : 32;
+  const iconSize = variant === 'compact' ? 28 : 36;
   const iconColor = status === 'completed' ? (theme.success || theme.primary) 
     : status === 'active' ? theme.primary 
     : status === 'error' ? theme.destructive 
@@ -161,8 +177,8 @@ const StepIcon = ({
   const iconContainerStyle: ViewStyle = {
     width: iconSize,
     height: iconSize,
-    borderRadius: variant === 'dots' ? iconSize / 2 : 8,
-    backgroundColor: status === 'active' ? iconColor : theme.background,
+    borderRadius: variant === 'dots' ? iconSize / 2 : iconSize / 2,
+    backgroundColor: status === 'active' || status === 'completed' ? iconColor : theme.background,
     borderWidth: 2,
     borderColor: iconColor,
     alignItems: 'center',
@@ -253,6 +269,8 @@ export const Stepper = React.forwardRef<View, StepperProps>(
       contentStyle,
       navigationStyle,
       testID,
+      showProgress = false,
+      progressPosition = 'bottom',
       // Animation props
       animated = true,
       animationVariant = 'moderate',
@@ -297,6 +315,9 @@ export const Stepper = React.forwardRef<View, StepperProps>(
     // Content transition animation
     const contentOpacity = useSharedValue(1);
     const contentTranslateX = useSharedValue(0);
+    
+    // Progress animation
+    const progressAnimation = useSharedValue(0);
     
     // Update connector animations
     useEffect(() => {
@@ -435,13 +456,15 @@ export const Stepper = React.forwardRef<View, StepperProps>(
       const stepContainerStyle: ViewStyle = {
         flexDirection: orientation === 'horizontal' ? 'row' : 'column',
         alignItems: 'center',
+        justifyContent: 'center',
         flex: orientation === 'horizontal' ? 1 : undefined,
       };
 
       const labelContainerStyle: ViewStyle = {
         alignItems: orientation === 'horizontal' ? 'center' : 'flex-start',
-        marginTop: orientation === 'horizontal' ? spacing[2] : 0,
+        marginTop: orientation === 'horizontal' ? spacing[1.5] : 0,
         marginLeft: orientation === 'vertical' ? spacing[3] : 0,
+        paddingHorizontal: orientation === 'horizontal' ? spacing[1] : 0,
       };
 
       return (
@@ -452,7 +475,9 @@ export const Stepper = React.forwardRef<View, StepperProps>(
             style={{
               flexDirection: orientation === 'horizontal' ? 'column' : 'row',
               alignItems: 'center',
+              justifyContent: 'center',
               opacity: step.disabled ? 0.5 : 1,
+              cursor: Platform.OS === 'web' && canClick ? 'pointer' : 'default',
             }}
           >
             {renderStepIcon(step, stepIndex, status)}
@@ -460,10 +485,14 @@ export const Stepper = React.forwardRef<View, StepperProps>(
             {variant !== 'dots' && (
               <View style={labelContainerStyle}>
                 <Text
-                  size={variant === 'compact' ? 'sm' : 'base'}
+                  size={variant === 'compact' ? 'xs' : 'sm'}
                   weight={status === 'active' ? 'semibold' : 'medium'}
-                  colorTheme={status === 'active' ? 'foreground' : 'mutedForeground'}
-                  style={{ textAlign: orientation === 'horizontal' ? 'center' : 'left' }}
+                  colorTheme={status === 'active' ? 'foreground' : status === 'completed' ? 'foreground' : 'mutedForeground'}
+                  style={{ 
+                    textAlign: orientation === 'horizontal' ? 'center' : 'left',
+                    maxWidth: orientation === 'horizontal' ? 100 : undefined,
+                  }}
+                  numberOfLines={2}
                 >
                   {step.title}
                 </Text>
@@ -495,7 +524,69 @@ export const Stepper = React.forwardRef<View, StepperProps>(
             )}
           </Pressable>
           
-          {orientation === 'horizontal' && renderConnector(status, isLast, stepIndex)}
+          {orientation === 'horizontal' && !isLast && (
+            <View style={{ alignSelf: 'center', marginTop: variant !== 'dots' ? -20 : 0 }}>
+              {renderConnector(status, isLast, stepIndex)}
+            </View>
+          )}
+        </View>
+      );
+    };
+
+    // Update progress animation
+    const progress = ((activeStep + 1) / steps.length) * 100;
+    
+    useEffect(() => {
+      if (showProgress && animated && isAnimated && shouldAnimate()) {
+        progressAnimation.value = withSpring(progress, {
+          damping: 20,
+          stiffness: 90,
+        });
+      } else if (showProgress) {
+        progressAnimation.value = progress;
+      }
+    }, [progress, showProgress, animated, isAnimated, shouldAnimate, progressAnimation]);
+    
+    const animatedProgressBarStyle = useAnimatedStyle(() => ({
+      width: `${progressAnimation.value}%`,
+    }));
+    
+    const renderProgress = () => {
+      if (!showProgress) return null;
+      
+      return (
+        <View style={{
+          marginTop: spacing[3],
+          marginBottom: spacing[2],
+          paddingHorizontal: spacing[2],
+        }}>
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            marginBottom: spacing[1],
+          }}>
+            <Text size="xs" colorTheme="mutedForeground">
+              Step {activeStep + 1} of {steps.length}
+            </Text>
+            <Text size="xs" colorTheme="mutedForeground">
+              {Math.round(progress)}% Complete
+            </Text>
+          </View>
+          <View style={{
+            height: 4,
+            backgroundColor: theme.muted,
+            borderRadius: 2,
+            overflow: 'hidden',
+          }}>
+            <AnimatedView style={[
+              {
+                height: '100%',
+                backgroundColor: theme.primary,
+                borderRadius: 2,
+              },
+              animated && isAnimated && shouldAnimate() ? animatedProgressBarStyle : { width: `${progress}%` },
+            ]} />
+          </View>
         </View>
       );
     };
@@ -550,23 +641,31 @@ export const Stepper = React.forwardRef<View, StepperProps>(
 
     const stepperContainerStyle: ViewStyle = {
       flexDirection: orientation === 'horizontal' ? 'row' : 'column',
-      alignItems: orientation === 'horizontal' ? 'flex-start' : 'stretch',
-      paddingVertical: spacing[2],
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing[3],
+      paddingHorizontal: spacing[2],
+      width: '100%',
     };
 
     const currentStepContent = steps[activeStep]?.content;
 
     return (
       <View ref={ref} style={containerStyle} testID={testID}>
+        {showProgress && progressPosition === 'top' && renderProgress()}
         {showNavigation && navigationPosition === 'top' && renderNavigation()}
         
-        <ScrollView
-          horizontal={orientation === 'horizontal'}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={stepperContainerStyle}
-        >
-          {steps.map((step, index) => renderStep(step, index))}
-        </ScrollView>
+        <View>
+          <ScrollView
+            horizontal={orientation === 'horizontal'}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={stepperContainerStyle}
+          >
+            {steps.map((step, index) => renderStep(step, index))}
+          </ScrollView>
+          
+          {showProgress && (progressPosition === 'inline' || progressPosition === 'bottom') && renderProgress()}
+        </View>
 
         {currentStepContent && (
           <AnimatedView 

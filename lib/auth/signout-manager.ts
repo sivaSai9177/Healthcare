@@ -5,6 +5,7 @@ import { webStorage, mobileStorage } from '../core/secure-storage';
 import { log } from '../core/debug/logger';
 import { router } from 'expo-router';
 import { haptic } from '../ui/haptics';
+import { draftStorage } from '../storage/draft-storage';
 
 export interface SignOutOptions {
   reason?: 'user_initiated' | 'session_expired' | 'security' | 'error';
@@ -64,22 +65,31 @@ export class SignOutManager {
         }
       }
 
-      // 4. Clear any additional app data if requested
+      // 4. Clear form drafts
+      try {
+        await draftStorage.clearAllDrafts();
+        log.info('Form drafts cleared', 'SIGNOUT');
+      } catch (error) {
+        log.warn('Failed to clear form drafts', 'SIGNOUT', error);
+        // Don't fail the logout if draft clearing fails
+      }
+      
+      // 5. Clear any additional app data if requested
       if (clearAllData) {
         await this.clearAllAppData();
       }
 
-      // 5. Haptic feedback for better UX
+      // 6. Haptic feedback for better UX
       if (Platform.OS !== 'web') {
         haptic('success');
       }
 
-      // 6. Show success message if requested
+      // 7. Show success message if requested
       if (showAlert && Platform.OS === 'web') {
         log.info('Successfully signed out', 'COMPONENT');
       }
 
-      // 7. Add grace period to prevent immediate login issues
+      // 8. Add grace period to prevent immediate login issues
       if (Platform.OS === 'web') {
         // Store logout timestamp for grace period checking
         try {
@@ -89,7 +99,7 @@ export class SignOutManager {
         }
       }
       
-      // 8. Navigate to login or specified route
+      // 9. Navigate to login or specified route
       if (redirectTo) {
         // Slightly longer delay to ensure all cleanup is complete
         setTimeout(() => {

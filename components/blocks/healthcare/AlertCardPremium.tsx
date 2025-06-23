@@ -29,6 +29,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { log } from '@/lib/core/debug/unified-logger';
+import { useResponsive } from '@/hooks/responsive';
 
 
 interface AlertCardPremiumProps {
@@ -39,6 +40,7 @@ interface AlertCardPremiumProps {
   onResolve?: (alertId: string) => Promise<void>;
   canAcknowledge?: boolean;
   canResolve?: boolean;
+  isHighlighted?: boolean;
 }
 
 export const AlertCardPremium: React.FC<AlertCardPremiumProps> = ({
@@ -49,14 +51,18 @@ export const AlertCardPremium: React.FC<AlertCardPremiumProps> = ({
   onResolve,
   canAcknowledge = false,
   canResolve = false,
+  isHighlighted = false,
 }) => {
   const { spacing } = useSpacing();
   const theme = useTheme();
+  const { isMobile } = useResponsive();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isAcknowledging, setIsAcknowledging] = useState(false);
   const expandAnimation = useRef(new RNAnimated.Value(0)).current;
   const pulseAnimation = useSharedValue(1);
   const swipeX = useSharedValue(0);
+  const highlightAnimation = useSharedValue(0);
+  const glowAnimation = useSharedValue(0);
   
   const config = ALERT_TYPE_CONFIG[alert.alertType] || { icon: '🚨', color: 'destructive' };
   const urgencyConfig = URGENCY_LEVEL_CONFIG[alert.urgencyLevel] || { label: `Level ${alert.urgencyLevel}`, color: 'destructive' };
@@ -87,6 +93,26 @@ export const AlertCardPremium: React.FC<AlertCardPremiumProps> = ({
       );
     }
   }, [alert.urgencyLevel, alert.status, pulseAnimation]);
+  
+  // Highlight animation for newly created alerts
+  useEffect(() => {
+    if (isHighlighted) {
+      highlightAnimation.value = withTiming(1, { duration: 300 });
+      glowAnimation.value = withRepeat(
+        withTiming(1, { duration: 1500 }),
+        3,
+        true
+      );
+      
+      // Auto remove highlight after 5 seconds
+      const timeout = setTimeout(() => {
+        highlightAnimation.value = withTiming(0, { duration: 500 });
+        glowAnimation.value = 0;
+      }, 5000);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [isHighlighted, highlightAnimation, glowAnimation]);
   
   // Expand/collapse animation
   useEffect(() => {
@@ -130,8 +156,17 @@ export const AlertCardPremium: React.FC<AlertCardPremiumProps> = ({
   
   const detailsHeight = expandAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 200],
+    outputRange: [0, isMobile ? 150 : 200],
   });
+  
+  const highlightStyle = useAnimatedStyle(() => ({
+    opacity: highlightAnimation.value,
+  }));
+  
+  const glowStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + glowAnimation.value * 0.05 }],
+    opacity: 0.5 - glowAnimation.value * 0.5,
+  }));
   
   return (
     <Animated.View
@@ -141,6 +176,33 @@ export const AlertCardPremium: React.FC<AlertCardPremiumProps> = ({
     >
       <Pressable onPress={handlePress}>
         <View style={styles.cardContainer}>
+          {/* Highlight Glow Effect */}
+          {isHighlighted && (
+            <>
+              <Animated.View
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  glowStyle,
+                  {
+                    backgroundColor: '#10b981',
+                    borderRadius: 16,
+                  },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  highlightStyle,
+                  {
+                    borderRadius: 16,
+                    borderWidth: 3,
+                    borderColor: '#10b981',
+                  },
+                ]}
+              />
+            </>
+          )}
+          
           {/* Gradient Border */}
           <LinearGradient
             colors={getUrgencyColors() as [string, string, ...string[]]}
@@ -149,12 +211,12 @@ export const AlertCardPremium: React.FC<AlertCardPremiumProps> = ({
             style={styles.gradientBorder}
           >
             {/* Glass Card */}
-            <View style={[styles.glassCard, { backgroundColor: theme.card + 'ee' }]}>
+            <View style={[styles.glassCard, { backgroundColor: theme.card + 'ee', padding: isMobile ? spacing[3] : spacing[4] }]}>
               {Platform.OS === 'ios' && (
                 <BlurView intensity={20} style={StyleSheet.absoluteFillObject} />
               )}
               
-              <VStack gap={spacing[3] as any}>
+              <VStack gap={spacing[2] as any}>
                 {/* Header Section */}
                 <HStack gap={spacing[3] as any} alignItems="center">
                   {/* Animated Urgency Indicator */}
@@ -176,6 +238,21 @@ export const AlertCardPremium: React.FC<AlertCardPremiumProps> = ({
                       <Text weight="bold" size="xl">
                         Room {alert.roomNumber}
                       </Text>
+                      {isHighlighted && (
+                        <Animated.View style={highlightStyle}>
+                          <Badge
+                            variant="default"
+                            style={{
+                              backgroundColor: '#10b981',
+                              borderColor: '#10b981',
+                            }}
+                          >
+                            <Text size="xs" weight="bold" style={{ color: 'white' }}>
+                              NEW
+                            </Text>
+                          </Badge>
+                        </Animated.View>
+                      )}
                       <Badge
                         variant="outline"
                         style={{
@@ -349,7 +426,6 @@ const styles = StyleSheet.create({
   },
   glassCard: {
     borderRadius: 14,
-    padding: 16,
     overflow: 'hidden',
   },
   urgencyIndicator: {

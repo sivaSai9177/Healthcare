@@ -23,6 +23,7 @@ import { EnhancedSidebar } from '@/components/blocks/navigation/EnhancedSidebar'
 import { FloatingAlertButton } from '@/components/blocks/healthcare';
 import { useHealthcareAccess, usePermission, PERMISSIONS } from '@/hooks/usePermissions';
 import { HealthcareErrorBoundary } from '@/components/blocks/errors/HealthcareErrorBoundary';
+import { AppLoadingScreen } from '@/components/blocks/loading/AppLoadingScreen';
 
 export default function TabsLayout() {
   const theme = useTheme();
@@ -30,8 +31,9 @@ export default function TabsLayout() {
   const pathname = usePathname();
   
   // Use permission hooks for access control
-  const { canViewAlerts, canViewPatients } = useHealthcareAccess();
-  const { hasPermission: canCreateAlerts } = usePermission(PERMISSIONS.CREATE_ALERTS);
+  const { canViewAlerts, canViewPatients, canCreateAlerts: canCreateAlertsFromHook, isLoading } = useHealthcareAccess();
+  const { hasPermission: canCreateAlertsPermission } = usePermission(PERMISSIONS.CREATE_ALERTS);
+  const canCreateAlerts = canCreateAlertsFromHook || canCreateAlertsPermission;
   
   // Memoize permission values to prevent unnecessary re-renders
   const permissions = React.useMemo(() => ({
@@ -43,6 +45,11 @@ export default function TabsLayout() {
   // Desktop sidebar navigation
   const { width: screenWidth } = Dimensions.get('window');
   const isDesktop = Platform.OS === 'web' && screenWidth >= 1024;
+  
+  // Show loading screen while permissions are being determined
+  if (isLoading) {
+    return <AppLoadingScreen showProgress />;
+  }
   
   if (isDesktop) {
     const sidebarItems = [

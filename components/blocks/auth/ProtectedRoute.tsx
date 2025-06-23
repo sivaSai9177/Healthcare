@@ -1,7 +1,8 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter, usePathname } from "expo-router";
 import React, { useEffect, useRef } from "react";
-import { ActivityIndicator, View, Alert } from "react-native";
+import { Alert } from "react-native";
+import { AppLoadingScreen } from "@/components/blocks/loading/AppLoadingScreen";
 
 type UserRole = "admin" | "manager" | "user" | "guest" | "operator" | "nurse" | "doctor" | "head_doctor";
 
@@ -44,7 +45,10 @@ export function ProtectedRoute({
         const hasAccess = requiredRoles.includes(user.role);
         if (!hasAccess) {
           hasRedirectedRef.current = true;
-          Alert.alert("Access Denied", "You don't have permission to access this page");
+          // Only show alert if we're not in the initial loading phase
+          if (hasHydrated) {
+            Alert.alert("Access Denied", "You don't have permission to access this page");
+          }
           router.replace(redirectTo as any);
         }
       }
@@ -52,11 +56,7 @@ export function ProtectedRoute({
   }, [user, isLoading, hasHydrated, requiredRoles, router, pathname, redirectTo]);
 
   if (isLoading || !hasHydrated) {
-    return fallback || (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
+    return fallback || <AppLoadingScreen showProgress />;
   }
 
   // Auth protection is now handled at root level via Stack.Protected
@@ -96,7 +96,10 @@ export function useRequireRole(allowedRoles: UserRole[], redirectTo = "/(home)")
 
   useEffect(() => {
     if (!isLoading && user && !allowedRoles.includes(user.role)) {
-      Alert.alert("Access Denied", "You don't have permission to access this page");
+      // Only show alert after initial load
+      setTimeout(() => {
+        Alert.alert("Access Denied", "You don't have permission to access this page");
+      }, 100);
       router.replace(redirectTo as any);
     }
   }, [user, isLoading, router, allowedRoles, redirectTo]);

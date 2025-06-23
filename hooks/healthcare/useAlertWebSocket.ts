@@ -9,6 +9,14 @@ import type { AppRouter } from '@/src/server/routers';
 // Type for the alert event from subscription
 type AlertSubscriptionEvent = inferSubscriptionOutput<AppRouter['healthcare']['subscribeToAlerts']>;
 
+// Type guard to validate alert event structure
+function isValidAlertEvent(event: any): event is AlertSubscriptionEvent {
+  return event && 
+    typeof event === 'object' && 
+    'type' in event &&
+    typeof event.type === 'string';
+}
+
 interface UseAlertWebSocketOptions {
   hospitalId: string;
   enabled?: boolean;
@@ -39,20 +47,34 @@ export function useAlertWebSocket({
 
   // Handle incoming alert events
   const handleEvent = useCallback((event: AlertSubscriptionEvent) => {
-    log.info('Alert event received via WebSocket', 'ALERT_WS', event);
+    // Validate event exists and has correct structure
+    if (!isValidAlertEvent(event)) {
+      log.error('Received invalid event structure', 'ALERT_WS', { event });
+      return;
+    }
+
+    log.info('Alert event received via WebSocket', 'ALERT_WS', {
+      type: event.type,
+      alertId: event.alertId,
+      hospitalId: event.hospitalId,
+      hasData: !!event.data,
+      timestamp: event.timestamp,
+    });
 
     // Invalidate relevant queries to trigger refetch
     queryClient.invalidateQueries({
       queryKey: [['healthcare', 'getActiveAlerts'], { input: { hospitalId } }],
     });
 
-    // Also invalidate specific alert queries if needed
-    queryClient.invalidateQueries({
-      queryKey: [['healthcare', 'getEscalationStatus'], { input: { alertId: event.alertId } }],
-    });
+    // Also invalidate specific alert queries if alertId exists
+    if (event.alertId) {
+      queryClient.invalidateQueries({
+        queryKey: [['healthcare', 'getEscalationStatus'], { input: { alertId: event.alertId } }],
+      });
+    }
 
     // Show notifications if enabled
-    if (showNotifications) {
+    if (showNotifications && event.type) {
       switch (event.type) {
         case 'alert.created':
           showSuccessAlert('New Alert', `New alert in room ${event.data?.roomNumber || 'Unknown'}`);
@@ -128,7 +150,11 @@ export function useAlertWebSocket({
         stopPolling(); // Stop polling when WebSocket connects
       },
       onData: (event) => {
-        handleEvent(event);
+        if (event) {
+          handleEvent(event);
+        } else {
+          log.warn('Received null/undefined event from subscription', 'ALERT_WS');
+        }
       },
       onError: (error) => {
         log.error('WebSocket subscription error', 'ALERT_WS', error);

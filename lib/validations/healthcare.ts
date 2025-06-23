@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { AlertType, UrgencyLevel } from '@/types/healthcare';
 
 // Define ALERT_TYPES and URGENCY_LEVELS as arrays for validation
 export const ALERT_TYPES = ['cardiac_arrest', 'code_blue', 'fire', 'security', 'medical_emergency'] as const;
@@ -224,7 +223,7 @@ export const enhancedSchemas = {
   createAlert: z.object({
     roomNumber: zodRefinements.roomNumber,
     alertType: z.enum(ALERT_TYPES, {
-      errorMap: () => ({ message: VALIDATION_MESSAGES.notAllowed('Alert type', ALERT_TYPES) }),
+      errorMap: () => ({ message: VALIDATION_MESSAGES.notAllowed('Alert type', [...ALERT_TYPES]) }),
     }),
     urgencyLevel: z.number()
       .int()
@@ -253,6 +252,147 @@ export const enhancedSchemas = {
   }, {
     message: 'Missing required fields for selected response action',
   }),
+  
+  // Shift management schemas
+  startShift: z.object({
+    isOnDuty: z.literal(true),
+  }),
+  
+  endShift: z.object({
+    isOnDuty: z.literal(false),
+    handoverNotes: z.string()
+      .min(10, 'Handover notes must be at least 10 characters')
+      .max(500, 'Handover notes must be at most 500 characters')
+      .optional(),
+  }),
+  
+  shiftHandover: z.object({
+    notes: z.string()
+      .min(10, 'Handover notes must be at least 10 characters')
+      .max(500, 'Handover notes must be at most 500 characters')
+      .refine((val) => val.trim().length >= 10, {
+        message: 'Please provide more detailed handover notes',
+      }),
+    activeAlerts: z.array(z.object({
+      alertId: z.string().uuid(),
+      status: z.string(),
+      notes: z.string().optional(),
+    })).optional(),
+    handoverTo: z.string().uuid().optional(),
+  }),
+};
+
+// Patient validation schemas
+export const patientSchemas = {
+  createPatient: z.object({
+    hospitalId: z.string().uuid('Invalid hospital ID'),
+    name: z.string()
+      .min(2, VALIDATION_MESSAGES.minLength('Name', 2))
+      .max(255, VALIDATION_MESSAGES.maxLength('Name', 255))
+      .refine((val) => val.trim().length >= 2, {
+        message: 'Name must contain at least 2 characters',
+      }),
+    dateOfBirth: z.date({
+      required_error: VALIDATION_MESSAGES.required('Date of birth'),
+    }).refine((date) => {
+      const age = new Date().getFullYear() - date.getFullYear();
+      return age >= 0 && age <= 150;
+    }, {
+      message: 'Invalid date of birth',
+    }),
+    gender: z.enum(['male', 'female', 'other'], {
+      errorMap: () => ({ message: 'Gender must be male, female, or other' }),
+    }),
+    department: zodRefinements.department,
+    address: z.string()
+      .min(10, VALIDATION_MESSAGES.minLength('Address', 10))
+      .max(500, VALIDATION_MESSAGES.maxLength('Address', 500)),
+    email: z.string().email('Invalid email address').optional().or(z.literal('')),
+    diagnosis: z.string()
+      .max(500, VALIDATION_MESSAGES.maxLength('Diagnosis', 500))
+      .optional(),
+    condition: z.string()
+      .max(100, VALIDATION_MESSAGES.maxLength('Condition', 100))
+      .optional(),
+    emergencyContact: z.object({
+      name: z.string().min(2, VALIDATION_MESSAGES.minLength('Contact name', 2)),
+      phoneNumber: z.string().regex(/^[\d\s\-\+\(\)]+$/, 'Invalid phone number'),
+      relationship: z.string().optional(),
+    }).optional(),
+  }),
+  
+  updatePatient: z.object({
+    roomNumber: zodRefinements.roomNumber.optional(),
+    department: zodRefinements.department.optional(),
+    condition: z.string()
+      .max(100, VALIDATION_MESSAGES.maxLength('Condition', 100))
+      .optional(),
+    assignedNurseId: z.string().uuid('Invalid nurse ID').optional(),
+    medicalNotes: z.string()
+      .max(2000, VALIDATION_MESSAGES.maxLength('Medical notes', 2000))
+      .optional(),
+    diagnosis: z.string()
+      .max(500, VALIDATION_MESSAGES.maxLength('Diagnosis', 500))
+      .optional(),
+  }),
+  
+  dischargePatient: z.object({
+    patientId: z.string().uuid('Invalid patient ID'),
+    dischargeDate: z.date({
+      required_error: VALIDATION_MESSAGES.required('Discharge date'),
+    }),
+    dischargeSummary: z.string()
+      .min(50, VALIDATION_MESSAGES.minLength('Discharge summary', 50))
+      .max(2000, VALIDATION_MESSAGES.maxLength('Discharge summary', 2000)),
+    followUpInstructions: z.string()
+      .max(1000, VALIDATION_MESSAGES.maxLength('Follow-up instructions', 1000))
+      .optional(),
+  }),
+  
+  // Search/filter validation
+  patientFilters: z.object({
+    hospitalId: z.string().uuid(),
+    department: z.string().optional(),
+    status: z.enum(['admitted', 'discharged', 'all']).optional(),
+    searchQuery: z.string().optional(),
+    limit: z.number().int().positive().max(100).optional().default(20),
+    offset: z.number().int().min(0).optional().default(0),
+  }),
+};
+
+// Patient validation helpers
+export const patientValidation = {
+  isValidMedicalRecordNumber: (mrn: string): boolean => {
+    // Format: HOSP-YYYY-NNNNN (e.g., MED-2024-00123)
+    return /^[A-Z]{3,4}-\d{4}-\d{5}$/.test(mrn);
+  },
+  
+  generateMedicalRecordNumber: (hospitalCode: string): string => {
+    const year = new Date().getFullYear();
+    const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+    return `${hospitalCode.toUpperCase().slice(0, 3)}-${year}-${random}`;
+  },
+  
+  calculateAge: (dateOfBirth: Date | string): number => {
+    const dob = new Date(dateOfBirth);
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+    
+    return age;
+  },
+  
+  formatPatientName: (name: string): string => {
+    return name
+      .trim()
+      .split(' ')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
+  },
 };
 
 // Create form validation factory

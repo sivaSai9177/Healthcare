@@ -9,7 +9,6 @@ import {
   Button,
   Box,
   Badge,
-  Avatar,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -18,15 +17,13 @@ import {
   DialogFooter,
   TextArea,
   Alert,
-  StatusGlassCard,
 } from '@/components/universal';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useTheme } from '@/lib/theme/provider';
 import { useShadow } from '@/hooks/useShadow';
 import { haptic } from '@/lib/ui/haptics';
 import { api } from '@/lib/api/trpc';
-import { log } from '@/lib/core/debug/logger';
-import { useActiveOrganization } from '@/lib/stores/organization-store';
+import { logger } from '@/lib/core/debug/unified-logger';
 import { useHospitalContext } from '@/hooks/healthcare';
 // ProfileIncompletePrompt removed - hospital selection is now optional
 import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring, interpolate } from 'react-native-reanimated';
@@ -46,7 +43,6 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
   const [showHandoverSheet, setShowHandoverSheet] = useState(false);
   const [handoverNotes, setHandoverNotes] = useState('');
   const [isToggling, setIsToggling] = useState(false);
-  const { organization } = useActiveOrganization();
   const hospitalContext = useHospitalContext();
   
   // Animation values - always create them
@@ -57,13 +53,13 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
   
   // Log component mount
   useEffect(() => {
-    log.info('ShiftStatus component mounted', 'SHIFT', {
+    logger.healthcare.info('ShiftStatus component mounted', {
       hospitalId: hospitalContext.hospitalId,
       hasValidHospital: hospitalContext.hasValidHospital,
       error: hospitalContext.error
     });
     return () => {
-      log.info('ShiftStatus component unmounted', 'SHIFT');
+      logger.healthcare.info('ShiftStatus component unmounted');
     };
   }, [hospitalContext]);
   
@@ -110,13 +106,13 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
   // Log any API errors
   useEffect(() => {
     if (statusError) {
-      log.error('Failed to fetch duty status', 'SHIFT', { error: statusError.message });
+      logger.healthcare.error('Failed to fetch duty status', { error: statusError.message });
     }
     if (staffError) {
-      log.error('Failed to fetch on-duty staff', 'SHIFT', { error: staffError.message });
+      logger.healthcare.error('Failed to fetch on-duty staff', { error: staffError.message });
     }
     if (alertsError) {
-      log.error('Failed to fetch active alerts', 'SHIFT', { error: alertsError.message });
+      logger.healthcare.error('Failed to fetch active alerts', { error: alertsError.message });
     }
   }, [statusError, staffError, alertsError]);
   
@@ -124,16 +120,16 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
   const toggleOnDutyMutation = api.healthcare.toggleOnDuty.useMutation({
     onMutate: (variables) => {
       if (variables && typeof variables === 'object') {
-        log.info('Starting shift toggle', 'SHIFT', { 
+        logger.healthcare.info('Starting shift toggle', { 
           isOnDuty: 'isOnDuty' in variables ? variables.isOnDuty : undefined,
           hasHandoverNotes: 'handoverNotes' in variables ? !!variables.handoverNotes : false
         });
       }
     },
     onSuccess: (data) => {
-      log.info('Shift status toggled successfully', 'SHIFT', { 
+      logger.healthcare.info('Shift status toggled successfully', { 
         isOnDuty: data.isOnDuty,
-        shiftDuration: data.shiftDuration,
+        shiftDuration: 'shiftDuration' in data ? data.shiftDuration : undefined,
         success: data.success
       });
       refetchStatus();
@@ -143,17 +139,17 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
       
       // Show feedback
       if (data.isOnDuty) {
-        log.info('Shift started', 'SHIFT', { timestamp: new Date().toISOString() });
+        logger.healthcare.info('Shift started', { timestamp: new Date().toISOString() });
         haptic('medium');
         
         // Navigate to dashboard on mobile after starting shift
         if (Platform.OS !== 'web') {
           setTimeout(() => {
-            router.push('/dashboard' as any);
+            router.push('/(tabs)/home' as any);
           }, 500);
         }
-      } else if (data.shiftDuration) {
-        log.info('Shift ended', 'SHIFT', { 
+      } else if ('shiftDuration' in data && data.shiftDuration) {
+        logger.healthcare.info('Shift ended', { 
           durationMinutes: data.shiftDuration,
           durationFormatted: `${Math.floor(data.shiftDuration / 60)}h ${data.shiftDuration % 60}m`
         });
@@ -162,13 +158,13 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
         // Navigate to dashboard on mobile after ending shift
         if (Platform.OS !== 'web') {
           setTimeout(() => {
-            router.push('/dashboard' as any);
+            router.push('/(tabs)/home' as any);
           }, 500);
         }
       }
     },
     onError: (error) => {
-      log.error('Failed to toggle shift', 'SHIFT', { 
+      logger.healthcare.error('Failed to toggle shift', { 
         error: error.message,
         code: error.data?.code 
       });
@@ -182,7 +178,7 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
       const duration = calculateShiftDuration(onDutyStatus);
       setShiftDuration(duration);
       if (duration) {
-        log.debug('Shift duration updated', 'SHIFT', { 
+        logger.healthcare.debug('Shift duration updated', { 
           hours: duration.hours,
           minutes: duration.minutes,
           formatted: duration.formatted 
@@ -196,7 +192,7 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
   // Log query data changes
   useEffect(() => {
     if (onDutyStatus !== undefined) {
-      log.info('Duty status loaded', 'SHIFT', {
+      logger.healthcare.info('Duty status loaded', {
         isOnDuty: onDutyStatus?.isOnDuty,
         shiftStartTime: onDutyStatus?.shiftStartTime,
         shiftEndTime: onDutyStatus?.shiftEndTime
@@ -206,7 +202,7 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
   
   useEffect(() => {
     if (onDutyStaff) {
-      log.info('On-duty staff loaded', 'SHIFT', {
+      logger.healthcare.info('On-duty staff loaded', {
         total: onDutyStaff.total,
         staffCount: onDutyStaff.staff.length
       });
@@ -228,53 +224,34 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
       transform: [{ scale: pulseScale.value }],
     };
   });
+
+  const pulseAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ scale: pulseScale.value }],
+      opacity: interpolate(pulseScale.value, [1, 1.05], [0.5, 0]),
+    };
+  });
   
   // Return null if no hospital is selected - shift status is only available with a hospital
   if (!hospitalContext.hospitalId) {
-    log.debug('ShiftStatus: No hospital selected', 'SHIFT');
+    logger.healthcare.debug('ShiftStatus: No hospital selected');
     return null;
   }
   
   // Return null if no valid hospital context
   if (!hospitalContext.hasValidHospital || !hospitalContext.hospitalId) {
-    log.warn('ShiftStatus: No valid hospital context', 'SHIFT', {
+    logger.healthcare.warn('ShiftStatus: No valid hospital context', {
       error: hospitalContext.error,
       errorMessage: hospitalContext.errorMessage
     });
     return null;
   }
   
-  const handleToggleShift = () => {
-    haptic('light');
-    
-    log.info('Shift toggle requested', 'SHIFT', {
-      currentStatus: onDutyStatus?.isOnDuty,
-      activeAlerts: activeAlerts?.alerts?.length || 0,
-      shiftStartTime: onDutyStatus?.shiftStartTime
-    });
-    
-    // If ending shift and there are active alerts, show confirmation modal
-    if (onDutyStatus?.isOnDuty && activeAlerts?.alerts && Array.isArray(activeAlerts.alerts) && activeAlerts.alerts.length > 0) {
-      log.info('Showing handover confirmation dialog', 'SHIFT', { 
-        reason: 'Active alerts present',
-        alertCount: activeAlerts.alerts.length 
-      });
-      setShowConfirmModal(true);
-    } else {
-      // Direct toggle
-      log.info('Direct shift toggle', 'SHIFT', { 
-        newStatus: !onDutyStatus?.isOnDuty 
-      });
-      setIsToggling(true);
-      toggleOnDutyMutation.mutate({
-        isOnDuty: !onDutyStatus?.isOnDuty,
-      });
-      setIsToggling(false);
-    }
-  };
+  // Removed handleToggleShift - using shift-management modal instead
   
   const handleConfirmEndShift = () => {
-    log.info('Confirming end shift with handover', 'SHIFT', {
+    logger.healthcare.info('Confirming end shift with handover', {
       hasNotes: !!handoverNotes.trim(),
       notesLength: handoverNotes.trim().length
     });
@@ -286,8 +263,6 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
     });
     setIsToggling(false);
   };
-  
-  const isMobile = Platform.OS !== 'web';
   
   return (
     <>
@@ -321,10 +296,7 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
                         borderRadius: 6,
                         backgroundColor: theme.success,
                       },
-                      useAnimatedStyle(() => ({
-                        transform: [{ scale: pulseScale.value }],
-                        opacity: interpolate(pulseScale.value, [1, 1.05], [0.5, 0]),
-                      })),
+                      pulseAnimatedStyle,
                     ]}
                   />
                 )}
@@ -343,10 +315,12 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
             </HStack>
             
             <Button
-              onPress={handleToggleShift}
+              onPress={() => {
+                haptic('light');
+                router.push('/(modals)/shift-management' as any);
+              }}
               variant={onDutyStatus?.isOnDuty ? 'outline' : 'default'}
               size="sm"
-              isLoading={isToggling || toggleOnDutyMutation.isPending}
             >
               {onDutyStatus?.isOnDuty ? 'End Shift' : 'Start Shift'}
             </Button>
@@ -364,7 +338,7 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
                       variant={activeAlerts.alerts.length > 0 ? 'error' : 'outline'}
                       size="xs"
                     >
-                      {activeAlerts.alerts.length}
+                      <Text>{activeAlerts.alerts.length}</Text>
                     </Badge>
                   </HStack>
                 )}
@@ -374,7 +348,7 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
                   <HStack gap={1.5 as any} alignItems="center">
                     <Text size="xs" colorTheme="mutedForeground">Staff:</Text>
                     <Badge variant="outline" size="xs">
-                      {onDutyStaff.total}
+                      <Text>{onDutyStaff.total}</Text>
                     </Badge>
                   </HStack>
                 )}
@@ -383,7 +357,7 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
               {/* Handover Button */}
               {onDutyStatus?.isOnDuty && (
                 <Pressable
-                  onPress={() => router.push('/shift-handover' as any)}
+                  onPress={() => router.push('/(app)/shifts/handover' as any)}
                   style={{
                     paddingHorizontal: spacing[2],
                     paddingVertical: spacing[1],
@@ -571,7 +545,7 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
                         size="sm"
                         onPress={() => {
                           setShowHandoverSheet(false);
-                          router.push('/dashboard' as any);
+                          router.push('/(tabs)/home' as any);
                         }}
                       >
                         <Text size="sm">Back to Dashboard</Text>

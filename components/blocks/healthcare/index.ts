@@ -42,6 +42,7 @@ export { ActivityLogsBlock } from './ActivityLogsBlock';
 
 // Shift Management
 export { ShiftStatus } from './ShiftStatus';
+export { ShiftManagement } from './ShiftManagement';
 
 // Debug Components
 export { DebugUserInfo } from './DebugUserInfo';
@@ -55,6 +56,9 @@ export { HealthcareProvider, withHealthcareProvider } from './HealthcareProvider
 
 // Loading States
 export { GlassLoadingScreen } from './GlassLoadingScreen';
+
+// Success Animation
+export { SuccessAnimation } from './SuccessAnimation';
 
 // Type exports for better type safety
 export type { AlertSummaryBlockProps } from './AlertSummary';

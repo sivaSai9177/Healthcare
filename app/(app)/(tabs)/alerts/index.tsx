@@ -1,25 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   View, 
   ScrollView, 
   RefreshControl, 
-  Dimensions,
-  ActivityIndicator,
 } from 'react-native';
+import { Skeleton, SkeletonCard } from '@/components/universal/feedback/Skeleton';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/hooks/useAuth';
-import { useRouter, Redirect } from 'expo-router';
+import { useRouter, Redirect, useLocalSearchParams } from 'expo-router';
 import {
   VStack,
   HStack,
   Text,
-  Container,
   Button,
-  Box,
   Symbol,
 } from '@/components/universal';
 import { useTheme } from '@/lib/theme/provider';
-import { useResponsive } from '@/hooks/responsive';
 import { log } from '@/lib/core/debug/unified-logger';
 import { useAlertWebSocket, useHospitalContext } from '@/hooks/healthcare';
 import { useActiveAlerts, useAcknowledgeAlert, useResolveAlert } from '@/hooks/healthcare/useHealthcareApi';
@@ -49,11 +45,15 @@ function AlertsScreenContent() {
   const router = useRouter();
   const theme = useTheme();
   const { spacing } = useSpacing();
+  const searchParams = useLocalSearchParams();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [urgencyFilter, setUrgencyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('active');
+  const [highlightedAlertId, setHighlightedAlertId] = useState<string | null>(null);
   const scrollY = useSharedValue(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const alertRefs = useRef<{ [key: string]: View | null }>({});
   
   // Page transition animation
   const { animatedStyle } = useLayoutTransition({ 
@@ -93,9 +93,15 @@ function AlertsScreenContent() {
   useAlertWebSocket({
     hospitalId,
     showNotifications: true,
-    onAlertCreated: () => {
-      log.info('New alert created - refreshing list', 'ALERTS');
+    onAlertCreated: (event) => {
+      log.info('New alert created - refreshing list', 'ALERTS', event);
       refetch();
+      // Highlight the new alert
+      if (event?.alertId) {
+        setHighlightedAlertId(event.alertId);
+        // Remove highlight after 5 seconds
+        setTimeout(() => setHighlightedAlertId(null), 5000);
+      }
     },
     onAlertAcknowledged: () => {
       log.info('Alert acknowledged - refreshing list', 'ALERTS');
@@ -122,6 +128,28 @@ function AlertsScreenContent() {
       defaultHospitalId: user?.defaultHospitalId,
     });
   }, [user, hospitalId, hospitalContext, canViewAlerts]);
+  
+  // Handle navigation from create alert with highlight
+  useEffect(() => {
+    if (searchParams.newAlertId && typeof searchParams.newAlertId === 'string') {
+      setHighlightedAlertId(searchParams.newAlertId);
+      // Scroll to the alert after a brief delay
+      setTimeout(() => {
+        const alertRef = alertRefs.current[searchParams.newAlertId as string];
+        if (alertRef && scrollViewRef.current) {
+          alertRef.measureLayout(
+            scrollViewRef.current as any,
+            (x, y) => {
+              scrollViewRef.current?.scrollTo({ y: y - 100, animated: true });
+            },
+            () => {}
+          );
+        }
+      }, 500);
+      // Remove highlight after 5 seconds
+      setTimeout(() => setHighlightedAlertId(null), 5000);
+    }
+  }, [searchParams.newAlertId]);
   
   // Callbacks - must be defined before conditional returns
   const handleRefresh = useCallback(async () => {
@@ -223,10 +251,35 @@ function AlertsScreenContent() {
   if (isLoading && !data) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <VStack style={{ flex: 1 }} justifyContent="center" alignItems="center">
-          <ActivityIndicator size="large" color={theme.primary} />
-          <Text mt={4} colorTheme="mutedForeground">Loading alerts...</Text>
-        </VStack>
+        <ScrollView 
+          contentContainerStyle={{ flexGrow: 1 }}
+          style={{ backgroundColor: theme.background }}
+        >
+          <VStack p={spacing[4] as any} gap={spacing[4] as any}>
+            {/* Header Skeleton */}
+            <VStack gap={spacing[2] as any}>
+              <Skeleton className="h-10 w-32" />
+              <Skeleton className="h-4 w-48" />
+            </VStack>
+            
+            {/* Stats Cards Skeleton */}
+            <HStack gap={spacing[2] as any}>
+              {[1, 2, 3].map((i) => (
+                <SkeletonCard key={i} className="flex-1 h-24" />
+              ))}
+            </HStack>
+            
+            {/* Filter Skeleton */}
+            <Skeleton className="h-12 w-full rounded-lg" />
+            
+            {/* Alert Cards Skeleton */}
+            <VStack gap={spacing[3] as any}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <SkeletonCard key={i} className="h-32 w-full" />
+              ))}
+            </VStack>
+          </VStack>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -303,6 +356,7 @@ function AlertsScreenContent() {
       </Animated.View>
       
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={{ 
           padding: spacing[4] as any, 
           paddingBottom: spacing[8] as any 
@@ -334,16 +388,25 @@ function AlertsScreenContent() {
           {/* Alert Cards */}
           <VStack gap={spacing[3] as any}>
             {filteredAlerts.map((alert, index) => (
-              <AlertCardPremium
+              <View
                 key={alert.id}
-                alert={alert}
-                index={index}
-                onPress={() => router.push(`/(app)/(tabs)/alerts/${alert.id}`)}
-                onAcknowledge={canAcknowledgeAlerts ? handleAcknowledge : undefined}
-                onResolve={canResolveAlerts ? handleResolve : undefined}
-                canAcknowledge={canAcknowledgeAlerts}
-                canResolve={canResolveAlerts}
-              />
+                ref={ref => {
+                  if (ref) {
+                    alertRefs.current[alert.id] = ref;
+                  }
+                }}
+              >
+                <AlertCardPremium
+                  alert={alert}
+                  index={index}
+                  onPress={() => router.push(`/(app)/(tabs)/alerts/${alert.id}`)}
+                  onAcknowledge={canAcknowledgeAlerts ? handleAcknowledge : undefined}
+                  onResolve={canResolveAlerts ? handleResolve : undefined}
+                  canAcknowledge={canAcknowledgeAlerts}
+                  canResolve={canResolveAlerts}
+                  isHighlighted={highlightedAlertId === alert.id}
+                />
+              </View>
             ))}
             
             {filteredAlerts.length === 0 && (

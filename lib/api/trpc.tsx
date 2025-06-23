@@ -1,9 +1,10 @@
 import { createTRPCReact } from '@trpc/react-query';
-import { httpBatchLink, TRPCClientError, wsLink, splitLink, createWSClient, TRPCLink } from '@trpc/client';
+import { httpBatchLink, wsLink, splitLink, createWSClient, TRPCLink } from '@trpc/client';
 import { observable } from '@trpc/server/observable';
-import { QueryClient, QueryClientProvider, HydrationBoundary, dehydrate } from '@tanstack/react-query';
-import React, { useState, useMemo } from 'react';
+import { QueryClient, QueryClientProvider, HydrationBoundary } from '@tanstack/react-query';
+import React, { useState } from 'react';
 import { Platform } from 'react-native';
+import superjson from 'superjson';
 import type { AppRouter } from '@/src/server/routers';
 import { getApiUrl } from '@/lib/core/config/unified-env';
 import { getWebSocketConfig } from '@/lib/core/config/websocket-config';
@@ -111,13 +112,7 @@ export function TRPCProvider({ children, dehydratedState }: TRPCProviderProps) {
       // Create HTTP link configuration
       const httpLink = httpBatchLink({
         url: trpcUrl,
-        // Include credentials for cookie-based auth on web
-        fetch: (url, options) => {
-          return fetch(url, {
-            ...options,
-            credentials: Platform.OS === 'web' ? 'include' : 'omit',
-          });
-        },
+        transformer: superjson,
         async headers() {
           const baseHeaders = {
             'Content-Type': 'application/json',
@@ -311,6 +306,7 @@ export function TRPCProvider({ children, dehydratedState }: TRPCProviderProps) {
           // Create WebSocket link for subscriptions
           const websocketLink = wsLink({
             client: wsClient,
+            transformer: superjson,
           });
 
           // Custom logging link for healthcare operations

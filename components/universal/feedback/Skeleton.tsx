@@ -153,10 +153,12 @@ export function SkeletonText({
 
 export function SkeletonCard({
   style,
+  className,
   showAvatar = true,
   showActions = false,
 }: {
   style?: ViewStyle;
+  className?: string;
   showAvatar?: boolean;
   showActions?: boolean;
 }) {
@@ -164,6 +166,7 @@ export function SkeletonCard({
 
   return (
     <View
+      className={cn("bg-white p-4 rounded-lg shadow-sm", className)}
       style={[
         {
           padding: spacing.scale(4),
