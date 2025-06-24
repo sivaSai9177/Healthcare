@@ -11,6 +11,8 @@ import { Stack, useRouter } from 'expo-router';
 import Animated, {
   FadeInDown,
   SlideInRight,
+  FadeIn,
+  withTiming,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -27,6 +29,7 @@ import {
   Separator,
   Checkbox,
 } from '@/components/universal';
+import { Skeleton, SkeletonCard } from '@/components/universal/feedback/Skeleton';
 import { useTheme } from '@/lib/theme/provider';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useAuth } from '@/hooks/useAuth';
@@ -48,6 +51,11 @@ export default function AlertEscalationQueueScreen() {
   const theme = useTheme();
   const { spacing } = useSpacing();
   const { user } = useAuth();
+  
+  // Debug logging
+  log.info('EscalationQueueScreen rendering', 'ESCALATION_QUEUE', {
+    user: user ? { id: user.id, role: user.role } : null,
+  });
   
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAlerts, setSelectedAlerts] = useState<string[]>([]);
@@ -100,6 +108,15 @@ export default function AlertEscalationQueueScreen() {
       },
     }
   );
+  
+  // Debug logging for data state
+  log.info('Escalation queue data state', 'ESCALATION_QUEUE', {
+    dataExists: !!data,
+    alertsCount: data?.alerts?.length || 0,
+    isLoading,
+    error: error?.message || null,
+    hospitalId,
+  });
   
   // Filter alerts by urgency
   const filteredAlerts = useMemo(() => {
@@ -195,10 +212,53 @@ export default function AlertEscalationQueueScreen() {
   if (isLoading && !data) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <VStack style={{ flex: 1 }} justifyContent="center" alignItems="center">
-          <ActivityIndicator size="large" color={theme.primary} />
-          <Text mt={4} colorTheme="mutedForeground">Loading escalation queue...</Text>
-        </VStack>
+        <Animated.View 
+          entering={FadeIn.duration(300)}
+          style={{ flex: 1 }}
+        >
+          {/* Header Skeleton */}
+          <LinearGradient
+            colors={[theme.destructive + '20', theme.background]}
+            style={{ borderRadius: 16, margin: spacing[4] as any, padding: spacing[4] as any }}
+          >
+            <VStack gap={spacing[3] as any}>
+              <HStack gap={spacing[2] as any} alignItems="center">
+                <Skeleton height={32} width={32} radius={8} />
+                <Skeleton height={28} width={180} />
+              </HStack>
+              <Skeleton height={16} width={250} />
+              <Separator />
+              <HStack gap={spacing[3] as any}>
+                {[1, 2, 3, 4].map((i) => (
+                  <VStack key={i} gap={spacing[1] as any}>
+                    <Skeleton height={12} width={60} />
+                    <Skeleton height={32} width={40} />
+                  </VStack>
+                ))}
+              </HStack>
+            </VStack>
+          </LinearGradient>
+          
+          {/* Alert Skeletons */}
+          <ScrollView style={{ padding: spacing[4] as any }}>
+            <VStack gap={spacing[4] as any}>
+              {[1, 2, 3].map((tier) => (
+                <VStack key={tier} gap={spacing[2] as any}>
+                  <HStack gap={spacing[2] as any} alignItems="center">
+                    <Skeleton height={24} width={4} />
+                    <Skeleton height={20} width={120} />
+                    <Skeleton height={20} width={60} radius={12} />
+                  </HStack>
+                  <VStack gap={spacing[2] as any}>
+                    {[1, 2].map((alert) => (
+                      <SkeletonCard key={alert} height={100} />
+                    ))}
+                  </VStack>
+                </VStack>
+              ))}
+            </VStack>
+          </ScrollView>
+        </Animated.View>
       </SafeAreaView>
     );
   }
@@ -228,6 +288,33 @@ export default function AlertEscalationQueueScreen() {
     4: '#dc2626',
   };
   
+  // Error handling
+  if (error) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+        <View style={{ padding: 20 }}>
+          <Text size="xl" weight="bold">Error Loading Escalation Queue</Text>
+          <Text colorTheme="destructive">{error.message}</Text>
+          <Button onPress={() => refetch()} style={{ marginTop: 20 }}>
+            Retry
+          </Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  
+  // Loading state
+  if (isLoading && !data) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={theme.primary} />
+          <Text style={{ marginTop: 10 }}>Loading escalation queue...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  
   return (
     <>
       <Stack.Screen
@@ -239,7 +326,15 @@ export default function AlertEscalationQueueScreen() {
         }}
       />
       
-      <AnimatedPageWrapper entering={pageEnteringAnimations.slideInUp} style={animatedStyle}>
+      <Animated.View
+        entering={FadeIn.duration(300)}
+        style={[
+          { flex: 1 },
+          {
+            opacity: withTiming(1, { duration: 300 }),
+          },
+        ]}
+      >
         <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
           <ScrollView
             contentContainerStyle={{ flexGrow: 1 , paddingBottom: 20 }}
@@ -570,7 +665,7 @@ export default function AlertEscalationQueueScreen() {
             </DashboardGrid>
           </ScrollView>
         </SafeAreaView>
-      </AnimatedPageWrapper>
+      </Animated.View>
     </>
   );
 }

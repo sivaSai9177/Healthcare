@@ -2,7 +2,6 @@ import { QueryClient, dehydrate } from '@tanstack/react-query';
 import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import type { AppRouter } from '@/src/server/routers';
 import { getApiUrl } from '@/lib/core/config/unified-env';
-import { Platform } from 'react-native';
 
 // Create a server-side tRPC client for SSR
 export const createServerClient = (cookie?: string) => {
@@ -65,7 +64,7 @@ export const prefetchHelpers = {
     
     await queryClient.prefetchQuery({
       queryKey: ['auth', 'getSession'],
-      queryFn: () => client.auth.getSession(),
+      queryFn: () => client.auth.getSession.query(),
     });
     
     return dehydrate(queryClient);
@@ -76,8 +75,8 @@ export const prefetchHelpers = {
     const queryClient = createServerQueryClient();
     
     await queryClient.prefetchQuery({
-      queryKey: ['organization', 'get', { id: organizationId }],
-      queryFn: () => client.organization.get({ id: organizationId }),
+      queryKey: ['organization', 'get', { organizationId }],
+      queryFn: () => client.organization.get.query({ organizationId }),
     });
     
     return dehydrate(queryClient);
@@ -91,11 +90,11 @@ export const prefetchHelpers = {
     await Promise.all([
       queryClient.prefetchQuery({
         queryKey: ['healthcare', 'getActiveAlerts', { hospitalId }],
-        queryFn: () => client.healthcare.getActiveAlerts({ hospitalId }),
+        queryFn: () => client.healthcare.getActiveAlerts.query({ hospitalId }),
       }),
       queryClient.prefetchQuery({
-        queryKey: ['healthcare', 'getMetrics', { hospitalId }],
-        queryFn: () => client.healthcare.getMetrics({ hospitalId }),
+        queryKey: ['healthcare', 'getMetrics'],
+        queryFn: () => client.healthcare.getMetrics.query(),
       }),
     ]);
     

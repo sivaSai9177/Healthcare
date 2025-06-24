@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { api } from './trpc';
-import { usePathname, useGlobalSearchParams, useRouter } from 'expo-router';
-import { dehydrate, QueryClient } from '@tanstack/react-query';
+import { usePathname, useGlobalSearchParams } from 'expo-router';
 import { logger } from '@/lib/core/debug/unified-logger';
 import { prefetchHelpers } from './ssr-utils';
 
@@ -57,7 +56,7 @@ export function useSSRPrefetch(
     return () => {
       cancelled = true;
     };
-  }, [enabled, ...dependencies]);
+  }, [enabled, prefetchFn, ...dependencies]);
 
   return { isPrefetching, prefetchError };
 }
@@ -89,7 +88,7 @@ export function useClientPrefetch() {
         // Prefetch user and organization data
         utils.auth.getSession.prefetch();
         if (params.organizationId && typeof params.organizationId === 'string') {
-          utils.organization.get.prefetch({ id: params.organizationId });
+          utils.organization.get.prefetch({ organizationId: params.organizationId });
         }
         break;
         
@@ -99,7 +98,7 @@ export function useClientPrefetch() {
         // Prefetch healthcare data
         if (params.hospitalId && typeof params.hospitalId === 'string') {
           utils.healthcare.getActiveAlerts.prefetch({ hospitalId: params.hospitalId });
-          utils.healthcare.getMetrics.prefetch({ hospitalId: params.hospitalId });
+          utils.healthcare.getMetrics.prefetch();
         }
         break;
     }
@@ -206,7 +205,7 @@ export function withSSRPrefetch<P extends object>(
           logger.error('Client-side prefetch failed', 'SSR_HOC', error);
         });
       }
-    }, []);
+    }, [props, dehydratedState, prefetchFn]);
 
     return React.createElement(Component, props);
   };
