@@ -25,24 +25,31 @@ export const VALID_ROUTES = [
   '/patient-details',
   '/register-patient',
   '/profile',
+  '/shifts',
   '/shifts/handover',
   '/shifts/schedule',
   '/shifts/reports',
   '/shift-management',
   '/organization/dashboard',
   '/organization/settings',
-  '/organization/create',
-  '/organization/join',
-  '/organization/browse',
   '/analytics/response-analytics',
-  '/analytics/performance',
-  '/analytics/trends',
   '/logs/activity-logs',
-  '/logs/audit',
-  '/docs',
+  '/admin/audit',
+  '/admin/organizations',
+  '/admin/system',
+  '/admin/users',
   '/support',
   '/security/2fa',
   '/security/change-password',
+  '/acknowledge-alert',
+  '/alert-details',
+  '/clear-session',
+  '/debug-signout',
+  '/escalation-details',
+  '/member-details',
+  '/search',
+  '/test-breadcrumb',
+  '/test-push-notifications',
 ] as const;
 
 export type ValidRoute = typeof VALID_ROUTES[number];
@@ -66,6 +73,41 @@ export function isValidRoute(route: string): boolean {
   }
   
   return false;
+}
+
+/**
+ * Validate a route and return detailed information
+ */
+export function validateRoute(route: string): {
+  isValid: boolean;
+  reason?: string;
+  requiresAuth?: boolean;
+  requiredRole?: string;
+} {
+  const isValid = isValidRoute(route);
+  
+  if (!isValid) {
+    return {
+      isValid: false,
+      reason: 'Route not found',
+    };
+  }
+  
+  // Check if route requires authentication
+  const publicRoutes = [
+    '/auth/login',
+    '/auth/register',
+    '/auth/forgot-password',
+    '/auth/verify-email',
+    '/auth/complete-profile',
+  ];
+  
+  const requiresAuth = !publicRoutes.includes(route);
+  
+  return {
+    isValid: true,
+    requiresAuth,
+  };
 }
 
 /**

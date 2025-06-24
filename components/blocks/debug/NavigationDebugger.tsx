@@ -122,7 +122,7 @@ export function NavigationDebugger() {
                   variant={isCurrentRouteValid ? "default" : "destructive"}
                   size="sm"
                 >
-                  {isCurrentRouteValid ? "Valid" : "Invalid"}
+                  <Text>{isCurrentRouteValid ? "Valid" : "Invalid"}</Text>
                 </Badge>
               </HStack>
             </VStack>
@@ -132,13 +132,13 @@ export function NavigationDebugger() {
               <Text size="sm" colorTheme="mutedForeground">Statistics</Text>
               <HStack gap={2} flexWrap="wrap">
                 <Badge variant="outline" size="sm">
-                  {stats.totalNavigations} navigations
+                  <Text>{stats.totalNavigations} navigations</Text>
                 </Badge>
                 <Badge variant="outline" size="sm">
-                  {stats.invalidNavigations} invalid
+                  <Text>{stats.invalidNavigations} invalid</Text>
                 </Badge>
                 <Badge variant="outline" size="sm">
-                  {Object.keys(stats.topRoutes).length} routes
+                  <Text>{Object.keys(stats.topRoutes).length} routes</Text>
                 </Badge>
               </HStack>
             </VStack>
@@ -160,7 +160,7 @@ export function NavigationDebugger() {
                         size="xs"
                         style={{ minWidth: 60 }}
                       >
-                        {event.type}
+                        <Text>{event.type}</Text>
                       </Badge>
                       <Text size="xs" style={{ flex: 1 }} numberOfLines={1}>
                         {event.href || 'N/A'}

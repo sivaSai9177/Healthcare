@@ -28,6 +28,11 @@ class NavigationLogger {
     if (this.isInitialized) return;
     
     try {
+      // Check if router is available
+      if (!router || typeof router.push !== 'function') {
+        throw new Error('Router not available yet');
+      }
+      
       // Store original methods
       const originalPush = router.push.bind(router);
       const originalReplace = router.replace.bind(router);
@@ -44,7 +49,7 @@ class NavigationLogger {
         try {
           return originalPush(href);
         } catch (error) {
-          logger.navigation.error('Push navigation failed', {
+          logger.error('Push navigation failed', 'NAVIGATION', {
             href,
             error: error instanceof Error ? error.message : 'Unknown error',
           });
@@ -62,7 +67,7 @@ class NavigationLogger {
         try {
           return originalReplace(href);
         } catch (error) {
-          logger.navigation.error('Replace navigation failed', {
+          logger.error('Replace navigation failed', 'NAVIGATION', {
             href,
             error: error instanceof Error ? error.message : 'Unknown error',
           });
@@ -77,7 +82,7 @@ class NavigationLogger {
         try {
           return originalBack();
         } catch (error) {
-          logger.navigation.error('Back navigation failed', {
+          logger.error('Back navigation failed', 'NAVIGATION', {
             error: error instanceof Error ? error.message : 'Unknown error',
           });
           throw error;
@@ -91,7 +96,7 @@ class NavigationLogger {
         try {
           return originalSetParams(params);
         } catch (error) {
-          logger.navigation.error('SetParams failed', {
+          logger.error('SetParams failed', 'NAVIGATION', {
             params,
             error: error instanceof Error ? error.message : 'Unknown error',
           });
@@ -100,9 +105,9 @@ class NavigationLogger {
       };
       
       this.isInitialized = true;
-      logger.navigation.info('Navigation logger initialized');
+      logger.info('Navigation logger initialized', 'NAVIGATION');
     } catch (error) {
-      logger.navigation.error('Failed to initialize navigation logger', {
+      logger.error('Failed to initialize navigation logger', 'NAVIGATION', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
@@ -133,13 +138,13 @@ class NavigationLogger {
     
     // Log based on validity
     if (!event.valid && href) {
-      logger.navigation.warn('Invalid route navigation attempted', {
+      logger.warn('Invalid route navigation attempted', 'NAVIGATION', {
         type,
         href,
         params,
       });
     } else {
-      logger.navigation.log(type, {
+      logger.debug(`Navigation: ${type}`, 'NAVIGATION', {
         href,
         params,
         timestamp: event.timestamp,
@@ -177,7 +182,7 @@ class NavigationLogger {
    */
   public clearHistory() {
     this.history = [];
-    logger.navigation.info('Navigation history cleared');
+    logger.info('Navigation history cleared', 'NAVIGATION');
   }
   
   /**

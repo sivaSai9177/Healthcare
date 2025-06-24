@@ -45,15 +45,24 @@ class RouterDebugger {
   }
   
   private wrapRouterMethods() {
-    // Lazy import router to avoid accessing it before navigation is ready
-    const expoRouter = require('expo-router');
-    router = expoRouter.router;
-    
-    // Store original methods
-    this.originalMethods.push = router.push.bind(router);
-    this.originalMethods.replace = router.replace.bind(router);
-    this.originalMethods.back = router.back.bind(router);
-    this.originalMethods.setParams = router.setParams.bind(router);
+    try {
+      // Lazy import router to avoid accessing it before navigation is ready
+      const expoRouter = require('expo-router');
+      router = expoRouter.router;
+      
+      // Check if router is available
+      if (!router || !router.push || !router.replace) {
+        throw new Error('Router methods not available yet');
+      }
+      
+      // Store original methods
+      this.originalMethods.push = router.push.bind(router);
+      this.originalMethods.replace = router.replace.bind(router);
+      this.originalMethods.back = router.back.bind(router);
+      this.originalMethods.setParams = router.setParams.bind(router);
+    } catch (error) {
+      throw error;
+    }
     
     // Wrap router methods to log navigation
     router.push = (href: any) => {

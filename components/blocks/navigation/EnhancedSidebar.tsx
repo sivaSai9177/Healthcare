@@ -202,18 +202,6 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
           href: '/analytics/response-analytics',
           isNew: true,
         },
-        {
-          id: 'performance-metrics',
-          title: 'Performance',
-          icon: 'chart.bar',
-          href: '/analytics/performance',
-        },
-        {
-          id: 'trend-analysis',
-          title: 'Trends',
-          icon: 'arrow.up.right',
-          href: '/analytics/trends',
-        },
       ],
     }] : []),
     ...(canViewAuditLogs ? [{
@@ -226,12 +214,6 @@ export function EnhancedSidebar({ children }: EnhancedSidebarProps) {
           title: 'Activity Logs',
           icon: 'list.bullet.rectangle',
           href: '/logs/activity-logs',
-        },
-        {
-          id: 'audit-trail',
-          title: 'Audit Trail',
-          icon: 'shield.checkerboard',
-          href: '/logs/audit',
         },
       ],
     }] : []),
