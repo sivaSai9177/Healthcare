@@ -102,13 +102,13 @@
 ## Testing Checklist
 
 ### Basic Navigation
-- [ ] Start app → redirects to login if not authenticated
+- [x] Start app → redirects to login if not authenticated
 - [ ] Login → navigates to /home
-- [ ] Click Alerts in sidebar → navigates to /alerts
-- [ ] Click Active Alerts → stays on /alerts
-- [ ] Click Escalation Queue → navigates to /alerts/escalation-queue
+- [x] Click Alerts in sidebar → navigates to /alerts
+- [x] Click Active Alerts → stays on /alerts
+- [x] Click Escalation Queue → navigates to /alerts/escalation-queue
 - [ ] Click Alert History → navigates to /alerts/history
-- [ ] Click specific alert → navigates to /alerts/[id]
+- [x] Click specific alert → navigates to /alerts/[id]
 - [ ] Back button works correctly
 
 ### Authentication Flow
@@ -126,9 +126,9 @@
 - [ ] Android: Hardware back button works
 
 ### API Integration
-- [ ] Alerts screen loads without 401 errors
-- [ ] Hospital context properly initialized
-- [ ] API calls include proper authentication
+- [x] Alerts screen loads without 401 errors
+- [x] Hospital context properly initialized
+- [x] API calls include proper authentication
 
 ### Error Handling
 - [ ] Invalid routes show 404 page
