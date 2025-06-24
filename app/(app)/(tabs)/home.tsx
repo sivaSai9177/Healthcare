@@ -106,7 +106,7 @@ function DefaultDashboard() {
             <Text size="base" weight="bold">Quick Actions</Text>
             <HStack gap={2 as any}>
               <Button
-                onPress={() => router.push('/(app)/(tabs)/settings')}
+                onPress={() => router.push('/settings')}
                 variant="outline"
                 fullWidth
               >
@@ -114,7 +114,7 @@ function DefaultDashboard() {
               </Button>
               {user?.organizationId && (
                 <Button
-                  onPress={() => router.push('/(app)/organization/dashboard')}
+                  onPress={() => router.push('/organization/dashboard')}
                   variant="outline"
                   fullWidth
                 >

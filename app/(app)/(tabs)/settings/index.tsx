@@ -222,7 +222,7 @@ export default function SettingsScreen() {
           icon={<Symbol name="person" size={20} color={theme.primary} />}
           title="Profile"
           subtitle={user?.email}
-          onPress={() => router.push('/(app)/profile')}
+          onPress={() => router.push('/profile')}
         />
       </VStack>
       
@@ -348,13 +348,13 @@ export default function SettingsScreen() {
             icon={<Symbol name="building.2.fill" size={20} color={theme.primary} />}
             title="Team Members"
             subtitle="Manage organization members"
-            onPress={() => router.push('/(app)/(tabs)/settings/members')}
+            onPress={() => router.push('/settings/members')}
           />
           <SettingItem
             icon={<Symbol name="person.2.fill" size={20} color={theme.primary} />}
             title="Organization Settings"
             subtitle="Manage organization details"
-            onPress={() => router.push('/(app)/organization/settings')}
+            onPress={() => router.push('/organization/settings')}
           />
         </VStack>
       )}
@@ -384,7 +384,7 @@ export default function SettingsScreen() {
           icon={<Symbol name="bell" size={20} color={theme.primary} />}
           title="Notification Settings"
           subtitle="Manage alert sounds and preferences"
-          onPress={() => router.push('/(app)/(tabs)/settings/notifications')}
+          onPress={() => router.push('/settings/notifications')}
         />
       </VStack>
       
@@ -397,13 +397,13 @@ export default function SettingsScreen() {
           icon={<Symbol name="shield" size={20} color={theme.primary} />}
           title="Two-Factor Authentication"
           subtitle="Add an extra layer of security"
-          onPress={() => router.push('/(app)/security/2fa')}
+          onPress={() => router.push('/security/2fa')}
         />
         <SettingItem
           icon={<Symbol name="shield" size={20} color={theme.primary} />}
           title="Change Password"
           subtitle="Update your password"
-          onPress={() => router.push('/(app)/security/change-password')}
+          onPress={() => router.push('/security/change-password')}
         />
       </VStack>
       
@@ -416,7 +416,7 @@ export default function SettingsScreen() {
           icon={<Symbol name="questionmark.circle" size={20} color={theme.primary} />}
           title="Help & Support"
           subtitle="Get help with the app"
-          onPress={() => router.push('/(app)/support')}
+          onPress={() => router.push('/support')}
         />
       </VStack>
       

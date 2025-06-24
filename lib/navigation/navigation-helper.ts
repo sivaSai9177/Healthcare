@@ -32,7 +32,7 @@ export const NavigationHelper = {
     }
 
     log.info('NavigationHelper: Authenticated with complete profile, going to home', 'NAV_HELPER');
-    router.replace('/(app)/(tabs)/home');
+    router.replace('/home');
   },
 
   /**
@@ -57,7 +57,7 @@ export const NavigationHelper = {
    */
   navigateAfterProfileComplete() {
     log.info('NavigationHelper: Profile completed, going to home', 'NAV_HELPER');
-    router.replace('/(app)/(tabs)/home');
+    router.replace('/home');
   },
 
   /**

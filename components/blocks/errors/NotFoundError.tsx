@@ -48,28 +48,28 @@ export function NotFoundError({ attemptedPath }: NotFoundErrorProps) {
       // Role-based suggestions
       if (pathLower.includes('alert') && ['doctor', 'nurse', 'operator'].includes(userRole)) {
         suggestions.push({ 
-          path: '/(app)/(tabs)/alerts', 
+          path: '/alerts', 
           label: 'Alerts Dashboard',
           icon: 'bell.fill',
         });
       }
       if (pathLower.includes('patient') && ['doctor', 'nurse'].includes(userRole)) {
         suggestions.push({ 
-          path: '/(app)/(tabs)/patients', 
+          path: '/patients', 
           label: 'Patients',
           icon: 'person.2.fill',
         });
       }
       if (pathLower.includes('setting') || pathLower.includes('profile')) {
         suggestions.push({ 
-          path: '/(app)/(tabs)/settings', 
+          path: '/settings', 
           label: 'Settings',
           icon: 'gearshape.fill',
         });
       }
       if (pathLower.includes('admin') && userRole === 'admin') {
         suggestions.push({ 
-          path: '/(app)/admin/organizations', 
+          path: '/admin/organizations', 
           label: 'Admin Dashboard',
           icon: 'shield.fill',
         });
@@ -78,7 +78,7 @@ export function NotFoundError({ attemptedPath }: NotFoundErrorProps) {
     
     // Always suggest home
     suggestions.push({ 
-      path: isAuthenticated ? '/(app)/(tabs)/home' : '/', 
+      path: isAuthenticated ? '/home' : '/', 
       label: 'Home',
       icon: 'house.fill',
     });
@@ -95,8 +95,8 @@ export function NotFoundError({ attemptedPath }: NotFoundErrorProps) {
       logger.router.navigate('+not-found', '/', { reason: 'not hydrated yet' });
       router.replace('/');
     } else if (isAuthenticated) {
-      logger.router.recovered(path, '/(app)/(tabs)/home');
-      router.replace('/(app)/(tabs)/home');
+      logger.router.recovered(path, '/home');
+      router.replace('/home');
     } else {
       logger.router.recovered(path, '/(public)/auth/login');
       router.replace('/(public)/auth/login');

@@ -32,11 +32,11 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/(app)/(tabs)/home', icon: 'house' },
-  { label: 'Alerts', href: '/(app)/(tabs)/alerts', icon: 'bell', badge: 3 },
-  { label: 'Patients', href: '/(app)/(tabs)/patients', icon: 'heart' },
-  { label: 'Analytics', href: '/(app)/(tabs)/response-analytics', icon: 'chart.bar' },
-  { label: 'Activity', href: '/(app)/(tabs)/activity-logs', icon: 'clock' },
+  { label: 'Dashboard', href: '/home', icon: 'house' },
+  { label: 'Alerts', href: '/alerts', icon: 'bell', badge: 3 },
+  { label: 'Patients', href: '/patients', icon: 'heart' },
+  { label: 'Analytics', href: '/response-analytics', icon: 'chart.bar' },
+  { label: 'Activity', href: '/activity-logs', icon: 'clock' },
 ];
 
 export function WebNavBar() {
@@ -56,7 +56,7 @@ export function WebNavBar() {
       label: 'Dashboard',
       icon: 'house',
       onSelect: () => {
-        router.push('/(app)/(tabs)/home');
+        router.push('/home');
         setSearchOpen(false);
       },
     },
@@ -65,7 +65,7 @@ export function WebNavBar() {
       label: 'Alerts',
       icon: 'bell',
       onSelect: () => {
-        router.push('/(app)/(tabs)/alerts');
+        router.push('/alerts');
         setSearchOpen(false);
       },
     },
@@ -74,7 +74,7 @@ export function WebNavBar() {
       label: 'Patients',
       icon: 'heart',
       onSelect: () => {
-        router.push('/(app)/(tabs)/patients');
+        router.push('/patients');
         setSearchOpen(false);
       },
     },
@@ -84,7 +84,7 @@ export function WebNavBar() {
       icon: 'plus.circle',
       shortcut: '⌘A',
       onSelect: () => {
-        router.push('/(modals)/create-alert');
+        router.push('/create-alert');
         setSearchOpen(false);
       },
     },
@@ -94,7 +94,7 @@ export function WebNavBar() {
       icon: 'gearshape',
       shortcut: '⌘,',
       onSelect: () => {
-        router.push('/(app)/(tabs)/settings');
+        router.push('/settings');
         setSearchOpen(false);
       },
     },
@@ -142,7 +142,7 @@ export function WebNavBar() {
           >
             {/* Logo and Brand */}
             <HStack spacing={6} align="center">
-              <Pressable onPress={() => handleNavClick('/(app)/(tabs)/home')}>
+              <Pressable onPress={() => handleNavClick('/home')}>
                 <HStack spacing={3} align="center">
                   <Symbol name="cross" size={32} className="text-primary" />
                   <Text size="xl" weight="bold">
@@ -207,7 +207,7 @@ export function WebNavBar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onPress={() => router.push('/(modals)/notification-center')}
+                  onPress={() => router.push('/notification-center')}
                   accessibilityLabel="Notifications"
                 >
                   <Box position="relative">
@@ -255,7 +255,7 @@ export function WebNavBar() {
                         <Separator />
                         <Pressable
                           onPress={() => {
-                            handleNavClick('/(app)/profile');
+                            handleNavClick('/profile');
                             setUserMenuOpen(false);
                           }}
                           className="px-2 py-2 rounded hover:bg-accent"
@@ -267,7 +267,7 @@ export function WebNavBar() {
                         </Pressable>
                         <Pressable
                           onPress={() => {
-                            handleNavClick('/(app)/(tabs)/settings');
+                            handleNavClick('/settings');
                             setUserMenuOpen(false);
                           }}
                           className="px-2 py-2 rounded hover:bg-accent"
@@ -406,7 +406,7 @@ export function WebNavBar() {
             {user && (
               <>
                 <Pressable
-                  onPress={() => handleNavClick('/(app)/profile')}
+                  onPress={() => handleNavClick('/profile')}
                   className="px-3 py-3 rounded-lg hover:bg-accent/10"
                 >
                   <HStack spacing={3} align="center">
@@ -415,7 +415,7 @@ export function WebNavBar() {
                   </HStack>
                 </Pressable>
                 <Pressable
-                  onPress={() => handleNavClick('/(app)/(tabs)/settings')}
+                  onPress={() => handleNavClick('/settings')}
                   className="px-3 py-3 rounded-lg hover:bg-accent/10"
                 >
                   <HStack spacing={3} align="center">

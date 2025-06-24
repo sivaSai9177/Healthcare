@@ -95,7 +95,7 @@ export function useClientPrefetch() {
         
       case '/healthcare':
       case '/healthcare/alerts':
-      case '/(app)/(tabs)/alerts':
+      case '/alerts':
         // Prefetch healthcare data
         if (params.hospitalId && typeof params.hospitalId === 'string') {
           utils.healthcare.getActiveAlerts.prefetch({ hospitalId: params.hospitalId });

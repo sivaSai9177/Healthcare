@@ -68,7 +68,7 @@ export const AlertTemplateSelector: React.FC<AlertTemplateSelectorProps> = ({
       
       // Navigate to the alert
       if (!embedded) {
-        router.push(`/(app)/(tabs)/alerts/${result.alert.id}`);
+        router.push(`/alerts/${result.alert.id}`);
       }
     },
     onError: (error) => {

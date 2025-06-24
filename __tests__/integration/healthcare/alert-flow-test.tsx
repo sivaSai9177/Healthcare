@@ -221,7 +221,7 @@ describe('Healthcare Alert Flow Integration', () => {
       // Should navigate to acknowledgment modal
       await waitFor(() => {
         expect(mockRouter.push).toHaveBeenCalledWith({
-          pathname: '/(modals)/acknowledge-alert',
+          pathname: '/acknowledge-alert',
           params: { alertId: 'alert-1' },
         });
       });

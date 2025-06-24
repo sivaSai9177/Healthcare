@@ -15,87 +15,87 @@ export const ROUTES = {
   
   // Main app tabs
   tabs: {
-    home: '/(app)/(tabs)/home' as const,
+    home: '/home' as const,
     alerts: {
-      index: '/(app)/(tabs)/alerts' as const,
-      detail: (id: string) => `/(app)/(tabs)/alerts/${id}` as const,
+      index: '/alerts' as const,
+      detail: (id: string) => `/alerts/${id}` as const,
     },
-    patients: '/(app)/(tabs)/patients' as const,
+    patients: '/patients' as const,
     settings: {
-      index: '/(app)/(tabs)/settings' as const,
-      members: '/(app)/(tabs)/settings/members' as const,
-      invitations: '/(app)/(tabs)/settings/invitations' as const,
+      index: '/settings' as const,
+      members: '/settings/members' as const,
+      invitations: '/settings/invitations' as const,
     },
   },
   
   // Healthcare specific routes
   healthcare: {
     alerts: {
-      list: '/(app)/(tabs)/alerts' as const,
-      detail: (id: string) => `/(app)/(tabs)/alerts/${id}` as const,
-      history: '/(app)/alerts/history' as const,
-      escalationQueue: '/(app)/alerts/escalation-queue' as const,
+      list: '/alerts' as const,
+      detail: (id: string) => `/alerts/${id}` as const,
+      history: '/alerts/history' as const,
+      escalationQueue: '/alerts/escalation-queue' as const,
     },
     patients: {
-      list: '/(app)/(tabs)/patients' as const,
-      detail: (id: string) => `/(app)/patients/${id}` as const,
-      vitals: (id: string) => `/(app)/patients/${id}/vitals` as const,
-      medications: (id: string) => `/(app)/patients/${id}/medications` as const,
-      notes: (id: string) => `/(app)/patients/${id}/notes` as const,
+      list: '/patients' as const,
+      detail: (id: string) => `/patients/${id}` as const,
+      vitals: (id: string) => `/patients/${id}/vitals` as const,
+      medications: (id: string) => `/patients/${id}/medications` as const,
+      notes: (id: string) => `/patients/${id}/notes` as const,
     },
     shifts: {
-      handover: '/(app)/shifts/handover' as const,
-      schedule: '/(app)/shifts/schedule' as const,
-      history: '/(app)/shifts/history' as const,
+      handover: '/shifts/handover' as const,
+      schedule: '/shifts/schedule' as const,
+      history: '/shifts/history' as const,
     },
     analytics: {
-      response: '/(app)/(tabs)/response-analytics' as const,
-      performance: '/(app)/analytics/performance' as const,
-      trends: '/(app)/analytics/trends' as const,
+      response: '/response-analytics' as const,
+      performance: '/analytics/performance' as const,
+      trends: '/analytics/trends' as const,
     },
     logs: {
-      activity: '/(app)/(tabs)/activity-logs' as const,
-      audit: '/(app)/admin/audit' as const,
+      activity: '/activity-logs' as const,
+      audit: '/admin/audit' as const,
     },
   },
   
   // Organization routes
   organization: {
-    dashboard: '/(app)/organization/dashboard' as const,
-    settings: '/(app)/organization/settings' as const,
-    members: '/(app)/(tabs)/settings/members' as const,
-    billing: '/(app)/organization/billing' as const,
+    dashboard: '/organization/dashboard' as const,
+    settings: '/organization/settings' as const,
+    members: '/settings/members' as const,
+    billing: '/organization/billing' as const,
   },
   
   // Admin routes
   admin: {
-    users: '/(app)/admin/users' as const,
-    organizations: '/(app)/admin/organizations' as const,
-    system: '/(app)/admin/system' as const,
-    audit: '/(app)/admin/audit' as const,
+    users: '/admin/users' as const,
+    organizations: '/admin/organizations' as const,
+    system: '/admin/system' as const,
+    audit: '/admin/audit' as const,
   },
   
   // Modal routes
   modals: {
-    createAlert: '/(modals)/create-alert' as const,
-    alertDetails: (id: string) => `/(modals)/alert-details?alertId=${id}` as const,
-    patientDetails: (id: string) => `/(modals)/patient-details?patientId=${id}` as const,
-    acknowledgeAlert: (id: string) => `/(modals)/acknowledge-alert?alertId=${id}` as const,
-    // hospitalSelection: '/(modals)/hospital-selection' as const, // Removed - hospital selection is now optional
-    inviteMember: '/(modals)/invite-member' as const,
+    createAlert: '/create-alert' as const,
+    alertDetails: (id: string) => `/alerts/${id}` as const,
+    patientDetails: (id: string) => `/patient-details?patientId=${id}` as const,
+    acknowledgeAlert: (id: string) => `/acknowledge-alert?alertId=${id}` as const,
+    // hospitalSelection: '/hospital-selection' as const, // Removed - hospital selection is now optional
+    inviteMember: '/invite-member' as const,
   },
   
   // Profile & Security
   profile: {
-    index: '/(app)/profile' as const,
+    index: '/profile' as const,
     security: {
-      changePassword: '/(app)/security/change-password' as const,
-      twoFactor: '/(app)/security/2fa' as const,
+      changePassword: '/security/change-password' as const,
+      twoFactor: '/security/2fa' as const,
     },
   },
   
   // Support
-  support: '/(app)/support' as const,
+  support: '/support' as const,
   
   // Other routes
   authCallback: '/auth-callback' as const,
@@ -112,11 +112,11 @@ export const ROUTES = {
   },
   
   APP: {
-    home: '/(app)/(tabs)/home' as const,
-    alerts: '/(app)/(tabs)/alerts' as const,
-    patients: '/(app)/(tabs)/patients' as const,
-    settings: '/(app)/(tabs)/settings' as const,
-    profile: '/(app)/profile' as const,
+    home: '/home' as const,
+    alerts: '/alerts' as const,
+    patients: '/patients' as const,
+    settings: '/settings' as const,
+    profile: '/profile' as const,
   },
 } as const;
 

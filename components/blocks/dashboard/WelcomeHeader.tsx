@@ -102,7 +102,7 @@ export function WelcomeHeaderBlock({
               size="icon"
               onPress={() => {
                 haptic('light');
-                router.push('/(modals)/notification-center' as any);
+                router.push('/notification-center' as any);
               }}
               className="animate-scale-in"
             >

@@ -50,115 +50,115 @@ const routeTests: RouteTest[] = [
   
   // App routes
   {
-    path: '/(app)/(tabs)/home',
-    expectedFile: 'app/(app)/(tabs)/home.tsx',
+    path: '/home',
+    expectedFile: 'app/home.tsx',
     description: 'Home tab screen'
   },
   {
-    path: '/(app)/(tabs)/alerts',
-    expectedFile: 'app/(app)/(tabs)/alerts.tsx',
+    path: '/alerts',
+    expectedFile: 'app/alerts.tsx',
     description: 'Alerts tab screen'
   },
   {
-    path: '/(app)/(tabs)/patients',
-    expectedFile: 'app/(app)/(tabs)/patients.tsx',
+    path: '/patients',
+    expectedFile: 'app/patients.tsx',
     description: 'Patients tab screen'
   },
   {
-    path: '/(app)/(tabs)/settings',
-    expectedFile: 'app/(app)/(tabs)/settings.tsx',
+    path: '/settings',
+    expectedFile: 'app/settings.tsx',
     description: 'Settings tab screen'
   },
   
   // Alert features
   {
-    path: '/(app)/alerts/[id]',
-    expectedFile: 'app/(app)/alerts/[id].tsx',
+    path: '/alerts/[id]',
+    expectedFile: 'app/alerts/[id].tsx',
     description: 'Alert detail screen'
   },
   {
-    path: '/(app)/alerts/history',
-    expectedFile: 'app/(app)/alerts/history.tsx',
+    path: '/alerts/history',
+    expectedFile: 'app/alerts/history.tsx',
     description: 'Alert history screen'
   },
   {
-    path: '/(app)/alerts/escalation-queue',
-    expectedFile: 'app/(app)/alerts/escalation-queue.tsx',
+    path: '/alerts/escalation-queue',
+    expectedFile: 'app/alerts/escalation-queue.tsx',
     description: 'Escalation queue screen'
   },
   
   // Organization
   {
-    path: '/(app)/organization/dashboard',
-    expectedFile: 'app/(app)/organization/dashboard.tsx',
+    path: '/organization/dashboard',
+    expectedFile: 'app/organization/dashboard.tsx',
     description: 'Organization dashboard'
   },
   {
-    path: '/(app)/organization/settings',
-    expectedFile: 'app/(app)/organization/settings.tsx',
+    path: '/organization/settings',
+    expectedFile: 'app/organization/settings.tsx',
     description: 'Organization settings'
   },
   
   // Admin
   {
-    path: '/(app)/admin/audit',
-    expectedFile: 'app/(app)/admin/audit.tsx',
+    path: '/admin/audit',
+    expectedFile: 'app/admin/audit.tsx',
     description: 'Audit logs'
   },
   {
-    path: '/(app)/admin/system',
-    expectedFile: 'app/(app)/admin/system.tsx',
+    path: '/admin/system',
+    expectedFile: 'app/admin/system.tsx',
     description: 'System settings'
   },
   {
-    path: '/(app)/admin/users',
-    expectedFile: 'app/(app)/admin/users.tsx',
+    path: '/admin/users',
+    expectedFile: 'app/admin/users.tsx',
     description: 'User management'
   },
   {
-    path: '/(app)/admin/organizations',
-    expectedFile: 'app/(app)/admin/organizations.tsx',
+    path: '/admin/organizations',
+    expectedFile: 'app/admin/organizations.tsx',
     description: 'Organization management'
   },
   
   // Security
   {
-    path: '/(app)/security/2fa',
-    expectedFile: 'app/(app)/security/2fa.tsx',
+    path: '/security/2fa',
+    expectedFile: 'app/security/2fa.tsx',
     description: '2FA settings'
   },
   {
-    path: '/(app)/security/change-password',
-    expectedFile: 'app/(app)/security/change-password.tsx',
+    path: '/security/change-password',
+    expectedFile: 'app/security/change-password.tsx',
     description: 'Change password'
   },
   
   // Other features
   {
-    path: '/(app)/shifts/handover',
-    expectedFile: 'app/(app)/shifts/handover.tsx',
+    path: '/shifts/handover',
+    expectedFile: 'app/shifts/handover.tsx',
     description: 'Shift handover'
   },
   {
-    path: '/(app)/profile',
-    expectedFile: 'app/(app)/profile.tsx',
+    path: '/profile',
+    expectedFile: 'app/profile.tsx',
     description: 'User profile'
   },
   {
-    path: '/(app)/support',
-    expectedFile: 'app/(app)/support.tsx',
+    path: '/support',
+    expectedFile: 'app/support.tsx',
     description: 'Support screen'
   },
   
   // Modals
   {
-    path: '/(modals)/create-alert',
-    expectedFile: 'app/(modals)/create-alert.tsx',
+    path: '/create-alert',
+    expectedFile: 'app/create-alert.tsx',
     description: 'Create alert modal'
   },
   {
-    path: '/(modals)/escalation-details',
-    expectedFile: 'app/(modals)/escalation-details.tsx',
+    path: '/escalation-details',
+    expectedFile: 'app/escalation-details.tsx',
     description: 'Escalation details modal'
   }
 ];

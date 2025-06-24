@@ -6,6 +6,7 @@ import "@/lib/core/crypto";
 import "@/lib/core/debug/setup-window-logger";
 // Import router debugging (will initialize after navigation is ready)
 import { initializeRouterDebugger } from "@/lib/core/debug/router-debug";
+import { initializeNavigationLogger } from "@/lib/navigation/navigation-logger";
 // Import console interceptor
 import { startConsoleInterception } from "@/components/blocks/debug/utils/console-interceptor";
 
@@ -27,6 +28,7 @@ import { ErrorBanner } from "@/components/blocks/errors/ErrorBanner";
 import { RootErrorStoreSetup } from "@/components/RootErrorStoreSetup";
 import GlobalErrorBoundary from "@/components/providers/GlobalErrorBoundary";
 import { ConsolidatedDebugPanel } from "@/components/blocks/debug/DebugPanel/DebugPanel";
+import { NavigationDebugger } from "@/components/blocks/debug/NavigationDebugger";
 import { SyncProvider } from "@/components/providers/SyncProvider";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { HospitalProvider } from "@/components/providers/HospitalProvider";
@@ -106,6 +108,10 @@ export default function RootLayout() {
           try {
             initializeRouterDebugger();
             logger.debug('[App] Router debugger initialized', 'SYSTEM');
+            
+            // Initialize navigation logger
+            initializeNavigationLogger();
+            logger.debug('[App] Navigation logger initialized', 'SYSTEM');
           } catch (error) {
             logger.error('[App] Failed to initialize router debugger', 'SYSTEM', error);
           }
@@ -202,6 +208,7 @@ export default function RootLayout() {
                   </Stack>
                   <ThemedStatusBar />
                   <ConsolidatedDebugPanel />
+                  <NavigationDebugger />
                   <LayoutDebugger />
                   </ThemeStyleInjector>
                 </AnimationProvider>

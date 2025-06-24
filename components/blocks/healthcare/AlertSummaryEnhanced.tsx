@@ -254,7 +254,7 @@ export function AlertSummaryEnhanced({
                   key={alert.id}
                   onPress={() => {
                     haptic('light');
-                    router.push(`/(modals)/patient-details?id=${alert.id}`);
+                    router.push(`/patient-details?id=${alert.id}`);
                   }}
                 >
                   <Card 

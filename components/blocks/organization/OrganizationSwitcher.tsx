@@ -61,13 +61,13 @@ export function OrganizationSwitcher({
   const handleCreateOrg = () => {
     haptic('light');
     setIsOpen(false);
-    router.push('/(app)/organization/create');
+    router.push('/organization/create');
   };
 
   const handleJoinOrg = () => {
     haptic('light');
     setIsOpen(false);
-    router.push('/(app)/organization/join');
+    router.push('/organization/join');
   };
 
   if (isLoading) {

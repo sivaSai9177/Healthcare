@@ -509,7 +509,7 @@ export function PatientCreationForm({
       setTimeout(() => {
         if (!onSuccess && !embedded) {
           // Navigate to patients screen with the new patient ID
-          router.replace(`/(app)/(tabs)/patients?newPatientId=${data?.id}`);
+          router.replace(`/patients?newPatientId=${data?.id}`);
         }
       }, 1500);
     },

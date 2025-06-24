@@ -35,8 +35,8 @@ export function UnauthorizedError({
   }, [user, requiredRole, requiredPermission, resource]);
   
   const handleGoHome = () => {
-    logger.router.navigate('unauthorized-error', '/(app)/(tabs)/home');
-    router.replace('/(app)/(tabs)/home');
+    logger.router.navigate('unauthorized-error', '/home');
+    router.replace('/home');
   };
   
   const handleSignIn = () => {
@@ -47,7 +47,7 @@ export function UnauthorizedError({
   const handleRequestAccess = () => {
     logger.auth.info('User requesting access', { resource, requiredRole });
     // TODO: Implement access request flow
-    router.push('/(app)/support');
+    router.push('/support');
   };
   
   return (

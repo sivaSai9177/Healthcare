@@ -45,7 +45,7 @@ export default function MembersScreen() {
   const handleInviteMember = () => {
     haptic('medium');
     router.push({
-      pathname: '/(modals)/invite-member',
+      pathname: '/invite-member',
       params: { organizationId }
     });
   };
@@ -71,7 +71,7 @@ export default function MembersScreen() {
             Please select or create an organization first
           </Text>
           <Button 
-            onPress={() => router.push('/(app)/(tabs)/settings')}
+            onPress={() => router.push('/settings')}
             variant="outline"
           >
             Go to Settings
@@ -127,7 +127,7 @@ export default function MembersScreen() {
               <Button
                 size="sm"
                 variant="outline"
-                onPress={() => router.push('/(app)/(tabs)/settings/invitations')}
+                onPress={() => router.push('/settings/invitations')}
               >
                 View All
               </Button>

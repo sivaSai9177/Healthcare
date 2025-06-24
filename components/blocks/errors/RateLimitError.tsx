@@ -71,8 +71,8 @@ export function RateLimitError({
   };
   
   const handleGoHome = () => {
-    logger.router.navigate('rate-limit-error', '/(app)/(tabs)/home');
-    router.replace('/(app)/(tabs)/home');
+    logger.router.navigate('rate-limit-error', '/home');
+    router.replace('/home');
   };
   
   const progress = ((retryAfter - timeRemaining) / retryAfter) * 100;

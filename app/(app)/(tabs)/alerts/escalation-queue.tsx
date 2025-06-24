@@ -264,7 +264,7 @@ export default function AlertEscalationQueueScreen() {
                       <VStack gap={3 as any}>
                         <HStack gap={2 as any} alignItems="center">
                           <Button
-                            onPress={() => router.push('/(app)/(tabs)/alerts')}
+                            onPress={() => router.push('/alerts')}
                             variant="ghost"
                             size="icon"
                           >
@@ -524,7 +524,7 @@ export default function AlertEscalationQueueScreen() {
                                         {/* Quick Actions */}
                                         <VStack gap={1 as any}>
                                           <Pressable
-                                            onPress={() => router.push(`/(app)/(tabs)/alerts/${alert.id}`)}
+                                            onPress={() => router.push(`/alerts/${alert.id}`)}
                                             style={{
                                               padding: spacing[2] as any,
                                               borderRadius: 8,

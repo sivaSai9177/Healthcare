@@ -5,8 +5,8 @@ import { TRPCProvider } from '@/lib/api/trpc';
 import { ApiErrorBoundary } from '@/components/blocks/errors/ApiErrorBoundary';
 import { AlertList } from '@/components/blocks/healthcare/AlertList';
 import { AlertSummaryEnhanced } from '@/components/blocks/healthcare/AlertSummaryEnhanced';
-import PatientsScreen from '@/app/(app)/(tabs)/patients';
-import AlertsScreen from '@/app/(app)/(tabs)/alerts/index';
+import PatientsScreen from '@/app/patients';
+import AlertsScreen from '@/app/alerts/index';
 
 // Mock dependencies
 jest.mock('@/hooks/useAuth', () => ({

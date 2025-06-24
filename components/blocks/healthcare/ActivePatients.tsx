@@ -141,7 +141,7 @@ export function ActivePatients({ scrollEnabled = true }: ActivePatientsProps) {
           <Button
             variant="default"
             size="sm"
-            onPress={() => router.push('/(app)/(tabs)/settings')}
+            onPress={() => router.push('/settings')}
           >
             Go to Settings
           </Button>
@@ -244,7 +244,7 @@ export function ActivePatients({ scrollEnabled = true }: ActivePatientsProps) {
         pressable
         onPress={() => {
           haptic('light');
-          router.push(`/(modals)/patient-details?patientId=${patient.id}`);
+          router.push(`/patient-details?patientId=${patient.id}`);
         }}
         className="border border-border"
         style={shadowSm}

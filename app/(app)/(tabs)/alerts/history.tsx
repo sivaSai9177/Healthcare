@@ -65,7 +65,7 @@ export default function AlertHistoryScreen() {
       {/* Header */}
       <HStack alignItems="center" gap={2 as any}>
         <Button
-          onPress={() => router.push('/(app)/(tabs)/alerts')}
+          onPress={() => router.push('/alerts')}
           variant="ghost"
           size="icon"
         >

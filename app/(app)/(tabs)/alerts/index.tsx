@@ -171,7 +171,7 @@ function AlertsScreenContent() {
   const handleCreateAlert = useCallback(() => {
     haptic('medium');
     if (canCreateAlerts) {
-      router.push('/(modals)/create-alert');
+      router.push('/create-alert');
     } else {
       // Error alert is handled by the hook
     }
@@ -255,7 +255,7 @@ function AlertsScreenContent() {
   // Now we can do conditional returns after all hooks have been called
   // Check permissions
   if (!canViewAlerts) {
-    return <Redirect href="/(app)/(tabs)/home" />;
+    return <Redirect href="/home" />;
   }
   
   
@@ -421,7 +421,7 @@ function AlertsScreenContent() {
           isLoading={isLoading}
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          onAlertPress={(alert) => router.push(`/(app)/(tabs)/alerts/${alert.id}`)}
+          onAlertPress={(alert) => router.push(`/alerts/${alert.id}`)}
           onAcknowledge={canAcknowledgeAlerts ? handleAcknowledge : undefined}
           onResolve={canResolveAlerts ? handleResolve : undefined}
           onBatchAcknowledge={canAcknowledgeAlerts ? handleBatchAcknowledge : undefined}
@@ -490,7 +490,7 @@ const StatCard: React.FC<{
 // Export component wrapped with error boundary
 export default function AlertsScreen() {
   return (
-    <ApiErrorBoundary retryRoute="/(app)/(tabs)/alerts">
+    <ApiErrorBoundary retryRoute="/alerts">
       <AlertsScreenContent />
     </ApiErrorBoundary>
   );

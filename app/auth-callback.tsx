@@ -144,7 +144,7 @@ export default function AuthCallback() {
         router.replace('/(auth)/complete-profile');
       } else {
         log.info('Navigating to home (from auth store)', 'AUTH_CALLBACK');
-        router.replace('/(app)/(tabs)/home');
+        router.replace('/home');
       }
       return;
     }
@@ -185,7 +185,7 @@ export default function AuthCallback() {
           role: sessionUser.role,
           needsProfileCompletion: sessionUser.needsProfileCompletion
         });
-        router.replace('/(app)/(tabs)/home');
+        router.replace('/home');
       }
     } else if (!isLoading && (!sessionData || error) && retryCount >= maxRetries) {
       // Final check: if we have an auth cookie but no session, there might be a server issue

@@ -317,7 +317,7 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
             <Button
               onPress={() => {
                 haptic('light');
-                router.push('/(modals)/shift-management' as any);
+                router.push('/shift-management' as any);
               }}
               variant={onDutyStatus?.isOnDuty ? 'outline' : 'default'}
               size="sm"
@@ -357,7 +357,7 @@ export const ShiftStatus: React.FC<ShiftStatusProps> = ({ onShiftToggle }) => {
               {/* Handover Button */}
               {onDutyStatus?.isOnDuty && (
                 <Pressable
-                  onPress={() => router.push('/(app)/shifts/handover' as any)}
+                  onPress={() => router.push('/shifts/handover' as any)}
                   style={{
                     paddingHorizontal: spacing[2],
                     paddingVertical: spacing[1],
