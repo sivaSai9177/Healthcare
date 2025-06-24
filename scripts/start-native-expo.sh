@@ -100,15 +100,14 @@ export DATABASE_URL="postgresql://myexpo:myexpo123@localhost:5432/myexpo_dev"
 export REDIS_URL="redis://localhost:6379"
 export EXPO_PUBLIC_API_URL="http://${LOCAL_IP}:8081"
 export EXPO_PUBLIC_WS_URL="ws://${LOCAL_IP}:3002/api/trpc"
-export BETTER_AUTH_URL="http://${LOCAL_IP}:8081"
-export BETTER_AUTH_SECRET="local-dev-secret"
+export BETTER_AUTH_URL="http://localhost:8081"
+# Don't override BETTER_AUTH_SECRET - use the one from .env
 export APP_ENV="local"
 export NODE_ENV="development"
 export EXPO_DEVTOOLS_LISTEN_ADDRESS="0.0.0.0"
 export REACT_NATIVE_PACKAGER_HOSTNAME="${LOCAL_IP}"
 
-# Logging service configuration
-export LOGGING_SERVICE_ENABLED="true"
+# Logging service configuration (read from .env if set)
 export LOGGING_SERVICE_URL="http://localhost:3003"
 export EXPO_PUBLIC_LOGGING_SERVICE_URL="http://localhost:3003"
 
@@ -148,9 +147,9 @@ echo -e "${YELLOW}🧹 Clearing Expo cache...${NC}"
 rm -rf .expo
 rm -rf node_modules/.cache
 
-# Start Expo natively
-echo -e "${YELLOW}🎯 Starting Expo...${NC}\n"
-EXPO_GO=1 expo start --lan --go --clear
+# Start Expo natively with increased memory limit
+echo -e "${YELLOW}🎯 Starting Expo with increased memory limit...${NC}\n"
+NODE_OPTIONS="--max-old-space-size=8192" EXPO_GO=1 expo start --lan --go --clear
 
 # Cleanup will be called when Expo exits
 cleanup
