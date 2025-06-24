@@ -6,6 +6,7 @@ import "@/lib/core/crypto";
 import "@/lib/core/debug/setup-window-logger";
 // Import router debugging (will initialize after navigation is ready)
 import { initializeRouterDebugger } from "@/lib/core/debug/router-debug";
+import { initializeNavigationLogger } from "@/lib/navigation/navigation-logger";
 // Import console interceptor
 import { startConsoleInterception } from "@/components/blocks/debug/utils/console-interceptor";
 
@@ -27,6 +28,7 @@ import { ErrorBanner } from "@/components/blocks/errors/ErrorBanner";
 import { RootErrorStoreSetup } from "@/components/RootErrorStoreSetup";
 import GlobalErrorBoundary from "@/components/providers/GlobalErrorBoundary";
 import { ConsolidatedDebugPanel } from "@/components/blocks/debug/DebugPanel/DebugPanel";
+import { NavigationDebugger } from "@/components/blocks/debug/NavigationDebugger";
 import { SyncProvider } from "@/components/providers/SyncProvider";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { HospitalProvider } from "@/components/providers/HospitalProvider";
@@ -36,6 +38,7 @@ import { ThemeSync } from "@/components/providers/ThemeSync";
 import { EnhancedThemeProvider } from "@/lib/theme/provider";
 import { TRPCProvider } from "@/lib/api/trpc";
 import { initializeSecureStorage } from "@/lib/core/secure-storage";
+import { AlertFilterProvider } from "@/contexts/AlertFilterContext";
 // AnimationProvider removed - animations are now handled by components directly
 
 // Import CSS for web platform
@@ -100,15 +103,28 @@ export default function RootLayout() {
         startConsoleInterception();
         logger.debug('[App] Console interception started', 'SYSTEM');
         
-        // Initialize router debugger after a delay
-        setTimeout(() => {
-          try {
-            initializeRouterDebugger();
-            logger.debug('[App] Router debugger initialized', 'SYSTEM');
-          } catch (error) {
-            logger.error('[App] Failed to initialize router debugger', 'SYSTEM', error);
-          }
-        }, 500); // Increased delay to ensure navigation is ready
+        // Initialize router debugger after a delay with retry
+        const initializeDebuggers = (retryCount = 0) => {
+          setTimeout(() => {
+            try {
+              initializeRouterDebugger();
+              logger.debug('[App] Router debugger initialized', 'SYSTEM');
+              
+              // Initialize navigation logger
+              initializeNavigationLogger();
+              logger.debug('[App] Navigation logger initialized', 'SYSTEM');
+            } catch (error) {
+              if (retryCount < 3) {
+                logger.debug(`[App] Router debugger not ready, retrying... (attempt ${retryCount + 1})`, 'SYSTEM');
+                initializeDebuggers(retryCount + 1);
+              } else {
+                logger.warn('[App] Router debugger initialization skipped after 3 attempts', 'SYSTEM');
+              }
+            }
+          }, 1000 * (retryCount + 1)); // Exponential backoff: 1s, 2s, 3s
+        };
+        
+        initializeDebuggers();
       }
     }
   }, [loaded, storageReady]);
@@ -135,12 +151,13 @@ export default function RootLayout() {
               <SyncProvider>
                 <SessionProvider>
                   <HospitalProvider>
-                    <EnhancedThemeProvider>
-                      <ThemeSync />
-                      <AnimationProvider>
-                        <ThemeStyleInjector>
-                        <RootErrorStoreSetup />
-                        <ErrorBanner />
+                    <AlertFilterProvider>
+                      <EnhancedThemeProvider>
+                        <ThemeSync />
+                        <AnimationProvider>
+                          <ThemeStyleInjector>
+                          <RootErrorStoreSetup />
+                          <ErrorBanner />
                       <Stack 
                       screenOptions={{
                         ...stackScreenOptions.default,
@@ -200,10 +217,12 @@ export default function RootLayout() {
                   </Stack>
                   <ThemedStatusBar />
                   <ConsolidatedDebugPanel />
+                  <NavigationDebugger />
                   <LayoutDebugger />
                   </ThemeStyleInjector>
                 </AnimationProvider>
               </EnhancedThemeProvider>
+              </AlertFilterProvider>
               </HospitalProvider>
               </SessionProvider>
             </SyncProvider>

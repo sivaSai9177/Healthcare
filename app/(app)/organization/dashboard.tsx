@@ -98,14 +98,14 @@ export default function OrganizationDashboard() {
       id: 'invite',
       label: 'Invite',
       icon: <Symbol name="person.2" size={20} className="text-primary-foreground" />,
-      onPress: () => router.push('/(app)/organization/settings'),
+      onPress: () => router.push('/organization/settings'),
       color: 'primary',
     },
     {
       id: 'settings',
       label: 'Settings',
       icon: <Symbol name="gearshape" size={20} className="text-primary-foreground" />,
-      onPress: () => router.push('/(app)/organization/settings'),
+      onPress: () => router.push('/organization/settings'),
       color: 'primary',
     },
     {
@@ -148,7 +148,7 @@ export default function OrganizationDashboard() {
                 organization={organization}
                 onManageTeam={() => {}}
                 onUpgradePlan={() => {}}
-                onSettings={() => router.push('/(app)/organization/settings')}
+                onSettings={() => router.push('/organization/settings')}
               />
             </Box>
             
@@ -181,7 +181,7 @@ export default function OrganizationDashboard() {
               organization={organization}
               onManageTeam={() => {}}
               onUpgradePlan={() => {}}
-              onSettings={() => router.push('/(app)/organization/settings')}
+              onSettings={() => router.push('/organization/settings')}
             />
             <OrganizationQuickActionsBlock actions={quickActions} columns={2} />
             <Box className="col-span-2">
@@ -203,7 +203,7 @@ export default function OrganizationDashboard() {
               organization={organization}
               onManageTeam={() => {}}
               onUpgradePlan={() => {}}
-              onSettings={() => router.push('/(app)/organization/settings')}
+              onSettings={() => router.push('/organization/settings')}
             />
             <OrganizationQuickActionsBlock actions={quickActions} columns={2} />
             <HStack gap={spacing[4] as any} style={{ overflowX: 'scroll' }}>

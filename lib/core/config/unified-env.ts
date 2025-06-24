@@ -121,7 +121,7 @@ export function getUnifiedEnvConfig(): EnvConfig {
   
   switch (mode) {
     case 'local':
-      const localUrl = 'http://localhost:8081';
+      const localUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8081';
       return {
         apiUrl: localUrl,
         authUrl: localUrl,

@@ -1,9 +1,8 @@
-import { ExpoRequest, ExpoResponse } from 'expo-router/server';
 import { prefetchHelpers, combineDehydratedStates } from '@/lib/api/ssr-utils';
 import { log } from '@/lib/core/debug/logger';
 
 // This API route handles SSR prefetching for different pages
-export async function GET(request: ExpoRequest): Promise<ExpoResponse> {
+export async function GET(request: Request): Promise<Response> {
   try {
     const url = new URL(request.url);
     const path = url.searchParams.get('path');
@@ -54,51 +53,57 @@ export async function GET(request: ExpoRequest): Promise<ExpoResponse> {
         dehydratedState = await prefetchHelpers.user();
     }
     
-    return ExpoResponse.json({
+    return new Response(JSON.stringify({
       success: true,
       dehydratedState,
+    }), {
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     log.error('SSR prefetch error', 'SSR', error);
-    return ExpoResponse.json(
-      { 
+    return new Response(JSON.stringify({ 
         success: false, 
         error: 'Failed to prefetch data',
         details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
   }
 }
 
 // POST endpoint for custom prefetch queries
-export async function POST(request: ExpoRequest): Promise<ExpoResponse> {
+export async function POST(request: Request): Promise<Response> {
   try {
     const body = await request.json();
     const { queries } = body;
     
     if (!Array.isArray(queries)) {
-      return ExpoResponse.json(
-        { success: false, error: 'Invalid queries format' },
-        { status: 400 }
-      );
+      return new Response(JSON.stringify(
+        { success: false, error: 'Invalid queries format' }
+      ), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
     
     // TODO: Implement custom query prefetching based on the queries array
     // This would require a more dynamic approach to handle arbitrary queries
     
-    return ExpoResponse.json({
+    return new Response(JSON.stringify({
       success: true,
       message: 'Custom prefetch not yet implemented',
+    }), {
+      headers: { 'Content-Type': 'application/json' }
     });
   } catch (error) {
     log.error('SSR custom prefetch error', 'SSR', error);
-    return ExpoResponse.json(
-      { 
+    return new Response(JSON.stringify({ 
         success: false, 
         error: 'Failed to process custom prefetch'
-      },
-      { status: 500 }
-    );
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
   }
 }

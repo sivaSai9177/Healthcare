@@ -45,7 +45,7 @@ export function AlertActions({
     if (onCreateAlert) {
       onCreateAlert();
     } else {
-      router.push('/(modals)/create-alert');
+      router.push('/create-alert');
     }
   };
   

@@ -45,7 +45,7 @@ export function useVerifyEmail(options: UseVerifyEmailOptions = {}) {
         if (user?.needsProfileCompletion) {
           router.replace('/(auth)/complete-profile');
         } else {
-          router.replace('/(app)/(tabs)/home');
+          router.replace('/home');
         }
       }
     } catch (error: any) {

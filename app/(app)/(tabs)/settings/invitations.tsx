@@ -202,7 +202,7 @@ export default function InvitationsScreen() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onPress={() => router.push('/(modals)/invite-member')}
+                    onPress={() => router.push('/invite-member')}
                     style={{ marginTop: spacing[2] as any }}
                   >
                     Send New Invitation

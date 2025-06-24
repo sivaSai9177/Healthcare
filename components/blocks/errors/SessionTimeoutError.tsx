@@ -48,7 +48,7 @@ export function SessionTimeoutError({ onRetry }: SessionTimeoutErrorProps) {
         if (onRetry) {
           onRetry();
         } else {
-          router.replace('/(app)/(tabs)/home');
+          router.replace('/home');
         }
       } else {
         logger.auth.error('Session refresh failed');

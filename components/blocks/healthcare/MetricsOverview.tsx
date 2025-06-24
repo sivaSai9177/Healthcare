@@ -369,7 +369,7 @@ const MetricsContent = ({ hospitalId, timeRange, setTimeRange, isPending, startT
   isPending: boolean;
   startTransition: (callback: () => void) => void;
 }) => {
-  const { refreshInterval } = useMetricsStore();
+  const { refreshInterval, department } = useMetricsStore();
   const { isHealthcareRole, canViewAlerts, isLoading, isAuthenticated, user } = useHealthcareAccess();
   
   // Deferred values for smooth interactions
@@ -379,6 +379,8 @@ const MetricsContent = ({ hospitalId, timeRange, setTimeRange, isPending, startT
   // Use enhanced hook for metrics with offline support
   const metricsQuery = useMetrics({
     hospitalId,
+    timeRange,
+    department,
     enabled: !!user && isAuthenticated && isHealthcareRole && !isLoading,
     refetchInterval: refreshInterval,
   });

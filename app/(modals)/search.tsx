@@ -115,10 +115,10 @@ export default function SearchModal() {
     // Navigate based on result type
     switch (result.type) {
       case 'patients':
-        router.push(`/(modals)/patient-details?patientId=${result.id}`);
+        router.push(`/patient-details?patientId=${result.id}`);
         break;
       case 'staff':
-        router.push(`/(modals)/member-details?memberId=${result.id}`);
+        router.push(`/member-details?memberId=${result.id}`);
         break;
       case 'alerts':
         // TODO: Navigate to alert details

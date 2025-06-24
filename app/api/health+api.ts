@@ -1,7 +1,6 @@
-import { ExpoRequest, ExpoResponse } from 'expo-router/server';
 import { getCurrentEnvironment } from '@/lib/core/config/env-config';
 
-export async function GET(request: ExpoRequest): Promise<ExpoResponse> {
+export async function GET(request: Request): Promise<Response> {
   try {
     const environment = getCurrentEnvironment();
     
@@ -15,7 +14,7 @@ export async function GET(request: ExpoRequest): Promise<ExpoResponse> {
       memory: process.memoryUsage ? process.memoryUsage() : {},
     };
     
-    return new ExpoResponse(JSON.stringify(health, null, 2), {
+    return new Response(JSON.stringify(health, null, 2), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
@@ -23,7 +22,7 @@ export async function GET(request: ExpoRequest): Promise<ExpoResponse> {
       },
     });
   } catch (error) {
-    return new ExpoResponse(
+    return new Response(
       JSON.stringify({
         status: 'error',
         error: error instanceof Error ? error.message : 'Unknown error',

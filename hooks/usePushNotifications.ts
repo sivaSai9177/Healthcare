@@ -145,7 +145,7 @@ export function usePushNotifications() {
         case 'alert.created':
         case 'alert.escalated':
           if (data.alertId) {
-            router.push(`/(modals)/escalation-details?alertId=${data.alertId}`);
+            router.push(`/escalation-details?alertId=${data.alertId}`);
           }
           break;
         case 'shift.summary':

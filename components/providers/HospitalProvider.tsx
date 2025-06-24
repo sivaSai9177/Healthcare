@@ -16,11 +16,11 @@ export function HospitalProvider({ children }: { children: React.ReactNode }) {
   } = useHospitalStore();
 
   // Use user's organizationId if organization store is not populated yet
-  const organizationId = organization?.id || user?.organizationId || '';
+  const organizationId = organization?.id || user?.organizationId;
   
   // Fetch hospitals when organization changes
   const { data: hospitalsData, isLoading, error } = api.healthcare.getOrganizationHospitals.useQuery(
-    { organizationId },
+    { organizationId: organizationId! },
     { 
       enabled: !!organizationId && !!user?.id,
       staleTime: 5 * 60 * 1000, // 5 minutes

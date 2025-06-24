@@ -3,47 +3,14 @@
  */
 
 import { z } from 'zod';
-import { AlertType, AlertStatus, UrgencyLevel, HealthcareUserRole } from './healthcare';
 
-// Alert Schema - shared between server and client
-export const AlertSchema = z.object({
-  id: z.string(),
-  hospitalId: z.string(),
-  roomNumber: z.string(),
-  alertType: AlertType,
-  urgencyLevel: UrgencyLevel,
-  status: AlertStatus,
-  description: z.string().optional(),
-  currentEscalationTier: z.number().default(1),
-  nextEscalationAt: z.string().datetime().nullable(),
-  createdAt: z.string().datetime(),
-  acknowledgedAt: z.string().datetime().nullable(),
-  resolvedAt: z.string().datetime().nullable(),
-  createdBy: z.string(),
-  acknowledgedBy: z.string().nullable(),
-  resolvedBy: z.string().nullable(),
-});
+// Re-export all alert types from the dedicated alert types file
+export * from './alert';
 
-export type Alert = z.infer<typeof AlertSchema>;
-
-// Alert with relations
-export interface AlertWithRelations extends Alert {
-  creator?: {
-    id: string;
-    name: string;
-    role: HealthcareUserRole;
-  };
-  acknowledgedByUser?: {
-    id: string;
-    name: string;
-    role: HealthcareUserRole;
-  };
-  resolvedByUser?: {
-    id: string;
-    name: string;
-    role: HealthcareUserRole;
-  };
-}
+// Legacy exports for backward compatibility
+// These are now defined in ./alert.ts but re-exported here
+// to avoid breaking existing imports
+import type { Alert, AlertWithRelations } from './alert';
 
 // Common response types
 export interface PaginatedResponse<T> {

@@ -215,6 +215,30 @@ export const shiftHandovers = pgTable('shift_handovers', {
   toUserIdx: index('idx_handovers_to_user').on(table.toUserId),
 }));
 
+// Alert templates for quick alert creation
+export const alertTemplates = pgTable('alert_templates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  hospitalId: uuid('hospital_id').references(() => hospitals.id).notNull(),
+  name: varchar('name', { length: 100 }).notNull(),
+  description: text('description'),
+  alertType: varchar('alert_type', { length: 50 }).notNull(),
+  urgencyLevel: integer('urgency_level').notNull(),
+  defaultDescription: text('default_description'),
+  targetDepartment: departmentEnum('target_department'),
+  icon: varchar('icon', { length: 10 }),
+  color: varchar('color', { length: 7 }), // Hex color
+  isActive: boolean('is_active').default(true),
+  isGlobal: boolean('is_global').default(false), // Available to all hospitals
+  createdBy: text('created_by').references(() => users.id).notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (table) => ({
+  alertTypeCheck: check('alert_type_check', sql`${table.alertType} IN ('cardiac_arrest', 'code_blue', 'fire', 'security', 'medical_emergency')`),
+  urgencyLevelCheck: check('urgency_level_check', sql`${table.urgencyLevel} BETWEEN 1 AND 5`),
+  hospitalActiveIdx: index('idx_alert_templates_hospital_active').on(table.hospitalId, table.isActive),
+  globalIdx: index('idx_alert_templates_global').on(table.isGlobal),
+}));
+
 // Export all healthcare tables
 export const healthcareTables = {
   healthcareUsers,
@@ -230,6 +254,7 @@ export const healthcareTables = {
   alertTimelineEvents,
   shiftLogs,
   shiftHandovers,
+  alertTemplates,
 };
 
 // Type exports for TypeScript
@@ -259,3 +284,5 @@ export type ShiftLog = typeof shiftLogs.$inferSelect;
 export type NewShiftLog = typeof shiftLogs.$inferInsert;
 export type ShiftHandover = typeof shiftHandovers.$inferSelect;
 export type NewShiftHandover = typeof shiftHandovers.$inferInsert;
+export type AlertTemplate = typeof alertTemplates.$inferSelect;
+export type NewAlertTemplate = typeof alertTemplates.$inferInsert;

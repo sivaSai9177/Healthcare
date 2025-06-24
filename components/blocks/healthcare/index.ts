@@ -17,14 +17,18 @@ export { AlertCreationForm } from './AlertCreationForm';
 export { AlertCreationFormEnhanced } from './AlertCreationFormEnhanced';
 export { AlertCreationFormSimplified } from './AlertCreationFormSimplified';
 export { AlertList } from './AlertList';
+export { AlertListVirtualized } from './AlertListVirtualized';
+export { AlertListWithBatchActions } from './AlertListWithBatchActions';
 export { AlertSummary } from './AlertSummary';
 export { AlertSummaryEnhanced } from './AlertSummaryEnhanced';
 export { AlertTimeline } from './AlertTimeline';
 export { AlertItem } from './AlertItem';
 export { AlertItemSimple } from './AlertItemSimple';
 export { AlertCardPremium } from './AlertCardPremium';
+export { AlertCardOptimized } from './AlertCardOptimized';
 export { AlertTimelineWidget } from './AlertTimelineWidget';
 export { AlertFilters } from './AlertFilters';
+export { AlertFilterPresets } from './AlertFilterPresets';
 export { AlertActions } from './AlertActions';
 
 // Alert Support Components

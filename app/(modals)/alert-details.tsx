@@ -113,7 +113,7 @@ export default function AlertDetailsModal() {
   }, []);
 
   const handleAcknowledge = () => {
-    router.push(`/(modals)/acknowledge-alert?alertId=${alert.id}`);
+    router.push(`/acknowledge-alert?alertId=${alert.id}`);
   };
 
   const handleResolve = () => {

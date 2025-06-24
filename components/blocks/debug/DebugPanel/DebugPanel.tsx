@@ -874,7 +874,7 @@ ${log.error ? `\nError: ${log.error}` : ''}`;
                           onPress={() => {
                             const { router } = require('expo-router');
                             debugLog.info('Navigating to home screen from debug panel');
-                            router.replace('/(app)/(tabs)/home');
+                            router.replace('/home');
                           }}
                         >
                           <HStack gap={1} align="center">

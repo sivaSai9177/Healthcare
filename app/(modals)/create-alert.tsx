@@ -78,7 +78,7 @@ export default function CreateAlertModal() {
       router.back();
     } else {
       // If can't go back (e.g., after refresh), go to alerts list
-      router.replace('/(app)/(tabs)/alerts' as any);
+      router.replace('/alerts' as any);
     }
   };
   
@@ -95,11 +95,11 @@ export default function CreateAlertModal() {
     // Navigate to alerts screen with new alert ID
     if (successData.alertId) {
       router.replace({
-        pathname: '/(app)/(tabs)/alerts',
+        pathname: '/alerts',
         params: { newAlertId: successData.alertId }
       });
     } else {
-      router.replace('/(app)/(tabs)/alerts');
+      router.replace('/alerts');
     }
   };
   

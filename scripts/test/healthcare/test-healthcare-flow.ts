@@ -169,12 +169,12 @@ async function runTests() {
 
   const components = [
     { name: 'Login Screen', path: '/(public)/auth/login' },
-    { name: 'Dashboard', path: '/(app)/(tabs)/home' },
-    { name: 'Alert List', path: '/(app)/(tabs)/alerts' },
-    { name: 'Create Alert Modal', path: '/(modals)/create-alert' },
-    { name: 'Alert Details', path: '/(modals)/alert-details' },
-    { name: 'Patient List', path: '/(app)/(tabs)/patients' },
-    { name: 'Settings', path: '/(app)/(tabs)/settings' },
+    { name: 'Dashboard', path: '/home' },
+    { name: 'Alert List', path: '/alerts' },
+    { name: 'Create Alert Modal', path: '/create-alert' },
+    { name: 'Alert Details', path: '/alert-details' },
+    { name: 'Patient List', path: '/patients' },
+    { name: 'Settings', path: '/settings' },
     { name: 'Profile Completion', path: '/(public)/auth/complete-profile' },
   ];
 

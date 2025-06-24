@@ -30,10 +30,11 @@ import {
   URGENCY_LEVEL_CONFIG,
   UrgencyLevel
 } from '@/types/healthcare';
+import { DepartmentSelector } from './DepartmentSelector';
 
 interface AlertCreationFormSimplifiedProps {
   hospitalId: string;
-  onSuccess?: (alertData?: any) => void;
+  onSuccess?: (alertData?: { id: string; roomNumber: string; alertType: string }) => void;
   embedded?: boolean;
 }
 
@@ -607,6 +608,28 @@ export function AlertCreationFormSimplified({
                 </View>
               ))}
             </HStack>
+          </VStack>
+        </GlassCard>
+      )}
+      
+      {/* Department Routing */}
+      {formData.alertType && (
+        <GlassCard style={shadowMd}>
+          <VStack gap={2} p={3}>
+            <DepartmentSelector
+              value={formData.targetDepartment}
+              onChange={(department) => {
+                setFormData({ ...formData, targetDepartment: department as any });
+                // Clear department error if exists
+                if (errors.targetDepartment) clearErrors();
+              }}
+              alertType={formData.alertType}
+              required={false}
+              error={errors.targetDepartment}
+            />
+            <Text size="xs" colorTheme="mutedForeground" style={{ marginTop: spacing[1] }}>
+              Select which department should handle this alert. If not specified, it will be routed automatically.
+            </Text>
           </VStack>
         </GlassCard>
       )}

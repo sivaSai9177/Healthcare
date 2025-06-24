@@ -79,14 +79,14 @@ export default function AdminDashboard() {
             <Text size="lg" weight="bold">System Management</Text>
             <Grid columns={2} gap={2}>
               <Button
-                onPress={() => router.push('/(app)/admin/users')}
+                onPress={() => router.push('/admin/users')}
                 variant="outline"
                 fullWidth
               >
                 User Management
               </Button>
               <Button
-                onPress={() => router.push('/(app)/admin/organizations')}
+                onPress={() => router.push('/admin/organizations')}
                 variant="outline"
                 fullWidth
               >

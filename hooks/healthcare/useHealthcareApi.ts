@@ -236,7 +236,7 @@ export function useMetrics(options?: {
   return api.healthcare.getMetrics.useQuery(
     { 
       timeRange: options?.timeRange || '24h',
-      department: options?.department,
+      department: options?.department || 'all',
     },
     {
       enabled: !!hospitalId && (options?.enabled ?? true),
@@ -277,13 +277,13 @@ export function useUnreadNotifications(options?: {
 /**
  * Hook for organization hospitals
  */
-export function useOrganizationHospitals(organizationId: string, options?: {
+export function useOrganizationHospitals(organizationId: string | undefined, options?: {
   enabled?: boolean;
 }) {
   return api.healthcare.getOrganizationHospitals.useQuery(
-    { organizationId },
+    { organizationId: organizationId! },
     {
-      enabled: !!organizationId && (options?.enabled ?? true),
+      enabled: !!organizationId && organizationId !== '' && (options?.enabled ?? true),
       staleTime: 10 * 60 * 1000,
     }
   );

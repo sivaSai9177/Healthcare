@@ -3,7 +3,7 @@
  */
 
 export { api } from './trpc';
-export { getApiUrl } from './api-resolver';
+export { getCurrentApiUrl as getApiUrl, resolveApiUrl, setApiUrl } from './api-resolver';
 
 // Re-export tRPC types
 export type { AppRouter } from '@/src/server/routers';

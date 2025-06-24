@@ -85,13 +85,13 @@ export function ServerError({
   };
   
   const handleGoHome = () => {
-    logger.router.navigate('server-error', '/(app)/(tabs)/home');
-    router.replace('/(app)/(tabs)/home');
+    logger.router.navigate('server-error', '/home');
+    router.replace('/home');
   };
   
   const handleReportIssue = () => {
     logger.support.info('User reporting server error', { statusCode, requestId });
-    router.push('/(app)/support');
+    router.push('/support');
   };
   
   return (

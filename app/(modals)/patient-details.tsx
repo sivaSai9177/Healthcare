@@ -338,7 +338,7 @@ export default function PatientDetailsModal() {
             <VStack gap={3}>
               <Button variant="default" onPress={() => {
                 // TODO: Navigate to edit patient screen
-                // router.push(`/(modals)/edit-patient?patientId=${patient.id}`);
+                // router.push(`/edit-patient?patientId=${patient.id}`);
               }}>
                 Update Patient Information
               </Button>

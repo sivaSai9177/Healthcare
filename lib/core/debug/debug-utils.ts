@@ -210,16 +210,36 @@ export function setupNetworkDebugging() {
 
   const logger = createLogger('Network');
 
-  // Intercept fetch
+  // Store original fetch for use by UnifiedLogger
   const originalFetch = global.fetch;
+  (global as any).__originalFetch = originalFetch;
   const interceptedFetch = async function(...args: Parameters<typeof fetch>) {
-    const [url, options] = args;
-    const method = options?.method || 'GET';
+    const [input, options] = args;
+    let url: string;
     
-    logger.debug(`${method} ${url}`, {
-      headers: options?.headers,
-      body: options?.body,
-    });
+    // Handle different input types
+    if (typeof input === 'string') {
+      url = input;
+    } else if (input instanceof Request) {
+      url = input.url;
+    } else if (input && typeof input.toString === 'function') {
+      url = input.toString();
+    } else {
+      url = '';
+    }
+    
+    const method = options?.method || (input instanceof Request ? input.method : 'GET');
+    
+    // Skip logging for sensitive requests
+    const isLoggingServiceRequest = url && (url.includes('localhost:3003') || url.includes('/log/batch'));
+    const isOAuthRequest = url && (url.includes('/oauth2/') || url.includes('accounts.google.com'));
+    
+    if (!isLoggingServiceRequest && !isOAuthRequest && url) {
+      logger.debug(`${method} ${url}`, {
+        headers: options?.headers,
+        body: options?.body,
+      });
+    }
 
     const startTime = Date.now();
 
@@ -227,15 +247,19 @@ export function setupNetworkDebugging() {
       const response = await originalFetch.apply(this, args);
       const duration = Date.now() - startTime;
       
-      logger.debug(`${method} ${url} - ${response.status} (${duration}ms)`, {
-        status: response.status,
-        statusText: response.statusText,
-      });
+      if (!isLoggingServiceRequest && !isOAuthRequest && url) {
+        logger.debug(`${method} ${url} - ${response.status} (${duration}ms)`, {
+          status: response.status,
+          statusText: response.statusText,
+        });
+      }
 
       return response;
     } catch (error) {
       const duration = Date.now() - startTime;
-      logger.error(`${method} ${url} - Failed (${duration}ms)`, error);
+      if (!isLoggingServiceRequest && !isOAuthRequest && url) {
+        logger.error(`${method} ${url} - Failed (${duration}ms)`, error);
+      }
       throw error;
     }
   } as typeof fetch;

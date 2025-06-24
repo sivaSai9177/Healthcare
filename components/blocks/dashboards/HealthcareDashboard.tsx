@@ -197,7 +197,7 @@ export default function HealthcareDashboard() {
       {/* Essential Actions - Better Design */}
       {(role === 'operator' || role === 'head_doctor') && (
         <Button
-          onPress={() => router.push('/(modals)/create-alert')}
+          onPress={() => router.push('/create-alert')}
           variant="destructive"
           fullWidth
           size="lg"

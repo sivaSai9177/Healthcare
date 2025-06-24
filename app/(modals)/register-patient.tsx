@@ -28,7 +28,7 @@ export default function RegisterPatientModal() {
       router.back();
     } else {
       // If can't go back (e.g., after refresh), go to patients list
-      router.replace('/(app)/(tabs)/patients' as any);
+      router.replace('/patients' as any);
     }
   };
 

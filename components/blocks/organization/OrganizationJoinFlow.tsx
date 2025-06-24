@@ -40,7 +40,7 @@ export function OrganizationJoinFlow({ onSuccess, onCancel }: OrganizationJoinFl
         if (onSuccess) {
           onSuccess();
         } else {
-          router.replace('/(app)/(tabs)/home' as any);
+          router.replace('/home' as any);
         }
       } else {
         Alert.alert(
@@ -53,7 +53,7 @@ export function OrganizationJoinFlow({ onSuccess, onCancel }: OrganizationJoinFl
                 if (onSuccess) {
                   onSuccess();
                 } else {
-                  router.replace('/(app)/(tabs)/home' as any);
+                  router.replace('/home' as any);
                 }
               },
             },
@@ -159,7 +159,7 @@ export function OrganizationJoinFlow({ onSuccess, onCancel }: OrganizationJoinFl
                         size="sm"
                         onPress={() => {
                           haptic('light');
-                          router.push('/(app)/organization/browse' as any);
+                          router.push('/organization/browse' as any);
                         }}
                         disabled={joinMutation.isPending}
                       >
@@ -171,7 +171,7 @@ export function OrganizationJoinFlow({ onSuccess, onCancel }: OrganizationJoinFl
                         size="sm"
                         onPress={() => {
                           haptic('light');
-                          router.push('/(app)/organization/create' as any);
+                          router.push('/organization/create' as any);
                         }}
                         disabled={joinMutation.isPending}
                       >

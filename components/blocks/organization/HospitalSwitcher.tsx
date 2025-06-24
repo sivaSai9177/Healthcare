@@ -38,7 +38,7 @@ export function HospitalSwitcher({
   const organizationId = user?.organizationId;
   
   // Fetch hospitals for the organization using enhanced hook
-  const hospitalsQuery = useOrganizationHospitals(organizationId!, {
+  const hospitalsQuery = useOrganizationHospitals(organizationId, {
     enabled: !!organizationId,
   });
   

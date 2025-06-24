@@ -9,7 +9,7 @@ import {
 } from '@/src/db/patient-schema';
 import { alerts, healthcareAuditLogs } from '@/src/db/healthcare-schema';
 import { users } from '@/src/db/schema';
-import { eq, and, desc, or, gte, isNull, sql, alias } from 'drizzle-orm';
+import { eq, and, desc, or, gte, isNull, sql, aliasedTable } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
 // Permission-based procedures
@@ -139,8 +139,8 @@ export const patientRouter = router({
     .query(async ({ input, ctx }) => {
       try {
         // Create aliases for users table to avoid conflicts
-        const primaryDoctorAlias = alias(users, 'primaryDoctor');
-        const attendingNurseAlias = alias(users, 'attendingNurse');
+        const primaryDoctorAlias = aliasedTable(users, 'primaryDoctor');
+        const attendingNurseAlias = aliasedTable(users, 'attendingNurse');
         
         const [patient] = await db
           .select({
@@ -191,7 +191,7 @@ export const patientRouter = router({
           .orderBy(desc(alerts.urgencyLevel));
 
         // Get care team
-        const careTeamUsersAlias = alias(users, 'careTeamUser');
+        const careTeamUsersAlias = aliasedTable(users, 'careTeamUser');
         const careTeam = await db
           .select({
             id: careTeamAssignments.id,

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAlertFilters } from '@/contexts/AlertFilterContext';
 import { 
   View, 
   ScrollView, 
-  RefreshControl, 
 } from 'react-native';
 import { Skeleton, SkeletonCard } from '@/components/universal/feedback/Skeleton';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,27 +14,34 @@ import {
   Text,
   Button,
   Symbol,
+  ConnectionStatus,
 } from '@/components/universal';
 import { useTheme } from '@/lib/theme/provider';
 import { log } from '@/lib/core/debug/unified-logger';
 import { useAlertWebSocket, useHospitalContext } from '@/hooks/healthcare';
+import { useEventQueueCleanup } from '@/hooks/useEventQueueCleanup';
 import { useActiveAlerts, useAcknowledgeAlert, useResolveAlert } from '@/hooks/healthcare/useHealthcareApi';
 import { haptic } from '@/lib/ui/haptics';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { 
-  AlertCardPremium,
+  AlertListWithBatchActions,
   AlertTimelineWidget,
   AlertFilters,
+  AlertFilterPresets,
 } from '@/components/blocks/healthcare';
 import { ApiErrorBoundary } from '@/components/blocks/errors/ApiErrorBoundary';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useHealthcareAccess } from '@/hooks/usePermissions';
-import { useSSRPrefetchHealthcare } from '@/lib/api/use-ssr-prefetch';
+// import { useSSRPrefetchHealthcare } from '@/lib/api/use-ssr-prefetch';
+import { api } from '@/lib/api/trpc';
 import Animated, { 
-  FadeInDown, 
+  FadeInDown,
+  FadeIn, 
   useAnimatedStyle, 
   useSharedValue,
   interpolate,
+  withTiming,
+  withSpring,
 } from 'react-native-reanimated';
 import { AnimatedPageWrapper, pageEnteringAnimations } from '@/lib/navigation/page-transitions';
 import { useLayoutTransition } from '@/hooks/useLayoutTransition';
@@ -47,13 +54,27 @@ function AlertsScreenContent() {
   const { spacing } = useSpacing();
   const searchParams = useLocalSearchParams();
   const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [urgencyFilter, setUrgencyFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('active');
   const [highlightedAlertId, setHighlightedAlertId] = useState<string | null>(null);
   const scrollY = useSharedValue(0);
-  const scrollViewRef = useRef<ScrollView>(null);
-  const alertRefs = useRef<{ [key: string]: View | null }>({});
+  
+  // Debug logging
+  log.info('AlertsScreenContent rendering', 'ALERTS', {
+    user: user ? { id: user.id, role: user.role } : null,
+    theme: { background: theme.background },
+  });
+  
+  // Use event queue cleanup hook to prevent memory leaks
+  useEventQueueCleanup();
+  
+  // Use filter context
+  const {
+    filters,
+    setSearchQuery,
+    setUrgencyFilter,
+    setStatusFilter,
+  } = useAlertFilters();
+  
+  const { searchQuery, urgencyFilter, statusFilter } = filters;
   
   // Page transition animation
   const { animatedStyle } = useLayoutTransition({ 
@@ -71,8 +92,18 @@ function AlertsScreenContent() {
   // Get hospitalId from user's default hospital or organization
   const hospitalId = hospitalContext.hospitalId || user?.defaultHospitalId || user?.organizationId || '';
   
-  // SSR prefetch for web
-  useSSRPrefetchHealthcare(hospitalId);
+  // Debug hospital context
+  log.info('Hospital context in alerts', 'ALERTS', {
+    hospitalContext,
+    hospitalId,
+    canViewAlerts,
+    userDefaultHospitalId: user?.defaultHospitalId,
+    userOrganizationId: user?.organizationId,
+  });
+  
+  // SSR prefetch for web - DISABLED to fix grey screen issue
+  // TODO: Fix SSR implementation before re-enabling
+  // useSSRPrefetchHealthcare(hospitalId);
   
   // Use enhanced API hooks with error handling and caching
   // These hooks must be called before any conditional returns
@@ -80,17 +111,31 @@ function AlertsScreenContent() {
     data, 
     isLoading, 
     refetch,
+    error,
   } = useActiveAlerts({
     enabled: !!user && !!hospitalId,
     refetchInterval: 30000, // 30 seconds
-  }) as any;
+  });
   
   // Use enhanced mutations
   const acknowledgeMutation = useAcknowledgeAlert();
   const resolveMutation = useResolveAlert();
   
+  // Batch mutations
+  const batchAcknowledgeMutation = api.healthcare.batchAcknowledgeAlerts.useMutation();
+  const batchResolveMutation = api.healthcare.batchResolveAlerts.useMutation();
+  
+  // Debug data fetching
+  log.info('Alerts data state', 'ALERTS', {
+    dataExists: !!data,
+    alertsCount: data?.alerts?.length || 0,
+    isLoading,
+    error: error?.message || null,
+    queryEnabled: !!user && !!hospitalId,
+  });
+  
   // WebSocket integration - must be called before conditional returns
-  useAlertWebSocket({
+  const { connectionState } = useAlertWebSocket({
     hospitalId,
     showNotifications: true,
     onAlertCreated: (event) => {
@@ -126,26 +171,18 @@ function AlertsScreenContent() {
       canViewAlerts,
       organizationId: user?.organizationId,
       defaultHospitalId: user?.defaultHospitalId,
+      // Add query status
+      isLoading,
+      hasData: !!data,
+      alertsCount: data?.alerts?.length || 0,
+      queryEnabled: !!user && !!hospitalId,
     });
-  }, [user, hospitalId, hospitalContext, canViewAlerts]);
+  }, [user, hospitalId, hospitalContext, canViewAlerts, isLoading, data]);
   
   // Handle navigation from create alert with highlight
   useEffect(() => {
     if (searchParams.newAlertId && typeof searchParams.newAlertId === 'string') {
       setHighlightedAlertId(searchParams.newAlertId);
-      // Scroll to the alert after a brief delay
-      setTimeout(() => {
-        const alertRef = alertRefs.current[searchParams.newAlertId as string];
-        if (alertRef && scrollViewRef.current) {
-          alertRef.measureLayout(
-            scrollViewRef.current as any,
-            (x, y) => {
-              scrollViewRef.current?.scrollTo({ y: y - 100, animated: true });
-            },
-            () => {}
-          );
-        }
-      }, 500);
       // Remove highlight after 5 seconds
       setTimeout(() => setHighlightedAlertId(null), 5000);
     }
@@ -168,7 +205,7 @@ function AlertsScreenContent() {
   const handleCreateAlert = useCallback(() => {
     haptic('medium');
     if (canCreateAlerts) {
-      router.push('/(modals)/create-alert');
+      router.push('/create-alert');
     } else {
       // Error alert is handled by the hook
     }
@@ -200,6 +237,38 @@ function AlertsScreenContent() {
     }
   }, [resolveMutation]);
   
+  // Batch handlers
+  const handleBatchAcknowledge = useCallback(async (alertIds: string[]) => {
+    try {
+      await batchAcknowledgeMutation.mutateAsync({
+        alertIds,
+        urgencyAssessment: 'maintain',
+        responseAction: 'responding',
+        notes: 'Batch acknowledged via mobile app',
+      });
+      haptic('success');
+      refetch();
+    } catch (error) {
+      haptic('error');
+      log.error('Failed to batch acknowledge alerts', 'ALERTS', { error });
+    }
+  }, [batchAcknowledgeMutation, refetch]);
+  
+  const handleBatchResolve = useCallback(async (alertIds: string[]) => {
+    try {
+      await batchResolveMutation.mutateAsync({
+        alertIds,
+        resolution: 'Batch resolved via mobile app',
+        followUpRequired: false,
+      });
+      haptic('success');
+      refetch();
+    } catch (error) {
+      haptic('error');
+      log.error('Failed to batch resolve alerts', 'ALERTS', { error });
+    }
+  }, [batchResolveMutation, refetch]);
+  
   // Header animation based on scroll - must be defined before conditional returns
   const headerStyle = useAnimatedStyle(() => {
     const height = interpolate(
@@ -213,22 +282,44 @@ function AlertsScreenContent() {
     };
   });
   
-  // For now, disable timeline data as it requires alertId
-  // TODO: Create a separate query for getting timeline events for all alerts in a hospital
+  // Timeline data - disabled for now as endpoint doesn't exist
   const timelineData = null;
+  
+  // Create a custom page animation that doesn't interfere with rendering
+  // This must be declared before any conditional returns to follow React hooks rules
+  const pageAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: withTiming(1, { duration: 300 }),
+      transform: [
+        {
+          translateY: withSpring(0, {
+            damping: 20,
+            stiffness: 90,
+            overshootClamping: false,
+          }),
+        },
+      ],
+    };
+  });
   
   // Now we can do conditional returns after all hooks have been called
   // Check permissions
+  log.info('Permission check before render', 'ALERTS', {
+    canViewAlerts,
+    aboutToRedirect: !canViewAlerts,
+  });
+  
   if (!canViewAlerts) {
-    return <Redirect href="/(app)/(tabs)/home" />;
+    log.warn('Redirecting to home - no view alerts permission', 'ALERTS');
+    return <Redirect href="/home" />;
   }
   
   
-  const filteredAlerts = data?.alerts.filter(alert => {
-    if (searchQuery && !alert.roomNumber.toLowerCase().includes(searchQuery.toLowerCase())) {
+  const filteredAlerts = (data?.alerts.filter(alert => {
+    if (searchQuery && !alert.roomNumber?.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
-    if (urgencyFilter !== 'all' && alert.urgencyLevel.toString() !== urgencyFilter) {
+    if (urgencyFilter !== 'all' && alert.urgencyLevel?.toString() !== urgencyFilter) {
       return false;
     }
     if (statusFilter === 'active' && alert.status !== 'active') {
@@ -238,7 +329,7 @@ function AlertsScreenContent() {
       return false;
     }
     return true;
-  }) || [];
+  }) || []) as any[];
   
   // Stats calculation
   const stats = {
@@ -251,42 +342,83 @@ function AlertsScreenContent() {
   if (isLoading && !data) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <ScrollView 
-          contentContainerStyle={{ flexGrow: 1 }}
-          style={{ backgroundColor: theme.background }}
+        <Animated.View 
+          entering={FadeIn.duration(300)}
+          style={{ flex: 1 }}
         >
-          <VStack p={spacing[4] as any} gap={spacing[4] as any}>
-            {/* Header Skeleton */}
-            <VStack gap={spacing[2] as any}>
-              <Skeleton className="h-10 w-32" />
-              <Skeleton className="h-4 w-48" />
-            </VStack>
-            
-            {/* Stats Cards Skeleton */}
-            <HStack gap={spacing[2] as any}>
-              {[1, 2, 3].map((i) => (
-                <SkeletonCard key={i} className="flex-1 h-24" />
-              ))}
-            </HStack>
-            
-            {/* Filter Skeleton */}
-            <Skeleton className="h-12 w-full rounded-lg" />
-            
-            {/* Alert Cards Skeleton */}
+          {/* Header Skeleton */}
+          <LinearGradient
+            colors={[theme.primary + '20', theme.background]}
+            style={{ paddingHorizontal: spacing[4] as any, paddingTop: spacing[4] as any, paddingBottom: spacing[3] as any }}
+          >
             <VStack gap={spacing[3] as any}>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <SkeletonCard key={i} className="h-32 w-full" />
-              ))}
+              <HStack justifyContent="space-between" alignItems="center">
+                <VStack gap={spacing[2] as any}>
+                  <Skeleton height={36} width={120} />
+                  <Skeleton height={16} width={150} />
+                </VStack>
+                <Skeleton height={44} width={100} radius={12} />
+              </HStack>
+              
+              {/* Stats Skeleton */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <HStack gap={spacing[2] as any}>
+                  {[1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} height={80} width={100} radius={12} />
+                  ))}
+                </HStack>
+              </ScrollView>
             </VStack>
-          </VStack>
-        </ScrollView>
+          </LinearGradient>
+          
+          <ScrollView 
+            contentContainerStyle={{ flexGrow: 1, padding: spacing[4] as any }}
+            style={{ backgroundColor: theme.background }}
+          >
+            <VStack gap={spacing[4] as any}>
+              {/* Filter Skeleton */}
+              <HStack gap={spacing[2] as any}>
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} height={40} flex={1} radius={8} />
+                ))}
+              </HStack>
+              
+              {/* Alert Cards Skeleton */}
+              <VStack gap={spacing[3] as any}>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Animated.View
+                    key={i}
+                    entering={FadeInDown.delay(i * 100)}
+                  >
+                    <SkeletonCard height={120} />
+                  </Animated.View>
+                ))}
+              </VStack>
+            </VStack>
+          </ScrollView>
+        </Animated.View>
       </SafeAreaView>
     );
   }
   
+  log.info('Rendering main alerts UI', 'ALERTS', {
+    filteredAlertsCount: filteredAlerts.length,
+    stats,
+    themeBackground: theme.background,
+  });
+  
+  // Remove debug UI and show proper alerts screen
+
   return (
-    <AnimatedPageWrapper entering={pageEnteringAnimations.glassIn} style={animatedStyle}>
+    <Animated.View style={[{ flex: 1 }, pageAnimatedStyle]}>
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+        {/* Connection Status */}
+        <ConnectionStatus 
+          connectionState={connectionState} 
+          position="top"
+          showDetails={false}
+        />
+        
         {/* Animated Header */}
         <Animated.View style={[headerStyle, { overflow: 'hidden' }] as any}>
         <LinearGradient
@@ -355,27 +487,14 @@ function AlertsScreenContent() {
         </LinearGradient>
       </Animated.View>
       
-      <ScrollView
-        ref={scrollViewRef}
-        contentContainerStyle={{ 
-          padding: spacing[4] as any, 
-          paddingBottom: spacing[8] as any 
-        }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.primary}
-          />
-        }
-        onScroll={(event) => {
-          scrollY.value = event.nativeEvent.contentOffset.y;
-        }}
-        scrollEventThrottle={16}
-      >
-        <VStack gap={spacing[4] as any}>
-          {/* Filters */}
+      <View style={{ flex: 1 }}>
+        {/* Filter Presets */}
+        <View style={{ paddingVertical: spacing[2] as any }}>
+          <AlertFilterPresets />
+        </View>
+        
+        {/* Filters */}
+        <View style={{ paddingHorizontal: spacing[4] as any, paddingBottom: spacing[2] as any }}>
           <AlertFilters
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -384,53 +503,49 @@ function AlertsScreenContent() {
             statusFilter={statusFilter}
             onStatusChange={setStatusFilter}
           />
-          
-          {/* Alert Cards */}
-          <VStack gap={spacing[3] as any}>
-            {filteredAlerts.map((alert, index) => (
-              <View
-                key={alert.id}
-                ref={ref => {
-                  if (ref) {
-                    alertRefs.current[alert.id] = ref;
-                  }
-                }}
-              >
-                <AlertCardPremium
-                  alert={alert}
-                  index={index}
-                  onPress={() => router.push(`/(app)/(tabs)/alerts/${alert.id}`)}
-                  onAcknowledge={canAcknowledgeAlerts ? handleAcknowledge : undefined}
-                  onResolve={canResolveAlerts ? handleResolve : undefined}
-                  canAcknowledge={canAcknowledgeAlerts}
-                  canResolve={canResolveAlerts}
-                  isHighlighted={highlightedAlertId === alert.id}
-                />
-              </View>
-            ))}
-            
-            {filteredAlerts.length === 0 && (
-              <EmptyState 
-                searchQuery={searchQuery}
-                hasFilters={urgencyFilter !== 'all' || statusFilter !== 'active'}
-              />
-            )}
-          </VStack>
-          
-          {/* Timeline Widget - Show for recent events */}
-          {timelineData && timelineData.events && timelineData.events.length > 0 && (
-            <Animated.View entering={FadeInDown.delay(300)}>
-              <AlertTimelineWidget
-                events={timelineData.events.slice(0, 10)}
-                alertStatus="active"
-                urgencyLevel={3}
-              />
-            </Animated.View>
-          )}
-        </VStack>
-      </ScrollView>
+        </View>
+        
+        {/* Alert List with Batch Actions */}
+        <AlertListWithBatchActions
+          alerts={filteredAlerts}
+          isLoading={isLoading}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          onAlertPress={(alert) => router.push(`/alerts/${alert.id}`)}
+          onAcknowledge={canAcknowledgeAlerts ? handleAcknowledge : undefined}
+          onResolve={canResolveAlerts ? handleResolve : undefined}
+          onBatchAcknowledge={canAcknowledgeAlerts ? handleBatchAcknowledge : undefined}
+          onBatchResolve={canResolveAlerts ? handleBatchResolve : undefined}
+          canAcknowledge={canAcknowledgeAlerts}
+          canResolve={canResolveAlerts}
+          highlightedAlertId={highlightedAlertId}
+          searchQuery={searchQuery}
+          hasFilters={urgencyFilter !== 'all' || statusFilter !== 'active'}
+        />
+        
+        {/* Timeline Widget - Show as overlay for recent events */}
+        {timelineData && timelineData.events && timelineData.events.length > 0 && (
+          <Animated.View 
+            entering={FadeInDown.delay(300)}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              padding: spacing[4] as any,
+              backgroundColor: theme.background + 'F0',
+            }}
+          >
+            <AlertTimelineWidget
+              events={timelineData.events.slice(0, 10)}
+              alertStatus="active"
+              urgencyLevel={3}
+            />
+          </Animated.View>
+        )}
+      </View>
     </SafeAreaView>
-    </AnimatedPageWrapper>
+    </Animated.View>
   );
 }
 
@@ -461,43 +576,11 @@ const StatCard: React.FC<{
   );
 };
 
-// Empty State Component
-const EmptyState: React.FC<{
-  searchQuery: string;
-  hasFilters: boolean;
-}> = ({ searchQuery, hasFilters }) => {
-  const { spacing } = useSpacing();
-  const theme = useTheme();
-  
-  return (
-    <VStack 
-      gap={spacing[4] as any} 
-      alignItems="center" 
-      p={spacing[8] as any}
-      style={{
-        backgroundColor: theme.card,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: theme.border,
-      }}
-    >
-      <Symbol name="bell.slash" size="xl" color={theme.mutedForeground} />
-      <VStack gap={spacing[2] as any} alignItems="center">
-        <Text size="base" weight="semibold">No alerts found</Text>
-        <Text colorTheme="mutedForeground" align="center">
-          {searchQuery || hasFilters
-            ? 'Try adjusting your filters'
-            : 'All alerts have been handled'}
-        </Text>
-      </VStack>
-    </VStack>
-  );
-};
 
 // Export component wrapped with error boundary
 export default function AlertsScreen() {
   return (
-    <ApiErrorBoundary retryRoute="/(app)/(tabs)/alerts">
+    <ApiErrorBoundary retryRoute="/alerts">
       <AlertsScreenContent />
     </ApiErrorBoundary>
   );

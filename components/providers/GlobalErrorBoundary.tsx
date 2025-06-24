@@ -307,7 +307,7 @@ export class HealthcareErrorBoundary extends GlobalErrorBoundary {
                 A critical error occurred in the healthcare module
               </Text>
               <TouchableOpacity
-                onPress={() => router.replace('/(app)/(tabs)/home')}
+                onPress={() => router.replace('/home')}
                 className="bg-red-600 rounded-lg py-3 px-6"
               >
                 <Text className="text-white font-semibold">

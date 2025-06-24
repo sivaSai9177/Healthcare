@@ -16,6 +16,7 @@ import {
   ALERT_TYPE_CONFIG, 
   URGENCY_LEVEL_CONFIG,
 } from '@/types/healthcare';
+import type { AlertListItem } from '@/types/alert';
 import { haptic } from '@/lib/ui/haptics';
 import { useSpacing } from '@/lib/stores/spacing-store';
 import { useTheme } from '@/lib/theme/provider';
@@ -33,7 +34,7 @@ import { useResponsive } from '@/hooks/responsive';
 
 
 interface AlertCardPremiumProps {
-  alert: any;
+  alert: AlertListItem;
   index: number;
   onPress?: () => void;
   onAcknowledge?: (alertId: string) => Promise<void>;

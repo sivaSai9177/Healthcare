@@ -150,6 +150,123 @@ export const userRouter = router({
       }
     }),
 
+  // Get user preferences (all preferences)
+  getPreferences: protectedProcedure
+    .query(async ({ ctx }) => {
+      try {
+        const [prefs] = await db
+          .select()
+          .from(userPreferences)
+          .where(eq(userPreferences.userId, ctx.user.id))
+          .limit(1);
+
+        if (!prefs) {
+          // Create default preferences
+          const [newPrefs] = await db
+            .insert(userPreferences)
+            .values({
+              userId: ctx.user.id,
+              emailPreferences: JSON.stringify({
+                alerts: true,
+                updates: true,
+                marketing: false,
+              }),
+              notificationPreferences: JSON.stringify({
+                push: true,
+                sms: false,
+                soundPreferences: {
+                  enabled: true,
+                  volume: 0.8,
+                  quietHoursEnabled: false,
+                  quietHoursStart: '22:00',
+                  quietHoursEnd: '07:00',
+                  criticalOverride: true,
+                  sounds: {
+                    cardiac_arrest: { enabled: true, soundFile: 'critical', vibrate: true },
+                    code_blue: { enabled: true, soundFile: 'urgent', vibrate: true },
+                    fire: { enabled: true, soundFile: 'critical', vibrate: true },
+                    security: { enabled: true, soundFile: 'alert', vibrate: true },
+                    medical_emergency: { enabled: true, soundFile: 'urgent', vibrate: true },
+                  },
+                },
+              }),
+            })
+            .returning();
+
+          return newPrefs;
+        }
+
+        return prefs;
+      } catch (error) {
+        log.error('Failed to get user preferences', 'USER', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to get preferences',
+        });
+      }
+    }),
+
+  // Update user preferences
+  updatePreferences: protectedProcedure
+    .input(z.object({
+      emailPreferences: z.string().optional(),
+      notificationPreferences: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const [existing] = await db
+          .select()
+          .from(userPreferences)
+          .where(eq(userPreferences.userId, ctx.user.id))
+          .limit(1);
+
+        if (!existing) {
+          // Create new preferences
+          const [newPrefs] = await db
+            .insert(userPreferences)
+            .values({
+              userId: ctx.user.id,
+              emailPreferences: input.emailPreferences || JSON.stringify({
+                alerts: true,
+                updates: true,
+                marketing: false,
+              }),
+              notificationPreferences: input.notificationPreferences || JSON.stringify({
+                push: true,
+                sms: false,
+              }),
+            })
+            .returning();
+
+          return newPrefs;
+        }
+
+        // Update existing preferences
+        const [updated] = await db
+          .update(userPreferences)
+          .set({
+            ...(input.emailPreferences && { emailPreferences: input.emailPreferences }),
+            ...(input.notificationPreferences && { notificationPreferences: input.notificationPreferences }),
+            updatedAt: new Date(),
+          })
+          .where(eq(userPreferences.userId, ctx.user.id))
+          .returning();
+
+        log.info('User preferences updated', 'USER', {
+          userId: ctx.user.id,
+          fieldsUpdated: Object.keys(input),
+        });
+
+        return updated;
+      } catch (error) {
+        log.error('Failed to update user preferences', 'USER', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to update preferences',
+        });
+      }
+    }),
+
   // Get user notification preferences
   getNotificationPreferences: protectedProcedure
     .query(async ({ ctx }) => {

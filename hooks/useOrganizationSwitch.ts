@@ -59,7 +59,7 @@ export function useOrganizationSwitch(options?: OrganizationSwitchOptions) {
       haptic('success');
       
       // Navigate to home to refresh context
-      router.replace('/(app)/(tabs)/home');
+      router.replace('/home');
       
       options?.onSuccess?.();
     } catch (error) {

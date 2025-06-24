@@ -46,7 +46,7 @@ export function QuickActionsBlock({
       title: 'My Profile',
       description: 'View and edit profile',
       icon: <Symbol name="person.2" size={24} />,
-      route: '/(modals)/profile-edit',
+      route: '/profile-edit',
       color: 'primary',
     },
     {
@@ -54,7 +54,7 @@ export function QuickActionsBlock({
       title: 'Notifications',
       description: 'View all alerts',
       icon: <Symbol name="exclamationmark.circle" size={24} />,
-      route: '/(modals)/notification-center',
+      route: '/notification-center',
       badge: '3',
       color: 'destructive',
     },
@@ -134,7 +134,7 @@ export function QuickActionsBlock({
       title: 'Create Alert',
       description: 'New emergency',
       icon: <Symbol name="exclamationmark.circle" size={24} />,  // Changed from Plus
-      route: '/(modals)/create-alert',
+      route: '/create-alert',
       color: 'destructive',
       organizationRoles: ['operator'],
     },

@@ -45,6 +45,6 @@ export default function Index() {
 
     // Authenticated user with completed profile goes to home
     console.log("[INDEX] User authenticated with completed profile, redirecting to home");
-    return <Redirect href="/(app)/(tabs)/home" />;
+    return <Redirect href="/home" />;
   }
 }

@@ -11,11 +11,11 @@ const execAsync = promisify(exec);
 
 const screens = [
   { name: 'Login', path: '/(public)/auth/login', delay: 3000 },
-  { name: 'Dashboard', path: '/(app)/(tabs)/home', delay: 3000 },
-  { name: 'Alerts', path: '/(app)/(tabs)/alerts', delay: 3000 },
-  { name: 'Patients', path: '/(app)/(tabs)/patients', delay: 3000 },
-  { name: 'Settings', path: '/(app)/(tabs)/settings', delay: 3000 },
-  { name: 'Create Alert Modal', path: '/(modals)/create-alert', delay: 3000 },
+  { name: 'Dashboard', path: '/home', delay: 3000 },
+  { name: 'Alerts', path: '/alerts', delay: 3000 },
+  { name: 'Patients', path: '/patients', delay: 3000 },
+  { name: 'Settings', path: '/settings', delay: 3000 },
+  { name: 'Create Alert Modal', path: '/create-alert', delay: 3000 },
   { name: 'Profile Completion', path: '/(public)/auth/complete-profile', delay: 3000 },
 ];
 

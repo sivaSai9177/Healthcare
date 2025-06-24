@@ -92,7 +92,7 @@ function PatientsScreenContent() {
           await new Promise(resolve => setTimeout(resolve, 500));
           
           // Navigate to patient details
-          router.push(`/(modals)/patient-details?patientId=${newPatientId}`);
+          router.push(`/patient-details?patientId=${newPatientId}`);
           
           // Clear the parameter to prevent re-triggering
           router.setParams({ newPatientId: undefined });
@@ -162,7 +162,7 @@ function PatientsScreenContent() {
             <Text colorTheme="mutedForeground" align="center">
               {hospitalContext.errorMessage || 'No hospital assigned'}
             </Text>
-            <Button onPress={() => router.push('/(app)/(tabs)/home')} variant="outline">
+            <Button onPress={() => router.push('/home')} variant="outline">
               Return to Home
             </Button>
           </VStack>
@@ -183,7 +183,7 @@ function PatientsScreenContent() {
               This section is only available to medical staff (doctors and nurses)
             </Text>
             <Button 
-              onPress={() => router.push('/(app)/(tabs)/home')}
+              onPress={() => router.push('/home')}
               variant="outline"
             >
               Go to Home
@@ -227,7 +227,7 @@ function PatientsScreenContent() {
               size="sm"
               onPress={() => {
                 haptic('light');
-                router.push('/(modals)/register-patient' as any);
+                router.push('/register-patient' as any);
               }}
             >
               <Symbol name="plus" size={16} color="white" />
@@ -354,7 +354,7 @@ function PatientsScreenContent() {
 // Export component wrapped with error boundary
 export default function PatientsScreen() {
   return (
-    <ApiErrorBoundary retryRoute="/(app)/(tabs)/patients">
+    <ApiErrorBoundary retryRoute="/patients">
       <PatientsScreenContent />
     </ApiErrorBoundary>
   );
