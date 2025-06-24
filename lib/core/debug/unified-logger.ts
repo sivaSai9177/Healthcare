@@ -3,7 +3,7 @@
  * Centralizes all logging and integrates with DebugPanel
  */
 
-import type { LogLevel, DebugLog } from '@/components/blocks/debug/utils/logger';
+import type { LogLevel } from '@/components/blocks/debug/utils/logger';
 import { loggingConfig } from './logging-config';
 
 // Conditionally import debug panel only on client side
@@ -25,7 +25,7 @@ const getPlatform = () => {
   }
 };
 
-export type LogCategory = 'AUTH' | 'API' | 'TRPC' | 'STORE' | 'ROUTER' | 'SYSTEM' | 'ERROR' | 'HEALTHCARE' | 'STORAGE' | 'ANALYTICS' | 'API_ERROR_BOUNDARY' | 'TEST' | 'WS_QUEUE' | 'WS_CONNECTION' | 'WS_CLEANUP' | 'ALERT_WS' | 'ALERTS';
+export type LogCategory = 'AUTH' | 'API' | 'TRPC' | 'STORE' | 'ROUTER' | 'SYSTEM' | 'ERROR' | 'HEALTHCARE' | 'STORAGE' | 'ANALYTICS' | 'API_ERROR_BOUNDARY' | 'TEST' | 'WS_QUEUE' | 'WS_CONNECTION' | 'WS_CLEANUP' | 'ALERT_WS' | 'ALERTS' | 'SSR' | 'SSR_PREFETCH' | 'SSR_HOC' | 'NAVIGATION' | 'ESCALATION_QUEUE';
 
 interface UnifiedLogEntry {
   timestamp: Date;
@@ -58,6 +58,8 @@ class UnifiedLogger {
         if (store.enableTRPCLogging) this.enabledCategories.add('TRPC');
         if (store.enableRouterLogging) this.enabledCategories.add('ROUTER');
         if (store.enableHealthcareLogging) this.enabledCategories.add('HEALTHCARE');
+      }).catch(() => {
+        // Ignore errors if debug store is not available
       });
     }
 
@@ -73,6 +75,9 @@ class UnifiedLogger {
   
   private startBatchTimer(): void {
     const config = loggingConfig.getConfig();
+    if (!config.enabled || !config.serviceUrl) {
+      return; // Don't start timer if logging is disabled
+    }
     this.flushTimer = setInterval(() => {
       this.flushLogs();
     }, config.flushInterval || 5000);
@@ -95,8 +100,15 @@ class UnifiedLogger {
     this.logBuffer = [];
     const config = loggingConfig.getConfig();
     
+    // Skip if logging service is disabled
+    if (!config.enabled || !config.serviceUrl) {
+      return;
+    }
+    
     try {
-      const response = await fetch(`${config.serviceUrl}/log/batch`, {
+      // Use the original fetch to avoid interception
+      const originalFetch = (global as any).__originalFetch || global.fetch;
+      const response = await originalFetch(`${config.serviceUrl}/log/batch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -114,12 +126,16 @@ class UnifiedLogger {
       if (!response.ok) {
         // Re-add logs to buffer on failure
         this.logBuffer.unshift(...logs);
-        console.error(`[UnifiedLogger] Failed to send logs: ${response.status}`);
+        if (this.isDevelopment) {
+          console.error(`[UnifiedLogger] Failed to send logs: ${response.status}`);
+        }
       }
     } catch (error) {
       // Re-add logs to buffer on error
       this.logBuffer.unshift(...logs);
-      console.error('[UnifiedLogger] Error sending logs:', error);
+      if (this.isDevelopment) {
+        console.error('[UnifiedLogger] Error sending logs:', error);
+      }
     }
   }
 
@@ -177,13 +193,6 @@ class UnifiedLogger {
 
     // Send to DebugPanel
     const formattedMessage = this.formatMessage(fullEntry);
-    const debugLogEntry: DebugLog = {
-      timestamp: fullEntry.timestamp,
-      level: fullEntry.level,
-      message: formattedMessage,
-      data: fullEntry.data,
-      source: fullEntry.source || fullEntry.category,
-    };
 
     // Use appropriate DebugPanel method (only if available)
     if (debugPanel) {
@@ -255,6 +264,7 @@ class UnifiedLogger {
 
     // Send to Docker console in development
     if (this.isDevelopment && process.env.EXPO_PUBLIC_DOCKER_CONSOLE === 'true') {
+      // Log as structured JSON for Docker log drivers
       const dockerLog = {
         service: 'expo-app',
         timestamp: fullEntry.timestamp.toISOString(),
@@ -269,8 +279,7 @@ class UnifiedLogger {
           data: entry.data,
         },
       };
-      
-      // Log as structured JSON for Docker log drivers
+      console.log(JSON.stringify(dockerLog));
 
     }
   }
