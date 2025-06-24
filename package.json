@@ -8,7 +8,7 @@
     "start:local": "./scripts/services/startup/start-unified.sh local",
     "start:tunnel": "./scripts/services/startup/start-unified.sh tunnel",
     "start:oauth": "./scripts/services/startup/start-unified.sh oauth",
-    "android": "EXPO_GO=1 expo start --android --host lan --go",
+    "android": "NODE_OPTIONS='--max-old-space-size=8192' EXPO_GO=1 expo start --android --host lan --go",
     "ios": "./scripts/start-native-expo.sh",
     "web": "./scripts/start-native-expo.sh",
     "native": "./scripts/start-native-expo.sh",
