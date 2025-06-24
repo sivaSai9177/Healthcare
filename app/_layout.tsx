@@ -103,19 +103,28 @@ export default function RootLayout() {
         startConsoleInterception();
         logger.debug('[App] Console interception started', 'SYSTEM');
         
-        // Initialize router debugger after a delay
-        setTimeout(() => {
-          try {
-            initializeRouterDebugger();
-            logger.debug('[App] Router debugger initialized', 'SYSTEM');
-            
-            // Initialize navigation logger
-            initializeNavigationLogger();
-            logger.debug('[App] Navigation logger initialized', 'SYSTEM');
-          } catch (error) {
-            logger.error('[App] Failed to initialize router debugger', 'SYSTEM', error);
-          }
-        }, 500); // Increased delay to ensure navigation is ready
+        // Initialize router debugger after a delay with retry
+        const initializeDebuggers = (retryCount = 0) => {
+          setTimeout(() => {
+            try {
+              initializeRouterDebugger();
+              logger.debug('[App] Router debugger initialized', 'SYSTEM');
+              
+              // Initialize navigation logger
+              initializeNavigationLogger();
+              logger.debug('[App] Navigation logger initialized', 'SYSTEM');
+            } catch (error) {
+              if (retryCount < 3) {
+                logger.debug(`[App] Router debugger not ready, retrying... (attempt ${retryCount + 1})`, 'SYSTEM');
+                initializeDebuggers(retryCount + 1);
+              } else {
+                logger.warn('[App] Router debugger initialization skipped after 3 attempts', 'SYSTEM');
+              }
+            }
+          }, 1000 * (retryCount + 1)); // Exponential backoff: 1s, 2s, 3s
+        };
+        
+        initializeDebuggers();
       }
     }
   }, [loaded, storageReady]);

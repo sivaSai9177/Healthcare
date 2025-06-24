@@ -8,10 +8,28 @@ export default function ShiftsLayout() {
       }}
     >
       <Stack.Screen 
+        name="index" 
+        options={{ 
+          title: 'Shifts',
+        }} 
+      />
+      <Stack.Screen 
         name="handover" 
         options={{ 
           title: 'Shift Handover',
           presentation: 'modal',
+        }} 
+      />
+      <Stack.Screen 
+        name="schedule" 
+        options={{ 
+          title: 'Shift Schedule',
+        }} 
+      />
+      <Stack.Screen 
+        name="reports" 
+        options={{ 
+          title: 'Shift Reports',
         }} 
       />
     </Stack>

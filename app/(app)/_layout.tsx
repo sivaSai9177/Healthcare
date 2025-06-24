@@ -62,10 +62,53 @@ export default function AppLayout() {
           }}
         />
         <Stack.Screen
-          name="shifts/handover"
+          name="shifts"
           options={{
-            presentation: 'modal',
-            animation: 'slide_from_bottom',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="profile"
+          options={{
+            presentation: 'card',
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
+          name="support"
+          options={{
+            presentation: 'card',
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
+          name="analytics"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="logs"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="admin"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="organization"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="security"
+          options={{
+            headerShown: false,
           }}
         />
       </AnimatedStack>
